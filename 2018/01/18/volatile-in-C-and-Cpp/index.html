@@ -1,0 +1,2764 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="最近在讨论多线程编程中的一个可能的 false sharing 问题时，有人提出加 volatile 可能可以解决问题。这种错误的认识荼毒多年，促使我写下这篇文章。">
+<meta name="keywords" content="C++,C,volatile">
+<meta property="og:type" content="article">
+<meta property="og:title" content="谈谈 C&#x2F;C++ 中的 volatile">
+<meta property="og:url" content="https://liam.page/2018/01/18/volatile-in-C-and-Cpp/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="最近在讨论多线程编程中的一个可能的 false sharing 问题时，有人提出加 volatile 可能可以解决问题。这种错误的认识荼毒多年，促使我写下这篇文章。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="谈谈 C&#x2F;C++ 中的 volatile">
+<meta name="twitter:description" content="最近在讨论多线程编程中的一个可能的 false sharing 问题时，有人提出加 volatile 可能可以解决问题。这种错误的认识荼毒多年，促使我写下这篇文章。">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2018/01/18/volatile-in-C-and-Cpp/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>谈谈 C/C++ 中的 volatile | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2018/01/18/volatile-in-C-and-Cpp/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">谈谈 C/C++ 中的 volatile
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018 年 01 月 18 日 18:00:07" itemprop="dateCreated datePublished" datetime="2018-01-18T18:00:07+08:00">2018 年 01 月 18 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">8.9k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">16 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>最近在讨论多线程编程中的一个可能的 false sharing 问题时，有人提出加 <code>volatile</code> 可能可以解决问题。这种错误的认识荼毒多年，促使我写下这篇文章。</p>
+<a id="more"></a>
+<h2 id="约定"><a href="#约定" class="headerlink" title="约定"></a>约定</h2><p>Volatile 这个话题，涉及到计算机科学多个领域多个层次的诸多细节。仅靠一篇博客，很难穷尽这些细节。因此，若不对讨论范围做一些约定，很容易就有诸多漏洞。到时误人子弟，就不好了。以下是一些基本的约定：</p>
+<ul>
+<li>这篇博文讨论的 <code>volatile</code> 关键字，是 C 和 C++ 语言中的关键字。Java 等语言中，也有 <code>volatile</code> 关键字。但它们和 C/C++ 里的 <code>volatile</code> 不完全相同，不在这篇博文的讨论范围内。</li>
+<li>这篇博文讨论的 <code>volatile</code> 关键字，是限定在 C/C++ 标准之下的。这也就是说，我们讨论的内容应该是与平台无关的，同时也是与编译器扩展无关的。</li>
+<li>相应的，这篇文章讨论的「标准」指的是 C/C++ 的标准，而不是其他什么东西。</li>
+<li>我们希望编写的代码是 (1) 符合标准的，(2) 性能良好的，(3) 可移植的。这里 (1) 保证了代码执行结果的正确性，(2) 保证了高效性，(3) 体现了平台无关性（以及编译器扩展等的无关性）。</li>
+</ul>
+<h2 id="含义"><a href="#含义" class="headerlink" title="含义"></a>含义</h2><h3 id="单词-volatile-的含义"><a href="#单词-volatile-的含义" class="headerlink" title="单词 volatile 的含义"></a>单词 volatile 的含义</h3><p>在谈及 C/C++ 中的 <code>volatile</code> 关键字时，总有人会拿 volatile 这个英文单词的中文解释说事。他们把 volatile 翻译作「易变的」。但事实上，对于翻译来说，很多时候目标语言很难找到一个词能够反映源语言中单词的全部含义和细节。此处「易变的」就无法做到这一点。</p>
+<p>Volatile 的意思，若要详细理解，还是应该查阅权威的英英字典。在柯林斯高阶学习词典中，volatile 是这样解释的：</p>
+<blockquote>
+<p>A situation that is volatile is likely to change suddenly and unexpectedly.</p>
+</blockquote>
+<p>这里对 volatile 的解释有三个精髓的形容词和副词，体现了 volatile 的含义。</p>
+<ul>
+<li>likely：可能的。这意味着被 volatile 形容的对象「有可能也有可能不」发生改变，因此我们不能对这样的对象的状态做出任何假设。</li>
+<li>suddenly：突然地。这意味着被 volatile 形容的对象可能发生瞬时改变。</li>
+<li>unexpectedly：不可预期地。这与 likely 相互呼应，意味着被 volatile 形容的对象可能以各种不可预期的方式和时间发生更改。</li>
+</ul>
+<p>因此，volatile 其实就是告诉我们，被它修饰的对象出现任何情况都不要奇怪，我们不能对它们做任何假设。</p>
+<h3 id="程序中-volatile-的含义"><a href="#程序中-volatile-的含义" class="headerlink" title="程序中 volatile 的含义"></a>程序中 volatile 的含义</h3><p>对于程序员来说，程序本身的任何行为都必须是可预期的。那么，在程序当中，什么才叫 volatile 呢？这个问题的答案也很简单：程序可能受到程序之外的因素影响。</p>
+<p>考虑以下 C/C++ 代码。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">volatile</span> <span class="keyword">int</span> *p = <span class="comment">/* ... */</span>;</span><br><span class="line"><span class="keyword">int</span> a, b;</span><br><span class="line">a = *p;</span><br><span class="line">b = *p;</span><br></pre></td></tr></table></figure>
+<p>若忽略 <code>volatile</code>，那么 <code>p</code> 就只是一个「指向 <code>int</code> 类型的指针」。这样一来，<code>a = *p;</code> 和 <code>b = *p;</code> 两句，就只需要从内存中读取一次就够了。因为从内存中读取一次之后，CPU 的寄存器中就已经有了这个值；把这个值直接复用就可以了。这样一来，编译器就会做优化，把两次访存的操作优化成一次。这样做是基于一个假设：我们在代码里没有改变 <code>p</code> 指向内存地址的值，那么这个值就一定不会发生改变。</p>
+<blockquote>
+<p>此处说的「读取内存」，包括了读取 CPU 缓存和读取计算机主存。</p>
+</blockquote>
+<p>然而，由于 MMIP（Memory mapped I/O）的存在，这个假设不一定是真的。例如说，假设 <code>p</code> 指向的内存是一个硬件设备。这样一来，从 <code>p</code> 指向的内存读取数据可能伴随着<strong>可观测的副作用</strong>：硬件状态的修改。此时，代码的原意可能是将硬件设备返回的连续两个 <code>int</code> 分别保存在 <code>a</code> 和 <code>b</code> 当中。这种情况下，编译器的优化就会导致程序行为不符合预期了。</p>
+<p>总结来说，被 <code>volatile</code> 修饰的变量，在对其进行读写操作时，会引发一些<strong>可观测的副作用</strong>。而这些可观测的副作用，是由<strong>程序之外的因素决定的</strong>。</p>
+<h3 id="关键字-volatile-的含义"><a href="#关键字-volatile-的含义" class="headerlink" title="关键字 volatile 的含义"></a>关键字 <code>volatile</code> 的含义</h3><p><a href="http://en.cppreference.com/w/Cppreference:FAQ" target="_blank" rel="noopener">CPP reference 网站</a>是对 C 和 C++ 语言标准的整理。因此，绝大多数时候，我们可以通过这个网站对语言标准进行查询。关于 <code>volatile</code> 关键字，有 <a href="http://en.cppreference.com/w/c/language/volatile" target="_blank" rel="noopener">C 语言标准</a>和 <a href="http://en.cppreference.com/w/cpp/language/cv" target="_blank" rel="noopener">C++ 语言标准</a>可查。这里摘录两份标准对 <code>volatile</code> 访问的描述。</p>
+<blockquote>
+<p>C 语言：Every access (both read and write) made through an lvalue expression of volatile-qualified type is considered an observable side effect for the purpose of optimization and is evaluated strictly according to the rules of the abstract machine (that is, all writes are completed at some time before the next sequence point). This means that within a single thread of execution, a volatile access cannot be optimized out or reordered relative to another visible side effect that is separated by a sequence point from the volatile access.<br>C++ 语言：Every access (read or write operation, member function call, etc.) made through a glvalue expression of volatile-qualified type is treated as a visible side-effect for the purposes of optimization (that is, within a single thread of execution, volatile accesses cannot be optimized out or reordered with another visible side effect that is sequenced-before or sequenced-after the volatile access. This makes volatile objects suitable for communication with a signal handler, but not with another thread of execution, see std::memory_order). Any attempt to refer to a volatile object through a non-volatile glvalue (e.g. through a reference or pointer to non-volatile type) results in undefined behavior.</p>
+</blockquote>
+<p>这里首先解释两组概念：值类型和序列点（执行序列）。</p>
+<p>值类型指的是左值（lvalue）右值（rvalue）这些概念。关于左值和右值，<a href="/2016/12/11/rvalue-reference-in-Cpp/">前作</a>有过介绍。简单的理解，左值可以出现在赋值等号的左边，使用时取的是作为对象的身份；右值不可以出现在赋值等号的左边，使用时取的是对象的值。除了 lvalue 和 rvalue，C++ 还定义了其他的值类型。其中，xvalue 大体可以理解为返回右值引用的函数调用或表达式，而 glvalue 则是 lvalue 和 xvalue 之和。</p>
+<p>序列点则是 C/C++ 中讨论执行顺序时会提到的概念。对于 C/C++ 的表达式来说，执行表达式有两种类型的动作：(1) 计算某个值、(2) 副作用（例如访问 <code>volatile</code> 对象，原子同步，修改文件等）。因此，如果在两个表达式 <code>E1</code> 和 <code>E2</code> 中间有一个序列点，或者在 C++ 中 <code>E1</code> 于序列中在 <code>E2</code> 之前，则 <code>E1</code> 的求值动作和副作用都会在 <code>E2</code> 的求值动作和副作用之前。关于序列点和序列顺序规则，可以参考：<a href="https://en.wikipedia.org/wiki/Sequence_point" target="_blank" rel="noopener">这里</a>和<a href="http://en.cppreference.com/w/cpp/language/eval_order#Rules" target="_blank" rel="noopener">这里</a>。</p>
+<p>因此我们讲，在 C/C++ 中，对 <code>volatile</code> 对象的访问，有编译器优化上的副作用：</p>
+<ul>
+<li>不允许被优化消失（optimized out）；</li>
+<li>于序列上在另一个对 <code>volatile</code> 对象的访问之前。</li>
+</ul>
+<p>这里提及的「不允许被优化」表示对 <code>volatile</code> 变量的访问，编译器不能做任何假设和推理，都必须按部就班地与「内存」进行交互。因此，上述例中「复用寄存器中的值」就是不允许的。</p>
+<p>需要注意的是，无论是 C 还是 C++ 的标准，对于 <code>volatile</code> 访问的序列性，都有单线程执行的前提。其中 C++ 标准特别提及，这个顺序性在多线程环境里不一定成立。</p>
+<h2 id="volatile-与多线程"><a href="#volatile-与多线程" class="headerlink" title="volatile 与多线程"></a><code>volatile</code> 与多线程</h2><p><code>volatile</code> 可以解决多线程中的某些问题，这一错误认识荼毒多年。例如，在<a href="https://web.archive.org/save/https://www.zhihu.com/topic/20034193/hot" target="_blank" rel="noopener">知乎「volatile」话题下的介绍</a>就是「多线程开发中保持可见性的关键字」。为了拨乱反正，这里先给出结论（注意这些结论都基于本文第一节提出的约定之上）：</p>
+<ul>
+<li><code>volatile</code> 不能解决多线程中的问题。</li>
+<li>按照 <a href="http://web.archive.org/web/20180120044239/http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2006/n2016.html" target="_blank" rel="noopener">Hans Boehm &amp; Nick Maclaren 的总结</a>，<code>volatile</code> 只在三种场合下是合适的。<ul>
+<li>和信号处理（signal handler）相关的场合；</li>
+<li>和内存映射硬件（memory mapped hardware）相关的场合；</li>
+<li>和非本地跳转（<code>setjmp</code> 和 <code>longjmp</code>）相关的场合。</li>
+</ul>
+</li>
+</ul>
+<p>以下我们尝试来用 <code>volatile</code> 关键字解决多线程同步的一个基本问题：happens-before。</p>
+<h3 id="naive-case"><a href="#naive-case" class="headerlink" title="naïve case"></a>naïve case</h3><p>首先我们考虑这样一段（伪）代码。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// global shared data</span></span><br><span class="line"><span class="keyword">bool</span> flag = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">thread1() &#123;</span><br><span class="line">    flag = <span class="literal">false</span>;</span><br><span class="line">    Type* value = <span class="keyword">new</span> Type(<span class="comment">/* parameters */</span>);</span><br><span class="line">    thread2(value);</span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (flag == <span class="literal">true</span>) &#123;</span><br><span class="line">            apply(value);</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    thread2.join();</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> != value) &#123; <span class="keyword">delete</span> value; &#125;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">thread2(Type* value) &#123;</span><br><span class="line">    <span class="comment">// do some evaluations</span></span><br><span class="line">    value-&gt;update(<span class="comment">/* parameters */</span>);</span><br><span class="line">    flag = <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这段代码将 <code>thread1</code> 作为主线程，等待 <code>thread2</code> 准备好 <code>value</code>。因此，<code>thread2</code> 在更新 <code>value</code> 之后将 <code>flag</code> 置为真，而 <code>thread1</code> 死循环地检测 <code>flag</code>。简单来说，这段代码的意图希望实现 <code>thread2</code> 在 <code>thread1</code> 使用 <code>value</code> 之前执行完毕这样的语义。</p>
+<p>对多线程编程稍有了解的人应该知道，这段代码是有问题的。问题主要出在两个方面。其一，在 <code>thread1</code> 中，<code>flag = false</code> 赋值之后，在 <code>while</code> 死循环里，没有任何机会修改 <code>flag</code> 的值，因此在运行之前，编译器优化可能会将 <code>if (flag == true)</code> 的内容全部优化掉。其二，在 <code>thread2</code> 中，尽管逻辑上 <code>update</code> 需要发生在 <code>flag = true</code> 之前，但编译器和 CPU 并不知道；因此编译器优化和 CPU 乱序执行可能会使 <code>flag = true</code> 发生在 <code>update</code> 完成之前，因此 <code>thread1</code> 执行 <code>apply(value)</code> 时可能 <code>value</code> 还未准备好。</p>
+<h3 id="加一个-volatile-试试？"><a href="#加一个-volatile-试试？" class="headerlink" title="加一个 volatile 试试？"></a>加一个 <code>volatile</code> 试试？</h3><p>在错误的理解中，此时就到了 <code>volatile</code> 登场的时候了。</p>
+<p>首先我们考虑这样一段（伪）代码。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// global shared data</span></span><br><span class="line"><span class="keyword">volatile</span> <span class="keyword">bool</span> flag = <span class="literal">false</span>;  <span class="comment">// 1.</span></span><br><span class="line"></span><br><span class="line">thread1() &#123;</span><br><span class="line">    flag = <span class="literal">false</span>;</span><br><span class="line">    Type* value = <span class="keyword">new</span> Type(<span class="comment">/* parameters */</span>);</span><br><span class="line">    thread2(value);</span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (flag == <span class="literal">true</span>) &#123;  <span class="comment">// 2.</span></span><br><span class="line">            apply(value);</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    thread2.join();</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> != value) &#123; <span class="keyword">delete</span> value; &#125;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">thread2(Type* value) &#123;</span><br><span class="line">    <span class="comment">// do some evaluations</span></span><br><span class="line">    value-&gt;update(<span class="comment">/* parameters */</span>);</span><br><span class="line">    flag = <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里，在 (1) 处，我们将 <code>flag</code> 声明为 <code>volatile</code>-qualified。因此，在 (2) 处，由于 <code>flag == true</code> 是对 <code>volatile</code> 变量的访问，故而 <code>if</code>-block 不会被优化消失。然而，尽管 <code>flag</code> 是 <code>volatile</code>-qualified，但 <code>value</code> 并不是。因此，编译器仍有可能在优化时将 <code>thread2</code> 中的 <code>update</code> 和对 <code>flag</code> 的赋值交换顺序。此外，由于 <code>volatile</code> 禁止了编译器对 <code>flag</code> 的优化，这样使用 <code>volatile</code> 不仅无法达成目的，反而会导致性能下降。</p>
+<h3 id="再加一个-volatile-呢？"><a href="#再加一个-volatile-呢？" class="headerlink" title="再加一个 volatile 呢？"></a>再加一个 <code>volatile</code> 呢？</h3><p>在错误的理解中，可能会对 <code>value</code> 也加以 <code>volatile</code> 关键字修饰；颇有些「没有什么是一个 <code>volatile</code> 解决不了的；如果不行，那就两个」的意思。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// global shared data</span></span><br><span class="line"><span class="keyword">volatile</span> <span class="keyword">bool</span> flag = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">thread1() &#123;</span><br><span class="line">    flag = <span class="literal">false</span>;</span><br><span class="line">    <span class="keyword">volatile</span> Type* value = <span class="keyword">new</span> Type(<span class="comment">/* parameters */</span>);   <span class="comment">// 1.</span></span><br><span class="line">    thread2(value);</span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (flag == <span class="literal">true</span>) &#123;</span><br><span class="line">            apply(value);</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    thread2.join();</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> != value) &#123; <span class="keyword">delete</span> value; &#125;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">thread2(<span class="keyword">volatile</span> Type* value) &#123;</span><br><span class="line">    <span class="comment">// do some evaluations</span></span><br><span class="line">    value-&gt;update(<span class="comment">/* parameters */</span>);                    <span class="comment">// 2.</span></span><br><span class="line">    flag = <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在上一节代码的基础上，(1) 将 <code>value</code> 声明为 <code>volatile</code>-qualified。因此 (2) 处对两个 <code>volatile</code>-qualified 变量进行访问时，编译器不会交换他们的顺序。看起来就万事大吉了。</p>
+<p>然而，<code>volatile</code> 只作用在编译器上，但我们的代码最终是要运行在 CPU 上的。尽管编译器不会将 (2) 处换序，但 CPU 的乱序执行（out-of-order execution）已是几十年的老技术了；在 CPU 执行时，<code>value</code> 和 <code>flag</code> 的赋值仍有可能是被换序了的（store-store）。</p>
+<blockquote>
+<p>也许有人会说，x86 和 AMD64 架构的 CPU（大多数个人机器和服务器使用这两种架构的 CPU）只允许 sotre-load 乱序，而不会发生 store-store 乱序；或者在诸如 IA64 架构的处理器上，对 <code>volatile</code>-qualified 变量的访问采用了专门的指令。因而，在这些条件下，这段代码是安全的。尽管如此，使用 <code>volatile</code> 会禁止编译器优化相关变量，从而降低性能，所以也不建议依赖 <code>volatile</code> 在这种情况下做线程同步。另一方面，这严重依赖具体的硬件规范，超出了本文的约定讨论范围。</p>
+</blockquote>
+<h3 id="到底应该怎样做？"><a href="#到底应该怎样做？" class="headerlink" title="到底应该怎样做？"></a>到底应该怎样做？</h3><p>回顾一下，我们最初遇到的问题其实需要解决两件事情。一是 <code>flag</code> 相关的代码块不能被轻易优化消失，二是要保证线程同步的 happens-before 语义。但本质上，设计使用 <code>flag</code> 本身也就是为了构建 happens-before 语义。这也就是说，两个问题，后者才是核心；如有其他不用 <code>flag</code> 的办法解决问题，那么 <code>flag</code> 就不重要。</p>
+<p>对于当前问题，最简单的办法是使用原子操作。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// global shared data</span></span><br><span class="line"><span class="built_in">std</span>::atomic&lt;<span class="keyword">bool</span>&gt; flag = <span class="literal">false</span>;  <span class="comment">// #include &lt;atomic&gt;</span></span><br><span class="line"></span><br><span class="line">thread1() &#123;</span><br><span class="line">    flag = <span class="literal">false</span>;</span><br><span class="line">    Type* value = <span class="keyword">new</span> Type(<span class="comment">/* parameters */</span>);</span><br><span class="line">    thread2(value);</span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (flag == <span class="literal">true</span>) &#123;</span><br><span class="line">            apply(value);</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    thread2.join();</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> != value) &#123; <span class="keyword">delete</span> value; &#125;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">thread2(Type* value) &#123;</span><br><span class="line">    <span class="comment">// do some evaluations</span></span><br><span class="line">    value-&gt;update(<span class="comment">/* parameters */</span>);</span><br><span class="line">    flag = <span class="literal">true</span>;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>由于对 <code>std::atomic&lt;bool&gt;</code> 的操作是原子的，同时构建了良好的内存屏障，因此整个代码的行为在标准下是良定义的。</p>
+<p>除此之外，还可以结合使用互斥量和条件变量。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// global shared data</span></span><br><span class="line"><span class="built_in">std</span>::mutex m;                   <span class="comment">// #include &lt;mutex&gt;</span></span><br><span class="line"><span class="built_in">std</span>::condition_variable cv;     <span class="comment">// #include &lt;condition_variable&gt;</span></span><br><span class="line"><span class="keyword">bool</span> flag = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">thread1() &#123;</span><br><span class="line">    flag = <span class="literal">false</span>;</span><br><span class="line">    Type* value = <span class="keyword">new</span> Type(<span class="comment">/* parameters */</span>);</span><br><span class="line">    thread2(value);</span><br><span class="line">    <span class="built_in">std</span>::unique_lock&lt;<span class="built_in">std</span>::mutex&gt; lk(m);</span><br><span class="line">    cv.wait(lk, []()&#123; <span class="keyword">return</span> flag; &#125;);</span><br><span class="line">    apply(value);</span><br><span class="line">    lk.unlock();</span><br><span class="line">    thread2.join();</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> != value) &#123; <span class="keyword">delete</span> value; &#125;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">thread2(Type* value) &#123;</span><br><span class="line">    <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; lk(m);</span><br><span class="line">    <span class="comment">// do some evaluations</span></span><br><span class="line">    value-&gt;update(<span class="comment">/* parameters */</span>);</span><br><span class="line">    flag = <span class="literal">true</span>;</span><br><span class="line">    cv.notify_one();</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样一来，由线程之间的同步由互斥量和条件变量来保证，同时也避免了 <code>while (true)</code> 死循环空耗 CPU 的情况。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2018/01/18/volatile-in-C-and-Cpp/" title="谈谈 C/C++ 中的 volatile">https://liam.page/2018/01/18/volatile-in-C-and-Cpp/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/C/" rel="tag"># C++</a>
+          
+            <a href="/tags/C/" rel="tag"># C</a>
+          
+            <a href="/tags/volatile/" rel="tag"># volatile</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/01/15/AppleID-transfer-to-US/" rel="next" title="将 Apple ID 迁移转区到美国">
+                <i class="fa fa-chevron-left"></i> 将 Apple ID 迁移转区到美国
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/01/23/crack-private-member-function-by-vtable/" rel="prev" title="通过虚函数表访问私有函数">
+                通过虚函数表访问私有函数 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#约定"><span class="nav-number">1.</span> <span class="nav-text">约定</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#含义"><span class="nav-number">2.</span> <span class="nav-text">含义</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#单词-volatile-的含义"><span class="nav-number">2.1.</span> <span class="nav-text">单词 volatile 的含义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#程序中-volatile-的含义"><span class="nav-number">2.2.</span> <span class="nav-text">程序中 volatile 的含义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#关键字-volatile-的含义"><span class="nav-number">2.3.</span> <span class="nav-text">关键字 volatile 的含义</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#volatile-与多线程"><span class="nav-number">3.</span> <span class="nav-text">volatile 与多线程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#naive-case"><span class="nav-number">3.1.</span> <span class="nav-text">naïve case</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#加一个-volatile-试试？"><span class="nav-number">3.2.</span> <span class="nav-text">加一个 volatile 试试？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#再加一个-volatile-呢？"><span class="nav-number">3.3.</span> <span class="nav-text">再加一个 volatile 呢？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#到底应该怎样做？"><span class="nav-number">3.4.</span> <span class="nav-text">到底应该怎样做？</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

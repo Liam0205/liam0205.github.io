@@ -1,0 +1,2931 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="此篇基本上是译文，原文是 Victor Eijkhout 所著的《TeX by Topic》的第二章。译文项目参见：CTeX-org/tex-by-topic-cn。转载请保留本段文字，尊重原作者和译者版权。由于原著使用 GFDL，故而本文也被传染地同样使用 GFDL 许可，而不是本站默认的 BY-NC-SA 4.0 许可。  读取字符时，TeX 的输入处理器会为字符分配分类码。根据读取到字符的">
+<meta name="keywords" content="Input,TeX,Engine,Catcode">
+<meta property="og:type" content="article">
+<meta property="og:title" content="TeX 主题选讲：分类码与内部状态">
+<meta property="og:url" content="https://liam.page/2018/05/05/TeX-by-Topic-Category-Codes-and-Internal-States/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="此篇基本上是译文，原文是 Victor Eijkhout 所著的《TeX by Topic》的第二章。译文项目参见：CTeX-org/tex-by-topic-cn。转载请保留本段文字，尊重原作者和译者版权。由于原著使用 GFDL，故而本文也被传染地同样使用 GFDL 许可，而不是本站默认的 BY-NC-SA 4.0 许可。  读取字符时，TeX 的输入处理器会为字符分配分类码。根据读取到字符的">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/LaTeX/figmouth.png">
+<meta property="og:image" content="https://liam.page/uploads/images/LaTeX/optional_space.png">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="TeX 主题选讲：分类码与内部状态">
+<meta name="twitter:description" content="此篇基本上是译文，原文是 Victor Eijkhout 所著的《TeX by Topic》的第二章。译文项目参见：CTeX-org/tex-by-topic-cn。转载请保留本段文字，尊重原作者和译者版权。由于原著使用 GFDL，故而本文也被传染地同样使用 GFDL 许可，而不是本站默认的 BY-NC-SA 4.0 许可。  读取字符时，TeX 的输入处理器会为字符分配分类码。根据读取到字符的">
+<meta name="twitter:image" content="https://liam.page/uploads/images/LaTeX/figmouth.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2018/05/05/TeX-by-Topic-Category-Codes-and-Internal-States/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>TeX 主题选讲：分类码与内部状态 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2018/05/05/TeX-by-Topic-Category-Codes-and-Internal-States/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">TeX 主题选讲：分类码与内部状态
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018 年 05 月 05 日 21:53:17" itemprop="dateCreated datePublished" datetime="2018-05-05T21:53:17+08:00">2018 年 05 月 05 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/LaTeX/" itemprop="url" rel="index"><span itemprop="name">LaTeX</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">15k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">27 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>此篇基本上是译文，原文是 Victor Eijkhout 所著的《TeX by Topic》的第二章。译文项目参见：<a href="https://github.com/CTeX-org/tex-by-topic-cn/releases/latest" target="_blank" rel="noopener">CTeX-org/tex-by-topic-cn</a>。<br>转载请保留本段文字，尊重原作者和译者版权。<br>由于原著使用 GFDL，故而本文也被传染地同样使用 GFDL 许可，而不是本站默认的 BY-NC-SA 4.0 许可。</p>
+</blockquote>
+<p>读取字符时，TeX 的输入处理器会为字符分配分类码。根据读取到字符的分类码，输入处理器会在三种内部状态之间切换。本章讨论 TeX 是如何读取字符的，以及字符的分类码是如何影响读取行为的。本章还将讨论空格及行尾的相关问题。</p>
+<a id="more"></a>
+<blockquote>
+<p>在本文的翻译中：行尾（line ends）是一行末尾及相关问题的统称，行终止符（end-of-line character）是 TeX 的输入处理器主动添加在输入行末尾的字符，行尾符是操作系统中用于标识一行结尾的字符，例如：回车符（carriage return）与换行符（line feed）。</p>
+</blockquote>
+<h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>TeX 的输入处理器从文件或终端扫描输入行，而后将读取到的字符转换成记号。输入处理器可视作一简单的有限状态自动机，其具有三种内部状态；根据输入处理器所处内部状态的不同，其扫描行为有所不同。本章将分别从内部状态和控制内部状态转换的分类码两个角度来考察该自动机。</p>
+<h2 id="初始化处理"><a href="#初始化处理" class="headerlink" title="初始化处理"></a>初始化处理</h2><p>TeX 逐行处理来自文件的输入（也可能是来自终端的输入，但实际甚少使用，故不再提及）。此处首先讨论在 TeX 语境下，到底什么是「输入行」。</p>
+<p>不同计算机系统对输入行的具体定义有所不同。最常见的方式是用回车符（carriage return）紧跟换行符（line feed）作为行尾符，有些系统单用换行符作为行尾符，一些有定长存储（块存储）的系统则根本不使用行尾符。因此，TeX 在结束一行输入时有自己特定的处理方式。</p>
+<ol>
+<li>从输入文件读取一行输入行（不包含可能的行尾符）。</li>
+<li>移除行尾空格（这是针对块存储系统设计的，同时避免了因行为空格不可见而导致的混乱）。</li>
+<li>将编码为 <code>\endlinechar</code> 的行终止符（默认是 ASCII 编码为 13 的 <code>&lt;return&gt;</code>）添加在行尾。若 <code>\endlinechar</code> 的值为负或大于 255（在低于 TeX 3 的版本中则是 127），则输入处理器不会添加任何行终止符；在输入行尾添加注释字符也有相同的作用。</li>
+</ol>
+<p>不同计算机在字符编码方面也存在差异（最常见的是 ASCII 和 EBCDIC）。因此，TeX 有必要将从文件读入的字符转换为其内部编码。这些编码仅在 TeX 内适用，因此 TeX 在任何操作系统上的行为都保持一致。</p>
+<h2 id="分类码"><a href="#分类码" class="headerlink" title="分类码"></a>分类码</h2><p>256 个字符编码（0–255）中的每一个都关联了一个不尽相同的分类码。TeX 的分类码共有 16 个，从 0 开始编号至 15。在扫描输入流的过程中，TeX 会生成由字符编码和分类码组成的字符编码-分类码配对（character-code–category-code pairs）；而后，基于这些配对，输入处理器将它们处理成字符记号、控制序列记号和参数记号。这些记号随后被传给 TeX 的展开处理器和执行处理器。</p>
+<p>字符记号是简单的字符编码-分类码配对，它们会直接被传给展开处理器。控制序列记号则由转义字符引导，后接一个或多个字符组成。关于控制序列记号和参数记号的介绍详见下文。</p>
+<p>以下就这些分类做简单说明，详细的阐述则散布在本章其他位置及后续章节当中。</p>
+<ul>
+<li><code>0</code>，转义字符；用于标记控制序列的开始。IniTeX 默认使用反斜线 <code>\</code> 作为转义字符（ASCII 码为 92）。</li>
+<li><code>1</code>，分组开始符；TeX 遇到此类字符时，会进入新的一层分组。在 plain TeX 中，默认的分组开始符是左花括号 <code>{</code>。</li>
+<li><code>2</code>，分组结束符；TeX 遇到此类字符时，会关闭并从当前分组中退出。在 plain TeX 中，默认的分组开始符是左花括号 <code>}</code>。</li>
+<li><code>3</code>，数学切换符；此类字符是数学公式的左右定界符。在 plain TeX 中，默认的数学切换符是美元符号 <code>$</code>。</li>
+<li><code>4</code>，制表符；在 <code>\halign</code>（<code>\valign</code>）制作的表格中，作为列（行）间分隔符。在 plain TeX 中，默认的制表符是与符号 <code>&amp;</code>。</li>
+<li><code>5</code>，行终止符；TeX 用来表达输入行结束的字符。IniTeX 将回车符 <code>&lt;return&gt;</code>（ASCII 编码为 13）作为默认的行终止符。这就是为什么 IniTeX 中，<code>\endlinechar</code> 的值是 13（详见前文）。</li>
+<li><code>6</code>，参数符；用于表示宏的参数。在 plain TeX 中，默认的参数符是井号 <code>#</code>。</li>
+<li><code>7</code>，上标符；在数学模式中表示上标；也可用于在输入文件中表示无法直接输入的字符（详见后文）。在 plain TeX 中，默认的上标符即是 <code>^</code>。</li>
+<li><code>8</code>，下标符；在数学模式中表示下标。在 plain TeX 中，默认的下标符是下划线 <code>_</code>。</li>
+<li><code>9</code>，被忽略字符；此类字符将被 TeX 自输入流中清除，因此不会影响后续处理。在 plain TeX 中，默认将空字符 <code>&lt;null&gt;</code>（ASCII 编码为 0）设置为被忽略字符。</li>
+<li><code>10</code>，空格符；TeX 对待空格符的方式较为特殊。IniTeX 将空格 <code>&lt;space&gt;</code>（ASCII 编码为 32）作为默认的空格符。</li>
+<li><code>11</code>，字母；IniTeX 默认只将 <code>a ... z</code> 和 <code>A ... Z</code> 分为此类。在宏包中，某些「隐秘」字符（例如 <code>@</code>）会被暂时分为此类。</li>
+<li><code>12</code>，其他字符；IniTeX 将所有未归于其他类的字符归于此类。因此，数字和标点都属于此类。</li>
+<li><code>13</code>，活动字符；活动字符相当于一个无需转义字符前导的 TeX 控制序列。在 plain TeX 中，只有带子 <code>~</code> 是活动字符，表示不可断行的空格。</li>
+<li><code>14</code>，注释符；TeX 遇见注释符后，会将从注释符开始到输入行尾的所有内容视作注释而忽略。在 IniTeX 中，默认的注释符是百分号 <code>%</code>。</li>
+<li><code>15</code>，无效字符；该分类包含了不应在 TeX 中出现的字符。IniTeX 将退格字符（ASCII 编码为 127）<code>&lt;delete&gt;</code> 归于此类。</li>
+</ul>
+<p>用户可使用 <code>\catcode</code> 命令修改字符编码到分类码的映射：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>&lt;number&gt;&lt;equals&gt;&lt;number&gt;</span><br></pre></td></tr></table></figure>
+<p>该语句中，第一个参数可用如下方式给出：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">`&lt;character&gt; 或者 `<span class="tag">\<span class="name">&lt;</span></span>character&gt;</span><br></pre></td></tr></table></figure>
+<p>两种写法都表示该字符的字符编码。</p>
+<p>plain TeX 格式使用 <code>\chardef</code> 命令将 <code>\active</code> 定义为：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">chardef</span></span><span class="tag">\<span class="name">active</span>=<span class="number">13</span></span></span><br></pre></td></tr></table></figure>
+<p>因此上述语句可写成这样：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">&#123;</span>=</span><span class="tag">\<span class="name">active</span></span></span><br></pre></td></tr></table></figure>
+<p>LaTeX 格式定义了如下两个控制序列，用于开启或关闭「隐秘字符」<code>@</code>（详见下文）：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">makeatletter</span><span class="string">&#123;\catcode`@=11 &#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">makeatother</span><span class="string">&#123;\catcode`@=12 &#125;</span></span></span><br></pre></td></tr></table></figure>
+<p>使用 <code>\catcode</code> 命令查询字符编码对应的分类码，可得到一个数字：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">count</span></span>255=<span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">&#123;</span></span></span><br></pre></td></tr></table></figure>
+<p>在例中，<code>{</code> 的分类码被保存在第 255 号 <code>\count</code> 寄存器中。</p>
+<p>下列语句可用于检测两个记号的分类码是否相等：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">ifcat</span></span>&lt;token1&gt;&lt;token2&gt;</span><br></pre></td></tr></table></figure>
+<p>无论 <code>\ifcat</code> 后有什么，TeX 都会将其展开，直至发现两个不可展开的记号；而后，TeX 将比较这两个记号的分类码。控制序列的分类码被视为 16；因此，所有控制序列的分类码都是相等的，而与所有字符记号的分类码都不相等。</p>
+<h2 id="从字符到记号"><a href="#从字符到记号" class="headerlink" title="从字符到记号"></a>从字符到记号</h2><p>从文件或用户终端扫描输入行后，TeX 的输入处理器会将其中的字符转换为记号。记号共有三种。</p>
+<ul>
+<li>字符记号：字符记号会被打上相应的分类码，而后直接传给 TeX 的后续处理器。</li>
+<li>控制序列记号：严格来说，控制序列记号分为两种。其一是控制词 —— 分类码为 0 的字符后紧跟一串字母（分类码是 11）。其二是控制字符 —— 转义字符后紧跟单个非字母字符（分类码不是 11）。在无需区分控制词和控制字符的场合，它们统称为<strong>控制序列</strong>。由转义字符与一个空格字符 <code>␣</code> 构成的控制序列，称为<strong>控制空格</strong>。</li>
+<li>参数记号：由一个参数符 —— 分类码为 6，默认为 <code>#</code> —— 和一个紧跟着的<code>1..9</code> 中的数字构成。参数记号只能在宏的上下文中出现。连续两个参数符（字符编码不一定相同）会被替换为单个字符记号。该字符记号的分类码是 6（参数符），字符编码则与上述连续两个参数符中后者的字符编码相同。最常见的情形是 <code>##</code> 会被替换为 <code>#</code>，其分类码为 6。</li>
+</ul>
+<h2 id="输入处理器是有限状态自动机"><a href="#输入处理器是有限状态自动机" class="headerlink" title="输入处理器是有限状态自动机"></a>输入处理器是有限状态自动机</h2><p>TeX 的输入处理器有三种<strong>内部状态</strong>，可看做是一个有限状态自动机。这也就是说，在任意瞬间，TeX 的输入处理器都处于并且只能处于三种状态的一种；并且在状态切换完成后，TeX 的输入处理器对先前的状态没有任何记忆。</p>
+<h3 id="状态-N：新行"><a href="#状态-N：新行" class="headerlink" title="状态 N：新行"></a>状态 N：新行</h3><p>当且仅当遇到新的输入行时，TeX 会进入状态 N。在该状态下，TeX 遇到空格记号（分类码为 10 的字符）即会将之忽略；遇到行终止符则会将之替换为 <code>\par</code> 记号；遇到其它记号，则会切换到状态 M。</p>
+<h3 id="状态-S：忽略空格"><a href="#状态-S：忽略空格" class="headerlink" title="状态 S：忽略空格"></a>状态 S：忽略空格</h3><p>在状态 M 下遇到空格记号，或在任意状态下遇到控制词或控制空格之后（注意其他控制字符不在此列），TeX 会进入状态 S。在该状态下，TeX 遇到空格记号或行终止符都会忽略。</p>
+<h3 id="状态-M：行内"><a href="#状态-M：行内" class="headerlink" title="状态 M：行内"></a>状态 M：行内</h3><p>显然，状态 M 是输入处理器最常见的状态，它表示「处理到输入行的中间」（middle of line）。当输入处理器遇到分类码为 1–4、6–8 以及 11–13 的字符或者控制字符（不包括控制空格）之后，就会进入该状态。在该状态下，TeX 会将行终止符替换为空格记号。</p>
+<p><img src="/uploads/images/LaTeX/figmouth.png" alt=""></p>
+<h2 id="访问整个字符集"><a href="#访问整个字符集" class="headerlink" title="访问整个字符集"></a>访问整个字符集</h2><p>大体上，TeX 的输入处理器可以认为是一个有限状态自动机，但严格来说它并不是。输入处理器在扫描输入行期间，为了让用户能够输入一些特殊字符，而设计了这样的机制：两个相同的上标符（分类码为 7）以及一个字符编码小于 128 的字符（暂称原字符）组成的三元组会被替换为一个新的字符。该字符的编码位于 0 – 127 之间，并且与原字符的编码相差 64。</p>
+<p>这种机制可用于访问字体中难以输入的字符。例如 ASCII 中的控制符号 <code>&lt;return&gt;</code>（ASCII 编码为 13）和 <code>&lt;delete&gt;</code>（ASCII 编码为 127）可分别使用 <code>^^M</code> 和 <code>^^?</code> 进行访问。当然，由于 <code>^^?</code> 是无效字符（分类码是 15），故而在访问前需要先修改其分类码。</p>
+<p>在 TeX3 中，该机制被扩展为可以访问 256 个字符：四元组 <code>^^xy</code> 会被替换为一个编码在 0 – 255 之间的字符；其中 <code>x</code> 和 <code>y</code> 是小写十六进制数字 <code>0</code>–<code>9</code>, <code>a</code>–<code>f</code>，而 <code>xy</code> 正是该字符编码的十六进制表示。这一扩展也给先前的机制带来了一些限制：例如 <code>^^7a</code> 会被输入处理器替换为 <code>z</code>，而不是 <code>wa</code>。</p>
+<blockquote>
+<p>译注：<code>w</code> 和 <code>7</code> 的 ASCII 编码之差为 64。由于 <code>7a</code> 可被理解为是一个十六进制数，所以 TeX 贪婪地将四元组看做一个整体替换为 <code>z</code>。</p>
+</blockquote>
+<p>这种机制一方面使得 TeX 的输入处理器在某种意义上比真正的有限状态自动机更为强大，另一方面还不会影响其余的扫描过程。因此，在概念上，可以简单地假装认为这种对 <code>^^</code> 引导的三元组或四元组的替换是提前进行的。不过，在实践中这样做是不可能的。这是因为，在处理输入行的过程中，用户可能将其他字符分类为第 7 类，从而影响后续处理。</p>
+<blockquote>
+<p>译注：也就是说，如果没有其他字符被分类为第 7 类，则这个假设在实践中也是可行的。</p>
+</blockquote>
+<h2 id="内部状态切换"><a href="#内部状态切换" class="headerlink" title="内部状态切换"></a>内部状态切换</h2><p>现在我们来讨论特定分类码的字符对 TeX 输入处理器内部状态的影响。</p>
+<h3 id="0：转义字符"><a href="#0：转义字符" class="headerlink" title="0：转义字符"></a>0：转义字符</h3><p>遇到<strong>转义字符</strong>后，TeX 开始构建控制序列记号。取决于转义字符后面的字符之分类码，所得的控制序列记号有三种类型。</p>
+<ul>
+<li>若转义字符后的字符之分类码为 11，即字母，则 TeX 将转义字符和之后连续的分类码为 11 的字符构建成一个控制词，而后进入状态 S。</li>
+<li>若转义字符后的字符之分类码为 10，即空格，则 TeX 将它们构建成名为控制空格的控制字符，而后进入状态 S。</li>
+<li>若转义字符后的字符之分类码不是 10 也不是 11，那么 TeX 将它们构建成控制字符，而后进入状态 M。</li>
+</ul>
+<p>控制序列名字的所有字符必须在同一输入行之中；控制序列的名字不能跨行，即使当前行以注释符结尾或者没有行终止符（通过将 <code>\endlinechar</code> 设置为 0 – 255 之外的值）。</p>
+<h3 id="1–4-7–8-11–13：非空字符"><a href="#1–4-7–8-11–13：非空字符" class="headerlink" title="1–4, 7–8, 11–13：非空字符"></a>1–4, 7–8, 11–13：非空字符</h3><p>分类为 1–4、7–8 及 11–13 的字符会被转换为字符记号，而后 TeX 进入状态 M。</p>
+<h3 id="5：行终止符"><a href="#5：行终止符" class="headerlink" title="5：行终止符"></a>5：行终止符</h3><p>遇到行终止符时，TeX 的行为取决于输入处理器当前的状态。但不论处于何种状态，TeX 会忽略当前行，而后进入状态 N 并开始处理下一行。</p>
+<ul>
+<li>处于状态 N，即当前行在此前只有空格，TeX 将插入 <code>\par</code> 记号；</li>
+<li>处于状态 M，TeX 将插入一个空格记号；</li>
+<li>处于状态 S，TeX 将不插入任何记号。</li>
+</ul>
+<p>此处「行终止符」指得是分类码为 5 的字符。因此，它的字符编码不一定是 <code>\endlinechar</code>，也不一定非得出现在行尾。详见后文。</p>
+<h3 id="6：参数符"><a href="#6：参数符" class="headerlink" title="6：参数符"></a>6：参数符</h3><p>在宏定义的上下文中，参数符 —— 通常为 <code>#</code> —— 可跟 <code>1..9</code> 中的数字或另一个参数符。前者产生参数记号，而后者产生单个参数字符记号待后续处理。在这两种情形中，TeX 都会进入状态 M。</p>
+<p>单独出现的参数符也被用于阵列的模板行。</p>
+<h3 id="7：上标符"><a href="#7：上标符" class="headerlink" title="7：上标符"></a>7：上标符</h3><p>TeX 对上标符的处理和大多数非空字符一样，仅在上述替换机制中有所不同：连续两个字符编码相同的上标符及其后字符组成的三元组或四元组会按规则被替换为其它字符。</p>
+<h3 id="9：被忽略符"><a href="#9：被忽略符" class="headerlink" title="9：被忽略符"></a>9：被忽略符</h3><p>分类码为 9 的字符会被忽略，且不会影响 TeX 的状态。</p>
+<h3 id="10：空格符"><a href="#10：空格符" class="headerlink" title="10：空格符"></a>10：空格符</h3><p>在状态 N 和状态 S 中，不论字符编码是多少，空格记号—— 分类码为 10 的记号 —— 都会被忽略；同时 TeX 的状态保持不变。在状态 M 中，TeX 会向正在构建的记号序列中插入 <code>␣</code>（类别码为 10），并进入状态 S。这意味着空格记号的字符编码可能与输入字符的编码不同。</p>
+<blockquote>
+<p>译注：不论输入的是哪一个分类码为 10 的字符，输入处理器都会将其替换为字符编码为 32 的 ASCII 空格。</p>
+</blockquote>
+<h3 id="14：注释符"><a href="#14：注释符" class="headerlink" title="14：注释符"></a>14：注释符</h3><p>TeX 遇到注释符后，会忽略当前行之后包括注释符本身在内的所有内容。特别地，TeX 会忽略行终止符。因此，哪怕是在状态 M 下，TeX 也不会插入额外的空格记号。</p>
+<h3 id="15：无效字符"><a href="#15：无效字符" class="headerlink" title="15：无效字符"></a>15：无效字符</h3><p>TeX 遇到无效字符时会报错，而 TeX 自身会停留在之前的状态。不过，在控制字符的上下文中，无效字符是合法的。因此， <code>\^^?</code> 不会触发报错。</p>
+<h2 id="分类码中的字母与其他字符"><a href="#分类码中的字母与其他字符" class="headerlink" title="分类码中的字母与其他字符"></a>分类码中的字母与其他字符</h2><p>大部分编程语言的标识符可由字母与数字构成（还可能包含其他诸如下划线之类的字符）。但是，在 TeX 中，控制序列的名字只能由第 11 类字符（即字母）组成。而通常，数字和标点的分类码是 12，即其他字符。</p>
+<p>此外，TeX 可以产生一些由第 12 类字符组成的字符串，哪怕其中的字符原本并非都是第 12 类字符。</p>
+<p>此类字符串可由 <code>\string</code>、<code>\number</code>、<code>\romannumeral</code>、<code>\jobname</code>、<code>\fontname</code>、<code>\meaning</code> 以及 <code>\the</code> 等命令生成。若这些命令产生的字符串包含空格字符（ASCII 编码为 32），则在输出的字符串中，该字符的分类码为 10。</p>
+<p>在极个别情况下，控制序列的展开中可能会包含十六进制数字；因此，除了通常表示字母的 <code>A</code>(11) – <code>F</code>(11) 之外，TeX 中还有表示十六进制数字的 <code>A</code>(12) – <code>F</code>(12)。</p>
+<p>举例来说，</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">string</span></span><span class="tag">\<span class="name">end</span></span></span><br></pre></td></tr></table></figure>
+<p>得到四个字符记号</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">(</span></span>12)e(12)n(12)d(12)</span><br></pre></td></tr></table></figure>
+<p>注意，此处输出中有转义字符 <code>\(12)</code> 的原因是宏 <code>\escapechar</code> 的值是反斜线的字符编码。而若将 <code>\escapechar</code> 的值改为其它字符的编码，则 <code>\string</code> 将输出另一个字符。</p>
+<p>通过一些特殊技巧，空格也可以出现在控制序列的名字当中：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">csname</span></span> a b<span class="tag">\<span class="name">endcsname</span></span></span><br></pre></td></tr></table></figure>
+<p>是一个控制序列记号，其名称由三个字符组成，并且其中之一是空格符。将这个控制序列转化为字符串</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">expandafter</span></span><span class="tag">\<span class="name">string</span></span><span class="tag">\<span class="name">csname</span></span> a b<span class="tag">\<span class="name">endcsname</span></span></span><br></pre></td></tr></table></figure>
+<p>可得 <code>\(12)a(12)␣(10)b(12)</code>。</p>
+<p>举个更加实用的例子。假设有一系列输入文件：<code>file1.tex</code>、<code>file2.tex</code>，而我们希望写一个宏来输出当前正在处理的文件的序号。第一种解法是：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">newcount</span></span><span class="tag">\<span class="name">filenumber</span></span></span><br><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">getfilenumber</span></span> file#1.&#123;<span class="tag">\<span class="name">filenumber</span>=</span>#1 &#125;</span><br><span class="line"><span class="tag">\<span class="name">expandafter</span></span><span class="tag">\<span class="name">getfilenumber</span></span><span class="tag">\<span class="name">jobname</span></span>.</span><br></pre></td></tr></table></figure>
+<p>宏定义中，参数文本中的 <code>file</code> 会吸走 <code>\jobname</code> 中的 <code>file</code> 部分，从而留下文件编号作为宏的参数。</p>
+<p>但这段代码有些小问题。<code>\jobname</code> 输出的 <code>file</code> 四个字符，其分类码为 12。但在 <code>\getfilenumber</code> 的定义中，<code>file</code> 四个字符的分类码是 11。为此，需要对上述代码进行以下修正：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="tag">\<span class="name">escapechar</span>=<span class="number">-1</span></span></span><br><span class="line"> <span class="tag">\<span class="name">expandafter</span></span><span class="tag">\<span class="name">gdef</span></span><span class="tag">\<span class="name">expandafter</span></span><span class="tag">\<span class="name">getfilenumber</span></span></span><br><span class="line">       <span class="tag">\<span class="name">string</span></span><span class="tag">\<span class="name">file</span></span>#1.&#123;<span class="tag">\<span class="name">filenumber</span>=</span>#1 &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>此处，<code>\escapechar=-1</code> 让 <code>\string</code> 忽略反斜线；因此 <code>\string\file</code> 的结果会是 <code>f(12)i(12)l(12)e(12)</code> 四个字符。为了在宏定义是得到分类码为 12 的四个字符，我们使用 <code>\expandafter</code> 命令让 <code>\string\file</code> 在宏定义之前先行展开；而由于 <code>\escapechar</code> 的设定被放在分组内部，所以我们需要使用 <code>\gdef</code> 进行宏定义。</p>
+<h2 id="par-记号"><a href="#par-记号" class="headerlink" title="\par 记号"></a><code>\par</code> 记号</h2><p>在遇到<strong>空行</strong>之后，也就是在状态 N 遇到行终止符（分类码为 5）之后，TeX 会向输入中插入一个 <code>\par</code> 记号。具体来说，由于 TeX 遇到任何非空格字符，都会从状态 N 转移走，因此空行只能包含分类码为 10 的字符。特别地，空行不能以注释符结尾。因此，若输入文件中因格式美观需要保留空行，则可以在该行中放一个注释符。这算是 TeX 这一特性的常见用法。</p>
+<p>两个连续的空行产生两个连续的 <code>\par</code> 记号，而实际上它们等同于一个 <code>\par</code> 记号：在遇见第一个 <code>\par</code> 记号之后，TeX 会进入竖直模式，而在竖直模式中，<code>\par</code> 只是充当 TeX 页面构建器，起到清空段落形状参数的作用。</p>
+<p>TeX 于非受限水平模式（unrestricted horizontal mode）遇到竖直命令（<code>&lt;vertical command&gt;</code>）时，也会向输入插入一个 <code>\par</code> 记号。当该 <code>\par</code> 被读取和展开后，上述竖直命令会被重新处理。</p>
+<p><code>\end</code> 命令也会向输入插入 <code>\par</code> 记号，而后结束 TeX 的运行。</p>
+<p>值得注意的是，遇到空行时 TeX 通常的行为（结束当前自然段）完全取决于 <code>\par</code> 记号的默认定义。重定义 <code>\par</code> 后，空行和竖直命令的行为可能就完全两样了；因此，我们可以借此实现一些特别的效果。在这种情况下，为了使用正常的 <code>\par</code> 的功能，plain TeX 提供了其同义词 <code>\endgraf</code>。</p>
+<p>除非宏被声明为 <code>\long</code> 的，不然 <code>\par</code> 记号不能出现在宏的参数当中。对于非 <code>\long</code> 声明的宏，若其参数中包含 <code>\par</code> 记号，则 TeX 会给出「runaway argument」的报错。不过，使用 <code>\let</code> 定义的与 <code>\par</code> 同义的控制序列（例如 <code>\endgraf</code>）是允许出现在这些宏的参数之中的。</p>
+<h2 id="空格"><a href="#空格" class="headerlink" title="空格"></a>空格</h2><p>这一节讨论输入处理器中有关<strong>空格字符</strong>和<strong>空格记号</strong>的一些内容。有关文本排版中的空格，留待后续章节讨论。</p>
+<h3 id="被忽略的空格"><a href="#被忽略的空格" class="headerlink" title="被忽略的空格"></a>被忽略的空格</h3><p>在上述有关输入处理器内部状态的讨论中，我们不难发现，有些空格在输入处理器中就被抛弃了，因此永远不会被输出：输入行开头的空格以及在让 TeX 进入状态 S 的字符之后的空格。</p>
+<p>另一方面，行终止符尽管不在输入中（而是由 TeX 添加的），但能产生可输出的空格。除此之外，还有第三种空格：它们可以通过输入处理器，甚至干脆由输入处理器产生，但也不会被输出。那便是非强制空格（<code>&lt;optional spaces&gt;</code>）。在 TeX 的语法中，很多地方都会出现此类空格。</p>
+<h3 id="非强制空格"><a href="#非强制空格" class="headerlink" title="非强制空格"></a>非强制空格</h3><p>TeX 语法中有所谓<strong>非强制空格</strong>与<strong>单个非强制空格</strong>的概念：</p>
+<p><img src="/uploads/images/LaTeX/optional_space.png" alt=""></p>
+<p>通常单个非强制空格（<code>&lt;one optional space&gt;</code>）允许出现在数字和粘连说明之后；而非强制空格（<code>&lt;optional spaces&gt;</code>）允许出现在数字或粘连中任意允许出现空格的地方（比如负号与数字之间，又比如 <code>plus</code> 和 <code>1fil</code> 之间）。此外，根据 <code>&lt;equals&gt;</code> 的定义，非强制空格允许出现在 <code>=</code> 之前。</p>
+<p>以下是有关非强制空格的一些例子：</p>
+<ul>
+<li><code>&lt;one optional space&gt;</code> 可用于界定数字的范围。这有助于避免一些意外情况，同时能加速 TeX 的处理过程——这是因为借助单个非强制空格，TeX 能更容易地界定当前正在读入的 <code>&lt;number&gt;</code> 于何时结束。注意，并非每个「数值」都是 <code>&lt;number&gt;</code>。例如说，<code>\magstep2</code> 中的 <code>2</code> 就不是数字，而是作为 <code>\magstep</code> 的参数的单独的字符记号。因此，在其后加上空格或行终止符是有意义的。此外，宏参数中的数字，例如 <code>\#1</code>：因为一个宏最多允许有 9 个参数，故而只需在参数符后扫描一位数字即可。</li>
+<li>根据 TeX 的语法，关键字 <code>fill</code> 及 <code>filll</code> 由 <code>fil</code> 与若干单独的 <code>l</code> 字符记号组成；因此此处允许非强制空格。据此，例如 <code>fil␣L␣l</code> 是合法的关键字。这里有一些潜在的问题，可能导致莫名其妙的情况。大多数情况下，在关键字后面加上一个 <code>\relax</code> 即可避免此类问题。</li>
+<li>TeX 原语 <code>\ignorespaces</code> 会吃掉其后的非强制空格；故此可将其插入宏定义的末尾，以避免将参量右花括号后的空格无意带入输出当中。例如说下面的例子中 <code>\ignorespaces</code> 吃掉了第二、第三两次调用之后的空格，而这些空格是不希望被排版输出的。不过，在 <code>\ignorespaces</code> 之后的空行仍然会插入 <code>\par</code> 记号。</li>
+</ul>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">item</span></span>#1&#123;<span class="tag">\<span class="name">par</span></span><span class="tag">\<span class="name">leavevmode</span></span></span><br><span class="line">    <span class="tag">\<span class="name">llap</span><span class="string">&#123;#1\enspace&#125;</span></span><span class="tag">\<span class="name">ignorespaces</span></span>&#125;*&#123;a/&#125;one line <span class="tag">\<span class="name">item</span><span class="string">&#123;b/&#125;</span></span> another line <span class="tag">\<span class="name">item</span><span class="string">&#123;c/&#125;</span></span></span><br><span class="line">yet another</span><br></pre></td></tr></table></figure>
+<h3 id="被忽略和被保留的空格"><a href="#被忽略和被保留的空格" class="headerlink" title="被忽略和被保留的空格"></a>被忽略和被保留的空格</h3><p>TeX 会忽略控制词之后的空格。不过这不是因为控制词之后的空格是非强制空格，而是因为 TeX 在遇到控制词之后会进入状态 S，从而忽略空格。类似地，控制词之后的行终止符也会被忽略。</p>
+<p>数字由单个非强制空格界定，但是</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">a<span class="tag">\<span class="name">count</span></span>0=3 b</span><br></pre></td></tr></table></figure>
+<p>的输出是 “ab”。这是因为 TeX 在第一个空格记号之后会进入状态 S，从而第二个空格会被 TeX 的输入处理器忽略，永远不会变成空格记号。</p>
+<p>当 TeX 处于新行状态 N 时，空格也会被忽略。另一方面，当 TeX 处于竖直模式工作时，空格记号（也就是在一开始未被忽略的空格）会被忽略。例如说，下例第一个盒子之后由行终止符生成的空格记号会被忽略。</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">par</span></span></span><br><span class="line"><span class="tag">\<span class="name">hbox</span><span class="string">&#123;a&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">hbox</span><span class="string">&#123;b&#125;</span></span></span><br></pre></td></tr></table></figure>
+<p>plain TeX 和 LaTeX 格式都定义了名为 <code>\obeyspaces</code> 的宏。该宏能使每个空格都是有意义的：在一个空格之后，连续的空格会被保留。两种格式中，<code>\obeyspaces</code> 的基本形式是一致的。</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name"> </span>=<span class="number">13</span></span> <span class="tag">\<span class="name">def</span></span> &#123;<span class="tag">\<span class="name">space</span></span>&#125;</span><br></pre></td></tr></table></figure>
+<p>不过，对于 <code>\space</code> 的定义，两种格式有所区别。在 plain TeX 中，<code>\space</code> 的定义如下</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">space</span><span class="string">&#123; &#125;</span></span></span><br></pre></td></tr></table></figure>
+<p>在 LaTeX 中，同名的宏则定义为</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">space</span><span class="string">&#123;\leavevmode&#123;&#125;</span></span> &#125;</span><br></pre></td></tr></table></figure>
+<p>在 <code>\obeylines</code> 的上下文中，比较容易看出这两种定义的区别。使用 <code>\obeylines</code> 后，每个行终止符都会被转换成一个 <code>\par</code> 命令。因此 TeX 开始处理每一行时，都处于竖直模式。在 plain TeX 中，活动空格被展开为空格记号，因此在垂直模式中会被忽略。但在 LaTeX 中，首先会离开竖直模式并进入水平模式，因此每个空格就都是有意义的了。</p>
+<h3 id="空格被忽略的其他情形"><a href="#空格被忽略的其他情形" class="headerlink" title="空格被忽略的其他情形"></a>空格被忽略的其他情形</h3><p>还有三种情形下，TeX 会忽略空格记号：</p>
+<ul>
+<li>在寻找未被花括号定界的宏参数时，TeX 会忽略所有空格记号，而将第一个非空记号（或分组）作为参数。</li>
+<li>在数学模式中，所有的空格记号会被忽略。</li>
+<li>在阵列制表符之后，空格记号会被忽略。</li>
+</ul>
+<h3 id="空格记号：-lt-space-token-gt"><a href="#空格记号：-lt-space-token-gt" class="headerlink" title="空格记号：&lt;space token&gt;"></a>空格记号：<code>&lt;space token&gt;</code></h3><p>在 TeX 中，空格总是表现得与众不同。举例来说，<code>\string</code> 会将所有字符的分类码设置为 12，唯独空格的分类码是 10 。此外，如前文所述，在状态 M 中，TeX 的输入处理器会将所有分类码为 10 的字符转换为真正的空格：字符编码会被设置为 32。于是，任何分类码为 10 的字符记号称为<strong>空格记号</strong>（<code>&lt;space token&gt;</code>）。字符编码不是 32 的空格记号称为<strong>滑稽空格</strong>。</p>
+<p>举例来说，将字符 <code>Q</code> 的分类码设置为空格字符之后，如下定义</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`Q=10 <span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">q</span><span class="string">&#123;aQb&#125;</span></span></span><br></pre></td></tr></table></figure>
+<p>可得</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">show</span></span><span class="tag">\<span class="name">q</span></span></span><br><span class="line">macro:-&gt; a b</span><br></pre></td></tr></table></figure>
+<p>这是因为输入处理器改变了宏定义中滑稽空格的字符编码。</p>
+<p>字符编码不为 32 的空格记号可以用 <code>\uppercase</code> 等命令生成。不过，「由于字符编码不同的空格记号的行为是一致的，所以纠缠于这类细节是没有意义的」。详见 TeXbook 第 377 页。</p>
+<h3 id="控制空格"><a href="#控制空格" class="headerlink" title="控制空格"></a>控制空格</h3><p>控制空格命令 <code>\␣</code> 给出一个与 <code>\spacefactor</code> 等于 1000 时空格记号宽度一样的空格。控制空格不能被当做是空格记号，也不能理解为会展开成一个空格记号的宏（例如 plain TeX 中的 <code>\space</code>）。举例来说，TeX 会忽略所有输入行开头的空格，但是控制空格是一个水平命令（<code>&lt;horizontal command&gt;</code>），故而 TeX 在遇到它之后会从竖直模式切换到水平模式（并插入一个缩进盒子）。</p>
+<h3 id="可见空格：␣"><a href="#可见空格：␣" class="headerlink" title="可见空格：␣"></a>可见空格：␣</h3><p>在 Computer Modern 的打字机字体中，字符编码为 32 的字符是显式空格符号 “<code>␣</code>“。不过，简单地使用 <code>\tt</code> 命令是无法将其打印出来的。这是因为空格在输入处理器中有特别的处理。</p>
+<p>使空格字符 <code>␣</code> 显形的一种方法是将空格字符的分类码设置为 12：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name"> </span>=<span class="number">12</span></span></span><br></pre></td></tr></table></figure>
+<p>此时，TeX 会将空格字符作为编码为 32 的字符排版出来。此外，连续的空格不会被忽略。这是因为状态 S 只是在遇到分类码为 10 的字符后才会进入。类似地，控制序列之后的空格也会因分类码的改变而显形。</p>
+<h2 id="有关行尾的更多知识"><a href="#有关行尾的更多知识" class="headerlink" title="有关行尾的更多知识"></a>有关行尾的更多知识</h2><p>TeX 从输入文件中获取文本行，但不包括输入行中的行尾符。因此，TeX 的行为不依赖操作系统以及<strong>行尾符</strong>究竟是什么（CR-LF、LF 抑或是在块存储系统里根本就不存在行尾符）。而后，TeX 会移除输入行末尾的空格。这样处理是有历史原因的：TeX 必须能够适应 IBM 大型计算机的块存储模式有关。对于由计算机的不同而造成的有关行尾符的问题。</p>
+<p>此后，字符编码为 <code>\endlinechar</code> 的行终止符会被追加在文本行的末尾；除非 <code>\endlinechar</code> 中保存的数值为负数或大于 255。注意，改行终止符的分类码不一定非得是 5。</p>
+<h3 id="保持各行"><a href="#保持各行" class="headerlink" title="保持各行"></a>保持各行</h3><p>有时候会期望会希望输入文本中的行尾符能与排版输出的行尾一一对应。下面的代码可以可以解决这一问题：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^M=13 <span class="comment">%</span></span><br><span class="line"><span class="tag">\<span class="name">def</span></span>^^M&#123;<span class="tag">\<span class="name">par</span></span>&#125;<span class="comment">%</span></span><br></pre></td></tr></table></figure>
+<p>这里，<code>\endlinechar</code> 成为活动符，其含义变为 <code>\par</code>。上述代码中的注释符用于阻止 TeX 看到代码末尾的行终止符，以防它将其作为活动字符而展开。</p>
+<p>需要注意的是，在将上述代码嵌入宏的展开文本中需要特别小心。例如说下列代码会让 TeX 误解：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">obeylines</span><span class="string">&#123;\catcode`\^^M=13 \def^^M&#123;\par&#125;</span></span>&#125;</span><br></pre></td></tr></table></figure>
+<p>具体来说，TeX 将丢弃第二个 <code>^^M</code> 之后的所有字符。这是因为，在宏展开的过程中，<code>\catcode</code> 命令尚未执行，因而此时 <code>^^M</code> 分类码为 5，而非 13。也就是说，这一行实际上变成了：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">obeylines</span><span class="string">&#123;\catcode`\^^M=13 \def</span></span></span><br></pre></td></tr></table></figure>
+<p>要修正上述问题，需要为 <code>^^M</code> 营造一个可作为活动字符使用的环境：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^M=13 <span class="comment">%</span></span><br><span class="line"> <span class="tag">\<span class="name">gdef</span></span><span class="tag">\<span class="name">obeylines</span><span class="string">&#123;\catcode`\^^M=13 \def^^M&#123;\par&#125;</span></span>&#125;<span class="comment">%</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这样解决了上面提到的问题，但仍有缺陷。这是因为，该 <code>\obeylines</code> 仍然不能保留输入文本中的空行——连续两个 <code>\par</code> 记号会被当成是一个。为此，我们需要对上述定义稍作改进：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span>^^M&#123;<span class="tag">\<span class="name">par</span></span><span class="tag">\<span class="name">leavevmode</span></span>&#125;</span><br></pre></td></tr></table></figure>
+<p>这样，输入文本中的每一行都会开启一个新段落，空行则开启一个空段落。</p>
+<h3 id="改变-endlinechar"><a href="#改变-endlinechar" class="headerlink" title="改变 \endlinechar"></a>改变 <code>\endlinechar</code></h3><p>某些情况下，你会希望改变 <code>\endlinechar</code> 的值或者 <code>^^M</code> 的分类码，以达成一些特殊效果。例如说，可以用行终止符作为宏的参数的定界符。</p>
+<p>在这些常识中，通常会有一些陷阱。我们来看以下写法：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^M=12 <span class="tag">\<span class="name">endlinechar</span>=</span>`<span class="tag">\<span class="name">^</span></span>^J <span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^J=5</span><br><span class="line">...</span><br><span class="line">... &#125;</span><br></pre></td></tr></table></figure>
+<p>这段代码的输出不符合预期：由于第一行和最后一行的行终止符，TeX 将输出字符码为 13（<code>^^M</code>）和 10（<code>^^J</code>）的字符。</p>
+<p>在第一行和最后一行末尾加上注释符可以解决此问题，但还有另一种方法是将第一行拆成下面两行：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="tag">\<span class="name">endlinechar</span>=</span>`<span class="tag">\<span class="name">^</span></span>^J <span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^J=5</span><br><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^M=12</span><br></pre></td></tr></table></figure>
+<p>当然，在多数情况下没必要将行终止符替换为另一个字符；设置</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">endlinechar</span>=<span class="number">-1</span></span></span><br></pre></td></tr></table></figure>
+<p>就等同于各行都以注释符结尾。</p>
+<h3 id="行终止符的更多注记"><a href="#行终止符的更多注记" class="headerlink" title="行终止符的更多注记"></a>行终止符的更多注记</h3><p>TeX 对所有字符一视同仁，包括追加到输入行末尾的行终止符。考虑到它特别的分类码，通常大家都不会注意行终止符。但是有一些方法可以特别地处理行终止符。</p>
+<p>举例来说，假定 <code>\endlinechar</code> 保持默认值为 13，那么，把 “<code>M</code>“。因为它是编码为 13+64 的 ASCII 字符。</p>
+<p>再举例来说，如果 <code>\^^M</code> 有定义，此时可称为「控制换行」。则在输入行中用反斜线结尾将执行此控制换行命令。例如，在 plain TeX 中定义</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">^</span></span>^M&#123;<span class="tag">\<span class="name"> </span></span>&#125;</span><br></pre></td></tr></table></figure>
+<p>将使得控制换行与控制空格等价。</p>
+<h2 id="输入处理器的更多知识"><a href="#输入处理器的更多知识" class="headerlink" title="输入处理器的更多知识"></a>输入处理器的更多知识</h2><h3 id="输入处理器作为独立过程"><a href="#输入处理器作为独立过程" class="headerlink" title="输入处理器作为独立过程"></a>输入处理器作为独立过程</h3><p>TeX 处理器的各个阶段都是同时运行的，但是在概念上它们常被视为依次独立运行，前者的输出是后者的输入。关于空格的小戏法很好地展现了这一点。</p>
+<p>考虑以下宏定义：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">DoAssign</span><span class="string">&#123;\count42=800&#125;</span></span></span><br></pre></td></tr></table></figure>
+<p>及其调用：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">DoAssign</span></span> 0</span><br></pre></td></tr></table></figure>
+<p>作为构建记号的部分，TeX 的输入处理器在扫描此次调用时，会忽略控制序列之后和零之前的所有空格。因此，此次调用的展开为：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">count</span></span>42=8000</span><br></pre></td></tr></table></figure>
+<p>不要认为：「<code>\DoAssign</code> 首先被读入，而后展开，而后空格作为分隔符分割了 800，于是 800 被赋值给计数器，并打印出数字零。」不过，需要注意的是，如果数字零出现在下一行，情况就不一样了。</p>
+<p>再举一个让非强制空格出现在忽略空格阶段之后的例子：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">c</span></span>.&#123;<span class="tag">\<span class="name">relax</span></span>&#125;</span><br><span class="line">a<span class="tag">\<span class="name">c</span></span>. b</span><br></pre></td></tr></table></figure>
+<p>会被展开为：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">a<span class="tag">\<span class="name">relax</span></span> b</span><br></pre></td></tr></table></figure>
+<p>其输出是：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">a b</span><br></pre></td></tr></table></figure>
+<p>这是因为，「输入处理器忽略控制序列 <code>\relax</code> 之后的空格」这一现象仅出现在该行被首次读取之时，而非在其被展开之时。</p>
+<p>另一方面，这个例子：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">c</span></span>.&#123;<span class="tag">\<span class="name">ignorespaces</span></span>&#125;</span><br><span class="line">a<span class="tag">\<span class="name">c</span></span>. b</span><br></pre></td></tr></table></figure>
+<p>则会被展开为：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">a<span class="tag">\<span class="name">ignorespaces</span></span>␣b</span><br></pre></td></tr></table></figure>
+<p>执行 <code>\ignorespaces</code> 时会删除所有接续其后的连续空格记号。因此，输出是：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ab</span><br></pre></td></tr></table></figure>
+<p>在上述两个例子中，<code>\c</code> 之后的西文句号均为定界符，用于保护控制序列之后的空格不被输入处理器吃掉。</p>
+<h3 id="输入处理器不作为独立过程"><a href="#输入处理器不作为独立过程" class="headerlink" title="输入处理器不作为独立过程"></a>输入处理器不作为独立过程</h3><p>将 TeX 的记号化的过程视作独立过程是一个便利的做法，但有时这种做法会引起困惑。</p>
+<p>例如</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^M=13&#123;&#125;</span><br></pre></td></tr></table></figure>
+<p>将行终止符设为活动字符；因此，该行自身的行终止符将报错：「未定义的控制序列（undefined control sequence）」。这表明，执行行内的命令有时会影响对同一行的扫描过程。</p>
+<p>另一方面，下面例子则不会报错：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">^</span></span>^M=13</span><br></pre></td></tr></table></figure>
+<p>这是因为，在 TeX 扫描数字 13 时就读入了行终止符，此时，分类码的赋值过程尚未执行；而此时，行终止符被转换成了非强制空格，作为数字的定界符。</p>
+<h3 id="输入处理器的递归调用"><a href="#输入处理器的递归调用" class="headerlink" title="输入处理器的递归调用"></a>输入处理器的递归调用</h3><p>前文中，将参数符和数字替换为参数记号的过程被描述得与将字母捆绑成控制序列记号类似。但实际情况要复杂得多。TeX 的记号扫描机制不仅在扫描文件输入时起作用，在扫描记号列表输入时同样会起作用：例如在处理宏定义时。前文提到的内部状态变化的机制，仅仅适用于前一种情况。</p>
+<p>在两种情况下，输入处理器对参数符的处理方式都是相同的。否则 TeX 便无法处理下面这样的宏定义：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">a</span><span class="string">&#123;\def\b&#123;\def\c####1&#123;####1&#125;</span></span>&#125;&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="约定"><a href="#约定" class="headerlink" title="@ 约定"></a><code>@</code> 约定</h2><p>读过 plain TeX 或是 LaTeX 格式的源码就会发现其中有很多包含符号 <code>@</code> 的控制序列。这种包含 <code>@</code> 的控制序列不能被普通用户直接使用。</p>
+<p>格式文件的起始处附近有命令</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`@=11</span><br></pre></td></tr></table></figure>
+<p>它将 <code>@</code> 的分类从「其他字符」变为「字母」，从而可以用于组成控制序列。而在格式文件的末尾处附近有命令</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`@=12</span><br></pre></td></tr></table></figure>
+<p>它将 <code>@</code> 的分类恢复为其他字符。</p>
+<p>那么，为什么用户不能直接调用带有 <code>@</code> 字符的控制序列，却能调用定义中包含此类控制序列的宏呢？原因在于，在宏定义时，带有 <code>@</code> 的控制序列已被 TeX 内部处理过了，此后，这些控制序列就变成了记号而不是字符串了。在宏展开的过程中，TeX 只需要操作记号，因此，彼时记号内字符的分类码就不影响宏展开的过程了。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2018/05/05/TeX-by-Topic-Category-Codes-and-Internal-States/" title="TeX 主题选讲：分类码与内部状态">https://liam.page/2018/05/05/TeX-by-Topic-Category-Codes-and-Internal-States/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Input/" rel="tag"># Input</a>
+          
+            <a href="/tags/TeX/" rel="tag"># TeX</a>
+          
+            <a href="/tags/Engine/" rel="tag"># Engine</a>
+          
+            <a href="/tags/Catcode/" rel="tag"># Catcode</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/05/03/ctex-2-4-14-update-for-the-fontset-for-macOS/" rel="next" title="CTeX 2.4.14：macOS 字体配置升级">
+                <i class="fa fa-chevron-left"></i> CTeX 2.4.14：macOS 字体配置升级
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/05/09/TeX-by-Topic-Characters/" rel="prev" title="TeX 主题选讲：字符">
+                TeX 主题选讲：字符 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#概述"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#初始化处理"><span class="nav-number">2.</span> <span class="nav-text">初始化处理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分类码"><span class="nav-number">3.</span> <span class="nav-text">分类码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#从字符到记号"><span class="nav-number">4.</span> <span class="nav-text">从字符到记号</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#输入处理器是有限状态自动机"><span class="nav-number">5.</span> <span class="nav-text">输入处理器是有限状态自动机</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#状态-N：新行"><span class="nav-number">5.1.</span> <span class="nav-text">状态 N：新行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#状态-S：忽略空格"><span class="nav-number">5.2.</span> <span class="nav-text">状态 S：忽略空格</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#状态-M：行内"><span class="nav-number">5.3.</span> <span class="nav-text">状态 M：行内</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#访问整个字符集"><span class="nav-number">6.</span> <span class="nav-text">访问整个字符集</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内部状态切换"><span class="nav-number">7.</span> <span class="nav-text">内部状态切换</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#0：转义字符"><span class="nav-number">7.1.</span> <span class="nav-text">0：转义字符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#1–4-7–8-11–13：非空字符"><span class="nav-number">7.2.</span> <span class="nav-text">1–4, 7–8, 11–13：非空字符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#5：行终止符"><span class="nav-number">7.3.</span> <span class="nav-text">5：行终止符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#6：参数符"><span class="nav-number">7.4.</span> <span class="nav-text">6：参数符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#7：上标符"><span class="nav-number">7.5.</span> <span class="nav-text">7：上标符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#9：被忽略符"><span class="nav-number">7.6.</span> <span class="nav-text">9：被忽略符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#10：空格符"><span class="nav-number">7.7.</span> <span class="nav-text">10：空格符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#14：注释符"><span class="nav-number">7.8.</span> <span class="nav-text">14：注释符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#15：无效字符"><span class="nav-number">7.9.</span> <span class="nav-text">15：无效字符</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分类码中的字母与其他字符"><span class="nav-number">8.</span> <span class="nav-text">分类码中的字母与其他字符</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#par-记号"><span class="nav-number">9.</span> <span class="nav-text">\par 记号</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#空格"><span class="nav-number">10.</span> <span class="nav-text">空格</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#被忽略的空格"><span class="nav-number">10.1.</span> <span class="nav-text">被忽略的空格</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#非强制空格"><span class="nav-number">10.2.</span> <span class="nav-text">非强制空格</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#被忽略和被保留的空格"><span class="nav-number">10.3.</span> <span class="nav-text">被忽略和被保留的空格</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#空格被忽略的其他情形"><span class="nav-number">10.4.</span> <span class="nav-text">空格被忽略的其他情形</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#空格记号：-lt-space-token-gt"><span class="nav-number">10.5.</span> <span class="nav-text">空格记号：&lt;space token&gt;</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#控制空格"><span class="nav-number">10.6.</span> <span class="nav-text">控制空格</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#可见空格：␣"><span class="nav-number">10.7.</span> <span class="nav-text">可见空格：␣</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#有关行尾的更多知识"><span class="nav-number">11.</span> <span class="nav-text">有关行尾的更多知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#保持各行"><span class="nav-number">11.1.</span> <span class="nav-text">保持各行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#改变-endlinechar"><span class="nav-number">11.2.</span> <span class="nav-text">改变 \endlinechar</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#行终止符的更多注记"><span class="nav-number">11.3.</span> <span class="nav-text">行终止符的更多注记</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#输入处理器的更多知识"><span class="nav-number">12.</span> <span class="nav-text">输入处理器的更多知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#输入处理器作为独立过程"><span class="nav-number">12.1.</span> <span class="nav-text">输入处理器作为独立过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#输入处理器不作为独立过程"><span class="nav-number">12.2.</span> <span class="nav-text">输入处理器不作为独立过程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#输入处理器的递归调用"><span class="nav-number">12.3.</span> <span class="nav-text">输入处理器的递归调用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#约定"><span class="nav-number">13.</span> <span class="nav-text">@ 约定</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,3057 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
+<meta name="keywords" content="C++11,Multithread,Race Conditions,Lock,Mutex">
+<meta property="og:type" content="article">
+<meta property="og:title" content="程序员的自我修养（六）：保护线程间的共享数据">
+<meta property="og:url" content="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-01-12T07:15:39.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="程序员的自我修养（六）：保护线程间的共享数据">
+<meta name="twitter:description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>程序员的自我修养（六）：保护线程间的共享数据 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">程序员的自我修养（六）：保护线程间的共享数据
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017 年 06 月 10 日 19:59:19" itemprop="dateCreated datePublished" datetime="2017-06-10T19:59:19+08:00">2017 年 06 月 10 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:15:39" itemprop="dateModified" datetime="2019-01-12T15:15:39+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">22k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">40 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>进入到<a href="/series/">系列文章</a>的第六篇。</p>
+<p>我们在<a href="/2017/05/06/cxx-concurrency-multithread-basic-problems/">前文</a>中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。</p>
+<p>此篇，我们讨论如何在线程之间安全地共享数据。</p>
+<a id="more"></a>
+<h2 id="在线程间共享数据的问题"><a href="#在线程间共享数据的问题" class="headerlink" title="在线程间共享数据的问题"></a>在线程间共享数据的问题</h2><h3 id="引子"><a href="#引子" class="headerlink" title="引子"></a>引子</h3><p>让我们先来看一个<del>有味道的</del>例子。</p>
+<p>假设你邀请朋友到家里来派对。这个派对有些特殊，需要各自准备好食材，而后烹饪成美味——大家比比手艺。朋友 A 准备做辣椒炒肉，而朋友 B 决定用韭菜炒蛋一展身手——他们都已经备好了菜等待下锅。</p>
+<p>不幸的是，你家只有一口锅，但是朋友 A 和 B 两不相让。他们在几乎同一时间，分别把自己手头备好的菜下了油锅：</p>
+<ul>
+<li>朋友 A 把切好的辣椒下了油锅——嘶~</li>
+<li>朋友 B 把打好的蛋液下了油锅——哗~</li>
+</ul>
+<p>于是，厨房里传出了辣椒炒蛋的香味……</p>
+<p>在这个例子里，最终朋友 A 和朋友 B 合作了一盘「辣椒炒蛋」。虽然这不是他们预期的结果，但好歹没有引起灾难性的后果。不过，这种「好结果」并不是每次都能发生；更多的时候，可能会做出一堆奇奇怪怪的黑暗料理。</p>
+<p>这件事情和我们今天要讨论的问题很是相像，我们看看下面这张表。</p>
+<table>
+<thead>
+<tr>
+<th>美食派对</th>
+<th>线程间数据共享</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>厨房</td>
+<td>进程空间</td>
+</tr>
+<tr>
+<td>油锅</td>
+<td>可在线程间共享的数据</td>
+</tr>
+<tr>
+<td>朋友 A 和朋友 B</td>
+<td>两个线程</td>
+</tr>
+</tbody>
+</table>
+<p>对于没事派对中的这个小插曲，显而易见地，作为主人需要定下一些规矩。对于这个问题，主人需要规定：别人使用完毕之前，其他人不能用锅子（当然也包括锅铲、煤气灶之类的）。在线程间共享数据也是如此。程序员在设计多线程并发程序时，需要协调好多个线程对数据的操作：应当在何时，如何操作数据，并与其它线程进行通信。</p>
+<h3 id="不变量"><a href="#不变量" class="headerlink" title="不变量"></a>不变量</h3><p>在具体讨论之前，我们先了解一下「不变量」这个概念。</p>
+<p>所谓不变量，指的是<strong>对于某个数据结构，当其合法可用时，总是成立的一个命题</strong>。在编程时引入不变量，可以帮助程序员正确地处理数据。为了更好地理解不变量，我们来看一下下面这个简单的例子。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> sum&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">constexpr</span> <span class="keyword">size_t</span> times&#123;<span class="number">100</span>&#125;;</span><br><span class="line"><span class="comment">// invariant: `i` is the number of integer that we have added to `sum`.</span></span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">size_t</span> i&#123;<span class="number">0</span>&#125;; i != times; ++i) &#123;</span><br><span class="line">    sum += i + <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// some use of `sum`</span></span><br></pre></td></tr></table></figure>
+<p>这是一个非常简单的例子，此处仅用于说明不变量。</p>
+<p>在注释中，我已经注明了此处用到的不变量：<code>i</code> 是已经累加的次数。对于 <code>i</code> 来说，它在循环开始前、每次循环迭代之后、循环结束的瞬间，都应该是合法可用的。因此，作为不变量，应该在这三种情形下都成立。若不然，则说明循环写错了。</p>
+<ul>
+<li>开始前：在循环开始前，我们尚未进行过累加，因此 <code>i == 0</code> 成立；</li>
+<li>迭代过后：每迭代一次，<code>++i</code> 保证了不变量成立；</li>
+<li>循环结束：由于 <code>i</code> 自 <code>0</code> 开始自增，直到第一次满足 <code>i != times</code> 的条件终止循环，因此在循环终止时，<code>i == times</code> 成立。</li>
+</ul>
+<p>经过这样的验证，我们应当很有信心地说：我的代码是正确的。</p>
+<blockquote>
+<p>注 1：应当写明显没有错误的代码，比如这个例子。<br>注 2：在这个例子中，之所以将循环条件记为 <code>i != times</code> 而不是 <code>i &lt; times</code>，正式因为有不变量的存在。若是记作 <code>i &lt; times</code>，那么循环中止时，应有 <code>i &gt;= times</code>；对应到不变量上，就是「至今为止，已经累加了不小于 <code>times</code> 次」，而这与代码的意图是不一致的。故而，对 C++ 程序员来说，建议写作 <code>i != times</code> 而不是 <code>i &lt; times</code>。<br>注 3：此外，C++ 对 STL 容器引入了「迭代器」的概念。迭代器重载了 <code>==</code> 和 <code>!=</code> 等符号，但并不一定重载了了 <code>&lt;</code> 号。事实上，对两个迭代器进行「大小比较」是没有意义的。为了保证一致性，从迭代器的角度说，也不建议 C++ 程序员将此类循环条件写作 <code>i &lt; times</code>。</p>
+</blockquote>
+<p>回过头，再来看一下这个简短的例子。我们不难发现，在执行完 <code>sum += i + 1</code> 的一瞬间，事实上不变量并不成立。比如，当 <code>i == 30</code> 时，我们执行完毕上述赋值表达式时，已经进行了 31 次累加。这告诉我们：<strong>在对操作数据时，有可能会破坏不变量</strong>。这样一来，循环迭代后，对 <code>i</code> 的自增操作，就可以理解为是「维护不变量」了。这件事情告诉我们：<strong>不变量不成立，预示着数据不可用</strong>（通常表示数据操作进行到一半）；<strong>操作数据后，需要维护不变量</strong>。</p>
+<p>我们再来看一个稍微复杂一些的例子。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// invariant: suppose we have two nodes `A` and `B`,</span></span><br><span class="line"><span class="comment">// then if `A-&gt;next_ == B`, then we must have `B-&gt;perv_ == A`.</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Node</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    Node* prev_ = <span class="literal">nullptr</span>;</span><br><span class="line">    Node* next_ = <span class="literal">nullptr</span>;</span><br><span class="line">    DataType data;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">Delete</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">auto</span> prev = <span class="keyword">this</span>-&gt;prev_;</span><br><span class="line">        <span class="keyword">auto</span> next = <span class="keyword">this</span>-&gt;next_;</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> != prev) &#123;</span><br><span class="line">            prev-&gt;next_ = next; <span class="comment">// 1.</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> != next) &#123;</span><br><span class="line">            next-&gt;prev_ = perv; <span class="comment">// 2.</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">this</span>-&gt;Destroy();</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>这是一个双链表中结点的简单示例。同样，我在代码注释中已经标明了不变量，即在双链表可用时，对两个合法结点来说，应当有 <code>A-&gt;next_-&gt;perv_ == A</code>。然而，在删除结点时（更新数据结构时），不变量会被破坏。比如，当 (1) 已经执行完毕，但 (2) 尚未执行时，上述不变量就是不成立的。</p>
+<p>假设现在有两个线程，在对同一个双链表进行操作。其中之一尝试从前向后遍历双链表；另一则在删除其中某一个结点。我们之前说，删除结点会临时破坏不变量，而不变量被破坏则表示数据结构是不可用的。那么正在执行删除操作的线程，就可能导致正在遍历的线程出错甚至崩溃。</p>
+<table>
+<thead>
+<tr>
+<th>线程 1</th>
+<th>线程 2</th>
+<th>注释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>if (nullptr != curr-&gt;next())</code></td>
+<td></td>
+<td>此时检查成功</td>
+</tr>
+<tr>
+<td></td>
+<td><code>prev-&gt;next_ = next</code></td>
+<td><code>next</code> 有可能是 <code>nullptr</code></td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+<td>注意此时不变量被破坏了</td>
+</tr>
+<tr>
+<td><code>work = curr-&gt;next()</code></td>
+<td></td>
+<td>现在 <code>work</code> 可能是 <code>nullptr</code></td>
+</tr>
+<tr>
+<td><code>data = work-&gt;data()</code></td>
+<td></td>
+<td>解引用 <code>nullptr</code>，段错误</td>
+</tr>
+</tbody>
+</table>
+<p>上表展现了两个线程同时操作一个双链表时，可能出现的情况。在这种情况下，线程 1 可能因为解引用空指针，而引发段错误，导致整个进程崩溃。</p>
+<h3 id="竞争状态"><a href="#竞争状态" class="headerlink" title="竞争状态"></a>竞争状态</h3><p>我们再看一个<del>有小情绪的</del>例子。</p>
+<p>对于国人来说，「春运」总是很头疼的问题。在春运期间，火车票总是不够的。基本上，任何一次买票行为，其结果（能不能买到火车票），都取决于你下手的时机——是否足够快。对于你来说，同样是「点击鼠标确认」这个动作，其结果实际上是不确定的。具体是何种结果，取决于你的行为与其他人行为的相对顺序。</p>
+<p>在计算机世界中，我们把<strong>结果取决于多个线程执行指令的相对顺序的情形，称为「竞争状态」</strong>。若是竞争状态发生在多个线程对同一个数据结构的修改上，则称其为「数据竞争」。因为竞争状态的结果是不确定的，所以数据竞争可能导致未定义行为（Undefined Behavior, 缩写 UB，读作「有病」）。</p>
+<p>结合不变量的概念，不难理解。如果一个行为可能在其中间状态破坏不变量，则由此行为引发的竞争状态，可能导致灾难后果。而若要破坏不变量，通常来说意味着该操作需要更新多个变量，而这些更新操作无法在单个指令完成——因而有被打断的可能。由数据竞争导致的问题通常难以排查。这是因为，尽管这些操作可能被打断，但并不是每次都会打断。通常来说，只有当系统负载很高，CPU 需要频繁地切换上下文时，数据竞争的可能性才会增大。因此，排查由数据竞争导致的问题，一般来说是非常困难的。</p>
+<h3 id="避免恶性数据竞争"><a href="#避免恶性数据竞争" class="headerlink" title="避免恶性数据竞争"></a>避免恶性数据竞争</h3><p>既然数据竞争通常可能会招致 UB，那么我们就要想办法避免它。通常来说，避免恶性数据竞争有几个思路。</p>
+<ul>
+<li>保护数据结构，确保在数据结构更新过程中，其不变量被破坏的中间状态只有一个线程能够看到。</li>
+<li>修改数据结构的实现，确保任何对数据结构的更新，在外界看来不变量都是成立的。</li>
+<li>将所有对数据结构的修改，都交给第三方串行执行。</li>
+</ul>
+<p>对于第三种方案，以之前购买火车票的例子来说，可以实现为：当你点击确认按钮后，购票网站将你的请求发送给服务器，服务器将请求加入一个队列，并返回一个状态。例如：「当车次剩余车票 1000 张，在您之前有 800 个尚未处理的请求」。这样一来，通常来说，购票行为的结果就是确定的了。</p>
+<p>然而，C++ 标准库并没有实现上述第三种方案。故此，此处我们不做更深入的讨论。</p>
+<h2 id="使用互斥量保护数据"><a href="#使用互斥量保护数据" class="headerlink" title="使用互斥量保护数据"></a>使用互斥量保护数据</h2><p>保护数据的最基本方法是使用所谓的「互斥量」（<strong>mut</strong>ual <strong>ex</strong>clusion, <em>mutex</em>）。</p>
+<p>互斥量的基本逻辑是这样的。</p>
+<ul>
+<li>访问某个数据结构时，首先检查互斥量。<ul>
+<li>若互斥量被锁住，则等待，直到互斥量解锁。</li>
+<li>若互斥量没有被锁住，则锁住互斥量，而后更新数据，再解锁。</li>
+</ul>
+</li>
+</ul>
+<p>听起来是个挺美好的事情，若能实现，那么数据竞争就能被解决。然而，所谓「没有银弹」，并不是说引入互斥量就能完美解决所有问题。</p>
+<ul>
+<li>首先，互斥量起作用是有前提的。<ul>
+<li>所有可能引发数据竞争的数据结构都被保护起来了；</li>
+<li>所有可能引发数据竞争的操作，都正确地使用了互斥量。</li>
+</ul>
+</li>
+<li>其次，互斥量可能引发所谓的「死锁」问题。</li>
+<li>最后，若互斥量过多或过少地保护了数据，都可能出现问题。</li>
+</ul>
+<h3 id="在-C-中使用互斥量"><a href="#在-C-中使用互斥量" class="headerlink" title="在 C++ 中使用互斥量"></a>在 C++ 中使用互斥量</h3><p>在 C++ 中，标准库提供的互斥量是 <code>std::mutex</code>，它被定义在 <code>mutex</code> 这个头文件中。</p>
+<p>互斥量是「锁」的一种，按照我们在 <a href="/2017/04/09/Foundations-of-Cpp/">C++ 的几个基本原理和技术</a>中的介绍，锁也是一种资源。因此为了保证资源被正确释放（正确使用互斥量的条件之一），我们最好是用 RAII 技术将其包装起来。C++ 标准库直接提供了这样的封装，名为 <code>std::lock_guard</code>，它也定义在 <code>mutex</code> 这个头文件当中。</p>
+<p>我们来看一个简单的例子。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;list&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;mutex&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;algorithm&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; guarded_mutex;</span><br><span class="line"></span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">list</span>&lt;<span class="keyword">int</span>&gt; data_list;               <span class="comment">// 1.</span></span><br><span class="line"><span class="built_in">std</span>::mutex data_mutex;                  <span class="comment">// 2.</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">add_to_list</span><span class="params">(<span class="keyword">int</span> new_value)</span> </span>&#123;</span><br><span class="line">    guarded_mutex guard&#123;data_mutex&#125;;    <span class="comment">// 3.</span></span><br><span class="line">    data_list.push_back(new_value);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">list_contains</span><span class="params">(<span class="keyword">int</span> value_to_find)</span> </span>&#123;</span><br><span class="line">    guarded_mutex guard&#123;data_mutex&#125;;    <span class="comment">// 4.</span></span><br><span class="line">    <span class="keyword">return</span> (data_list.end() != <span class="built_in">std</span>::find(data_list.begin(), data_list.end(), value_to_find));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>例中，(1) 和 (2) 分别定义了全局变量。此处，我们意图用 (2) 定义的全局互斥量保护对 (1) 定义的链表进行保护。(3) 和 (4) 通过 RAII 容器 <code>std::lock_guard</code> 在构造时，对传入的互斥量 <code>data_mutex</code> 上锁，并在 <code>guard</code> 销毁时自动解锁。</p>
+<p>在这个例子中，若是 <code>add_to_list</code> 和 <code>list_contains</code> 分别在不同线程中执行，则他们都会尝试锁上 <code>data_mutex</code> 这个互斥量。显而易见，同一时刻，只能有一个函数能成功锁上它；于是该函数正常执行，而另外一个函数则会陷入等待。这样一来，<code>data_list</code> 更新期间，不变量被破坏的中间状态，就只有修改它的线程能看到。而对于其他线程来说，<code>data_list</code> 要么没有被修改，要么已经修改完成，因而总是可用的。</p>
+<p>在这个简单的例子里，被保护的数据和互斥量都是全局变量。显而易见，这是不好的。首先，使用全局变量，意味着任何函数都有可能修改它。其次，除了 <code>data_list</code> 和 <code>data_mutex</code> 的定义连在一起，它们之间在代码上没有其他的联系。因此，很可能出现程序员使用 <code>data_mutex</code> 来保护其他数据；或者使用其他互斥量来保护 <code>data_list</code> 的现象。这样一来，保护就不完整了。因此，在实际使用中，通常我们会选择将 <code>data_list</code> 和 <code>data_mutex</code> 封装在同一个类当中。</p>
+<h3 id="限制被保护数据的使用范围"><a href="#限制被保护数据的使用范围" class="headerlink" title="限制被保护数据的使用范围"></a>限制被保护数据的使用范围</h3><p>上一节，我们了解了如何使用互斥量保护数据。此外，谈到了「正确使用」的要求之一：锁上互斥量之后必须解锁（否则其他线程永远无法上锁，就可能陷入无休止的等待）。这一节讨论正确使用的另一个要求：必须限制被保护数据的使用范围。简单来说，就是<strong>不要</strong>将被保护数据的<strong>指针或引用</strong>通过返回值、函数参数的方式，传到无法控制的范围内。这个约定，是基于一个简单的假设：你无法保证在你无法控制的范围内，其他程序员是否按照约定使用互斥量保护这份数据。</p>
+<p>我们看一个<strong>不好的</strong>例子。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Container</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">typedef</span> <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; guarded_mutex;</span><br><span class="line">    <span class="built_in">std</span>::mutex mtx_;                    <span class="comment">// 1.</span></span><br><span class="line">    DataType* data_;                    <span class="comment">// 2.</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">    <span class="keyword">template</span>&lt;<span class="keyword">typename</span> FuncType&gt;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">process_data</span><span class="params">(FuncType func)</span> </span>&#123;  <span class="comment">// 3.</span></span><br><span class="line">        <span class="function">guarded_mutex <span class="title">l</span><span class="params">(<span class="keyword">this</span>-&gt;mtx_)</span></span>;</span><br><span class="line">        func(<span class="keyword">this</span>-&gt;data);               <span class="comment">// 4.</span></span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">list</span>* unprotected;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">malicious_function</span><span class="params">(<span class="built_in">std</span>::<span class="built_in">list</span>* protected_data)</span> </span>&#123;</span><br><span class="line">    unprotected = protected_data;       <span class="comment">// 5.</span></span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Container&lt;<span class="built_in">std</span>::<span class="built_in">list</span>&gt; ctn;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">foo</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    ctn.process_data(malicious_function);</span><br><span class="line">    unprotected-&gt;clear();               <span class="comment">// 6.</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在这个例子当中，<code>Container</code> 使用 (1) <code>mtx_</code> 保护 (2) <code>data_</code>。但需要注意的是，(3) 接收的函数 <code>func</code> 是一个外部函数。由于在写 <code>Container</code> 这段代码时，你无法与之以后的用户，会传递何种 <code>func</code> 进来。所以对于 <code>Container</code> 的作者来说，<code>func</code> 是不可控的。但是，(4) 将内部被保护的数据的指针，作为参数传递给了 <code>func</code>。接下来的事情就变得糟糕了。首先我们定义了一个恶意函数 <code>malicious_function</code>，在其中 (5) 将传递进来的指针赋值给了一个没有任何保护的全局指针变量 <code>unprotected</code>。而最后，在没有任何保护的情况下，(6) 清空了整个链表。这个操作是非常危险的。</p>
+<p>因此，在使用互斥量保护数据的时候，需要注意：</p>
+<ul>
+<li>不能将被保护数据的指针或引用以函数返回值的形式，返回给外部不可控的调用者；</li>
+<li>不能将被保护数据的指针或引用意函数参数的形式，传递给外部不可控的调用者。</li>
+</ul>
+<h3 id="死锁及其解法"><a href="#死锁及其解法" class="headerlink" title="死锁及其解法"></a>死锁及其解法</h3><p>回到我们最开始<del>有味道</del>的例子。</p>
+<p>假设现在你给锅、铲都加上了互斥量。这样一来，你希望朋友 A 和朋友 B 不会在同一时间共用锅铲，避免未定义的行为。然而，新的问题又来了。</p>
+<table>
+<thead>
+<tr>
+<th>朋友 A</th>
+<th>朋友 B</th>
+<th>注释</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>给锅铲上锁</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>给锅子上锁</td>
+<td></td>
+</tr>
+<tr>
+<td></td>
+<td>开始使用锅子</td>
+<td></td>
+</tr>
+<tr>
+<td>开始使用锅铲</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>尝试获取锅子的锁</td>
+<td></td>
+<td>朋友 A 开始等待</td>
+</tr>
+<tr>
+<td></td>
+<td>尝试获取锅铲的锁</td>
+<td>朋友 B 开始等待</td>
+</tr>
+</tbody>
+</table>
+<p>现在，因为有锁的保护，所以朋友 A 和朋友 B 不会再同时使用锅或铲了，避免了「辣椒炒蛋」的闹剧。但是，现在朋友 A 和朋友 B 来到你的面前，向你哭诉：「我的心在等待，永远在等待」。</p>
+<p>朋友 A 期待使用锅子，然而因为锅子对应的锁被朋友 B 锁上，所以朋友 A 不得不等待朋友 B 使用完毕之后才行；另一方面，朋友 B 需要使用锅铲，对应的锁却被朋友 A 锁上了。这样一来，由于朋友 A 和朋友 B 互相等待，但各自又什么都做不了。于是两人只能大眼瞪小眼，永远「耗下去」。</p>
+<p>在并发编程领域中，我们把这种现象称之为「死锁」。对于由「锁」引起的「死锁」，它有几个特点：</p>
+<ul>
+<li>完成一个任务，需要获取多把锁；</li>
+<li>存在数据竞争；</li>
+<li>各自持有一部分数据对应的锁，互相等待，永不释放。</li>
+</ul>
+<p>为了解决死锁问题，前辈们曾经提出了很多方案。其中最基本的一个方案是说：在操作需要获取多把锁时，总是以固定的顺序获取这些锁。比如，在我们的例子里，如果要求必须先获取锅铲对应的锁，再去获取锅子对应的锁；那么由于锅铲对应的锁被朋友 A 首先持有，那么朋友 B 就只能等待 A 做好菜之后，才能一展身手。这样一来，死锁的问题就解决了。</p>
+<p>然而，这样的建议并不能解决所有问题。所谓「固定顺序」的前提是我们能够以某种方式定义出稳定的顺序关系。然而，有时候我们无法在代码中定义这样的顺序。比如，假设有两个对象，它们是同一个类的两个实例。现在，我们希望在某个线程里，交换二者的内容。显而易见，我们应该要用对应的锁分别保护两个对象，避免被并发的其他线程破坏。然而，在此二者之间，你很难定义具体的顺序。索性，C++ 标准库提供了 <code>std::lock()</code> 函数，用于同时锁住多个互斥量，并且没有死锁的风险。</p>
+<p>以下示例展示了如何用 <code>std::lock()</code> 函数同时锁住两个互斥量。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">swap</span><span class="params">(DataType&amp; lhs, DataType&amp; rhs)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Container</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">typedef</span> <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; guarded_mutex;</span><br><span class="line">    <span class="built_in">std</span>::mutex mtx_;</span><br><span class="line">    DataType data_;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">friend</span> <span class="keyword">void</span> <span class="title">swap</span><span class="params">(Container&lt;DataType&gt;&amp; lhs, Container&lt;DataType&gt;&amp; rhs)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (&amp;lhs == &amp;rhs) &#123; <span class="keyword">return</span>; &#125;                   <span class="comment">// 1.</span></span><br><span class="line">        <span class="built_in">std</span>::lock(lhs.mtx_, rhs.mtx_);                  <span class="comment">// 2.</span></span><br><span class="line">        <span class="function">guarded_mutex <span class="title">g_lhs</span><span class="params">(lhs.mtx_, <span class="built_in">std</span>::adopt_lock)</span></span>; <span class="comment">// 3.</span></span><br><span class="line">        <span class="function">guarded_mutex <span class="title">g_rhs</span><span class="params">(rhs.mtx_, <span class="built_in">std</span>::adopt_lock)</span></span>; <span class="comment">// 4.</span></span><br><span class="line">        swap(lhs.data_, rhs.data_);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>例子中，首先我们在 (1) 处判断传入的两个容器是否不同。这是因为，对同一个 <code>std::mutex</code> 在线程中反复上锁是未定义行为。而后我们在 (2) 处使用 <code>std::lock()</code> 函数，同时锁住 <code>lhs</code> 和 <code>rhs</code> 的互斥量。之后，我们在 (3) 和 (4) 处使用 RAII 容器接管已经上锁的互斥量。主意，这里传入的 <code>std::adopt_lock</code> 表示该互斥量已经上锁，<code>std::lock_guard</code> 只需要接管互斥量的所有权即可，不需要再次上锁。在此之后，我们就可以安心地调用 <code>swap</code> 函数交换两个 <code>DataType</code> 中的内容了。</p>
+<h3 id="当-std-lock-解决不了死锁的时候"><a href="#当-std-lock-解决不了死锁的时候" class="headerlink" title="当 std::lock 解决不了死锁的时候"></a>当 <code>std::lock</code> 解决不了死锁的时候</h3><p>对于死锁，<code>std::lock</code> 函数能够保证一次性锁住多把锁，从而在一定程度上解决了问题。之所以说它只是在一定程度上解决问题，是因为还有很多情况，是无法使用 <code>std::lock</code> 的。比如，有一些情况必须要在不同的位置，分别锁上不同的锁。这时候，<code>std::lock</code> 就不适用了。此外，死锁问题并不仅仅是发生在和互斥量相关的情形中，此时使用 <code>std::lock</code> 也解决不了问题——因为根本不存在锁的问题。</p>
+<p>对于 <code>std::lock</code> 解决不了的死锁情况，想要写出不会死锁的代码，就需要靠一些规<del>玄</del>矩<del>学</del>来保证了。对于这些规矩，我们简单罗列如下。</p>
+<ul>
+<li>避免需要获取多个锁的情况：从根本上避免死锁的可能；</li>
+<li>持有锁的时候，不要调用不可控的用户函数：因为你不知道用户函数会做什么，比如它可能会锁上另一把锁；</li>
+<li>如果必须获取多个锁，那么按顺序上锁：从而避免竞争；</li>
+<li>使用层次锁，强制要求上锁的顺序：这是在上一条规矩的基础上衍生而来的。</li>
+</ul>
+<h2 id="奇行种，以及一些其他问题"><a href="#奇行种，以及一些其他问题" class="headerlink" title="奇行种，以及一些其他问题"></a>奇行种，以及一些其他问题</h2><h3 id="层次锁"><a href="#层次锁" class="headerlink" title="层次锁"></a>层次锁</h3><p>首先我们看一个名为层次锁的<del>奇行种</del>。</p>
+<p>层次锁是为了保证上锁顺序而设计出来的奇怪物种。当一个线程尝试对一个层次锁上锁时，需要检查当前已经上锁的锁的层次，从而保证当前尝试上锁的层次低于已经上锁的层次。以下是对层次锁的一个简单实现。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">hierarchial_mutex</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">typedef</span> <span class="keyword">size_t</span> level;</span><br><span class="line">    <span class="keyword">typedef</span> <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; guarded_mutex;</span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">constexpr</span></span><br><span class="line">    level max_level = <span class="built_in">std</span>::numeric_limits&lt;<span class="built_in">std</span>::<span class="keyword">size_t</span>&gt;::max();</span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="built_in">std</span>::mutex mtx_;</span><br><span class="line">    <span class="keyword">const</span> level mtx_level_  = <span class="number">0</span>;</span><br><span class="line">    level prev_mtx_level_   = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">static</span> <span class="keyword">thread_local</span></span><br><span class="line">    level thread_mtx_level;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">inline</span> <span class="keyword">void</span> <span class="title">check_level</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">not</span>(mtx_level_ &lt; thread_mtx_level)) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="built_in">std</span>::logic_error(<span class="string">"mutex hierarchy violated!"</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">inline</span> <span class="keyword">void</span> <span class="title">update_level</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        prev_mtx_level_  = thread_mtx_level;</span><br><span class="line">        thread_mtx_level = mtx_level_;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">inline</span> <span class="keyword">void</span> <span class="title">recover_level</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        thread_mtx_level = prev_mtx_level_;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    hierarchial_mutex(<span class="keyword">const</span> hierarchial_mutex&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    hierarchial_mutex&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> hierarchial_mutex&amp;) = <span class="keyword">delete</span>;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    hierarchial_mutex() :</span><br><span class="line">        mtx_level_&#123;<span class="number">0</span>&#125;, prev_mtx_level_&#123;<span class="number">0</span>&#125; &#123;&#125;</span><br><span class="line">    hierarchial_mutex(<span class="keyword">const</span> level&amp; value) :</span><br><span class="line">        mtx_level_&#123;value&#125;, prev_mtx_level_&#123;<span class="number">0</span>&#125; &#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">lock</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        check_level();</span><br><span class="line">        mtx_.lock();</span><br><span class="line">        update_level();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">unlock</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        recover_level();</span><br><span class="line">        mtx_.unlock();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">bool</span> <span class="title">try_lock</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        check_level();</span><br><span class="line">        <span class="keyword">if</span> (<span class="keyword">not</span>(mtx_.try_lock())) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            update_level();</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">thread_local</span> hierarchial_mutex::level</span><br><span class="line">hierarchial_mutex::thread_mtx_level&#123;hierarchial_mutex::max_level&#125;;</span><br></pre></td></tr></table></figure>
+<p>在接口上，<code>hierarchial_mutex</code> 基本上完整地实现了 <code>std::mutex</code> 的接口。不同的是，首先，每个 <code>hierarchial_mutex</code> 都有一个自己的等级 <code>mtx_level_</code>；在 <code>lock()</code>, <code>unlock()</code> 和 <code>try_lock()</code> 时，<code>hierarchial_mutex</code> 需要对 <code>thread_mtx_level</code> 以及 <code>prev_mtx_level_</code> 进行维护。其中，<code>thread_mtx_level</code> 是 <code>static thread_local</code> 的，这意味着，同一个线程的不同 <code>hierarchial_mutex</code> 公用一个 <code>thread_mtx_level</code>，而不同线程之间则是不同的 <code>thread_mtx_level</code>。</p>
+<h3 id="允许额外上锁的-RAII-容器：std-unique-lock"><a href="#允许额外上锁的-RAII-容器：std-unique-lock" class="headerlink" title="允许额外上锁的 RAII 容器：std::unique_lock"></a>允许额外上锁的 RAII 容器：<code>std::unique_lock</code></h3><p>前文提到了 RAII 容器 <code>std::lock_guard</code>。它会在构造时对传入的互斥量上锁（如果没有 <code>std::adopt_lock</code> 标志的话），并在销毁时解锁。然而，<code>std::lock_guard</code> 实例没有 <code>lock()</code>, <code>unlock()</code> 以及 <code>try_lock()</code> 函数，因此一旦锁上，就必须等待实例销毁才能解锁互斥量。若是在锁住互斥量的过程中，有一些不必上锁但特别耗时的外部 I/O 操作，那么 <code>std::lock_guard</code> 的这一特性就会降低并发效率。</p>
+<p><code>std::unique_lock</code> 和 <code>std::lock_guard</code> 一样，都是对互斥量的 RAII 容器。不同的是，<code>std::unique_lock</code> 提供了 <code>lock()</code>, <code>unlock()</code> 和 <code>try_lock()</code> 函数，能够通过 RAII 容器锁住/解锁内部的互斥量。除此之外，<code>std::unique_lock</code> 还能保证在销毁时正确解锁内部的互斥量。</p>
+<p>之前的 <code>swap</code> 示例，若使用 <code>std::unique_lock</code> 则应是如下光景。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">swap</span><span class="params">(DataType&amp; lhs, DataType&amp; rhs)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Container</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">typedef</span> <span class="built_in">std</span>::unique_lock&lt;<span class="built_in">std</span>::mutex&gt; guarded_mutex;</span><br><span class="line">    <span class="built_in">std</span>::mutex mtx_;</span><br><span class="line">    DataType data_;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">friend</span> <span class="keyword">void</span> <span class="title">swap</span><span class="params">(Container&lt;DataType&gt;&amp; lhs, Container&lt;DataType&gt;&amp; rhs)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (&amp;lhs == &amp;rhs) &#123; <span class="keyword">return</span>; &#125;</span><br><span class="line">        <span class="function">guarded_mutex <span class="title">g_lhs</span><span class="params">(lhs.mtx_, <span class="built_in">std</span>::defer_lock)</span></span>; <span class="comment">// 1.</span></span><br><span class="line">        <span class="function">guarded_mutex <span class="title">g_rhs</span><span class="params">(rhs.mtx_, <span class="built_in">std</span>::defer_lock)</span></span>; <span class="comment">// 2.</span></span><br><span class="line">        <span class="built_in">std</span>::lock(lhs.mtx_, rhs.mtx_);</span><br><span class="line">        swap(lhs.data_, rhs.data_);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>此处，我们在 (1) 和 (2) 中提供了对互斥量的封装，并声明 <code>std::defer_lock</code>，以在后面使用 <code>std::lock</code> 一次性锁住两个互斥量。当然，在这个例子中，<code>std::unique_lock</code> 相对 <code>std::lock_guard</code> 的优势并没有体现出来，仅只是一个示例。</p>
+<h3 id="锁的粒度"><a href="#锁的粒度" class="headerlink" title="锁的粒度"></a>锁的粒度</h3><p>多线程提高执行效率的根源，在于多个线程可以同时执行不同的指令。然而，锁的存在会破坏这一特性。当多个线程同时尝试访问被互斥量保护的数据时，除了成功获取锁的线程，其它线程都被阻塞住，等待锁被释放。当然，为了线程安全，这种阻塞是不可避免的；然而，另一方面，过多的阻塞，必然降低并发效率，「吃掉」并发带来的性能提升。</p>
+<p>这样一来，使用合适的粒度，减少不必要的等待就显得很有必要了。一般来说，锁的粒度可以定义为：被锁保护的数据的量在时间上的累积。</p>
+<p>$$ \text{锁的粒度} \overset{\small\text{def}}{=} \text{被保护的数据量}\times \text{因持有锁而阻塞其他线程的时间}. $$</p>
+<p>显而易见，如果一个锁保护的数据量很大，那么其它线程获取相应的锁的次数就会相应增加；另一方面，如果某个线程长时间持有锁，那么其他线程因此阻塞等待的时间就会很长。因此，在保证线程安全的情况下，我们应该尽可能降低锁的粒度。</p>
+<p>为了减小锁的粒度，一方面我们可以减少锁保护的数据量，另一方面则可以降低线程持有锁的时间。前者需要具体问题具体分析地进行竞答细算；后者则相对容易分析。</p>
+<p>对于数据结构的操作，大体可以分为以下三个步骤：</p>
+<ul>
+<li>读取数据（可能是其中一部分）；</li>
+<li>处理数据；</li>
+<li>回写处理结果。</li>
+</ul>
+<p>通常来说，对数据进行处理，这件事情本身不会破坏数据结构的不变量，因而不用加锁；而读取和写入数据是需要用锁保护的。因此，如果粗犷地用锁将上述整个过程保护起来，而处理数据的时间很长（例如有网络 I/O），那么这样无疑效率是很低的。因此，我们可以考虑在处理数据的过程中，释放锁；而仅用锁保护对数据的读取和回写过程。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">get_process_write</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::unique_lock&lt;<span class="built_in">std</span>::mutex&gt; lk(a_mutex);   <span class="comment">// 1.</span></span><br><span class="line">    Data chunk = get_data_chunk();</span><br><span class="line">    lk.unlock();                                <span class="comment">// 2.</span></span><br><span class="line">    Result res = process_data_chunk(chunk);</span><br><span class="line">    lk.lock();                                  <span class="comment">// 3.</span></span><br><span class="line">    write_back(chunk, res);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>代码简单展现了应用 <code>std::unique_lock</code> 管理互斥量 (1) 的过程。在读操作完成之后，解锁互斥量 (2)，而在写操作之前，再次锁住互斥量 (3)。这样一来，在 <code>process_data_chunk</code> 的过程中，当前线程并不持有锁，因而降低了锁的粒度。</p>
+<h3 id="读写锁与-std-shared-mutex-和-std-shared-lock"><a href="#读写锁与-std-shared-mutex-和-std-shared-lock" class="headerlink" title="读写锁与 std::shared_mutex 和 std::shared_lock"></a>读写锁与 <code>std::shared_mutex</code> 和 <code>std::shared_lock</code></h3><p>在进一步探讨锁的粒度之前，我们回顾一下在介绍竞争状态的时候，我们讲到，线程安全需要解决的本质问题，是保证不变量被破坏的中间状态，数据结构仅只对修改它的那个线程可见。从此出发，我们不难理解以下两个推论。</p>
+<ul>
+<li>因为仅仅「读取」数据不会破坏不变量，所以多个线程同时读取某个数据结构是安全的。</li>
+<li>但是，另一方面，如果有一个线程尝试对数据进行修改，那么若有其他线程在访问该数据结构（不论读写），都可能是不安全的。</li>
+</ul>
+<p>这样一来，不难发现，对于「读」和「写」两类操作，数据结构所需的「保护」，其程度是不一样的。</p>
+<ul>
+<li>若一个线程仅只是读取一个数据结构，那么只需保证没有其他线程同时写入即可，但其它线程对数据结构的读操作是安全的。</li>
+<li>若一个线程尝试修改一个数据结构（写操作），那么其它线程对该数据结构的读写操作都是不安全的，因而应该被禁止。</li>
+</ul>
+<p>对一个频繁进行写操作的数据结构来说，按照读写操作，区分保护程度意义不大。这是因为，区分两种程度的保护，必然带来额外的开销。而若是某个数据结构的读操作的频率远远大于写操作，那么进行这样的区分，从而降低锁的粒度，收益就很客观了。</p>
+<p>为此，我们引入 <code>std::shared_mutex</code> 的概念。除了和一般的 <code>std::mutex</code> 一样提供 <code>lock()</code>, <code>try_lock()</code> 和 <code>unlock()</code> 之外，<code>std::shared_mutex</code> 还提供了 <code>lock_shared()</code>, <code>try_lock_shared()</code> 和 <code>unlock_shared()</code> 三个操作。</p>
+<table>
+<thead>
+<tr>
+<th>阻塞情况表</th>
+<th>自由</th>
+<th>被共享锁住</th>
+<th>被独占锁住</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lock()</code></td>
+<td>以独占方式锁住</td>
+<td>阻塞</td>
+<td>阻塞</td>
+</tr>
+<tr>
+<td><code>lock_shared()</code></td>
+<td>以共享方式锁住</td>
+<td>以共享方式锁住</td>
+<td>阻塞</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><code>std::shared_mutex</code> 直到 C++17 才被引入。若你的编译器不支持 C++17，请升级你的编译器，或者使用 <code>boost::shared_mutex</code> 代替。</p>
+</blockquote>
+<p>于是，我们可以使用 <code>std::shared_mutex</code> 保护频繁读取而甚少写入的数据结构，并在读取时使用 <code>lock_shared()</code> 锁住互斥量，而在写入时使用 <code>lock()</code> 锁住互斥量。</p>
+<p>与 <code>std::unique_lock</code> 对应，标准库也提供了 <code>std::shared_lock</code> 容器。它会在构造时，尝试以 <code>lock_shared()</code> 锁住传入的<a href="http://en.cppreference.com/w/cpp/concept/SharedMutex" target="_blank" rel="noopener">共享互斥量</a>，并在销毁时，确保以 <code>unlock_shared()</code> 的方式释放共享互斥量。同时，<code>std::shared_lock</code> 也提供了 <code>lock()</code> 和 <code>unlock()</code> 接口，用于以共享的方式锁住或者解锁构造时关联的共享互斥量。</p>
+<blockquote>
+<p><code>std::shared_lock</code> 直到 C++14 才被引入。若你的编译器不支持 C++14，请升级你的编译器，或者使用 <code>boost::shared_lock</code> 代替。</p>
+</blockquote>
+<p>读写锁的一个典型应用场景是线程共享的数据缓存。对于缓存来说，存在于缓存内的条目（entry）通常会被频繁读取，而写操作则相对来说低频很多。比如，DNS 服务器上的缓存就是这样的情况。DNS 解析记录一般来说是非常稳定的——频繁更换解析结果的域名总是少数。这里以 DNS 缓存作为读写锁的简单示例。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unordered_map&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;mutex&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;shared_mutex&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">DNSEntry</span>;</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">DNSCache</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="keyword">typedef</span> <span class="built_in">std</span>::<span class="built_in">unordered_map</span>&lt;<span class="built_in">std</span>::<span class="built_in">string</span>, DNSEntry&gt; RecMap;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    RecMap entries_;</span><br><span class="line">    <span class="keyword">mutable</span> <span class="built_in">std</span>::shared_mutex entry_mutex_;                     <span class="comment">// 1.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="function">DNDEntry <span class="title">find_entry</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; domain)</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">        <span class="built_in">std</span>::shared_lock&lt;<span class="built_in">std</span>::shared_mutex&gt; slk(entry_mutex_);  <span class="comment">// 2.</span></span><br><span class="line">        <span class="keyword">const</span> RecMap::const_iterator target = entries_.find(domain);</span><br><span class="line">        <span class="keyword">const</span> <span class="keyword">bool</span> found = (target !+ entries_.end());</span><br><span class="line">        <span class="keyword">return</span> found ? target-&gt;second : DNSEntry();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">update_one_entry</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; domain, <span class="keyword">const</span> DNSEntry&amp; entry)</span> </span>&#123;</span><br><span class="line">        <span class="built_in">std</span>::unique_lock&lt;<span class="built_in">std</span>::shared_mutex&gt; ulk(entry_mutex_);  <span class="comment">// 3.</span></span><br><span class="line">        entries_[domain] = entry;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>此处 (1) 为保护 <code>RecMap</code> 引入了一个共享互斥量，它是 <code>mutable</code> 的，因而<a href="/2017/05/25/the-mutable-keyword-in-Cxx/">允许在 <code>const</code> 成员函数中做修改</a>。(2) 通过 <code>std::shared_lock</code> 容器，以共享的方式锁住互斥量，保证读操作的稳定；(3) 则通过 <code>std::unique_lock</code> 容器，以独占的方式锁住互斥量，保证写操作的安全。</p>
+<h3 id="保护数据的初始化过程"><a href="#保护数据的初始化过程" class="headerlink" title="保护数据的初始化过程"></a>保护数据的初始化过程</h3><p>我们在<a href="/2017/01/17/layers-and-operation-system/#CPU_动态调度">前作</a>中，介绍了一个 <code>GetInstance</code> 函数。通常，这种用法适用于构造过程开销很大，而使用过程本身是线程安全的情况（比如连接数据库的过程）。在线程中使用 <code>GetInstance</code> 函数获取数据的指针，而不是在进程启动时构造数据，可以加快程序的启动速度，减少总体的等待时间。为了避免额外的获取锁的操作，前作首先使用了两次指针检查的方式。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">volatile</span> T* pInst = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="function">T* <span class="title">GetInstance</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">        lock();</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">            pInst = <span class="keyword">new</span> T;</span><br><span class="line">        &#125;</span><br><span class="line">        unlock();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> pInst;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然而，由于 CPU 的动态调度，这样的代码可能引发严重的问题。于是，前作引入了基于操作系统架构的解决方案。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> barrier() __asm__ volatile(<span class="meta-string">"mfence"</span>)</span></span><br><span class="line"><span class="keyword">volatile</span> T* pInst = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="function">T* <span class="title">GetInstance</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">        lock();</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">            T* temp = <span class="keyword">new</span> T;</span><br><span class="line">            barrier();</span><br><span class="line">            pInst   = temp;</span><br><span class="line">        &#125;</span><br><span class="line">        unlock();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> pInst;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然而，<code>mfence</code> 是 i386 架构特有的指令。因此，这份代码在别的架构上无法正确执行。为了保证通用性，C++11 引入了 <code>std::once_flag</code> 和 <code>std::call_once</code> 解决这类问题。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;mutex&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">volatile</span> T* pInst = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="built_in">std</span>::once_flag flag_T;                          <span class="comment">// 1.</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">ConstructInstance</span><span class="params">()</span> </span>&#123;                      <span class="comment">// 2.</span></span><br><span class="line">    pInst = <span class="keyword">new</span> T;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">T* <span class="title">GetInstance</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::call_once(flag_T, ConstructInstance);  <span class="comment">// 3.</span></span><br><span class="line">    <span class="keyword">return</span> pInst;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>此处，(1) 初始化了一个对于类型 <code>T</code> 的哨兵变量，用于标记 <code>T</code> 类型的实例是否已经初始化。(2) 则是对实例初始化的封装。在 (3) 处，我们使用 <code>std::call_once</code> 确保 <code>ConstructInstance</code> 有且只有一次调用，从而返回正确的实例对象的指针。</p>
+<h2 id="锁解决不了的竞争状态"><a href="#锁解决不了的竞争状态" class="headerlink" title="锁解决不了的竞争状态"></a>锁解决不了的竞争状态</h2><h3 id="接口固有的竞争状态"><a href="#接口固有的竞争状态" class="headerlink" title="接口固有的竞争状态"></a>接口固有的竞争状态</h3><p>使用锁保护数据，通过阻塞其它线程的方式，可以避免一些竞争状态。因此，在一些数据结构中，使用锁可以保证数据结构对外的几个接口互相之间是线程安全的。然而，这并不意味着在外部调用这些接口就一定是线程安全的。事实上，这些接口本身可能存在<strong>固有的竞争状态</strong>，因而在其内部使用锁保护数据不能完全解决问题。</p>
+<p>举例来说，对于一个标准的栈，除去其构造函数和交换函数 <code>swap()</code>，还有五个接口：</p>
+<ul>
+<li><code>push()</code>: 将新元素压栈；</li>
+<li><code>pop()</code>: 弹出栈顶元素；</li>
+<li><code>top()</code>: 返回栈顶元素；</li>
+<li><code>empty()</code>: 判断栈是否为空；</li>
+<li><code>size()</code>: 返回栈的大小。</li>
+</ul>
+<p>这五个接口中，隐含了两类固有的竞争状态。</p>
+<p>第一类：通过 <code>empty()</code> 或 <code>size()</code> 判断栈状态，而后对栈做其他操作。这是竞争状态的原因在于，在多线程环境中，<code>empty()</code> 和 <code>size()</code> 的返回值是不可信的。比如，在 A 线程调用 <code>empty()</code> 并返回 <code>false</code> 之后，B 线程可能紧接着清空了整个栈，而后 A 线程基于上述 <code>false</code> 判断调用 <code>top()</code> 函数就会产生<del>不可描述</del>不符合预期的结果。</p>
+<p>第二类：首先通过 <code>top()</code> 获取栈顶元素，而后通过 <code>pop()</code> 弹栈该元素。之所以这也是竞争状态，是因为在 <code>top()</code> 和 <code>pop()</code> 之间，其它线程可能进行额外的 <code>push()</code> 或者 <code>pop()</code> 操作，于是当前线程弹出的元素不一定是通过 <code>top()</code> 获取的那个元素。</p>
+<p>不难发现，因为这两类固有的竞争状态，不论栈的内部如何实现，外部使用栈时，都可能有线程不安全的情况。</p>
+<h3 id="top-和-pop-分离的原因"><a href="#top-和-pop-分离的原因" class="headerlink" title="top() 和 pop() 分离的原因"></a><code>top()</code> 和 <code>pop()</code> 分离的原因</h3><p>上述两类固有的竞争状态源自栈的接口设计。对于第一类竞争状态来说，如此设计似乎情有可原。但是，为什么要将 <code>top()</code> 和 <code>pop()</code> 分离开呢？</p>
+<p>简单来说，<code>top()</code> 将栈顶元素返回给调用者的过程意味着存在一次元素的拷贝。如果栈顶元素体积很大，比如是一个非常长的 <code>std::vector&lt;int&gt;</code>，那么在拷贝的过程中，可能因为系统负载相对资源过高，而抛出 <code>std::bad_alloc</code> 异常。对于现有的实现来说，即使抛出异常，栈内的元素还是完整的。但若是将 <code>pop()</code> 实现在弹栈之后将被弹栈的栈顶元素返回给调用者，则在上述异常可能发生在栈已经被修改之后。若是前一种情况（即当前的实现），调用者在收到异常时，可以尝试进行一些处理；但是，在后一种情况下，即使调用者尝试做了一些内存清理工作，栈中的目标元素也已经被销毁了。</p>
+<h3 id="修改接口，实现线程安全"><a href="#修改接口，实现线程安全" class="headerlink" title="修改接口，实现线程安全"></a>修改接口，实现线程安全</h3><p>以下是一个线程安全的栈的简单实现，分析后附。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;exception&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;memory&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;mutex&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stack&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">empty_stack</span> :</span> <span class="keyword">public</span> <span class="built_in">std</span>::exception &#123;                    <span class="comment">// 1.</span></span><br><span class="line">    <span class="function"><span class="keyword">const</span> <span class="keyword">char</span>* <span class="title">what</span><span class="params">()</span> <span class="keyword">const</span> <span class="title">throw</span><span class="params">()</span></span>;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">threadsafe_stack</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">stack</span>&lt;T&gt; stack_;                                       <span class="comment">// 2.</span></span><br><span class="line">    <span class="keyword">mutable</span> <span class="built_in">std</span>::mutex mtx_;                                    <span class="comment">// 3.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    threadsafe_stack() &#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">threadsafe_stack</span><span class="params">(<span class="keyword">const</span> threadsafe_stack&amp; source)</span> </span>&#123;</span><br><span class="line">        <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; slk(source.mtx_);</span><br><span class="line">        stack_ = source.stack_;</span><br><span class="line">    &#125;</span><br><span class="line">    threadsafe_stack&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> threadsafe_stack&amp; source) &#123;</span><br><span class="line">        <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; slk(source.mtx_);</span><br><span class="line">        stack_ = source.stack_;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">bool</span> <span class="title">empty</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123;                                        <span class="comment">// 4.</span></span><br><span class="line">        <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; slk(mtx_);</span><br><span class="line">        <span class="keyword">return</span> stack_.empty();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">size_t</span> size() <span class="keyword">const</span> &#123;</span><br><span class="line">        <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; slk(mtx_);</span><br><span class="line">        <span class="keyword">return</span> stack_.size();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">push</span><span class="params">(T element)</span> </span>&#123;</span><br><span class="line">        <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; ulk(mtx_);</span><br><span class="line">        stack_.push(element);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">shared_ptr</span>&lt;T&gt; pop() &#123;                                  <span class="comment">// 5.</span></span><br><span class="line">        <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; ulk(mtx_);</span><br><span class="line">        <span class="keyword">if</span> (stack_.empty()) &#123;</span><br><span class="line">            <span class="keyword">throw</span> empty_stack();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">std</span>::<span class="built_in">shared_ptr</span> res&#123;<span class="built_in">std</span>::make_shared&lt;T&gt;(stack_.top())&#125;;</span><br><span class="line">        stack_.pop();</span><br><span class="line">        <span class="keyword">return</span> res;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">pop</span><span class="params">(T&amp; ref_holder)</span> </span>&#123;                                   <span class="comment">// 6.</span></span><br><span class="line">        <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; ulk(mtx_);</span><br><span class="line">        <span class="keyword">if</span> (stack_.empty()) &#123;</span><br><span class="line">            <span class="keyword">throw</span> empty_stack();</span><br><span class="line">        &#125;</span><br><span class="line">        ref_holder = stack_.top();</span><br><span class="line">        stack_.pop();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>此处我们实现了名为 <code>threadsafe_stack</code> 的模板类。其中，显而易见，我们的线程安全栈的实现是基于标准库中的栈的 (2)，并且为了实现线程安全，我们使用了一个互斥量来保护栈对象 (3)。此外，尽管存在一些只读的公开成员函数 (4)；但是，考虑到实际使用中，大量的栈操作都是写操作，因此 (3) 没有使用读写锁。</p>
+<p>为了解决第一类固有竞争状态，我们首先在 (1) 处定义了空栈异常——我们让对空栈进行的 <code>pop()</code> 操作 (5, 6) 抛出空栈异常。如此，在调用处使用 <code>try ... catch ...</code> 语句块，就能实现预期的行为，同时避免接口竞争。</p>
+<p>为了避免第二类固有竞争状态，我们取消了 <code>top()</code> 函数，而将它的功能合并入 <code>pop()</code> 函数。同时，为了避免在抛出 <code>std::bad_alloc</code> 时元素已弹栈导致的数据丢失的问题，我们在内部栈对象弹栈之前，尝试将目标元素拷贝 (5) 或赋值 (6) 到其它地方。最后，我们返回拷贝的结果的指针 (5) 或引用 (6) 传给调用者。如此，就避免了第二类竞争。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>如我们在<a href="/2017/01/17/layers-and-operation-system/">前作</a>最后提到的，「线程安全」是一个烫手山芋，不存在放之四海而皆准的解决方案（所谓「没有银弹」）。因此，为了写出线程安全的代码，我们必须在理解问题之起因的基础上，具体问题具体分析。</p>
+<p>为此，此篇从「不变量」开始，引出在线程中共享数据的「竞争状态」——线程安全问题的根源。而后就如何解决问题展开了一系列的讨论。首先，我们介绍了如何使用标准库提供的「锁」来保护共享数据结构，并介绍了和锁相关的一些话题（如死锁问题、锁的粒度等）。而后，我们通过实现线程安全的栈，讨论了锁无法解决问题时，应当怎么办。</p>
+<p>此篇无法穷尽所有和线程安全、锁、死锁相关的话题和技术。但是，建立在理解的基础上，读者应该能对线程安全有直观的认识。我想这应该是有益的。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/" title="程序员的自我修养（六）：保护线程间的共享数据">https://liam.page/2017/06/10/protecting-data-sharing-between-threads/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/C-11/" rel="tag"># C++11</a>
+          
+            <a href="/tags/Multithread/" rel="tag"># Multithread</a>
+          
+            <a href="/tags/Race-Conditions/" rel="tag"># Race Conditions</a>
+          
+            <a href="/tags/Lock/" rel="tag"># Lock</a>
+          
+            <a href="/tags/Mutex/" rel="tag"># Mutex</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/05/27/tutorial-to-GDB-taking-ncurses-as-an-example/" rel="next" title="GDB 入门教程：调试 ncurses 相关 bug 的完整范例">
+                <i class="fa fa-chevron-left"></i> GDB 入门教程：调试 ncurses 相关 bug 的完整范例
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/06/30/understanding-yield-in-python/" rel="prev" title="Python 中的黑暗角落（一）：理解 yield 关键字">
+                Python 中的黑暗角落（一）：理解 yield 关键字 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#在线程间共享数据的问题"><span class="nav-number">1.</span> <span class="nav-text">在线程间共享数据的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#引子"><span class="nav-number">1.1.</span> <span class="nav-text">引子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#不变量"><span class="nav-number">1.2.</span> <span class="nav-text">不变量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#竞争状态"><span class="nav-number">1.3.</span> <span class="nav-text">竞争状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#避免恶性数据竞争"><span class="nav-number">1.4.</span> <span class="nav-text">避免恶性数据竞争</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用互斥量保护数据"><span class="nav-number">2.</span> <span class="nav-text">使用互斥量保护数据</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#在-C-中使用互斥量"><span class="nav-number">2.1.</span> <span class="nav-text">在 C++ 中使用互斥量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#限制被保护数据的使用范围"><span class="nav-number">2.2.</span> <span class="nav-text">限制被保护数据的使用范围</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#死锁及其解法"><span class="nav-number">2.3.</span> <span class="nav-text">死锁及其解法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#当-std-lock-解决不了死锁的时候"><span class="nav-number">2.4.</span> <span class="nav-text">当 std::lock 解决不了死锁的时候</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#奇行种，以及一些其他问题"><span class="nav-number">3.</span> <span class="nav-text">奇行种，以及一些其他问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#层次锁"><span class="nav-number">3.1.</span> <span class="nav-text">层次锁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#允许额外上锁的-RAII-容器：std-unique-lock"><span class="nav-number">3.2.</span> <span class="nav-text">允许额外上锁的 RAII 容器：std::unique_lock</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#锁的粒度"><span class="nav-number">3.3.</span> <span class="nav-text">锁的粒度</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#读写锁与-std-shared-mutex-和-std-shared-lock"><span class="nav-number">3.4.</span> <span class="nav-text">读写锁与 std::shared_mutex 和 std::shared_lock</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#保护数据的初始化过程"><span class="nav-number">3.5.</span> <span class="nav-text">保护数据的初始化过程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#锁解决不了的竞争状态"><span class="nav-number">4.</span> <span class="nav-text">锁解决不了的竞争状态</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#接口固有的竞争状态"><span class="nav-number">4.1.</span> <span class="nav-text">接口固有的竞争状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#top-和-pop-分离的原因"><span class="nav-number">4.2.</span> <span class="nav-text">top() 和 pop() 分离的原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#修改接口，实现线程安全"><span class="nav-number">4.3.</span> <span class="nav-text">修改接口，实现线程安全</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#小结"><span class="nav-number">5.</span> <span class="nav-text">小结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: "AMS"
+      }
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+      for (i = 0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+  });
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $("code").map(function(){
+    match = /^\$(.*)\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\$\$(.*)\$\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\\begin/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+  });
+});
+</script>
+
+<script src="//cdn.jsdelivr.net/npm/mathjax@2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+<style>
+.MathJax_Display {
+  overflow: auto hidden;
+}
+</style>
+
+    
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

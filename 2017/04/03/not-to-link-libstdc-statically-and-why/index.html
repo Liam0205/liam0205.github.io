@@ -1,0 +1,2830 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
+<meta name="keywords" content="Linking,Loading,Static,Dynamic,Shared Object">
+<meta property="og:type" content="article">
+<meta property="og:title" content="为什么不能在动态库里静态链接？">
+<meta property="og:url" content="https://liam.page/2017/04/03/not-to-link-libstdc-statically-and-why/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="为什么不能在动态库里静态链接？">
+<meta name="twitter:description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2017/04/03/not-to-link-libstdc-statically-and-why/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>为什么不能在动态库里静态链接？ | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+<script>
+if (!yuukiReaddata(window.location.href + "fool")) {
+    document.body.classList.add('yuuki-fool-egg');
+    window.setTimeout(function() {
+        yuukiSavedata(window.location.href + "fool", window.location.href + "fool");
+        alert("恭喜发现愚人节彩蛋，确认后页面将恢复正常。——Liam Huang (Yuuki)");
+        document.body.classList.remove('yuuki-fool-egg');
+    }, 6000);
+}
+
+function yuukiSavedata(key, data) {
+    key = 'yuuki_' + key;
+    data = JSON.stringify(data);
+    if (window.localStorage) {
+        localStorage.setItem(key, data);
+    }
+}
+
+function yuukiReaddata(key) {
+    if (!window.localStorage) return '';
+    key = 'yuuki_' + key;
+    return JSON.parse(localStorage.getItem(key));
+}
+</script>
+
+<style>
+.yuuki-fool-egg {
+    -webkit-transform: matrix(-1, 0, 0, 1, 0, 0);
+    -moz-transform: matrix(-1, 0, 0, 1, 0, 0);
+    transform: matrix(-1, 0, 0, 1, 0, 0);
+    -o-transform: skew(0deg, 180deg) scale(-1, 1);
+    filter:progid: DXImageTransform.Microsoft.BasicImage(mirror=1);
+}
+</style>
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/04/03/not-to-link-libstdc-statically-and-why/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">为什么不能在动态库里静态链接？
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017 年 04 月 03 日 12:13:09" itemprop="dateCreated datePublished" datetime="2017-04-03T12:13:09+08:00">2017 年 04 月 03 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">8.1k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">15 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 <code>A.so</code>）需要使用与整个模块不同版本的 gcc 进行编译。由于 <code>A.so</code> 使用了高版本 <code>libstdc++.so</code> 中提供的接口；因此，如果让 <code>A.so</code> 与整个模块运行在同一个环境（即，依赖同一个低版本的 <code>libstdc++.so</code>），那么，整个程序运行时将会由动态链接器提示「找不到符号」的错误。</p>
+<p>一个「看似」可行的解决办法，是在编译 <code>A.so</code> 的时候，将对应的高版本的 <code>libstdc++</code> 以静态的方式链接到 <code>A.so</code> 里面。这样，如果能把来自高版本 <code>libstdc++.a</code> 的符号隐藏起来（不暴露给动态链接器，避免符号冲突），那么就可以解决问题了。</p>
+<p>然而，这个解决办法，实际上是不可行的。本文将分析为什么不可行。</p>
+<a id="more"></a>
+<h2 id="静态链接的优缺点"><a href="#静态链接的优缺点" class="headerlink" title="静态链接的优缺点"></a>静态链接的优缺点</h2><p>总结起来，静态链接有如下优点</p>
+<ul>
+<li>得到单一的文件，可以拷贝到所有体系结构相同的操作系统上运行；</li>
+<li>对环境的依赖少，在缺少相应动态库的环境里也可以运行；</li>
+<li>因为减少了动态链接的步骤，所以运行起来会快一些（某些情况下）；</li>
+<li>因为在链接时，链接器可以看到所有符号，并进行符号解析，所以链接器可以硬编码函数的入口地址，故而函数调用会快一些；</li>
+<li>因为在链接时，链接器可以看到所有的符号，所以链接器可以优化删除一些没有被引用的符号，一定程度上减小编译出的文件的体积；</li>
+<li>能够明确地知道程序使用的依赖库的版本，而无需担心 <code>LD_LIBRARY_PATH</code>/<code>LD_PATH</code> 的影响。</li>
+</ul>
+<p>当然，静态链接也会有缺点（反过来就是动态链接的优点）</p>
+<ul>
+<li>因为要把所有的符号都打包在一个文件当中，所以文件的体积会显著增大；</li>
+<li>对于依赖的动态库，不论内存中是否有已经载入的副本（特别是 <code>.text</code> 段），对于静态链接的程序，这部分指令都必须重复载入内存，因此内存会消耗得很快；</li>
+<li>对于依赖的动态库，但凡有任何更新，升级程序都必须整个编译、发布走一圈，无法简单地替换 <code>.so</code> 升级。</li>
+</ul>
+<h2 id="对装载的影响"><a href="#对装载的影响" class="headerlink" title="对装载的影响"></a>对装载的影响</h2><p>上述优缺点，实际是站在一个非常 general 的角度对静态链接和动态链接的讨论。在本篇开头处提及的问题，实际上就是希望用到最后一条优点，让 <code>A.so</code> 引用指定版本的 <code>libstdc++</code>。</p>
+<p>但是，在链接生成动态链接库的时候，静态链接依赖另一个静态库，是一种非常规的方法。实际上，这是一种不可行的方法。</p>
+<p>为了说明这个问题，我们需要对程序装载进内存的过程做一个简单的梳理。</p>
+<p>当我们在 Linux bash 当中执行命令启动一个进程的时候，bash 实际上会先做一个 <code>fork()</code> 系统调用，而后在子进程里做一个 <code>execve()</code> 系统调用执行指定的 ELF 可执行文件，原先的进程则返回等待。GLIBC 对 <code>execve()</code> 系统调用做了封装，提供了诸如 <code>execlp()</code> 的函数；但这些函数内里都会去执行 <code>execve()</code> 系统调用。</p>
+<p>以下代码实现了一个简单的 minibash，模拟展示了启动一个进程的过程。</p>
+<figure class="highlight c"><figcaption><span>minibash.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">size_t</span> buf_size = <span class="number">1024</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">char</span> buf[buf_size] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">    <span class="keyword">pid_t</span> pid;</span><br><span class="line">    <span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"minibash $ "</span>);</span><br><span class="line">        <span class="built_in">scanf</span>(<span class="string">"%s"</span>, buf);</span><br><span class="line">        pid = fork();</span><br><span class="line">        <span class="keyword">if</span> (<span class="number">0</span> == pid) &#123;</span><br><span class="line">            <span class="keyword">if</span> (execlp(buf, <span class="number">0</span>) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">printf</span>(<span class="string">"exec error\n"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (pid &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">int</span> status;</span><br><span class="line">            waitpid(pid, &amp;status, <span class="number">0</span>);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            pritnf(<span class="string">"fork error %d\n"</span>, pid);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>当执行到 <code>execve()</code> 系统调用时，就会进入到对应的 <code>sys_execve()</code> 入口。这标志着由用户态向内核态的转变，同时也标志着装载的开始。对于 ELF 可执行文件，之后的调用顺序是</p>
+<ul>
+<li><code>sys_execve()</code> - 进行参数检查；</li>
+<li><code>do_execve()</code> - 找到可执行文件，读取头部的 128 字节（用以判断可执行文件的类型，例如 ELF 可执行文件的前两个字节是 <code>0x7F</code>，即 ELF）；</li>
+<li><code>load_elf_binary()</code><ul>
+<li>检查文件格式</li>
+<li>寻找 <code>.interp</code> 段，设置动态链接器的路径</li>
+<li>设置 ELF 各个段（section）对 VMA 的段（segment）的映射关系</li>
+<li>初始化 ELF 的进程环境</li>
+<li>返回入口地址（静态链接程序：<code>e_entry</code>，动态链接程序：动态链接器）</li>
+</ul>
+</li>
+</ul>
+<p>之后，系统将从内核态转回用户态，并且将控制权交给上述入口地址的指令。对于静态链接的程序来说，<code>e_entry</code> 记录的是整个程序的入口；从内核态转回到用户态之后，进程就从此开始执行。对于动态链接的程序来说，它们的入口是系统提供的动态链接器；从内核态转回到用户态之后，系统将控制权交给动态链接器，由动态链接器完成动态链接过程，而后再跳转到整个程序的真正入口。动态链接器大致完成这些工作：</p>
+<ul>
+<li>启动动态链接器本身，完成自举（Bootstrap）；</li>
+<li>装载所有依赖的动态库（通常是广度优先遍历，但也可以是深度优先遍历）；</li>
+<li>处理全局符号表，完成重定位和初始化；</li>
+<li>将系统控制权交给程序的真正入口。</li>
+</ul>
+<blockquote>
+<p>关于链接、装载的详细内容，可以期待「程序员的自我修养」系列文章。</p>
+</blockquote>
+<p>注意到，我们的模块依赖了 <code>A.so</code>。那么，毫无疑问，这是一个动态链接的程序。我们应该注意到，在进程装载的过程中，首先会完成所有可执行 ELF 文件本身的装载（ELF 到虚存空间的映射），而后才会进入到动态链接库的装载。此外，在动态链接库的装载过程中，动态链接库只会处理以来的动态库（Dynamic Shared Objects，即各种 <code>.so</code> 文件）。也就是说，动态链接程序的装载过程可以分成两个步骤：</p>
+<ul>
+<li>装载可执行 ELF 文件静态链接的部分；</li>
+<li>装载所有依赖的 <code>.so</code> 部分。</li>
+</ul>
+<p>我们注意到，被 <code>.so</code> 依赖的静态库 <code>.a</code> 是没有机会被装载进内存的。因此，在生成 <code>A.so</code> 的过程中，将 <code>libstdc++.a</code> 静态链接进去，是不可行的。因为，这部分静态链接的指令永远没有机会被装载进进程空间执行。因此，若要解决这个问题，就只有将 <code>libstdc++.a</code> 解包成各个普通的目标文件 <code>.o</code>，而后使用链接器 <code>ld</code> 将这些目标文件链接打包进 <code>A.so</code> 当中。</p>
+<h2 id="符号冲突"><a href="#符号冲突" class="headerlink" title="符号冲突"></a>符号冲突</h2><p>现在，我们将 <code>libstdc++</code> 的各个目标文件都链接进了 <code>A.so</code>。那么，<code>A.so</code> 当中会包含 <code>libstdc++</code> 中的所有符号。</p>
+<p>现在的问题是，几乎所有的使用 C++ 编写的可执行程序，都会直接或者间接地依赖 <code>libstdc++.so</code>。因此，当动态链接器尝试装载 <code>libstdc++.so</code> 和 <code>A.so</code> 的时候，就会有大量来自 <code>libstdc++</code> 的符号重复了。这就牵扯到了所谓<strong>全局符号调解（Global Symbol Interpose）</strong>的问题。</p>
+<p>对于 Linux 下的动态链接器，全局符号调解的策略很简单：先读入全局符号表的符号生效，后读入的符号被直接忽略丢弃。</p>
+<p>因此，在这种情况下，我们无法预见整个模块使用的 <code>libstdc++</code> 究竟是来自于系统环境，还是来自于 <code>A.so</code> 中包含的那些部分。因为，这取决于动态链接器装载动态库的顺序。</p>
+<p>为此，我们需要在链接生成 <code>A.so</code> 的时候，将 <code>libstdc++</code> 所含的那些符号隐藏起来。</p>
+<h2 id="全局变量更新导致的运行时问题"><a href="#全局变量更新导致的运行时问题" class="headerlink" title="全局变量更新导致的运行时问题"></a>全局变量更新导致的运行时问题</h2><p>我们回顾一下，至此我们做了这些事情：</p>
+<ul>
+<li>将 <code>libstdc++.a</code> 解包成各个 <code>.o</code> 文件；</li>
+<li>将来自 <code>libstdc++</code> 的各个 <code>.o</code> 文件，编译进 <code>A.so</code>，并隐藏这些符号。</li>
+</ul>
+<p>至此，我们的程序在链接和装载的过程中，不会遇到任何问题——系统能够正常地将控制权交给模块真正的入口了。但是，如此解决方案仍然有问题。</p>
+<p>众所周知，诸如 <code>libstdc++</code>/<code>libpthread</code> 这些库，会在进程空间自行维护一套全局变量和数据结构，用于维护和记录当前的运行状态。很多第三方库，也会有类似的全局变量和数据结构。现在，我们为了使得两个版本的 <code>libstdc++</code>（来自系统环境的，以及来自 <code>A.so</code> 的）在符号的层面上得以共存，就引起了这样的问题：整个进程空间里，这些全局变量和数据结构存在了两份。比如</p>
+<ul>
+<li>文件描述符（FD，File Description)；</li>
+<li>内存边界；</li>
+<li>错误码 <code>errorno</code>；</li>
+<li><code>libpthread</code> 的定时器等。</li>
+</ul>
+<p>这样一来，在这些全局变量和数据结构的角度，进程在运行时就会出现很多自相矛盾的状态；甚至直接引起运行时异常。而因为全局变量和数据结构存在两份，这些问题在追查的过程中会极其困难。</p>
+<p>回顾整个过程，我们不难发现，这样的需求会产生很多问题。尽管从编译、链接、装载的角度，我们可以用一些很 tricky 的方法解决问题；但是，等到程序执行过程中，仍然可能会隐藏各种难以发现、解决的问题。因此，我们说<strong>不应该尝试向动态库静态编译标准库或第三方库</strong>。</p>
+<hr>
+<h2 id="附录：如何将依赖的库静态链接进可执行程序"><a href="#附录：如何将依赖的库静态链接进可执行程序" class="headerlink" title="附录：如何将依赖的库静态链接进可执行程序"></a>附录：如何将依赖的库静态链接进可执行程序</h2><p>我们先来看一个耳熟能详的 <code>Hello world!</code> 程序。</p>
+<figure class="highlight c++"><figcaption><span>hello.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="built_in">std</span>::<span class="built_in">cout</span>;</span><br><span class="line"><span class="keyword">using</span> <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="string">"Hello world!"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>众所周知，如果要将它编译为可执行程序，只需要执行 <code>g++ hello.cpp -o hello</code> 就可以了。在这个过程中，<code>g++</code> 这个命令，隐藏了编译、链接的细节。我们在这里把步骤拆开，依次进行。</p>
+<p>首先，我们对其进行编译。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ g++ -c hello.cpp -o hello.o</span><br></pre></td></tr></table></figure>
+<p>在这里，<code>-c</code> 参数告知 <code>g++</code> 命令，我们只希望编译就可以了，之后的链接不要自动执行。</p>
+<p>我们知道，编译器会将代码中的函数、变量等，翻译成一个个的符号（symbol）。我们可以用 <code>nm</code> 命令，查看 <code>hello.o</code> 当中包含了哪些符号。而后可以用 <code>c++filt</code> 命令，查看符号背后对应的函数签名或者变量名。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ nm hello.o | wc -l</span><br><span class="line">14</span><br><span class="line">$ nm hello.o</span><br><span class="line">000000000000003e t _GLOBAL__I_main</span><br><span class="line">0000000000000000 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev</span><br><span class="line">                 U _ZSt4cout</span><br><span class="line">                 U _ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_</span><br><span class="line">0000000000000000 b _ZSt8__ioinit</span><br><span class="line">                 U _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc</span><br><span class="line">                 U __cxa_atexit</span><br><span class="line">                 U __dso_handle</span><br><span class="line">                 U __gxx_personality_v0</span><br><span class="line">0000000000000054 t __tcf_0</span><br><span class="line">000000000000006c T main</span><br><span class="line">$ c++filt _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">__static_initialization_and_destruction_0(int, int)</span><br></pre></td></tr></table></figure>
+<p>我们看到，<code>hello.o</code> 当中，只有 14 个符号。并且，在这些符号中，有很多是未定义的符号——第二列提示 <code>U</code> 表示未定义。这表明，<code>hello.o</code> 用到了这些符号，但是这些符号对应的函数、变量，定义在其他目标文件当中。</p>
+<p>接下来我们执行链接这一步。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">49</span><br><span class="line">$ nm hello</span><br><span class="line">0000000000600ae8 d _DYNAMIC</span><br><span class="line">0000000000600cb0 d _GLOBAL_OFFSET_TABLE_</span><br><span class="line">0000000000400816 t _GLOBAL__I_main</span><br><span class="line">0000000000400958 R _IO_stdin_used</span><br><span class="line">                 w _Jv_RegisterClasses</span><br><span class="line">00000000004007d8 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev@@GLIBCXX_3.4</span><br><span class="line">...</span><br><span class="line">0000000000400844 T main</span><br></pre></td></tr></table></figure>
+<p>经过链接之后，可执行文件 <code>hello</code> 当中的符号多了不少：从 14 个增加到了 49 个。这说明，经过链接之后，可执行文件补充了一些执行过程中需要的符号。但是我们也看到，在 <code>hello</code> 当中，仍然存在被标记为 <code>U</code> 的未定义的符号。这说明，<code>hello</code> 在运行时仍旧会动态地依赖系统中的动态库。我们可以用 <code>ldd</code> 命令查看一个 ELF 文件依赖的动态库。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffb3bfd000)</span><br><span class="line">        libstdc++.so.6 =&gt; /opt/gcc/lib64/libstdc++.so.6 (0x00002ada4968e000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002ada49996000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br></pre></td></tr></table></figure>
+<p>这里</p>
+<ul>
+<li><code>linux-vdso.so.1</code> 是 Linux 的一个内核模块；</li>
+<li><code>libstdc++.so.6</code> 是 C++ 标准库对应的动态库；</li>
+<li><code>libm.so.6</code>/<code>libgcc_s.so.1</code>/<code>libc.so.6</code> 都是 gcc 相关的动态库；</li>
+<li><code>/lib64/ld-linux-x86-64.so.2</code> 则是动态链接器对应的动态库（实际上也是一个可执行的 ELF）。</li>
+</ul>
+<p>如果想要将这些依赖的动态库对应的符号，都静态链接到可执行文件中的话，则需要在链接的时候加上 <code>-static</code> 参数。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">4425</span><br><span class="line">$ ldd hello</span><br><span class="line">        not a dynamic executable</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span></span><br><span class="line">                 U __tls_get_addr</span><br></pre></td></tr></table></figure>
+<p>我们看到，相对不加 <code>-static</code> 参数的版本，新的 <code>hello</code> 多出了四千多个符号；并且，以 <code>ldd</code> 查看 <code>hello</code> 依赖的动态库，命令提示 <code>hello</code> 没有依赖其他的动态库；最后，我们发现，<code>hello</code> 的所有符号中，仅有 <code>__tls_get_addr</code> 是未定义的。</p>
+<p><code>tls</code> 是 Thread Local Storage 的缩写，<code>__tls_get_addr()</code> 接收一个参数（数据结构 <code>tls_index</code> 的起始地址），返回一个 Thread Local Variable 的在当前段的偏移量和长度。这个函数是转为动态链接器设计的，在静态链接时这个符号对应的函数无意义（参见 <code>ELF/SymbolTable.cpp</code>）。</p>
+<p>因此，我们说，对于静态链接版本的 <code>hello</code> 来说，它已经包含了运行所需的所有符号。</p>
+<p>若是想要静态链接 <code>libstdc++</code>，其他的部分依然保留动态链接，则可以使用 <code>g++</code> 的参数 <code>-static-libstdc++</code>。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static-libstdc++</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffcd5fd000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002b6ccb401000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">3022</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span> | grep -v GLIBC | grep -v GCC</span><br></pre></td></tr></table></figure>
+<p>可以看到，使用 <code>-static-libstdc++</code> 之后，<code>hello</code> 不再依赖 <code>libstdc++.so</code> 了。同时，其中包含的符号想比动态链接 <code>libstdc++</code> 的版本要多出不少，而相对完全静态链接的版本又少了不少；介于二者之间。此外，我们也验证了，<code>hello</code> 中包含的未定义的符号，除开 <code>GLIBC</code> 和 <code>GCC</code> 相关的符号之外，就没有了。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2017/04/03/not-to-link-libstdc-statically-and-why/" title="为什么不能在动态库里静态链接？">https://liam.page/2017/04/03/not-to-link-libstdc-statically-and-why/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linking/" rel="tag"># Linking</a>
+          
+            <a href="/tags/Loading/" rel="tag"># Loading</a>
+          
+            <a href="/tags/Static/" rel="tag"># Static</a>
+          
+            <a href="/tags/Dynamic/" rel="tag"># Dynamic</a>
+          
+            <a href="/tags/Shared-Object/" rel="tag"># Shared Object</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/03/30/L1-and-L2-regularizer/" rel="next" title="谈谈 L1 与 L2-正则项">
+                <i class="fa fa-chevron-left"></i> 谈谈 L1 与 L2-正则项
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/04/04/Python-100-lines-of-PageRank/" rel="prev" title="100 行代码实现 PageRank 算法">
+                100 行代码实现 PageRank 算法 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#静态链接的优缺点"><span class="nav-number">1.</span> <span class="nav-text">静态链接的优缺点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#对装载的影响"><span class="nav-number">2.</span> <span class="nav-text">对装载的影响</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#符号冲突"><span class="nav-number">3.</span> <span class="nav-text">符号冲突</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#全局变量更新导致的运行时问题"><span class="nav-number">4.</span> <span class="nav-text">全局变量更新导致的运行时问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#附录：如何将依赖的库静态链接进可执行程序"><span class="nav-number">5.</span> <span class="nav-text">附录：如何将依赖的库静态链接进可执行程序</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

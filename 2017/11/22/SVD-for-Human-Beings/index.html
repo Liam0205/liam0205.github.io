@@ -1,0 +1,2885 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="看似高大上的人工智能、机器学习，实际上都脱不开数学的支持。在这些数学内容中，最重要的无疑是两个部分：代数和概率论。我无法在博客中完整地介绍代数（特别是矩阵论）和概率论，但是将其中部分有趣又重要的内容提出来讲解，还是可行的。 此篇，我们谈谈矩阵的 SVD 分解。">
+<meta name="keywords" content="Matrix,SVD">
+<meta property="og:type" content="article">
+<meta property="og:title" content="谈谈矩阵的 SVD 分解">
+<meta property="og:url" content="https://liam.page/2017/11/22/SVD-for-Human-Beings/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="看似高大上的人工智能、机器学习，实际上都脱不开数学的支持。在这些数学内容中，最重要的无疑是两个部分：代数和概率论。我无法在博客中完整地介绍代数（特别是矩阵论）和概率论，但是将其中部分有趣又重要的内容提出来讲解，还是可行的。 此篇，我们谈谈矩阵的 SVD 分解。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/mathematics/Matrix_transpose.gif">
+<meta property="og:image" content="https://liam.page/uploads/images/mathematics/rotation.png">
+<meta property="og:image" content="https://liam.page/uploads/images/mathematics/280px-Singular_value_decomposition.gif">
+<meta property="og:image" content="https://liam.page/uploads/images/python/cat.jpg">
+<meta property="og:image" content="https://liam.page/uploads/images/python/cat_svd_1.jpg">
+<meta property="og:image" content="https://liam.page/uploads/images/python/cat_svd_5.jpg">
+<meta property="og:image" content="https://liam.page/uploads/images/python/cat_svd_20.jpg">
+<meta property="og:image" content="https://liam.page/uploads/images/python/cat_svd_50.jpg">
+<meta property="og:updated_time" content="2019-01-12T07:22:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="谈谈矩阵的 SVD 分解">
+<meta name="twitter:description" content="看似高大上的人工智能、机器学习，实际上都脱不开数学的支持。在这些数学内容中，最重要的无疑是两个部分：代数和概率论。我无法在博客中完整地介绍代数（特别是矩阵论）和概率论，但是将其中部分有趣又重要的内容提出来讲解，还是可行的。 此篇，我们谈谈矩阵的 SVD 分解。">
+<meta name="twitter:image" content="https://liam.page/uploads/images/mathematics/Matrix_transpose.gif">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2017/11/22/SVD-for-Human-Beings/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>谈谈矩阵的 SVD 分解 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/11/22/SVD-for-Human-Beings/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">谈谈矩阵的 SVD 分解
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017 年 11 月 22 日 11:36:35" itemprop="dateCreated datePublished" datetime="2017-11-22T11:36:35+08:00">2017 年 11 月 22 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:22:33" itemprop="dateModified" datetime="2019-01-12T15:22:33+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Mathematics-and-Natural-Sciences/" itemprop="url" rel="index"><span itemprop="name">Mathematics and Natural Sciences</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">12k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">21 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>看似高大上的人工智能、机器学习，实际上都脱不开数学的支持。在这些数学内容中，最重要的无疑是两个部分：代数和概率论。我无法在博客中完整地介绍代数（特别是矩阵论）和概率论，但是将其中部分有趣又重要的内容提出来讲解，还是可行的。</p>
+<p>此篇，我们谈谈矩阵的 SVD 分解。</p>
+<a id="more"></a>
+<h2 id="一些矩阵知识"><a href="#一些矩阵知识" class="headerlink" title="一些矩阵知识"></a>一些矩阵知识</h2><p>首先我们来看一些基本的矩阵知识。</p>
+<h3 id="转置与共轭转置"><a href="#转置与共轭转置" class="headerlink" title="转置与共轭转置"></a>转置与共轭转置</h3><p>矩阵的转置（transpose）是最简单的一种矩阵变换。简单来说，若 $m\times n$ 的矩阵 $\mathbf M$ 的转置记为 $\mathbf M^{\mathsf T}$；则 $\mathbf M^{\mathsf T}$ 是一个 $n\times m$ 的矩阵，并且 <code>$\mathbf M_{i,j} = \mathbf M^{\mathsf T}_{j,i}$</code>。</p>
+<p>因此，矩阵的转置相当于将矩阵按照主对角线翻转；同时，我们不难得出 <code>$\mathbf M = \bigl(\mathbf M^{\mathsf T}\bigr)^{\mathsf T}$</code>。</p>
+<p><img src="/uploads/images/mathematics/Matrix_transpose.gif" alt=""></p>
+<p>矩阵的共轭转置（conjugate transpose）可能是倒数第二简单的矩阵变换。共轭转置只需要在转置的基础上，再叠加复数的共轭即可。因此，若以 $\mathbf M^{\mathsf H}$ 记矩阵 $\mathbf M$ 的共轭转置，则有 <code>$\mathbf M_{i,j} = \overline{\bigl(\mathbf M^{\mathsf H}\bigr)_{j,i}}$</code>。</p>
+<h3 id="酉矩阵"><a href="#酉矩阵" class="headerlink" title="酉矩阵"></a>酉矩阵</h3><p>酉矩阵（unitary matrix）是一种特殊的方阵，它满足</p>
+<p><code>$$ \mathbf U\mathbf U^{\mathsf H} = \mathbf U^{\mathsf H}\mathbf U = I_n.$$</code></p>
+<p>不难看出，酉矩阵实际上是推广的正交矩阵（orthogonal matrix）；当酉矩阵中的元素均为实数时，酉矩阵实际就是正交矩阵。另一方面，由于 <code>$\mathbf M\mathbf M^{-1} = \mathbf M^{-1}\mathbf M = I_n$</code>，所以酉矩阵 $\mathbf U$ 满足 $\mathbf U^{-1} = \mathbf U^{\mathsf H}$；事实上，这是一个矩阵是酉矩阵的充分必要条件。</p>
+<h3 id="正规矩阵"><a href="#正规矩阵" class="headerlink" title="正规矩阵"></a>正规矩阵</h3><p>同酉矩阵一样，正规矩阵（normal matrix）也是一种特殊的方阵，它要求在矩阵乘法的意义下与它的共轭转置矩阵满足交换律。这也就是说，若矩阵 $\mathbf M$ 满足如下条件，则称其为正规矩阵：</p>
+<p><code>$$\mathbf M\mathbf M^{\mathsf H} = \mathbf M^{\mathsf H}\mathbf M.$$</code></p>
+<p>显而易见，复系数的酉矩阵和实系数的正交矩阵都是正规矩阵。显而易见，正规矩阵并不只有酉矩阵或正交矩阵。例如说，矩阵 <code>$\mathbf M = \begin{pmatrix}1 &amp; 1 &amp; 0 \\ 0 &amp; 1 &amp; 1 \\ 1 &amp; 0 &amp; 1\end{pmatrix}$</code> 即是一个正规矩阵，但它显然不是酉矩阵或正交矩阵；因为</p>
+<p><code>$$\mathbf M\mathbf M^{\mathsf H} = \begin{pmatrix}2 &amp; 1 &amp; 1 \\ 1 &amp; 2 &amp; 1 \\ 1 &amp; 1 &amp; 2\end{pmatrix} = \mathbf M^{\mathsf H}\mathbf M.$$</code></p>
+<h3 id="谱定理和谱分解"><a href="#谱定理和谱分解" class="headerlink" title="谱定理和谱分解"></a>谱定理和谱分解</h3><p>矩阵的对角化是线性代数中的一个重要命题。谱定理（spectral theorem）给出了方阵对角化的一个结论：若矩阵 $\mathbf M$ 是一个正规矩阵，则存在酉矩阵 $\mathbf U$，以及对角矩阵 $\mathbf \Lambda$，使得</p>
+<p><code>$$\mathbf M = \mathbf U\mathbf \Lambda\mathbf U^{\mathsf H}.$$</code></p>
+<p>这也就是说，正规矩阵，可经由酉变换，分解为对角矩阵；这种矩阵分解的方式，称为谱分解（spectral decomposition）。</p>
+<h2 id="SVD-分解"><a href="#SVD-分解" class="headerlink" title="SVD 分解"></a>SVD 分解</h2><p>谱定理给出了正规矩阵分解的可能性以及分解形式。然而，对于矩阵来说，正规矩阵是要求非常高的。因此，谱定理是一个非常弱的定理，它的适用范围有限。在实际生产中，我们遇到的很多矩阵都不是正规矩阵。对于这些矩阵，谱定理就失效了。作为谱定理的泛化，SVD 分解对于原矩阵的要求就要弱得多。</p>
+<p>SVD 分解说的是：假设 $\mathbf M$ 是一个 $ m\times n$ 的矩阵，其中的元素全部属于数域 $\mathbb K$（实数域 $\mathbb R$ 或复数域 $\mathbb C$）。那么，存在 $m\times m$ 的酉矩阵 $\mathbf U$ 和 $n\times n$ 的酉矩阵 $\mathbf V$ 使得</p>
+<p><code>$$\mathbf M = \mathbf U\mathbf\Sigma\mathbf V^{\mathsf H},$$</code></p>
+<p>其中 $\mathbf\Sigma$ 是 $m\times n$ 的非负实数对角矩阵；并且 $\mathbf\Sigma$ 对角线上的元素 $\mathbf\Sigma_{i, i}$ 是 $\mathbf M$ 的奇异值。一般来说，我们偏好将这些奇异值按从大到小的顺序排列，这样一来 $\mathbf\Sigma$ 就由 $\mathbf M$ 唯一确定了。</p>
+<p>另一方面，因为 $\mathbf U$ 和 $\mathbf V$ 都是酉矩阵，所以 $\mathbf U$ 和 $\mathbf V$ 的列向量分别张成 $\mathbb K^{m}$ 和 $\mathbb K^{n}$ 的一组标准正交基。我们将 $\mathbf U$ 的列向量记作 $\vec u_i,\; 1 \leqslant i\leqslant m$；将 $\mathbf V$ 的列向量记作 $\vec v_j,\; 1\leqslant j\leqslant n$；同时，将 $\mathbf\Sigma$ 对角线上的第 $i$ 个元素记作 $\sigma_k,\; 1\leqslant k\leqslant\min(m,n)$。那么，SVD 分解实际可以将矩阵 $\mathbf M$ 写作一个求和形式</p>
+<p><code>$$\mathbf M = \sum_{i = 1}^{\min(m, n)}\sigma_i\vec u_i\vec v_i^{\mathsf T}.$$</code></p>
+<h3 id="SVD-的计算方法"><a href="#SVD-的计算方法" class="headerlink" title="SVD 的计算方法"></a>SVD 的计算方法</h3><p>了解了 SVD 的介绍和相关几何解释之后，接下来最直接想要知道的就是如何计算一个矩阵的 SVD 了。我们分成几步来探讨这个问题。</p>
+<h4 id="SVD-与特征值"><a href="#SVD-与特征值" class="headerlink" title="SVD 与特征值"></a>SVD 与特征值</h4><p>现在，假设矩阵 $\mathbf M_{m\times n}$ 的 SVD 分解是</p>
+<p><code>$$\mathbf M = \mathbf U\mathbf\Sigma\mathbf V^{\mathsf H};$$</code></p>
+<p>那么，我们有</p>
+<p><code>$$\begin{aligned}
+\mathbf M\mathbf M^{\mathsf H} &amp;{}= \mathbf U\mathbf\Sigma\mathbf V^{\mathsf H}\mathbf V\mathbf\Sigma^{\mathsf H}\mathbf U^{\mathsf H} = \mathbf U(\mathbf\Sigma\mathbf\Sigma^{\mathsf H})\mathbf U^{\mathsf H}\\
+\mathbf M^{\mathsf H}\mathbf M &amp;{}= \mathbf V\mathbf\Sigma^{\mathsf H}\mathbf U^{\mathsf H}\mathbf U\mathbf\Sigma\mathbf V^{\mathsf H} = \mathbf V(\mathbf\Sigma^{\mathsf H}\mathbf\Sigma)\mathbf V^{\mathsf H}\\
+\end{aligned}$$</code></p>
+<p>这也就是说，$\mathbf U$ 的列向量（左奇异向量），是 $\mathbf M\mathbf M^{\mathsf H}$ 的特征向量；同时，$\mathbf V$ 的列向量（右奇异向量），是 $\mathbf M^{\mathsf H}\mathbf M$ 的特征向量；另一方面，$\mathbf M$ 的奇异值（$\mathbf\Sigma$ 的非零对角元素）则是 $\mathbf M\mathbf M^{\mathsf H}$ 或者 $\mathbf M^{\mathsf H}\mathbf M$ 的非零特征值的平方根。</p>
+<h4 id="如何计算-SVD"><a href="#如何计算-SVD" class="headerlink" title="如何计算 SVD"></a>如何计算 SVD</h4><p>有了这些知识，我们就能手工计算出任意矩阵的 SVD 分解了；具体来说，算法如下</p>
+<ol>
+<li>计算 $\mathbf M\mathbf M^{\mathsf H}$ 和 $\mathbf M^{\mathsf H}\mathbf M$；</li>
+<li>分别计算 $\mathbf M\mathbf M^{\mathsf H}$ 和 $\mathbf M^{\mathsf H}\mathbf M$ 的特征向量及其特征值；</li>
+<li>$\mathbf M\mathbf M^{\mathsf H}$ 的特征向量组成 $\mathbf U$；而 $\mathbf M^{\mathsf H}\mathbf M$ 的特征向量组成 $\mathbf V$；</li>
+<li>对 $\mathbf M\mathbf M^{\mathsf H}$ 和 $\mathbf M^{\mathsf H}\mathbf M$ 的非零特征值求平方根，对应上述特征向量的位置，填入 $\mathbf\Sigma$ 的对角元。</li>
+</ol>
+<h4 id="实际计算看看"><a href="#实际计算看看" class="headerlink" title="实际计算看看"></a>实际计算看看</h4><p>现在，我们来试着计算 <code>$\mathbf M = \begin{bmatrix}2 &amp; 4 \\ 1 &amp; 3 \\ 0 &amp; 0 \\ 0 &amp; 0\end{bmatrix}$</code> 的奇异值分解。计算奇异值分解，需要计算 $\mathbf M$ 与其共轭转置的左右积；这里主要以 $\mathbf M\mathbf M^{\mathsf H}$ 为例。</p>
+<p>首先，我们需要计算 $\mathbf M\mathbf M^{\mathsf H}$，</p>
+<p><code>$$
+\mathbf W = \mathbf M\mathbf M^{\mathsf H} = \begin{bmatrix}2 &amp; 4 \\ 1 &amp; 3 \\ 0 &amp; 0 \\ 0 &amp; 0\end{bmatrix}\begin{bmatrix}2 &amp; 1 &amp; 0 &amp; 0 \\ 4 &amp; 3 &amp; 0 &amp; 0\end{bmatrix} = \begin{bmatrix}20 &amp; 14 &amp; 0 &amp; 0 \\ 14 &amp; 10 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 0\end{bmatrix}.
+$$</code></p>
+<p>现在，我们要求 $\mathbf W$ 的特征值与特征向量。根据定义 $\mathbf W\vec x = \lambda \vec x$；因此 $(\mathbf W - \lambda\mathbf I)\vec x = \vec 0$。这也就是说</p>
+<p><code>$$
+\begin{bmatrix}
+20 - \lambda &amp; 14 &amp; 0 &amp; 0 \\
+14 &amp; 10 - \lambda &amp; 0 &amp; 0 \\
+0 &amp; 0 &amp; -\lambda &amp; 0 \\
+0 &amp; 0 &amp; 0 &amp; -\lambda
+\end{bmatrix}\vec x = \vec 0.
+$$</code></p>
+<p>根据线性方程组的理论，若要该关于 $\vec x$ 的方程有非零解，则要求系数矩阵的行列式为 0；也就是</p>
+<p><code>$$
+\begin{vmatrix}
+20 - \lambda &amp; 14 &amp; 0 &amp; 0 \\
+14 &amp; 10 - \lambda &amp; 0 &amp; 0 \\
+0 &amp; 0 &amp; -\lambda &amp; 0 \\
+0 &amp; 0 &amp; 0 &amp; -\lambda
+\end{vmatrix} =
+\begin{vmatrix}
+20 - \lambda &amp; 14 \\
+14 &amp; 10 - \lambda \\
+\end{vmatrix}\begin{vmatrix}
+-\lambda &amp; 0 \\
+0 &amp; -\lambda \\
+\end{vmatrix}
+= 0,
+$$</code></p>
+<p>这也就是 $\bigl((20 - \lambda)(10 - \lambda) - 196\bigr)\lambda^2 = 0$；解得 <code>$\lambda_{1} = \lambda_{2} = 0$</code>, <code>$\lambda_{3} = 15 + \sqrt{221} \approx 29.866$</code>, <code>$\lambda_{4} = 15 - \sqrt{221} \approx 0.134$</code>。将特征值代入原方程，可解得对应的特征向量；这些特征向量即作为列向量，形成矩阵</p>
+<p><code>$$\mathbf U = \begin{bmatrix}-0.82 &amp; -0.58 &amp; 0 &amp; 0 \\ -0.58 &amp; 0.82 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 1 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 1\end{bmatrix}.$$</code></p>
+<p>同理可解得（注意，$\mathbf M\mathbf M^{\mathsf T}$ 和 $\mathbf M^{\mathsf T}\mathbf M$ 的特征值相同）</p>
+<p><code>$$\mathbf V = \begin{bmatrix}-0.40 &amp; -0.91 \\ -0.91 &amp; 0.40\end{bmatrix}.$$</code></p>
+<p>以及 $\mathbf\Sigma$ 上的对角线元素由 $\mathbf W$ 的特征值的算术平方根组成；因此有</p>
+<p><code>$$\mathbf\Sigma = \begin{bmatrix}5.46 &amp; 0 \\ 0 &amp; 0.37 \\ 0 &amp; 0 \\ 0 &amp; 0\end{bmatrix}.$$</code></p>
+<p>因此我们得到矩阵 $\mathbf M$ 的 SVD 分解（数值上做了近似）：</p>
+<p><code>$$\begin{bmatrix}2 &amp; 4 \\ 1 &amp; 3 \\ 0 &amp; 0 \\ 0 &amp; 0\end{bmatrix} \approx \begin{bmatrix}-0.82 &amp; -0.58 &amp; 0 &amp; 0 \\ -0.58 &amp; 0.82 &amp; 0 &amp; 0 \\ 0 &amp; 0 &amp; 1 &amp; 0 \\ 0 &amp; 0 &amp; 0 &amp; 1\end{bmatrix}\begin{bmatrix}5.46 &amp; 0 \\ 0 &amp; 0.37 \\ 0 &amp; 0 \\ 0 &amp; 0\end{bmatrix}\begin{bmatrix}-0.40 &amp; -0.91 \\ -0.91 &amp; 0.40\end{bmatrix}$$</code></p>
+<h3 id="几何上的直观解释"><a href="#几何上的直观解释" class="headerlink" title="几何上的直观解释"></a>几何上的直观解释</h3><p>我们先来看一个例子。假设 $\mathbf M$ 是一个 $m\times n$ 的矩阵，而 $\mathbf x$ 是线性空间 $\mathbb K^n$ 中的向量，则</p>
+<p>$$\mathbf y = \mathbf M\cdot\mathbf x$$</p>
+<p>是线性空间 $\mathbb K^m$ 中的向量。这样一来，矩阵 $\mathbb A$ 就对应了一个从 $\mathbb K^n$ 到 $\mathbb K^m$ 的变换 $T: \mathbb K^n \to \mathbb K^m$，具体来说既是 $\mathbf x\mapsto \mathbf M\cdot\mathbf x$。</p>
+<p>这也就是说，在线性代数中，任意矩阵都能看做是一种变换。这样一来，我们就统一了矩阵和变换。</p>
+<h4 id="旋转变换和反射变换（镜像）"><a href="#旋转变换和反射变换（镜像）" class="headerlink" title="旋转变换和反射变换（镜像）"></a>旋转变换和反射变换（镜像）</h4><p>在线性空间中进行旋转，实际是要改变向量的方向，但是不改变向量的长度和手性。现在假设矩阵 $\mathbf M_{n\times n}$ 是线性空间 $\mathbf R^{n}$ 中的一个旋转变换对应的矩阵，我们来看看它应该是什么样子。</p>
+<p>首先，我们考虑向量内积 $\vec a\cdot\vec b = \lvert\vec a\rvert\lvert\vec b\rvert\cos\langle\vec a,\vec b\rangle$。因为旋转不改变向量的长度，且两个向量经过相同的旋转之后，其夹角保持不变。因此，若 $\mathbf M$ 对应一个旋转变换，那么就必须有</p>
+<p>$$\vec a\cdot\vec b = \mathbf M\vec a\cdot \mathbf M\vec b,$$</p>
+<p>也就是</p>
+<p>$$\vec a\cdot\vec b^{\mathsf T} = \mathbf M\vec a\cdot (\mathbf M\vec b)^{\mathsf T},$$</p>
+<p>这也就是说 $\mathbf M\mathbf M^{\mathsf T} = \mathbf I_{n}$，亦即 $\mathbf M$ 是正交矩阵。</p>
+<p>因此，对于二维的情况，$\mathbf M$ 可以写作 $\begin{bmatrix}\cos\varphi &amp; -\sin\varphi \\ \sin\varphi &amp; \cos\varphi\end{bmatrix}$ 或 $\begin{bmatrix}\cos\varphi &amp; \sin\varphi \\ \sin\varphi &amp; -\cos\varphi\end{bmatrix}$。前者行列式为 $1$ 而后者行列式为 $-1$。既然 $\mathbf M$ 是正交矩阵，那么它的行列式值必然是 $\pm 1$。现在的问题是，行列式为 $1$ 和 $-1$ 究竟哪一个才是旋转？或者两个都是旋转？</p>
+<p>回过头，我们需要注意两件事情。其一，在旋转的定义中，我们提出了旋转保持「手性」；其二，在得出旋转矩阵是正交矩阵的过程中，我们并没有运用到「手性不变」这一特性——因为 $\cos\langle\vec a,\vec b\rangle = \cos\langle\vec b,\vec a\rangle$。</p>
+<p>事实上，若 $\mathbf M$ 的行列式为 $-1$，则该矩阵对应了一个瑕旋转——先旋转 $\varphi$ 而后按直线 $r = k\varphi$ 镜像。考虑 $\varphi - \alpha = 2\varphi - (\varphi + \alpha)$，这一瑕旋转实质上就是按直线 $r = k(\varphi / 2)$ 镜像。</p>
+<p>因此我们说，旋转矩阵是一个行列式为 $1$ 的正定矩阵，其形式为</p>
+<p>$$\begin{bmatrix}\cos\varphi &amp; -\sin\varphi \\ \sin\varphi &amp; \cos\varphi\end{bmatrix},$$</p>
+<p>表示向正方向（通常是逆时针方向）旋转 $\varphi$。对于 $\mathbb R^{2}$ 上的标准正交基 $\begin{bmatrix}1 \\ 0\end{bmatrix}$, $\begin{bmatrix}0 \\ 1\end{bmatrix}$，他们分别被变换为 $\begin{bmatrix}\cos\varphi \\ \sin\varphi\end{bmatrix}$ 和 $\begin{bmatrix}-\sin\varphi \\ \cos\varphi\end{bmatrix}$。</p>
+<p><img src="/uploads/images/mathematics/rotation.png" alt=""></p>
+<p>行列式为 $-1$ 的正定矩阵，其形式为</p>
+<p>$$\begin{bmatrix}\cos\varphi &amp; \sin\varphi \\ \sin\varphi &amp; -\cos\varphi\end{bmatrix},$$</p>
+<p>表示按直线 $r = k(\varphi / 2)$ 镜像。</p>
+<h4 id="缩放变换"><a href="#缩放变换" class="headerlink" title="缩放变换"></a>缩放变换</h4><p>在线性空间中进行缩放，实质就是要让线性空间中的每一维独立地进行变换，而不受其他维度影响。这样一来，很显然，对应的矩阵应该是对角矩阵。</p>
+<h4 id="SVD-分解的几何解释"><a href="#SVD-分解的几何解释" class="headerlink" title="SVD 分解的几何解释"></a>SVD 分解的几何解释</h4><p>现在回过头来看 SVD 分解</p>
+<p><code>$$\mathbf M = \mathbf U\mathbf\Sigma\mathbf V^{\mathsf H},$$</code></p>
+<p>在实数范围内讨论，我们实质上是将一个复杂的变换 $M:\mathbb R^{m}\to\mathbb R^{n}$ 分解成了三个变换：旋转/镜像 $U:\mathbb R^{m}\to\mathbb R^{m}$、缩放 $\Sigma:\mathbb R^{m}\to\mathbb R^{n}$、旋转/镜像 $V:\mathbb R^{n}\to\mathbb R^{n}$。</p>
+<p>不失一般性，我们假设 $m = n$ 以及 $U$ 和 $V$ 都是旋转矩阵，则这个过程可以表示为</p>
+<p><img src="/uploads/images/mathematics/280px-Singular_value_decomposition.gif" alt=""></p>
+<p>不难发现，$\mathbf V^{\mathsf H}$ 首先将（可能是退化的）单位球旋转（旋转标准正交基），而后经由 $\mathbf \Sigma$ 将单位圆缩放拉伸成椭圆（超空间中的超椭球），再经由 $\mathbf U$ 将超椭球在 $\mathbb K^{m}$ 空间中旋转。而这个超椭球的各个半轴的长度，就是矩阵 $\mathbf M$ 的奇异值，也就是矩阵 $\mathbf \Sigma$ 对角线上的元素。</p>
+<h2 id="SVD-分解的应用"><a href="#SVD-分解的应用" class="headerlink" title="SVD 分解的应用"></a>SVD 分解的应用</h2><p>在化学中，有所谓「结构决定性质、性质决定用途」的说法；这反应了一个事物由内而外的特性和人类运用事物的普遍规律。这一规律放在数学上也一样适用。</p>
+<p>SVD 将矩阵分解成累加求和的形式，其中每一项的系数即是原矩阵的奇异值。这些奇异值，按之前的几何解释，实际上就是空间超椭球各短轴的长度。现在想象二维平面中一个非常扁的椭圆（离心率非常高），它的长轴远远长于短轴，以至于整个椭圆看起来和一条线段没有什么区别。这时候，如果将椭圆的短轴强行置为零，从直观上看，椭圆退化为线段的过程并不突兀。回到 SVD 分解当中，较大的奇异值反映了矩阵本身的主要特征和信息；较小的奇异值则如例中椭圆非常短的短轴，几乎没有体现矩阵的特征和携带的信息。因此，若我们将 SVD 分解中较小的奇异值强行置为零，则相当于丢弃了矩阵中不重要的一部分信息。</p>
+<p>因此，SVD 分解至少有两方面作用：</p>
+<ul>
+<li>分析了解原矩阵的主要特征和携带的信息（取若干最大的奇异值），这引出了主成分分析（PCA）；</li>
+<li>丢弃忽略原矩阵的次要特征和携带的次要信息（丢弃若干较小的奇异值），这引出了信息有损压缩、矩阵低秩近似等话题。</li>
+</ul>
+<p>这两方面的应用实际上是对偶的：因为，按重要度排序之后，一方面我们可以知道哪些信息（奇异值）重要，另一方面我就很自然地就可以丢弃不重要的部分。这里我们以信息的有损压缩为例。</p>
+<p>在实际生活和工作当中，很多信息都能被表示为矩阵形式。例如：图像（参见 <a href="/2017/08/06/pil-tutorial-pixel-operations-and-image-filter/">PIL 简明教程 - 像素操作与图像滤镜</a>）信息，机器学习任务中巨大的特征矩阵等。此处我们循着前文的轨迹，以图像信息的形式直观地展现 SVD 分解在图形压缩中的应用。</p>
+<p>首先让我们回顾一下曾经见过的猫咪，它长这样：</p>
+<p><img src="/uploads/images/python/cat.jpg" alt=""></p>
+<p>经过 SVD 分解之后，RGB 三通道的奇异值值分别形如（<a href="/uploads/codes/python/image_svd.py">代码</a>）：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">[  <span class="number">8.29754663e+04</span>   <span class="number">1.43568761e+04</span>   <span class="number">8.28098602e+03</span>   <span class="number">7.94075752e+03</span></span><br><span class="line">   <span class="number">6.87204550e+03</span>   <span class="number">4.64118946e+03</span>   <span class="number">3.07326587e+03</span>   <span class="number">2.64043230e+03</span></span><br><span class="line">   <span class="number">2.34251575e+03</span>   <span class="number">2.08293043e+03</span>   <span class="number">1.81457650e+03</span>   <span class="number">1.73772694e+03</span></span><br><span class="line">   <span class="number">1.55535238e+03</span>   <span class="number">1.44987605e+03</span>   <span class="number">1.28556279e+03</span>   <span class="number">1.18657598e+03</span></span><br><span class="line">   <span class="number">1.15156737e+03</span>   <span class="number">1.10588319e+03</span>   <span class="number">1.04069060e+03</span>   <span class="number">9.63555279e+02</span></span><br><span class="line">   ...</span><br><span class="line">   <span class="number">2.07308001e+00</span>   <span class="number">2.03810704e+00</span>   <span class="number">2.01670137e+00</span>   <span class="number">1.89766075e+00</span></span><br><span class="line">   <span class="number">1.78169821e+00</span>]</span><br><span class="line">[  <span class="number">7.52035286e+04</span>   <span class="number">1.45096769e+04</span>   <span class="number">1.02416708e+04</span>   <span class="number">7.99187399e+03</span></span><br><span class="line">   <span class="number">5.55763091e+03</span>   <span class="number">4.82795595e+03</span>   <span class="number">3.22590281e+03</span>   <span class="number">2.81678573e+03</span></span><br><span class="line">   <span class="number">2.47269533e+03</span>   <span class="number">2.05484885e+03</span>   <span class="number">1.87922653e+03</span>   <span class="number">1.67558281e+03</span></span><br><span class="line">   <span class="number">1.55022246e+03</span>   <span class="number">1.48494502e+03</span>   <span class="number">1.30714569e+03</span>   <span class="number">1.19338672e+03</span></span><br><span class="line">   <span class="number">1.17078655e+03</span>   <span class="number">1.07687752e+03</span>   <span class="number">1.04558020e+03</span>   <span class="number">9.93807772e+02</span></span><br><span class="line">   ...</span><br><span class="line">   <span class="number">2.08166328e+00</span>   <span class="number">2.03020090e+00</span>   <span class="number">1.95633445e+00</span>   <span class="number">1.88738236e+00</span></span><br><span class="line">   <span class="number">1.80539295e+00</span>]</span><br><span class="line">[  <span class="number">7.15164941e+04</span>   <span class="number">1.60372342e+04</span>   <span class="number">1.20401757e+04</span>   <span class="number">8.69602152e+03</span></span><br><span class="line">   <span class="number">5.69604800e+03</span>   <span class="number">3.76913288e+03</span>   <span class="number">3.48390702e+03</span>   <span class="number">3.17683272e+03</span></span><br><span class="line">   <span class="number">2.73730517e+03</span>   <span class="number">2.32005514e+03</span>   <span class="number">2.08571764e+03</span>   <span class="number">1.76733763e+03</span></span><br><span class="line">   <span class="number">1.55393096e+03</span>   <span class="number">1.47436741e+03</span>   <span class="number">1.39202168e+03</span>   <span class="number">1.21607022e+03</span></span><br><span class="line">   <span class="number">1.17991116e+03</span>   <span class="number">1.16377337e+03</span>   <span class="number">1.01255317e+03</span>   <span class="number">9.97811473e+02</span></span><br><span class="line">   ...</span><br><span class="line">   <span class="number">2.17604369e+00</span>   <span class="number">2.13041080e+00</span>   <span class="number">1.99837012e+00</span>   <span class="number">1.88718778e+00</span></span><br><span class="line">   <span class="number">1.80040166e+00</span>]</span><br></pre></td></tr></table></figure>
+<p>当我们从大到小开始截断，丢弃较小的奇异值并重建图像之后，我们就能得到「压缩之后」的图像了。</p>
+<p>当只取 1 个奇异值时，重建图像如下。基本啥也看不出。</p>
+<p><img src="/uploads/images/python/cat_svd_1.jpg" alt=""></p>
+<p>当只取 5 个奇异值时，重建图像如下。此时已经勉强能看出一只猫咪的形象了。</p>
+<p><img src="/uploads/images/python/cat_svd_5.jpg" alt=""></p>
+<p>按照观察，在第 20 个奇异值附近，奇异值的大小有数量级的变化（从 <code>+03</code> 跌落至 <code>+02</code>）。因此，当取 20 个奇异值时，重建图像如下；此时猫咪的形象已经很清晰了。</p>
+<p><img src="/uploads/images/python/cat_svd_20.jpg" alt=""></p>
+<p>当取用 50 个奇异值时，重建的图像和原图已经相当接近了。</p>
+<p><img src="/uploads/images/python/cat_svd_50.jpg" alt=""></p>
+<p>类似地，我们还可以观察取用 <a href="/uploads/images/python/cat_svd_100.jpg">100</a>/<a href="/uploads/images/python/cat_svd_200.jpg">200</a>/<a href="/uploads/images/python/cat_svd_300.jpg">300</a>/<a href="/uploads/images/python/cat_svd_400.jpg">400</a> 个奇异值时，重建图像得到的结果。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2017/11/22/SVD-for-Human-Beings/" title="谈谈矩阵的 SVD 分解">https://liam.page/2017/11/22/SVD-for-Human-Beings/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Matrix/" rel="tag"># Matrix</a>
+          
+            <a href="/tags/SVD/" rel="tag"># SVD</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/11/03/numbering-thebibliography-in-LaTeX/" rel="next" title="在 LaTeX 中为参考文献的标题编号">
+                <i class="fa fa-chevron-left"></i> 在 LaTeX 中为参考文献的标题编号
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/11/26/surrogate-in-Cpp/" rel="prev" title="谈谈代理类">
+                谈谈代理类 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#一些矩阵知识"><span class="nav-number">1.</span> <span class="nav-text">一些矩阵知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#转置与共轭转置"><span class="nav-number">1.1.</span> <span class="nav-text">转置与共轭转置</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#酉矩阵"><span class="nav-number">1.2.</span> <span class="nav-text">酉矩阵</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#正规矩阵"><span class="nav-number">1.3.</span> <span class="nav-text">正规矩阵</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#谱定理和谱分解"><span class="nav-number">1.4.</span> <span class="nav-text">谱定理和谱分解</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SVD-分解"><span class="nav-number">2.</span> <span class="nav-text">SVD 分解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#SVD-的计算方法"><span class="nav-number">2.1.</span> <span class="nav-text">SVD 的计算方法</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#SVD-与特征值"><span class="nav-number">2.1.1.</span> <span class="nav-text">SVD 与特征值</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#如何计算-SVD"><span class="nav-number">2.1.2.</span> <span class="nav-text">如何计算 SVD</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#实际计算看看"><span class="nav-number">2.1.3.</span> <span class="nav-text">实际计算看看</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#几何上的直观解释"><span class="nav-number">2.2.</span> <span class="nav-text">几何上的直观解释</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#旋转变换和反射变换（镜像）"><span class="nav-number">2.2.1.</span> <span class="nav-text">旋转变换和反射变换（镜像）</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#缩放变换"><span class="nav-number">2.2.2.</span> <span class="nav-text">缩放变换</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SVD-分解的几何解释"><span class="nav-number">2.2.3.</span> <span class="nav-text">SVD 分解的几何解释</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SVD-分解的应用"><span class="nav-number">3.</span> <span class="nav-text">SVD 分解的应用</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: "AMS"
+      }
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+      for (i = 0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+  });
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $("code").map(function(){
+    match = /^\$(.*)\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\$\$(.*)\$\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\\begin/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+  });
+});
+</script>
+
+<script src="//cdn.jsdelivr.net/npm/mathjax@2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+<style>
+.MathJax_Display {
+  overflow: auto hidden;
+}
+</style>
+
+    
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

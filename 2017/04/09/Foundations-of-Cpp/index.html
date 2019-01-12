@@ -1,0 +1,2823 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="C++ 几乎是这个世界上最为复杂的编程语言（Programming Language）。C++ 的标准中有无数的细节，然而让人迷失在细节中，并不是 C++ 设计者/标准化委员会的本意。实际上，写好 C++ 程序，也不需要了解 C++ 的每一个细节；只需要理解语言背后的基本原理和技术就可以了。 C++ 语言之父（Bjarne Stroustrup）在 2012 年撰写过一篇 paper，其名为 Fo">
+<meta name="keywords" content="C++,Foundations">
+<meta property="og:type" content="article">
+<meta property="og:title" content="C++ 的几个基本原理和技术">
+<meta property="og:url" content="https://liam.page/2017/04/09/Foundations-of-Cpp/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="C++ 几乎是这个世界上最为复杂的编程语言（Programming Language）。C++ 的标准中有无数的细节，然而让人迷失在细节中，并不是 C++ 设计者/标准化委员会的本意。实际上，写好 C++ 程序，也不需要了解 C++ 的每一个细节；只需要理解语言背后的基本原理和技术就可以了。 C++ 语言之父（Bjarne Stroustrup）在 2012 年撰写过一篇 paper，其名为 Fo">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/Cpp/array_model.png">
+<meta property="og:image" content="https://liam.page/uploads/images/Cpp/stack_heap_objects.png">
+<meta property="og:image" content="https://liam.page/uploads/images/Cpp/base_derived.png">
+<meta property="og:image" content="https://liam.page/uploads/images/Cpp/base_derived_virtual.png">
+<meta property="og:image" content="https://liam.page/uploads/images/Cpp/points_cpp.png">
+<meta property="og:image" content="https://liam.page/uploads/images/Cpp/points_java.png">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="C++ 的几个基本原理和技术">
+<meta name="twitter:description" content="C++ 几乎是这个世界上最为复杂的编程语言（Programming Language）。C++ 的标准中有无数的细节，然而让人迷失在细节中，并不是 C++ 设计者/标准化委员会的本意。实际上，写好 C++ 程序，也不需要了解 C++ 的每一个细节；只需要理解语言背后的基本原理和技术就可以了。 C++ 语言之父（Bjarne Stroustrup）在 2012 年撰写过一篇 paper，其名为 Fo">
+<meta name="twitter:image" content="https://liam.page/uploads/images/Cpp/array_model.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2017/04/09/Foundations-of-Cpp/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>C++ 的几个基本原理和技术 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/04/09/Foundations-of-Cpp/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">C++ 的几个基本原理和技术
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017 年 04 月 09 日 17:06:21" itemprop="dateCreated datePublished" datetime="2017-04-09T17:06:21+08:00">2017 年 04 月 09 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">13k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">23 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>C++ 几乎是这个世界上最为复杂的编程语言（Programming Language）。C++ 的标准中有无数的细节，然而让人迷失在细节中，并不是 C++ 设计者/标准化委员会的本意。实际上，写好 C++ 程序，也不需要了解 C++ 的每一个细节；只需要理解语言背后的基本原理和技术就可以了。</p>
+<p>C++ 语言之父（Bjarne Stroustrup）在 2012 年撰写过一篇 paper，其名为 <em>Foundations of C++</em>。在这篇 paper 中，Bjarne 通过一些例子，介绍了 C++ 背后的这些基本原理和技术。本文即脱胎于 Bjarne 的这篇 paper。</p>
+<a id="more"></a>
+<h2 id="C-的理想化目标"><a href="#C-的理想化目标" class="headerlink" title="C++ 的理想化目标"></a>C++ 的理想化目标</h2><p>所谓「术业有专攻」，每个工具都有其适用范围；在适用范围内，每个工具又都有<strong>特别擅长</strong>的部分。作为工具的使用者，我们自然会期待在每一个范围，使用擅长解决这部分问题的工具。因此，如果把编程语言当做是一种工具，那么学习编程语言就应该了解其设计目的和擅长范围。</p>
+<p>特别一提，在有此理解的基础上，就会明白，市面上诸如「PHP 是最好的语言」、「Emacs 与 Vim 之争」是多么的无聊了。</p>
+<p>C++ 在设计之初，就着眼于特定的编程任务：在资源有限的情况下，为关键性的基础服务提供轻量级的抽象支持。我们可以认为，这就是 C++ 特别擅长的部分。为此，C++ 在语言特性和标准化的过程中，在两个方面着重下了功夫</p>
+<ul>
+<li>简单直接地对硬件做映射（继承了很多来自 C 语言的特性）；</li>
+<li>零开销地抽象机制（zero-overhead abstraction mechanism）。</li>
+</ul>
+<p>在更高的层次上，这两方面的功夫，为 C++ 提供了既类型（type）丰富又类型安全的编程环境。</p>
+<blockquote>
+<p>自然，并不是每个编程任务都落在 C++ 擅长的领域。实际上每个语言都有擅长和不擅长的领域。在这些领域，你就不能指望 C++ 程序员一定要遵循这些理想化的基本原理和技术——他们可以使用 C 风格的 C++ 去完成他们的目标。</p>
+</blockquote>
+<h2 id="内存与对象（Object）"><a href="#内存与对象（Object）" class="headerlink" title="内存与对象（Object）"></a>内存与对象（Object）</h2><p>C++ 将内存视作一长串的字节（sequence of Bytes）。在 C++ 代码和硬件之间，C++ 没有做额外的抽象、虚拟或者其他的数学模型。这也就是说，指针、引用、数组这些概念，会直接反应在硬件上以及<a href="/2016/05/01/Introduction-to-Memory-Addressing/">寻址</a>上。</p>
+<p>具体来说，C++ 将基本类型（<code>char</code>, <code>int</code>, <code>double</code> 等）直接映射到内存中的实体——比如字节（Byte）、字（Word）。有类型的对象会在内存中占据一块空间（a sequence of Bytes）；而后，这些对象的值就存储在这块空间当中。与之对应，一系列的对象，就会在内存里占据一系列的空间——这就组成了数组。对于数组中的对象，我们通常会使用指针去访问——数组的头部指针，以及数组的尾后指针限定了数组有效区域的范围（类似左闭右开的区间）。</p>
+<p><img src="/uploads/images/Cpp/array_model.png" alt="C++ 的数组模型"></p>
+<p>对于用户定义的类型来说（即 C++ 中的类），其在内存中的形式，仅只是类型内成员的加和而已。在提供抽象（类）的过程中，C++ 并没有带来额外的开销。此处以 <code>Point</code> 类为例，进行说明。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Point</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">int</span> x;</span><br><span class="line">    <span class="keyword">int</span> y;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">Point xy&#123;<span class="number">1</span>, <span class="number">2</span>&#125;;             <span class="comment">// 对象有名字、作用域，保存在 stack 中</span></span><br><span class="line">Point* p = <span class="keyword">new</span> Point&#123;<span class="number">1</span>, <span class="number">2</span>&#125;; <span class="comment">// 对象没有名字，需要使用指针访问，保存在 heap 中</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">if (nullptr != p) &#123;</span></span><br><span class="line"><span class="comment">    delete p;</span></span><br><span class="line"><span class="comment">&#125;</span></span><br><span class="line"><span class="comment">p = nullptr;</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+<p><img src="/uploads/images/Cpp/stack_heap_objects.png" alt="栈与堆上的对象"></p>
+<blockquote>
+<p>注意，这里我们使用了 C++11 的列表初始化（构造函数用花括号传参）。</p>
+</blockquote>
+<p>这里，我们定义了 <code>Point</code> 类，其中有两个 <code>int</code> 类型的变量。于是，<code>Point</code> 类型的变量仅只是两个 <code>int</code> 的「组合」而已。在（栈）内存中，<code>Point xy</code> 占据了两倍 <code>int</code> 所需的内存空间；在（堆）内存中，指针 <code>p</code> 指向的对象，因为保存在堆中，所以有堆信息的额外开销（不可避免的）。</p>
+<p>在继承机制里，C++ 也没有额外开销。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Base</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">int</span> b;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Derived</span>:</span> <span class="keyword">public</span> Base &#123;</span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">int</span> d;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">Base base;</span><br><span class="line">Derived derived;</span><br></pre></td></tr></table></figure>
+<p><img src="/uploads/images/Cpp/base_derived.png" alt="类的继承也不带来额外的开销"></p>
+<p>C++ 的类机制，仅只在引入<strong>虚函数</strong>时，才会带来一些开销（需要维护虚函数表）。这部分开销，是为了实现<strong>运行时多态</strong>（run-time polymorphism）所必须的，是不可避免的。因而，也没有额外的开销。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Shape</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">virtual</span> Point <span class="title">center</span><span class="params">()</span> <span class="keyword">const</span> </span>= <span class="number">0</span>;</span><br><span class="line">    <span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">draw</span><span class="params">()</span> <span class="keyword">const</span> </span>= <span class="number">0</span>;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Circle</span>:</span> <span class="keyword">public</span> Shape &#123;</span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    Point c;</span><br><span class="line">    <span class="keyword">double</span> radius;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="function">Point <span class="title">center</span><span class="params">()</span> <span class="keyword">const</span> override </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> c;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">draw</span><span class="params">()</span> <span class="keyword">const</span> override </span>&#123;</span><br><span class="line">        <span class="comment">// draw the circle</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">Shape* p = <span class="keyword">new</span> Circle&#123;Point&#123;<span class="number">1</span>, <span class="number">2</span>&#125;, <span class="number">3.14</span>&#125;;</span><br></pre></td></tr></table></figure>
+<p><img src="/uploads/images/Cpp/base_derived_virtual.png" alt="运行时多态带来的虚表的开销"></p>
+<blockquote>
+<p>注：此图有误。虚表指针应该位于起始地址上。</p>
+</blockquote>
+<p>至此，我们只是在「理论上」分析为什么 C++ 避免了各种额外的开销，却不知道哪些开销可称得上是额外的。当我们把自定义类型和数组结合起来时，与其它语言对比，就能看到差别了。（以<strong>某</strong>纯面向对象语言为例）。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Point points[] = &#123;&#123;<span class="number">1</span>, <span class="number">2</span>&#125;, &#123;<span class="number">3</span>, <span class="number">4</span>&#125;&#125;;</span><br></pre></td></tr></table></figure>
+<p>复用之前 <code>Point</code> 的定义，在 C++ 当中，<code>points</code> 这个数组在内存中的存储大致如下图。</p>
+<p><img src="/uploads/images/Cpp/points_cpp.png" alt="C++ 中的 points 数组"></p>
+<p>在某语言中，用户定义的类型，其对象实际保存在 heap 上，而通过 reference 访问。如此一来，同样的数组，在内存中的存储就与 C++ 的情形不太一样了。</p>
+<p><img src="/uploads/images/Cpp/points_java.png" alt="某语言中的 points 数组"></p>
+<p>不难发现，在 C++ 中，统共只需 4 个 <code>int</code> 类型变量；但是在某语言中，同样的数组，至少需要 10 个 <code>int</code> 类型变量占据的内存。由于增加了实际内存使用量，所以在实际运行中，可能会降低 CPU cache 命中率，最终导致运行效率降低。</p>
+<p>总而言之，C++ 在设计之时就在尝试避免各种额外的开销。而并不是每个语言都有这样的设计。</p>
+<h2 id="编译时运算"><a href="#编译时运算" class="headerlink" title="编译时运算"></a>编译时运算</h2><p>顾名思义，编译时运算指的是发生在编译期间（包括编译器优化）的运算。在编译时运算有以下一些好处</p>
+<ul>
+<li>高效：以编译时的运算代替运行时的运算，提高运行时效率；</li>
+<li>类型安全：在编译时就能检查表达式各部分的类型，保证类型安全；</li>
+<li>简化并发：编译时运算得到常数，在常数上不会有数据竞争，因而能简化并发。</li>
+</ul>
+<p>在 C++ 中，C++11 引入了 <code>constexpr</code> 这个关键字。编码时使用它，就能实现编译时运算了。下面的代码在编译时计算了北京与上海之间的距离。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">City</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="keyword">double</span> x;</span><br><span class="line">    <span class="keyword">double</span> y;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="keyword">double</span> <span class="title">csqrt</span><span class="params">(<span class="keyword">double</span> in)</span> </span>&#123; <span class="comment">/* calc square root */</span> &#125;</span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="keyword">double</span> <span class="title">square</span><span class="params">(<span class="keyword">double</span> in)</span> </span>&#123; <span class="keyword">return</span> in * in; &#125;</span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="keyword">double</span> <span class="title">dist</span><span class="params">(<span class="keyword">const</span> City&amp; lhs, <span class="keyword">const</span> City&amp; rhs)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> csqrt(square(<span class="built_in">abs</span>(lhs.x - rhs.x)) + square(<span class="built_in">abs</span>(lhs.y - rhs.y)));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">constexpr</span> City beijing&#123;<span class="number">116</span>, <span class="number">39</span>&#125;;</span><br><span class="line"><span class="keyword">constexpr</span> City shanghai&#123;<span class="number">121</span>, <span class="number">31</span>&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">constexpr</span> <span class="keyword">double</span> distence = dist(beijing, shanghai);</span><br></pre></td></tr></table></figure>
+<h2 id="容器"><a href="#容器" class="headerlink" title="容器"></a>容器</h2><p>容器是 C++ STL 中的一大利器，可以用来存储大量内容。<code>vector</code> 是其中的代表。此处我们通过事先简易版本的 <code>Vector</code> 来说明 C++ 的容器。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Vector</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    Vector();                       <span class="comment">// 默认构造函数，建一个空的 vector</span></span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">Vector</span><span class="params">(<span class="keyword">int</span> n)</span></span>;         <span class="comment">// 初始化一个长度为 n 的 vector，内部元素默认初始化</span></span><br><span class="line">    Vector(<span class="built_in">initializer_list</span>&lt;T&gt;);    <span class="comment">// 列表初始化</span></span><br><span class="line">    ~Vector():                      <span class="comment">// 析构函数，拆掉为所有元素分配的内存</span></span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">size</span><span class="params">()</span> <span class="keyword">const</span></span>;               <span class="comment">// 返回 vector 的长度</span></span><br><span class="line">    T&amp; <span class="keyword">operator</span>[](<span class="keyword">int</span> i) <span class="keyword">const</span>;     <span class="comment">// 运算符重载，随机访问 vector 中的元素，返回左值引用</span></span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">push_back</span><span class="params">(<span class="keyword">const</span> T&amp; ele)</span></span>;   <span class="comment">// 将 ele 追加在 vector 的末尾</span></span><br><span class="line">    <span class="function">T* <span class="title">begin</span><span class="params">()</span></span>;                     <span class="comment">// 返回头部元素的指针</span></span><br><span class="line">    <span class="function">T* <span class="title">end</span><span class="params">()</span></span>;                       <span class="comment">// 返回尾后元素的指针</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">int</span> sz;                         <span class="comment">// 记录元素的个数</span></span><br><span class="line">    T* elem;                        <span class="comment">// 记录为 sz 个元素分配的内存之首地址</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>C++11 提供的 range-for 可以对所有提供 <code>begin()</code> 和 <code>end()</code> 的容器做循环迭代；这是容器的一个重要属性。比如说</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Vector&lt;<span class="built_in">std</span>::<span class="built_in">string</span>&gt; demo(&#123;<span class="string">"Hello"</span>, <span class="string">"world"</span>&#125;);</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">auto</span> str : demo) &#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; str &lt;&lt; <span class="string">' '</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">'\n'</span>;</span><br></pre></td></tr></table></figure>
+<p>在 <code>Vector</code> 类的声明中，值得注意的是使用了 <code>public</code> 和 <code>private</code> 关键字，将 <code>Vector</code> 的声明分为了外部接口和内部实现两个部分。在 <code>Vector</code> 的外部接口中，还包括了类的构造函数和析构函数——管理类实例的资源。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 初始化一个长度为 n 的 vector，内部元素默认初始化</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">Vector&lt;T&gt;::Vector(<span class="keyword">int</span> n) : sz&#123;n&#125;, elem&#123;allocate&lt;T&gt;(sz)&#125; &#123;</span><br><span class="line">    <span class="keyword">if</span> (sz &lt; <span class="number">0</span>) <span class="keyword">throw</span> <span class="built_in">std</span>::runtime_error&#123;<span class="string">"negative Vector size"</span>&#125;;</span><br><span class="line">    <span class="built_in">std</span>::uninitialized_fill(elem, elem + sz, T&#123;&#125;);  <span class="comment">// 默认初始化</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>我们首先在初始化列表中，将成员变量 <code>sz</code> 和 <code>elem</code> 初始化。其中 <code>elem</code> 指向了一块类型为 <code>T</code> 而长度为 <code>sz</code> 的 heap 内存空间。随后，我们在函数体中，用 <code>std::uninitialized_fill</code> 给 <code>elem</code> 上的空间，都以类型 <code>T</code> 的默认构造函数初始化。</p>
+<blockquote>
+<p>注意，这里的 <code>allocate&lt;T&gt;()</code> 只是一个「表意」的作用，是标准的 allocator 的简化版本。</p>
+</blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 列表初始化</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">Vector&lt;T&gt;::Vector(<span class="built_in">std</span>::<span class="built_in">initializer_list</span>&lt;T&gt; lst) : sz&#123;lst.size()&#125;, elem&#123;allocate&lt;T&gt;(sz)&#125; &#123;</span><br><span class="line">    <span class="built_in">std</span>::uninitialized_copy(lst.begin(), lst.end(), elem);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在列表初始化版本的构造函数里，构造函数接受一个用于初始化的列表。它将列表的长度初始化给 <code>sz</code>，而后同样地为 <code>Vector</code> 分配 heap 内存空间。在函数体里，使用 <code>std::uninitialized_copy</code> 将列表中的内容拷贝到 <code>elem</code> 指向的内存当中去。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 析构函数，拆掉为所有元素分配的内存</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">Vector&lt;T&gt;::~Vector() &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">auto</span> work&#123;<span class="built_in">std</span>::begin(elem)&#125;; work != <span class="built_in">std</span>::end(elem); ++work) &#123;</span><br><span class="line">        work-&gt;~T();</span><br><span class="line">    &#125;</span><br><span class="line">    deallocate&lt;T&gt;(elem, sz);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在析构函数中，我们逐一析构了 <code>elem</code> 当中的所有元素，而后释放了 <code>elem</code> 这块内存空间。</p>
+<blockquote>
+<p>同样地，<code>deallocate&lt;T&gt;()</code> 也只是表意用。</p>
+</blockquote>
+<p>这个简单的 <code>Vector</code> 提供了对内存的高级抽象。它将存储从一连串的字节（sequence of Bytes）抽象成了对象的容器（containers of objects）。并且，在这个抽象过程中，除了必要的错误检查、内存管理和初始化工作之外，并没有额外的开销；因而是非常轻量级的。</p>
+<p>这个示例了 C++ 的一些基础技术和特性。最浅显地，C++ 语言本身并没有定义容器和内存管理，这些工作都需要用户自己定义（当然，大多数情况标准库已经为我们准备好了）；C++ 语言本身，只是实现了对固定大小数组的支持。标准库中的 <code>vector</code>, <code>map</code>, <code>set</code>, <code>list</code> 等容器是学习 C++ 基础技术和特性非常好的示例。它们用到了以下一些技术：</p>
+<ul>
+<li>接口与实现分离；</li>
+<li>使用构造函数和析构函数管理资源（包括内存资源）；</li>
+<li>使用模板，以便容器支持多种类型的实例；</li>
+<li>使用左闭右开的区间（<code>[begin():end())</code>）构建 <code>for</code> 循环及相关算法；</li>
+<li>使用标准库提供的设施（一些有用的工具库和工具函数），简化实现。</li>
+</ul>
+<h2 id="拷贝和移动"><a href="#拷贝和移动" class="headerlink" title="拷贝和移动"></a>拷贝和移动</h2><blockquote>
+<p>这部分内容，可以参考前作：<a href="/2016/12/11/rvalue-reference-in-Cpp/">谈谈 C++ 中的右值引用</a>以及<a href="/2016/08/14/copy-control-in-Cpp/">C++ 中类的拷贝控制</a>。</p>
+</blockquote>
+<p>这一节我们继续讨论容器相关的技术。</p>
+<p>上一节中，我们初步实现了一个简单的 <code>Vector</code>。但是这个 <code>Vector</code> 还非常的不完整。考虑下面这个例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Point* p1 = <span class="keyword">new</span> Point&#123;<span class="number">1</span>, <span class="number">2</span>&#125;;</span><br><span class="line">Point* p2 = <span class="keyword">new</span> Point&#123;<span class="number">3</span>, <span class="number">4</span>&#125;;</span><br><span class="line">Vector&lt;Point*&gt; points&#123;p1, p2&#125;;</span><br><span class="line"><span class="keyword">auto</span> points_holder = points;</span><br></pre></td></tr></table></figure>
+<p>这里，我们首先列表初始化了 <code>points</code>。这是一个 <code>Vector</code>，内里的元素是 <code>Point*</code> 类型的对象。而后，我们尝试将 <code>points</code> 拷贝赋值给 <code>points_holder</code>。由于我们没有为 <code>Vector</code> 类定义「拷贝赋值」这个动作，所以编译器会为我们默认「合成」一个拷贝赋值运算符。</p>
+<p>编译器默认合成的拷贝赋值运算符，只是简单地拷贝了类的成员变量，而不考虑成员变量的含义。具体到我们的例子中，默认合成的拷贝赋值运算符，会让 <code>points_holder</code> 的 <code>sz</code> 和 <code>elem</code> 分别具有和 <code>points</code> 中相应成员相同的值。对于 <code>sz</code> 来说，二者的值相同没有什么问题。但是对于 <code>elem</code> 来说，二者具有相同的值，意味着两个 <code>Vector</code> 共享了同一片内存空间。这样一来，就会出问题。比如说</p>
+<ul>
+<li>向 <code>points</code> 中增加了一个新的元素，那么 <code>elem</code> 这片空间上的元素数目变成了 3，但是 <code>points_holder.size()</code> 依然会返回 2；</li>
+<li>析构 <code>points</code> 的时候，会导致 <code>points_holder</code> 也不可用（访问 <code>points_holder</code> 内的元素会引发 segfault）。</li>
+</ul>
+<p>因此，我们需要对拷贝的行为作出具体的定义。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 拷贝构造函数</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">Vector&lt;T&gt;::Vector(<span class="keyword">const</span> Vector&amp; orig) : sz&#123;orig.sz&#125;, elem&#123;allocate&lt;T&gt;(sz)&#125; &#123;</span><br><span class="line">    <span class="built_in">std</span>::uninitialized_copy(orig.begin(), orig.end(), elem);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 拷贝赋值运算符</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">Vector&lt;T&gt;&amp; Vector&lt;T&gt;::<span class="keyword">operator</span>=(<span class="keyword">const</span> Vector&amp; rhs) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">auto</span> work&#123;<span class="built_in">std</span>::begin(<span class="keyword">this</span>-&gt;elem); work != <span class="built_in">std</span>::end(<span class="keyword">this</span>-&gt;elem); ++work&#125;) &#123;</span><br><span class="line">        work-&gt;~T();</span><br><span class="line">    &#125;</span><br><span class="line">    deallocate&lt;T&gt;(<span class="keyword">this</span>-&gt;elem, <span class="keyword">this</span>-&gt;sz);</span><br><span class="line">    Vector&lt;T&gt; tmp&#123;rhs&#125;;</span><br><span class="line">    <span class="keyword">this</span>-&gt;elem = tmp.elem;</span><br><span class="line">    <span class="keyword">this</span>-&gt;sz = tmp.sz;</span><br><span class="line"></span><br><span class="line">    tmp.elem = <span class="literal">nullptr</span>;</span><br><span class="line">    tmp.sz = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里我们分别定义了 <code>Vector</code> 的拷贝构造函数以及拷贝赋值运算符；其中，在拷贝赋值运算符中，我们借助了拷贝构造函数。这样一来，不论是通过构造函数进行拷贝，还是通过赋值运算符进行拷贝，我们都有了完整的定义。</p>
+<p>值得注意的是，在拷贝构造函数以及拷贝赋值运算符中，我们都使用了诸如 <code>orig.sz</code>, <code>tmp.elem</code> 这样的用法。但是，不论是 <code>sz</code> 还是 <code>elem</code>，都是 <code>Vector</code> 中定义的私有成员。那么为什么我们可以通过这样的方式访问呢？需要注意的是，C++ 中的类成员访问控制，是建立在「类」这个层面的，而不是「对象」这个层面的。这也就是说，你可以在一个实例中访问同一个类的不同实例当中的私有变量。</p>
+<p>至此，我们解决了「拷贝」的问题，可以接着去解决「移动」的问题了。对于拷贝，我们比较容易理解。对于「移动」，可能很多人就无法理解它的必要性了。这里从两个角度去解说这个问题。</p>
+<ul>
+<li>对于某些容器，我们希望禁止拷贝。比如著名的智能指针 <code>unique_ptr</code>。因为限定了「只有当前一个只能指针指向某个资源」，所以必须禁止对 <code>unique_ptr</code> 的拷贝。否则的话，就可能存在多个 <code>unique_ptr</code> 指向同一个资源。而这就与 <code>unique_ptr</code> 的定义相违背了。但是，我们又不可避免地会需要在不同的变量名之间传递智能指针（比如作为参数传递，或者放入容器时有容器的拷贝）。所以，在这种情况下，我们会需要「移动」的操作。</li>
+<li>对于某些容器对象，有时会有这样的操作：将整个对象拷贝给另一个对象，而后当前对象就要被销毁了。如果被拷贝的容器非常大，整个过程就非常耗时了。这种情况下，如果能实现「移动」操作，无意就能省去很多不必要的拷贝；提高效率。</li>
+</ul>
+<p>到这里，我们能明确地说：移动操作是有必要去实现的。但是，在具体去实现移动构造函数和移动赋值运算符之前，我们还需要做一些深入的思考：被移动的对象有哪些特征。为此，我们不妨回想一下日常生活中，移动一个物体会发生什么。</p>
+<ul>
+<li>最最显而易见地，将一个物体移动之后，物体出现在新的位置，而从旧的位置消失了。</li>
+<li>在某些情况下，比如当一个物体放置很久之后，我们移动它，会在旧的位置留下一堆灰尘。</li>
+</ul>
+<p>作为程序员，我们要经常从现象中抽象出统一的规律。这两个现象告诉我们几件事情：</p>
+<ul>
+<li>当一个物体被移走之后，它应该完好无损地出现在新的地方；</li>
+<li>当一个物体被一走之后，原来所处的位置，可能出现各种情况——可能只是空出了位置，也可能留下一堆垃圾。</li>
+</ul>
+<p>抽象到程序设计中，就应该是：当一个对象被移动走之后，我们不应该这个对象的状态做任何假设——可能还是保持原样，也可能留下了一堆无法理解的垃圾信息。简而言之，当一个对象被移动走之后，这个对象就应该被废弃，不应该使用了。</p>
+<p>在 C 和 C++ 中，这种「马上就要被废弃」的对象有一个名字，叫做「右值」。因此，移动构造函数和移动复制运算符的参数，应该是一个右值。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">Vector&lt;T&gt;::Vector(Vector&amp;&amp; orig) : sz&#123;orig.sz&#125;, elem&#123;orig.elem&#125; &#123;</span><br><span class="line">    orig.elem = <span class="literal">nullptr</span>;</span><br><span class="line">    orig.sz = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">Vector&lt;T&gt;&amp; Vector&lt;T&gt;::<span class="keyword">operator</span>=(Vector&lt;T&gt;&amp;&amp; rhs) &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">auto</span> work&#123;<span class="built_in">std</span>::begin(<span class="keyword">this</span>-&gt;elem); work != <span class="built_in">std</span>::end(<span class="keyword">this</span>-&gt;elem); ++work&#125;) &#123;</span><br><span class="line">        work-&gt;~T();</span><br><span class="line">    &#125;</span><br><span class="line">    deallocate&lt;T&gt;(<span class="keyword">this</span>-&gt;elem, <span class="keyword">this</span>-&gt;sz);</span><br><span class="line">    <span class="keyword">this</span>-&gt;elem = rhs.elem;</span><br><span class="line">    <span class="keyword">this</span>-&gt;sz = rhs.sz;</span><br><span class="line">    rhs.elem = <span class="literal">nullptr</span>;</span><br><span class="line">    rhs.sz = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>至此，我们已经实现了 <code>Vector</code> 类的移动和拷贝构造函数及赋值运算符，应当更新一下 <code>Vector</code> 类的声明。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Vector</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">    Vector(<span class="keyword">const</span> Vector&amp;);      <span class="comment">// 拷贝构造函数</span></span><br><span class="line">    Vector(Vector&amp;&amp;);           <span class="comment">// 移动构造函数</span></span><br><span class="line">    Vector&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> Vector&amp;);   <span class="comment">// 拷贝赋值运算符</span></span><br><span class="line">    Vector&amp; <span class="keyword">operator</span>=(Vector&amp;&amp;);        <span class="comment">// 移动赋值运算符</span></span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>不难发现，拷贝构造函数及赋值运算符接受相同类型的左值引用，而移动版本的构造函数及赋值运算符接受相同类型的右值引用。</p>
+<p>对于拷贝和移动控制，简单而粗暴的论断是：<strong>在析构函数、拷贝和移动构造和赋值运算符中，只要有一个需要手工实现（而不能依赖编译器自动合成的版本），那么就必须实现另外四个。</strong></p>
+<h2 id="RAII-Resource-Acquisition-Is-Initialization"><a href="#RAII-Resource-Acquisition-Is-Initialization" class="headerlink" title="RAII (Resource Acquisition Is Initialization)"></a>RAII (Resource Acquisition Is Initialization)</h2><p>至此，我们（看似）已经可以结束有关容器的讨论了。但是，在上述几个章节里贯穿始终的问题还需要做更进一步的讨论——资源的管理。</p>
+<p>要讨论资源的管理，首先要明白，站在程序设计语言的角度，到底什么是资源？Bjarne 对资源作出了这样的定义：凡是程序从系统的其他部分获取，并且在使用完之后需要（显式地或者隐式地）归还的东西，都是资源。按照这个定义，内存显然是一种资源。同样地，文件、套接字、锁、线程，都可以是一种资源。</p>
+<p>同时，Bjarne 也给出了「资源泄露」的定义：凡是使用完应当归还而没有归还的资源，就是被泄露的资源；而这个现象叫做「资源泄漏」。资源的获取与释放，这两件事情本身并不值得长篇大论。但是防不胜防的资源泄漏，则需要好好讨论。</p>
+<p>稍有经验的程序员，就不会对「资源泄漏」感到陌生。Java 程序员可能会感到轻松，因为 Java 有自带的垃圾回收机制，能避免大多数的内存泄露问题。然而，垃圾回收并不是解决资源泄漏的银弹；因为，垃圾回收只解决了「内存泄漏」的问题，但是还有其他形式的资源。此外，资源泄漏之所以令人感到棘手，还有一个原因就是它的隐蔽性：</p>
+<ul>
+<li>有一些资源，看起来就不是个资源。比如在 C 程序中打开一个文件，其实获得的是一个指针 <code>FILE*</code>。调用 <code>fclose()</code> 本身就显得比较怪异（关闭一个指针，这是什么鬼）。</li>
+<li>有一些资源，获取和释放的方式有很多种。于是，经常性地，程序员可能无法完美地给他们对应上。</li>
+<li>及时程序员非常小心，在使用完了资源都主动释放，也有可能在出发释放动作之前，遇到函数返回、异常处理等问题，而跳过释放动作。</li>
+</ul>
+<p>所谓解决问题的最好方法，是让问题发生的前提消失。</p>
+<blockquote>
+<p>对此可以举一个生动的例子。<br>我们知道，在飞机、高铁等运输工具上，卫生间都采用一种名为「真空集便器」的装置来收集排泄、排遗产生的垃圾。身形瘦的人大约不会有这样的困惑，但是，如果一个<strong>大胖子</strong>一屁股坐到坐便器上，然后上完厕所，按下<strong>身前</strong>的冲洗按钮，可能就会引发悲剧——大胖子整个人被吸在坐便器上动弹不得。<br>解决这个问题最好的办法，就是将冲洗按钮设计在坐便器之后——这样，人们必须<strong>站起来</strong>而后按下冲洗按钮。这是因为，「被吸住」的前提是有一个大胖子「坐在」坐便器上按下冲洗按钮；将按钮设计在身后，破坏了「坐在」坐便器上这个前提，因而一劳永逸地解决了这个问题。</p>
+</blockquote>
+<p>对于资源，我们希望的是<strong>当使用完毕之后</strong>释放。而出现资源泄露的根本问题在于，我们很难穷举所有「使用完毕」的情形；而但凡有一种情形我们没有处理好，那么在这种情形下，就可能出现资源泄漏。如果想要一劳永逸地解决这个问题，我们就有必要仔细思考：在 C++ 中，有哪些东西是<strong>天然地</strong>在使用完毕之后，就会被释放的。对于任何一个稍有 C++ 经验的程序员来说，答案都是呼之欲出的：局部变量。</p>
+<p>保存在 stack 上的局部变量，由系统维护。当局部变量的生存期完结，它就会被自动销毁。因此，若是<strong>将资源的获取与局部变量的初始化绑定在一起</strong>（此即 RAII），我们就能放心地使用资源，而不必担心资源泄漏问题。（智能指针就是这样做的）例如，对于文件指针来说，我们可以有这样的定义</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">FileHandle</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    FILE* p;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    FileHandle(<span class="keyword">const</span> <span class="keyword">char</span>* path, <span class="keyword">const</span> <span class="keyword">char</span>* r) : p&#123;<span class="literal">nullptr</span>&#125; &#123;</span><br><span class="line">        p = fopen(path, r);</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> == p) &#123;</span><br><span class="line">            <span class="keyword">throw</span> file_error&#123;path, r&#125;;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    FileHandle(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; path, <span class="keyword">const</span> <span class="keyword">char</span>* r) : p&#123;<span class="literal">nullptr</span>&#125; &#123;</span><br><span class="line">        p = fopen(path.c_str(), r);</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> == p) &#123;</span><br><span class="line">            <span class="keyword">throw</span> file_error&#123;path.c_str(), r&#125;;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    FileHandle(FileHandle&amp;&amp; orig) : p&#123;orig.p&#125; &#123;</span><br><span class="line">        orig.p = <span class="literal">nullptr</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    FileHandle&amp; <span class="keyword">operator</span>=(FileHandle&amp;&amp; rhs) &#123;</span><br><span class="line">        <span class="keyword">this</span>-&gt;p = rhs.p;</span><br><span class="line">        rhs.p = <span class="literal">nullptr</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    ~FileHandle() &#123;</span><br><span class="line">        fclose(p);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function">FILE <span class="keyword">const</span>* <span class="title">p</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">this</span>-&gt;p;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    FileHandle(<span class="keyword">const</span> FileHandle&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    FileHandle&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> FileHandle&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>至此，我们就能放心地使用 <code>FileHandle</code> 来管理文件资源了（其他类型的资源也可以类似地定义）。</p>
+<!-- 写给刘华毅 -->
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2017/04/09/Foundations-of-Cpp/" title="C++ 的几个基本原理和技术">https://liam.page/2017/04/09/Foundations-of-Cpp/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/C/" rel="tag"># C++</a>
+          
+            <a href="/tags/Foundations/" rel="tag"># Foundations</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/04/04/get-data-from-World-Bank-in-Python-within-the-wbdata-module/" rel="next" title="在 Python 中使用 wbdata 库获取世界银行的数据">
+                <i class="fa fa-chevron-left"></i> 在 Python 中使用 wbdata 库获取世界银行的数据
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/04/11/justifying-in-beamer-s-lists/" rel="prev" title="解决 beamer 中列表环境无法两端切齐的问题">
+                解决 beamer 中列表环境无法两端切齐的问题 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#C-的理想化目标"><span class="nav-number">1.</span> <span class="nav-text">C++ 的理想化目标</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存与对象（Object）"><span class="nav-number">2.</span> <span class="nav-text">内存与对象（Object）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#编译时运算"><span class="nav-number">3.</span> <span class="nav-text">编译时运算</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#容器"><span class="nav-number">4.</span> <span class="nav-text">容器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#拷贝和移动"><span class="nav-number">5.</span> <span class="nav-text">拷贝和移动</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RAII-Resource-Acquisition-Is-Initialization"><span class="nav-number">6.</span> <span class="nav-text">RAII (Resource Acquisition Is Initialization)</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

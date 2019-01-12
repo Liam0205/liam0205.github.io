@@ -1,0 +1,2869 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本系列的上一篇文章介绍了 NLP 中处理分词的两种方法，其中基于统计语言模型的方法以巨大的优势胜出。 在上一篇文章的末尾，我们讲了优秀的算法模型在形式上应该是简洁优雅的。具体来说：  一个正确的数学模型在形式上应该是简洁优雅的。 一个正确的数学模型，在刚开始的时候可能还不如一个经过精心调教的错误模型准确。但是错误模型不论如何调教，因为方向错了，所以终究会有处理不了实际问题的时候。 正确的数学模型可">
+<meta name="keywords" content="Statistic Language Model,Natural Language Processing,Stochastic Process,Markov Process">
+<meta property="og:type" content="article">
+<meta property="og:title" content="自然语言处理的数学原理（二）">
+<meta property="og:url" content="https://liam.page/2015/07/26/mathematics-theory-of-natural-language-processing-2/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本系列的上一篇文章介绍了 NLP 中处理分词的两种方法，其中基于统计语言模型的方法以巨大的优势胜出。 在上一篇文章的末尾，我们讲了优秀的算法模型在形式上应该是简洁优雅的。具体来说：  一个正确的数学模型在形式上应该是简洁优雅的。 一个正确的数学模型，在刚开始的时候可能还不如一个经过精心调教的错误模型准确。但是错误模型不论如何调教，因为方向错了，所以终究会有处理不了实际问题的时候。 正确的数学模型可">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-01-12T07:15:39.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="自然语言处理的数学原理（二）">
+<meta name="twitter:description" content="本系列的上一篇文章介绍了 NLP 中处理分词的两种方法，其中基于统计语言模型的方法以巨大的优势胜出。 在上一篇文章的末尾，我们讲了优秀的算法模型在形式上应该是简洁优雅的。具体来说：  一个正确的数学模型在形式上应该是简洁优雅的。 一个正确的数学模型，在刚开始的时候可能还不如一个经过精心调教的错误模型准确。但是错误模型不论如何调教，因为方向错了，所以终究会有处理不了实际问题的时候。 正确的数学模型可">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2015/07/26/mathematics-theory-of-natural-language-processing-2/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>自然语言处理的数学原理（二） | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2015/07/26/mathematics-theory-of-natural-language-processing-2/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">自然语言处理的数学原理（二）
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2015 年 07 月 26 日 09:45:39" itemprop="dateCreated datePublished" datetime="2015-07-26T09:45:39+08:00">2015 年 07 月 26 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:15:39" itemprop="dateModified" datetime="2019-01-12T15:15:39+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">8.2k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">15 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>本系列的<a href="/2015/07/25/mathematics-theory-of-natural-language-processing-1/">上一篇文章</a>介绍了 NLP 中处理分词的两种方法，其中基于统计语言模型的方法以巨大的优势胜出。</p>
+<p>在上一篇文章的末尾，我们讲了优秀的算法模型在形式上应该是简洁优雅的。具体来说：</p>
+<ol>
+<li>一个正确的数学模型在形式上应该是简洁优雅的。</li>
+<li>一个正确的数学模型，在刚开始的时候可能还不如一个经过精心调教的错误模型准确。但是错误模型不论如何调教，因为方向错了，所以终究会有处理不了实际问题的时候。</li>
+<li>正确的数学模型可能因为受到干扰而不准确。此时应该找出干扰、噪音，并解决它们，而不是简单凑合去修修补补。</li>
+</ol>
+<p>这篇文章我们继续讲分词和统计语言模型。不过，这次的内容会比上次要深入、深奥，并且会涉及到一些数学推导，以及一些工程上的 Dark Side。不过，其中有些非常 Tricky 的技巧对于大多数读者来说没有必要阅读，而剩下的部分中简单的数学推导也不致枯燥。</p>
+<a id="more"></a>
+<h2 id="统计语言模型的具体描述"><a href="#统计语言模型的具体描述" class="headerlink" title="统计语言模型的具体描述"></a>统计语言模型的具体描述</h2><p>上一篇文章简单介绍了统计语言模型的思想，这里将给出统计语言模型的具体描述和简化。不过，在此之前，我们先看一个更简单直观的例子。</p>
+<h3 id="一个简单的例子"><a href="#一个简单的例子" class="headerlink" title="一个简单的例子"></a>一个简单的例子</h3><p>下面这个例子我们已经见过，在文法上，这是一个比较复杂的句子。不过，虽然这个句子在文法上比较复杂，但是对于人类来说，理解它并不费劲。</p>
+<ul>
+<li>由于理解自然语言，需要关于外在世界的广泛知识以及运用操作这些知识的能力，自然语言认知，同时也被视为一个人工智能完备的问题。</li>
+</ul>
+<p>现在我们对句子略作修改，变成下面这样，理解起来就有些费劲了，但是勉强还能理解。</p>
+<ul>
+<li>自然语言由于理解，需要知识广泛关于外在世界的以及运用这些知识操作的能力，认知自然语言，也被视为同时人工只能完备的一个问题。</li>
+</ul>
+<p>如果对句子继续变形，变成下面这样，基本上就没人搞得懂这是在说什么了。</p>
+<ul>
+<li>然自语言由理于解，需知要关泛识需广关泛于外在界世以及的运用及的些这识知操运用些的作能力，认语知自然语知言，也视被为同备时的人被工个问只视能完的备一个题问。</li>
+</ul>
+<p>从文法上说，第一个句子合乎文法，因而容易理解；第二个句子虽然不合文法，但是勉强有迹可循；第三个句子则完全莫名其妙，自然就没法读懂。</p>
+<p>上一篇文章告诉我们，这样基于文法的解释是合情合理的，但是在实际应用上却迈不开步子、走不出实验室。要解释这三个句子的情况，终究还是要依靠统计的方法。</p>
+<p>我们把这三个句子分别记作 $S_1$, $S_2$, $S_3$，用 $P(S_k)$ 表示三个句子在人类交流中出现的概率（可能性）。于是事情就变得简单起来：$P(S_k)$ 越大，说明句子出现在人类交流中的概率越大；换言之，这个句子越符合人类交流的习惯（特别是文法规则），因此也就容易读懂。就实际情况来说，</p>
+<p>\begin{align}<br>P(S_1)\approx 10^{-20}\notag\\<br>P(S_2)\approx 10^{-25}\notag\\<br>P(S_3)\approx 10^{-70}\notag\\<br>\end{align}</p>
+<p>亦即，第一个句子出现的概率是第二个句子的一万倍，是第三个句子的 $10^{50}$ 倍。我已经不想去数 $10^{50}$ 这个数字写作中文后会有多少个「亿」字了。</p>
+<h3 id="统计语言的描述"><a href="#统计语言的描述" class="headerlink" title="统计语言的描述"></a>统计语言的描述</h3><p>上一小节我们看到根据句子的概率判断句子合理性效果是十分显著的。为了能将这个方法用于实际，我们必须解决概率的计算问题。</p>
+<p>假定 $S$ 是一个有意义的句子，它由一串排序确定的词组成，即</p>
+<p>$$S = w_1,\,w_2,\,\ldots,\,w_n$$</p>
+<p>这里每个 $w_k$ 表示一个词语，$n$ 是句子包含词语的数量，即句子的长度。</p>
+<p>显而易见，把 $S$ 放在从古至今所有的语境里去检查概率是不可行的，因此我们需要做一个模型来估算。我们把 $P(S)$ 展开，得到</p>
+<p>\begin{equation}<br>P(S) = P(w_1,\,w_2,\,\ldots,\,w_n)<br>\label{eq:sentence-exp}<br>\end{equation}</p>
+<p>考虑到 $w_1,\,w_2,\,\ldots,\,w_n$ 是有特定顺序的。因此，记 $m = n-1$，则 \eqref{eq:sentence-exp} 可以展开成 \eqref{eq:contional-prob-sent} 中的条件概率形式。</p>
+<p>\begin{equation}<br>\begin{aligned}<br>P(S) = {}&amp; P(w_1,\,w_2,\,\ldots,\,w_n) \\<br>     = {}&amp; P(w_1)\cdot P(w_2\mid w_1)\cdot P(w_3\mid w_1,\,w_2)\cdot\cdots\cdot P(w_n\mid w_1,\,w_2,\,\ldots,\, w_m)<br>\end{aligned}<br>\label{eq:contional-prob-sent}<br>\end{equation}</p>
+<p>其中 $P(w_k\mid w_1,\,w_2,\,\ldots,\, w_i),\quad (i = k - 1)$ 表示 $w_k$ 接在序列 $w_1,\,w_2,\,\ldots,\, w_i$ 之后的条件概率。不难看出，$w_k$ 的概率，取决于它本身在整个语言中出现的概率，以及它前面 $i=k-1$ 个词顺序出现的概率。</p>
+<p>学过概率论的读者应该知道，计算三元的条件概率（即计算类似 $P(w_3\mid w_1,\,w_2)$）已经很困难了，更别说计算整个句子最后一个词的条件概率。因此，我们需要对模型进行简化。</p>
+<p>数学专业的读者可能会发现，这样的条件概率，实际上是一个随机过程的概率。在随机过程中，为了简化分析，对此类过程有一个马尔科夫假设（Markov Hypothesis），即假设 $ w_k $ 的概率只和 $w_i,\quad (i = k - 1)$ 有关。即假设</p>
+<p>$$ P(w_k\mid w_1,\,w_2,\,\ldots,\, w_i) = P(w_k\mid w_i),\quad (i = k - 1). $$</p>
+<p>这样一来，我们就有</p>
+<p>\begin{equation}<br>\begin{aligned}<br>P(S) = {}&amp; P(w_1,\,w_2,\,\ldots,\,w_n) \\<br>     = {}&amp; P(w_1)\cdot P(w_2\mid w_1)\cdot P(w_3\mid w_1,\,w_2)\cdot\cdots\cdot P(w_n\mid w_1,\,w_2,\,\ldots,\, w_m) \\<br>     = {}&amp; P(w_1)\cdot P(w_2\mid w_1)\cdot P(w_3\mid w_2)\cdot\cdots\cdot P(w_n\mid w_m)<br>\end{aligned}<br>\label{eq:bigram-model}<br>\end{equation}</p>
+<p>\eqref{eq:bigram-model} 即是二元统计语言模型（Bigram Model）。在形式上，二元模型是非常简洁优雅的，这正符合了我们之前对模型形式的预期。</p>
+<h3 id="条件概率的估算"><a href="#条件概率的估算" class="headerlink" title="条件概率的估算"></a>条件概率的估算</h3><p>模型已经构建完毕，接下来需要考虑如何解模，而核心问题就是如何估算条件概率 $P(w_k\mid w_i),\quad(i = k - 1)$。根据条件概率的定义</p>
+<p>$$ P(w_k\mid w_i) = \frac{P(w_i,\,w_k)}{P(w_i)},\quad(i = k - 1), $$</p>
+<p>我们只需要在语料库（Corpus）中统计 $w_i,\,w_k$ 和 $w_i$ 出现的次数，再除以语料库的体积，就能算出 $w_i,\,w_k$ 和 $w_i$ 的频率。如果语料库足够大，我们就有大数定律作支撑，得到</p>
+<p>\begin{equation}<br>P(w_k\mid w_i) = \frac{\langle w_i,\,w_k\rangle/\langle\text{Corpus}\rangle}{\langle w_i\rangle/\langle\text{Corpus}\rangle} = \frac{\langle w_i,\,w_k\rangle}{\langle w_i\rangle}<br>\label{eq:con-prob-solu}<br>\end{equation}</p>
+<p>\eqref{eq:con-prob-solu} 给出了计算二元条件概率的一般方法，其中 $\langle w_i\rangle$ 表示 $w_i$ 在语料库中出现的次数。</p>
+<p>至此，二元统计语言模型已经构建完毕，基本原理也已介绍完毕。数学在此展现了非凡的简洁和优雅，同时带给了我们极高的效率。当然，这个模型还很粗糙，要想让二元模型走出实验室，走向实际应用，还有很多细节需要讨论。接下来的讨论会有一些枯燥乏味，不过对数学细节不感兴趣的读者可以略过数学推导，把注意力放在模型的原理之上。</p>
+<h2 id="统计语言模型用于分词的细节讨论"><a href="#统计语言模型用于分词的细节讨论" class="headerlink" title="统计语言模型用于分词的细节讨论"></a>统计语言模型用于分词的细节讨论</h2><h3 id="二元模型的扩展"><a href="#二元模型的扩展" class="headerlink" title="二元模型的扩展"></a>二元模型的扩展</h3><p>马尔科夫假设将当前词语的概率限定只与之前一个词有关。这样的假设能在很大程度上降低计算的复杂性，但是却和实际生活的情况相差甚远。比如</p>
+<ul>
+<li>小明的铅笔</li>
+</ul>
+<p>在这里「铅笔」之前的词是结构助词「的」。考虑到结构助词「的」的后面几乎可以出现任何名词，如果我们约定「铅笔」出现的概率只和「的」有关，那显然是不合理的。</p>
+<p>为了解决这个问题，比较显然的办法是对马尔科夫假设做扩展。即，从假设当前词只与之前的一个词有关，扩展到与之前的 $p$ 个词有关。也就是将模型从二元模型扩展到 $p$-元模型。很显然，$p$ 的值越大，模型越接近真实情况；同时，计算量和计算的复杂度以及耗费的算力都会大大提升。因此，在实际使用中，需要在真实性和计算量之间取一个平衡点，互相取舍。</p>
+<p>经过前人的大量实验，当 $p = 3$ 时，模型的效果比较好，算力要求也在容忍范围之内。当 $p$ 的取值从 $3$ 增加到 $4$ 的时候，效果的增长不太明显，算力的要求却大大增加。因此，在实际使用过程中，大都是三元模型；对准确性要求高，且不差钱的时候，一般会选择使用四元模型。</p>
+<h3 id="统计语言模型的局限性"><a href="#统计语言模型的局限性" class="headerlink" title="统计语言模型的局限性"></a>统计语言模型的局限性</h3><p>统计语言模型的主要思想是通过统计人类的语言习惯，代替文法分析，判断某个句子的「合理性」（这个合理性通过概率的大小来量化）。</p>
+<p>统计语言模型的局限性一个主要的方面来自计算机算力和容量的限制。这一点上一小节已经讨论过了。</p>
+<p>另一方面，也有一些人为创造的歧义句子。这类句子，让真实的人类来阅读，也是可以有多种理解的；因此，统计语言模型也就不可能完美处理这类句子。比如</p>
+<ul>
+<li>有小便宜 得大解脱</li>
+</ul>
+<p>这是李淡愚先生妙笔生花，将污浊之地「净化」成「道场」的俗联。根据句读不同（还有多音字），可以理解出不同的意思。</p>
+<ol>
+<li>有 | 小便（pian）宜，得（de） | 大解脱。</li>
+<li>有小便（bian） | 宜，得（dei）大解 | 脱。</li>
+</ol>
+<p>两种断句都有道理，都可以理解出通顺的意思。好在这类句子在生活中并不常见，对统计语言模型影响甚小。</p>
+<h3 id="统计语言模型的训练问题"><a href="#统计语言模型的训练问题" class="headerlink" title="统计语言模型的训练问题"></a>统计语言模型的训练问题</h3><p>根据之前的分析，我们知道，在统计语言模型正式工作之前，需要用一个足够大的语料库进行训练。训练的目的就是得到各个 $\langle w_k\rangle$ 和 $\langle w_i,\,w_k\rangle$ 的值备用。</p>
+<p>但是，在实际运用过程中，还需要解决一个棘手的问题。我们考虑以下问题：</p>
+<p>如果 $w_i, w_k$ 是一个极其罕见的词组，它在实际生活中可能遇到，但是并未包含在语料库中。根据 \eqref{eq:con-prob-solu}，我们会认为 $P(w_k\mid w_i) = 0$。再根据 \eqref{eq:bigram-model}，$P(w_k\mid w_i) = 0$ 会导致整个 $P(S) = 0$。在这种情况下，语料库不够大导致了模型失真，而语料库的不足是一个无法解决的问题。所以我们必须接受模型在某些情况下可能失真，并找出办法消除（或者至少是减弱）这种失真给模型带来的影响。</p>
+<p>在实际动手之前，我们先来分析一下实际情况，搞清楚我们到底要修复什么。</p>
+<p>问题的根源在于语料库不够大，不足以反映真实语境的具体情况。而罕见词语未在语料库中出现，导致整句话的概率为零，这样的失真现象，只不过是语料库不够大的一个表现而已。那么，很自然地，我们需要思考一下，语料库不够大，只是会导致这一种失真的情况吗？如果我们只对未出现在语料库中的罕见词语进行适当的处理，而忽略了其他可能的失真情况，那么模型依旧不够好。</p>
+<p>所谓「未出现」，其实是「出现次数为 0」的另一种表达方式。我们现在对出现次数为 0 的那些词语产生了怀疑，怀疑语料库是否能够真实反映这部分词语的情况；那么我们很自然地会怀疑那些出现次数为 1 甚至为 2 的词语：由于语料库不够大，这些词语在语料库中的出现次数，是否足以反映它们在真实语境中出现的频率呢？</p>
+<p>于是我们发现，我们对出现次数较少的那些词语产生了一定的怀疑。特别地，出现次数越少，我们怀疑它的程度就越高。这样一来，我们的修复方案必须满足一些要求：</p>
+<ol>
+<li>对出现次数为 0 的那些词语，我们应该赋予它们一个不为零但非常小的概率；</li>
+<li>对于出现次数较少的那些词语，我们应该对它们的统计结果做适当的折算，出现的次数越少，可疑程度越大，因此折算程度也应该越大。</li>
+</ol>
+<p>现在我们假设，语料库中共有 $N$ 个词语，在语料库中有 $N_r$ 个词语出现了 $r$ 次。特别地，有 $N_0$ 个词语出现了 $0$ 次。显然我们有：</p>
+<p>$$ N = \sum_{r = 0}^{\infty}r\cdot N_r. $$</p>
+<p>此外，一般来说，我们有：</p>
+<p>$$  \text{revise}(r) = N_{r + 1}/N_r \lt 1. $$</p>
+<p>即出现 $k$ 次的词语的数量，一般来说会比出现 $k + 1$ 次词语的数量要多。并且 $k$ 越小，$\text{revise}(r)$ 越大。于是我们可以这样定义</p>
+<p>\begin{equation}<br>d_r = (r + 1)\cdot \text{revise}(r).<br>\label{eq:d-r}<br>\end{equation}</p>
+<p>如果我们将 $d_r$ 作为折算后的频次，那么显然有：</p>
+<p>$$ N = \sum_{r = 0}^{\infty}d_r\cdot N_r, $$</p>
+<p>即，这样的折算依然满足全概率为 1。注意到，$d_0$ 是一个大于零的值；而且随着 $r$ 的增大，$\text{revise}(r)$ 会减小，也就是说折算的比例会减小。这些特性正符合我们对折算规则的预期要求。</p>
+<p>尽管这样的折算方案符合我们的预期要求，但它有点过于粗暴了。实际上，通常我们会认为，在语料库中出现频次大于某一个阈值 $T$ 的词不需要进行折算。而 \eqref{eq:d-r} 则囫囵地修改了所有词的频次。对于 $P(w_k)$ 来说，这样粗暴的折算问题不太大，但是对于条件概率 $P(w_k\mid w_i),\quad (i = k - 1)$ 来说，不考虑阈值 $T$ 地这样囫囵地折算，误差就比较大了。</p>
+<p>基于这样的分析，我们对于二元条件概率的折算修正如下：</p>
+<p>\begin{equation}<br>P(w_k\mid w_i) = \begin{cases}<br>\frac{\langle w_i,\,w_k\rangle}{\langle w_i\rangle} &amp; \text{if $\langle w_i,\,w_k\rangle \gt T$,}\\<br>d_r\cdot\frac{\langle w_i,\,w_k\rangle}{\langle w_i\rangle} &amp; \text{if $0 \lt \langle w_i,\,w_k\rangle \leq T$,}\\<br>Q(w_i)\cdot\frac{\langle w_k\rangle}{\langle \text{Corpus}\rangle} &amp; \text{otherwise.}<br>\end{cases}<br>\label{eq:bi-d-r}<br>\end{equation}</p>
+<p>这里，$r = \langle w_i,\,w_k\rangle$ 而 $d_r$ 是据 \eqref{eq:d-r} 计算出的值。$Q(w_i)$ 是一个修正函数，其定义为：</p>
+<p>$$A      = \sum_{w_k\in \text{Corpus}} P(w_k\mid w_i),$$</p>
+<p>$$B      = \sum_{w_k\notin \text{Corpus}} P(w_k),$$</p>
+<p>$$Q(w_i) = \frac{1 - A}{B}.$$</p>
+<p>至此，二元统计语言模型的修正就结束了。</p>
+<h3 id="语料库的选取"><a href="#语料库的选取" class="headerlink" title="语料库的选取"></a>语料库的选取</h3><p>上一小节我们修正了当出现频次很低时，统计结果不准确，导致的模型失真的问题。这一小节我们讨论可能导致模型不准确的另一个方向的问题。</p>
+<p>仔细观察 \eqref{eq:con-prob-solu} 你会发现，模型计算语句 $S$ 的概率，是依据语料库中各个词汇出现的频次的。也就是说，最终的计算结果 $P(S)$ 是和语料库紧密相关的。</p>
+<p>众所周知，中国有很多所谓的「网络流行语」。在网络上发帖交流的网友，他们的说话习惯和正式的新闻稿的语言习惯是有很大差别的。如果我们以新闻稿件为语料库去训练模型，然后用于网络语言的分词，那么效果显然不会太好。而如果用网络语言作为语料库，虽然其中可能包括一些杂七杂八的奇怪单词，但是由于语料库与实际使用的类型一致，效果反而会更好。</p>
+<h3 id="分词一致性与颗粒度"><a href="#分词一致性与颗粒度" class="headerlink" title="分词一致性与颗粒度"></a>分词一致性与颗粒度</h3><p>我们回到最初的分析方法，先来看两个词：</p>
+<ul>
+<li>清华大学</li>
+<li>山东大学</li>
+</ul>
+<p>这是两个大学的名字。在这里，对山东大学的分词不会有什么分歧，它就是一个词，不可分割。但是对清华大学的分词就存在分歧了。有的人认为清华大学是密不可分的，也有人认为清华和大学应该分开：清华作为修饰部分修饰大学二字。</p>
+<p>这实际上是人们对于词语颗粒度大小认知不同导致的分词不一致。对清华大学的两种分词方法都不能说错，关键是要看语言的使用场合。</p>
+<p>在平时写文章的时候，没有必要把清华和大学分开，它们就是一个词。但是在做搜索引擎的时候，就有必要把分词的颗粒度调整一下，变得小一些，认为清华和大学是两个词。毕竟，如果用户搜索「清华」而无法获得和清华大学有关的结果，这样的搜索引擎显然是不合格的。</p>
+<p>这样的分析对我们是有启发的。我们没有必要纠结哪一种分词颗粒度更好，实际情况告诉我们，在某些时候大颗粒度更好，某些时候小颗粒度更好。</p>
+<p>那么，是否有必要为不同的颗粒度搭建不同的模型呢？答案是否定的。实际上，不管是大颗粒度的分词，还是小颗粒度的分词，模型方法都是一样的，差别只在于对词语的认知问题。如果站在模型的角度上去考虑：模型是不了解词汇的含义的，具体应该用何种颗粒度去构建分词，只取决于语料库中对词语的划分。</p>
+<p>因此，解决方案呼之欲出：<br>我们不需要设计两套模型，只需要一套模型就可以完成工作。我们需要做的，是对「清华大学」这类复合词做一个统计，做成两个词表 $L_1$ 和 $L_2$。其中 $L_1$ 包含小颗粒度的分词结果，比如「清华」和「大学」；$L_2$ 包含颗粒度较大的分词结果，比如「清华大学」。在实际使用的过程中，根据需求，分别将 $L_1$ 或者 $L_2$ 与语料库合并，交由模型去训练就好了。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这篇文章接着第一篇文章，讨论了统计语言模型，特别是二元模型，在分词方面的应用。这篇文章给出了二元模型的具体描述，以及模型的具体解法。</p>
+<p>之后，文章讨论了二元模型不可避免的一些困难，同时对一些可以修复的问题做了讨论。</p>
+<p>总的来说，运用统计语言模型解决分词是一个成熟的方案。实际运用时效果的好坏，主要取决于以下几个方面：</p>
+<ul>
+<li>工程实现的精度；</li>
+<li>语料库的选取；</li>
+<li>复合词表的完整度。</li>
+</ul>
+<p>下一篇文章将简单介绍统计模型和信息理论在自然语言处理其他领域的应用情况。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2015/07/26/mathematics-theory-of-natural-language-processing-2/" title="自然语言处理的数学原理（二）">https://liam.page/2015/07/26/mathematics-theory-of-natural-language-processing-2/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Statistic-Language-Model/" rel="tag"># Statistic Language Model</a>
+          
+            <a href="/tags/Natural-Language-Processing/" rel="tag"># Natural Language Processing</a>
+          
+            <a href="/tags/Stochastic-Process/" rel="tag"># Stochastic Process</a>
+          
+            <a href="/tags/Markov-Process/" rel="tag"># Markov Process</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2015/07/25/mathematics-theory-of-natural-language-processing-1/" rel="next" title="自然语言处理的数学原理（一）">
+                <i class="fa fa-chevron-left"></i> 自然语言处理的数学原理（一）
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2015/07/27/using-hypcap-to-justify-the-link-point/" rel="prev" title="用 hypcap 宏包修复图表超链接不准的问题">
+                用 hypcap 宏包修复图表超链接不准的问题 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#统计语言模型的具体描述"><span class="nav-number">1.</span> <span class="nav-text">统计语言模型的具体描述</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#一个简单的例子"><span class="nav-number">1.1.</span> <span class="nav-text">一个简单的例子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#统计语言的描述"><span class="nav-number">1.2.</span> <span class="nav-text">统计语言的描述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#条件概率的估算"><span class="nav-number">1.3.</span> <span class="nav-text">条件概率的估算</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#统计语言模型用于分词的细节讨论"><span class="nav-number">2.</span> <span class="nav-text">统计语言模型用于分词的细节讨论</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#二元模型的扩展"><span class="nav-number">2.1.</span> <span class="nav-text">二元模型的扩展</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#统计语言模型的局限性"><span class="nav-number">2.2.</span> <span class="nav-text">统计语言模型的局限性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#统计语言模型的训练问题"><span class="nav-number">2.3.</span> <span class="nav-text">统计语言模型的训练问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#语料库的选取"><span class="nav-number">2.4.</span> <span class="nav-text">语料库的选取</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分词一致性与颗粒度"><span class="nav-number">2.5.</span> <span class="nav-text">分词一致性与颗粒度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#小结"><span class="nav-number">3.</span> <span class="nav-text">小结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: "AMS"
+      }
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+      for (i = 0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+  });
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $("code").map(function(){
+    match = /^\$(.*)\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\$\$(.*)\$\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\\begin/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+  });
+});
+</script>
+
+<script src="//cdn.jsdelivr.net/npm/mathjax@2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+<style>
+.MathJax_Display {
+  overflow: auto hidden;
+}
+</style>
+
+    
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

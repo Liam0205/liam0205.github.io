@@ -1,0 +1,2759 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前作中，我们借助代理类对 Animal 及其子类的实例（事实上 Animal 是纯虚类，无法实例化）进行代理。 本文，我们将对代理类进行进一步分析，察觉一些细微的差别，而后引出智能指针。">
+<meta name="keywords" content="C++,Surrogate,Handler,Pointer">
+<meta property="og:type" content="article">
+<meta property="og:title" content="谈谈智能指针：原理及其实现">
+<meta property="og:url" content="https://liam.page/2018/01/13/smart-pointer/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="前作中，我们借助代理类对 Animal 及其子类的实例（事实上 Animal 是纯虚类，无法实例化）进行代理。 本文，我们将对代理类进行进一步分析，察觉一些细微的差别，而后引出智能指针。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="谈谈智能指针：原理及其实现">
+<meta name="twitter:description" content="前作中，我们借助代理类对 Animal 及其子类的实例（事实上 Animal 是纯虚类，无法实例化）进行代理。 本文，我们将对代理类进行进一步分析，察觉一些细微的差别，而后引出智能指针。">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2018/01/13/smart-pointer/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>谈谈智能指针：原理及其实现 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2018/01/13/smart-pointer/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">谈谈智能指针：原理及其实现
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018 年 01 月 13 日 10:36:48" itemprop="dateCreated datePublished" datetime="2018-01-13T10:36:48+08:00">2018 年 01 月 13 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">13k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">24 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><a href="/2017/11/26/surrogate-in-Cpp/">前作</a>中，我们借助代理类对 <code>Animal</code> 及其子类的实例（事实上 <code>Animal</code> 是纯虚类，无法实例化）进行代理。</p>
+<p>本文，我们将对代理类进行进一步分析，察觉一些细微的差别，而后引出智能指针。</p>
+<a id="more"></a>
+<h2 id="反思代理类"><a href="#反思代理类" class="headerlink" title="反思代理类"></a>反思代理类</h2><p><a href="/2017/11/26/surrogate-in-Cpp/">前作</a>设计的代理类主要有两个方面的考量。其一是希望代理类将被代理的对象完全地管理起来，使得程序员自己不需要手动去分配和释放内存。基于这个考量，对代理类的复制、移动、赋值都伴随着被代理对象的相应变化。其二是希望代理类在一定程度上保留被代理对象多态的特性。为此，代理类需要保存基类指针作为代理类成员，并为相关函数预留接口（单独实现的 <code>say()</code> 函数）。</p>
+<p>从第二个方面来看，代理类的行为，其实类似于指针。但从第一个方面来看，代理类又破坏了指针语义，而带上了值语义。这是因为，当我们复制代理类对象时，其内部的对象也会随之复制。</p>
+<p>考虑到对于某些类型的对象，复制操作的开销很大，甚至是在逻辑上不可行的。因此，我们需要思考，如何在保留代理类的优势时，避免不必要的复制和移动操作。这就引出了智能指针（smart pointer）的话题。</p>
+<h2 id="代理类与智能指针"><a href="#代理类与智能指针" class="headerlink" title="代理类与智能指针"></a>代理类与智能指针</h2><p>要避免不必要的对被代理对象的复制和移动操作，就要反过来回顾我们为何要这样设计。若是想清楚了如此设计的原因，再能想到替代方案，就有可能避免这些多余的复制和移动操作。</p>
+<p>在代理类中，为了保证被代理的对象的生存期覆盖相应代理类对象的生存期，我们强迫每个代理类的对象生成时，都与初始化它的对象脱离关系。脱离关系的办法，一方面是复制，一方面是移动。复制的情况下，代理类对象里保存了被代理的原对象的副本，因此二者没有关系。移动的情况下，代理类对象里保存了从原对象中窃取的资源；原对象在代理类对象生成之后，就（在逻辑上）不可用了，因此二者也没有关系。这部分的设计，从逻辑上说是不可避免的，因而是没有问题的。</p>
+<p>除此之外，在对代理类的对象进行复制、移动时，代理类对象中被代理的部分也会被复制和移动。这样一来，代理类实现了与被代理对象的一一对应。如果「代理对象与被代理对象一一对应」是确实的需求，那么这样设计就是不可避免的，也就没有问题。然而，在大多数情况下，我们希望代理类仍然能像指针那样工作：允许多个代理类对象绑定在同一个被代理对象上。这样一来频繁的复制、移动就变成缺陷了。这样的需求是很自然的，举几例如下：</p>
+<ul>
+<li>向函数拷贝传值时；</li>
+<li>代理类对象作为函数的返回值时；</li>
+<li>在循环中，将代理类对象作为临时值，用于保存中间状态时。</li>
+</ul>
+<p>这样一来，我们对代理类的需求就形成了看似矛盾的两个方面：</p>
+<ul>
+<li>代理类能控制被代理对象的生存期，也就是要处理好对象的构造、析构；</li>
+<li>要允许多个代理类绑定同一个被代理对象。</li>
+</ul>
+<p>为了解决这样的矛盾，我们必须付出一些代价：维护一个计数器，用于记录有多少个代理类绑定在被代理的对象之上。由于我们希望这样的代理类使用起来和指针相似，所以这样的代理类又称为智能指针。</p>
+<h2 id="第一次尝试"><a href="#第一次尝试" class="headerlink" title="第一次尝试"></a>第一次尝试</h2><h3 id="被绑定的对象"><a href="#被绑定的对象" class="headerlink" title="被绑定的对象"></a>被绑定的对象</h3><p>前作使用了 <code>Animal</code> 及其派生类 <code>Cat</code>/<code>Dog</code> 为例。不失一般性，此处先不考虑继承与多态，考虑将智能指针实现出来。因此，我们考虑代表屏幕上像素点坐标的类 <code>Point</code>，它的定义如下。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Point</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">int</span> x_ = <span class="number">0</span>;                               <span class="comment">// 1.</span></span><br><span class="line">  <span class="keyword">int</span> y_ = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  Point() = <span class="keyword">default</span>;                        <span class="comment">// 2.</span></span><br><span class="line">  Point(<span class="keyword">int</span> x, <span class="keyword">int</span> y) : x_&#123;x&#125;, y_&#123;y&#125; &#123;&#125;     <span class="comment">// 3.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">int</span> <span class="title">x</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123; <span class="keyword">return</span> x_; &#125;              <span class="comment">// 4.</span></span><br><span class="line">  <span class="function"><span class="keyword">int</span> <span class="title">y</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123; <span class="keyword">return</span> y_; &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">Point&amp; <span class="title">x</span><span class="params">(<span class="keyword">int</span> x)</span> </span>&#123; x_ = x; <span class="keyword">return</span> *<span class="keyword">this</span>; &#125; <span class="comment">// 5.</span></span><br><span class="line">  <span class="function">Point&amp; <span class="title">y</span><span class="params">(<span class="keyword">int</span> y)</span> </span>&#123; y_ = y; <span class="keyword">return</span> *<span class="keyword">this</span>; &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>这里，由于 (1) 处给出了数据成员的类内初始值，所以 (2) 处无需自己定义默认构造函数，让编译器合成即可。(3) 处的参数没有给函数参数默认值（即没有声明为 <code>Point(int x = 0, int y = 0)</code>，这是为了防止类似 <code>Point(0)</code> 的调用（因为对于平面上的点来说，这样初始化在语义上是不正确的）。对于移动和拷贝构造函数及赋值运算符，则可由编译器自动合成。(4) 和 (5) 利用函数重载，实现了对数据成员的访问和修改的接口。其中 (5) 处设计为返回 <code>Point&amp;</code> 是为了允许类似这样的语法 <code>point.x(42).y(42)</code>。</p>
+<h3 id="智能指针"><a href="#智能指针" class="headerlink" title="智能指针"></a>智能指针</h3><p>我们先不考虑智能指针对类型的泛用性（不使用模板），来观察对 <code>Point</code> 类应该如何设计智能指针类 <code>SmartPointer</code>。</p>
+<h4 id="管理对象"><a href="#管理对象" class="headerlink" title="管理对象"></a>管理对象</h4><p>和前作遇到的问题一样，我们也要考虑智能指针如何管理对象。为了避免被管理的对象生存期短于智能指针对象，我们只能有以下几种情况，从 <code>Point</code> 对象开始去构造智能指针对象。</p>
+<ul>
+<li>传入 <code>new</code> 得到的指针：<code>SmartPointer sp(new Point());</code>；</li>
+<li>传入 <code>Point</code> 对象，而后拷贝一份被 <code>SmartPointer</code> 管理：<code>SmartPointer sp(p);</code>；</li>
+<li>将用于构造 <code>Point</code> 的参数传递给 <code>SmartPointer</code> 的构造函数，直接构造：<code>SmartPointer sp(0, 0);</code>。</li>
+</ul>
+<p>因此，我们的 <code>SmartPointer</code> 类应该有以下一些构造函数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">SmartPointer &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer(Point* pp);</span><br><span class="line">  SmartPointer(Point p);</span><br><span class="line">  SmartPointer(<span class="keyword">int</span> x, <span class="keyword">int</span> y);</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer();</span><br><span class="line">  SmartPointer(<span class="keyword">const</span> SmartPointer&amp; other);</span><br><span class="line">  SmartPointer(SmartPointer&amp;&amp; other);</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> SmartPointer&amp; other);</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(SmartPointer&amp;&amp; other) <span class="keyword">noexcept</span>;</span><br><span class="line">  ~SmartPointer();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h4 id="获取对象"><a href="#获取对象" class="headerlink" title="获取对象"></a>获取对象</h4><p>我们还需要考虑，如何从智能指针对象出发，使用被绑定的对象。为此，我们可以重载 <code>SmartPointer</code> 类的 <code>operator-&gt;()</code> 和 <code>operator*()</code> 操作符，将相关操作转发给底层的 <code>Point</code> 对象。</p>
+<p>因此，<code>SmartPointer</code> 类的声明又多了两个重载函数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">SmartPointer &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer(Point* pp);</span><br><span class="line">  SmartPointer(<span class="keyword">const</span> Point&amp; p);</span><br><span class="line">  SmartPointer(Point&amp;&amp; p);</span><br><span class="line">  SmartPointer(<span class="keyword">int</span> x, <span class="keyword">int</span> y);</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer();</span><br><span class="line">  SmartPointer(<span class="keyword">const</span> SmartPointer&amp; other);</span><br><span class="line">  SmartPointer(SmartPointer&amp;&amp; other) <span class="keyword">noexcept</span>;</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> SmartPointer&amp; other);</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(SmartPointer&amp;&amp; other) <span class="keyword">noexcept</span>;</span><br><span class="line">  ~SmartPointer();</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  Point* <span class="keyword">operator</span>-&gt;() <span class="keyword">const</span> <span class="keyword">noexcept</span>;</span><br><span class="line">  Point&amp; <span class="keyword">operator</span>*() <span class="keyword">const</span> <span class="keyword">noexcept</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h4 id="引用计数"><a href="#引用计数" class="headerlink" title="引用计数"></a>引用计数</h4><p>先前提到，为了实现智能指针的效果，我们必须借助一个计数器，以便随时获知有多少智能指针绑定在同一个对象上。显而易见，这个计数器不应该是 <code>SmartPointer</code> 的一部分。这是因为，如果计数器是 <code>SmartPointer</code> 的一部分，那么每次增减计数器的值，都必须广播到每一个管理着目标对象的智能指针。这样做的代价太大了。</p>
+<p>为此，我们为 <code>Point</code> 类构造一个辅助类 <code>PointCounter</code>，来做计数器使用。<code>PointCounter</code> 类完全是为了实现 <code>SmartPointer</code> 而设计的，它不应被 <code>SmartPointer</code> 类以外的代码修改。因此，<code>PointCounter</code> 类的所有成员都应是 <code>private</code> 的，并声明 <code>SmartPointer</code> 为其友元类。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">PointCounter</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">friend</span> <span class="class"><span class="keyword">class</span> <span class="title">SmartPointer</span>;</span></span><br><span class="line"></span><br><span class="line">  Point p_;</span><br><span class="line">  <span class="keyword">size_t</span> count_;</span><br><span class="line"></span><br><span class="line">  PointCounter() : count_&#123;<span class="number">1</span>&#125; &#123;&#125;                         <span class="comment">// 1.</span></span><br><span class="line">  PointCounter(<span class="keyword">const</span> Point&amp; p) : p_&#123;p&#125;, count_&#123;<span class="number">1</span>&#125; &#123;&#125;    <span class="comment">// 2.</span></span><br><span class="line">  PointCounter(Point&amp;&amp; p) : p_&#123;p&#125;, count_&#123;<span class="number">1</span>&#125; &#123;&#125;         <span class="comment">// 3.</span></span><br><span class="line">  PointCounter(<span class="keyword">int</span> x, <span class="keyword">int</span> y) : p_&#123;x, y&#125;, count_&#123;<span class="number">1</span>&#125; &#123;&#125;   <span class="comment">// 4.</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>由于 <code>PointCounter</code> 是为了计数而设计的，因此 (1) 处的所有构造函数，在构造时都将计数器设置为 <code>1</code>。(2), (3) 两处则分别是调用 <code>Point</code> 类的拷贝和移动构造函数。(4) 则调用 <code>Point(int x, int y)</code>。</p>
+<h4 id="SmartPointer-的实现"><a href="#SmartPointer-的实现" class="headerlink" title="SmartPointer 的实现"></a><code>SmartPointer</code> 的实现</h4><p>至此，我们可以实现 <code>SmartPointer</code> 类了。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SmartPointer</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer(Point* pp) : ptctr_&#123;<span class="keyword">new</span> PointCounter(*pp)&#125; &#123;&#125;            <span class="comment">// 1.</span></span><br><span class="line">  SmartPointer(<span class="keyword">const</span> Point&amp; p) : ptctr_&#123;<span class="keyword">new</span> PointCounter(p)&#125; &#123;&#125;</span><br><span class="line">  SmartPointer(Point&amp;&amp; p) : ptctr_&#123;<span class="keyword">new</span> PointCounter(p)&#125; &#123;&#125;</span><br><span class="line">  SmartPointer(<span class="keyword">int</span> x, <span class="keyword">int</span> y) : ptctr_&#123;<span class="keyword">new</span> PointCounter(x, y)&#125; &#123;&#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">void</span> try_decrease() &#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> != ptctr_) &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="number">1</span> == ptctr_-&gt;count_) &#123;</span><br><span class="line">        <span class="keyword">delete</span> ptctr_;</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        --(ptctr_-&gt;count_);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;&#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer() : ptctr_&#123;<span class="keyword">new</span> PointCounter&#125; &#123;&#125;                          <span class="comment">// 2.</span></span><br><span class="line">  SmartPointer(<span class="keyword">const</span> SmartPointer&amp; other) : ptctr_&#123;other.ptctr_&#125; &#123;      <span class="comment">// 3.</span></span><br><span class="line">    ++(ptctr_-&gt;count_);</span><br><span class="line">  &#125;</span><br><span class="line">  SmartPointer(SmartPointer&amp;&amp; other) <span class="keyword">noexcept</span> : ptctr_&#123;other.ptctr_&#125; &#123;</span><br><span class="line">    other.ptctr_ = <span class="literal">nullptr</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> SmartPointer&amp; other) &#123;                  <span class="comment">// 4.</span></span><br><span class="line">    try_decrease();</span><br><span class="line">    ptctr_ = other.ptctr_;</span><br><span class="line">    ++(ptctr_-&gt;count_);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(SmartPointer&amp;&amp; other) <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    try_decrease();</span><br><span class="line">    ptctr_ = other.ptctr_;</span><br><span class="line">    other.ptctr_ = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  ~SmartPointer() &#123;</span><br><span class="line">    try_decrease();</span><br><span class="line">    ptctr_ = <span class="literal">nullptr</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  Point* <span class="keyword">operator</span>-&gt;() <span class="keyword">const</span> <span class="keyword">noexcept</span> &#123;                                  <span class="comment">// 5.</span></span><br><span class="line">    <span class="keyword">return</span> &amp;(ptctr_-&gt;p_);</span><br><span class="line">  &#125;</span><br><span class="line">  Point&amp; <span class="keyword">operator</span>*() <span class="keyword">const</span> <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> ptctr_-&gt;p_;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  PointCounter* ptctr_ = <span class="literal">nullptr</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>这里，(1) 处四个构造函数负责构造一个新的 <code>PointCounter</code> 对象，并将其指针赋值给 <code>ptctr_</code>；(2) 处的默认构造函数则构造了一个空的 <code>PointCounter</code> 对象（其计数值也为 1）；(3) 处的拷贝和移动构造函数负责从 <code>other</code> 处获得 <code>ptctr_</code> 的值，并处理好计数器的值的变化；(4) 是拷贝和移动赋值运算符，在执行时，首先要先释放计数器辅助类，而后从 <code>other</code> 处获取新的计数器辅助类对象的指针；(5) 处重载了成员访问运算符，将成员访问的操作转发到 <code>Point</code> 对象上。</p>
+<p>如此，我们就得到了第一版的智能指针的实现。</p>
+<h2 id="第二次尝试"><a href="#第二次尝试" class="headerlink" title="第二次尝试"></a>第二次尝试</h2><h3 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h3><p>在第一次尝试的过程中，为了快速搭建模型，我们做一个假设：我们的例子从 <code>Animal</code> 切换到了 <code>Point</code>，从而忽略了继承和动态绑定。这个假设导致我们在后续处理引用计数的过程中，使用了十分粗暴的方式：定义一个与 <code>Point</code> 对应的 <code>PointCounter</code> 类。事实上，这种方法是很不好的。</p>
+<p>首先，<code>PointCounter</code> 类内包含了一个类型为 <code>Point</code> 的成员，从而禁止了动态绑定。这是因为 C++ 的动态绑定是建立在基类的指针或引用的基础之上的。其次，从抽象的角度来说，<code>SmartPointer</code> 需要的计数器，与 <code>SmartPointer</code> 内绑定的对象的类型没有关系，因此不应该针对 <code>Point</code> 类构建一个 <code>PointCounter</code> 辅助类。</p>
+<p>当前 <code>SmartPointer</code> 类存在的问题，促使我们继续思考去解决。基本来说，我们需要对引用技术器进行单独的抽象，将数据与计数器分离开来。</p>
+<h3 id="引用计数器"><a href="#引用计数器" class="headerlink" title="引用计数器"></a>引用计数器</h3><p>我们从最基本的部分开始。</p>
+<p>一个引用计数器类，至少应该包含一个指向无符号整数类型的指针。使用无符号的整数，是因为我们的目的是引用计数，它不会小于零。使用指针是因为我们希望为这个计数器动态分配内存，使得多个引用计数器类的对象可以共享。</p>
+<p>因此，考虑构造函数、析构函数、赋值运算符，引用计数器类的定义目前看起来是这样。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">RefCount</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">size_t</span>* count_ = <span class="literal">nullptr</span>;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">try_decrease</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> != count_) &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="number">1</span> == *count_) &#123;</span><br><span class="line">        <span class="keyword">delete</span> count_;</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        --(*count_);</span><br><span class="line">      &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;&#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  RefCount() : count_&#123;<span class="keyword">new</span> <span class="keyword">size_t</span>(<span class="number">1</span>)&#125; &#123;&#125;</span><br><span class="line">  RefCount(<span class="keyword">const</span> RefCount&amp; other) : count_&#123;other.count_&#125; &#123; ++(*count_); &#125;</span><br><span class="line">  RefCount(RefCount&amp;&amp; other) : count_&#123;other.count_&#125; &#123; other.count_ = <span class="literal">nullptr</span>; &#125;</span><br><span class="line">  RefCount&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> RefCount&amp; other) &#123;</span><br><span class="line">    try_decrease();</span><br><span class="line">    count_ = other.count_;</span><br><span class="line">    ++(*count_);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  RefCount&amp; <span class="keyword">operator</span>=(RefCount&amp;&amp; other) &#123;</span><br><span class="line">    try_decrease();</span><br><span class="line">    count_ = other.count_;</span><br><span class="line">    other.count_ = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  ~RefCount() &#123;</span><br><span class="line">    try_decrease();</span><br><span class="line">    count_ = <span class="literal">nullptr</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>回顾 <code>SmartPointer</code> 的析构函数，我们不难发现：为了在合适的实际销毁 <code>Point</code> 对象，我们必须有办法知道当前析构的 <code>SmartPointer</code> 是否为最后一个绑定在目标 <code>Point</code> 对象上的智能指针。因此，我们的 <code>RefCount</code> 类必须提供这样的接口。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">RefCounter</span> &#123;</span></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">only</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123; <span class="keyword">return</span> (<span class="number">1</span> == *count_); &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h3 id="重新实现智能指针"><a href="#重新实现智能指针" class="headerlink" title="重新实现智能指针"></a>重新实现智能指针</h3><p>至此，我们可以考虑重新实现智能指针类了。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SmartPointer</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer(Point* pp) : point_&#123;pp&#125; &#123;&#125;                   <span class="comment">// 1.</span></span><br><span class="line">  SmartPointer(<span class="keyword">const</span> Point&amp; p) : point_&#123;<span class="keyword">new</span> Point(p)&#125; &#123;&#125;</span><br><span class="line">  SmartPointer(Point&amp;&amp; p) : point_&#123;<span class="keyword">new</span> Point&#123;p&#125;&#125; &#123;&#125;</span><br><span class="line">  SmartPointer(<span class="keyword">int</span> x, <span class="keyword">int</span> y) : point_&#123;<span class="keyword">new</span> Point&#123;x, y&#125;&#125; &#123;&#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  SmartPointer() : point_&#123;<span class="keyword">new</span> Point&#125; &#123;&#125;</span><br><span class="line">  SmartPointer(<span class="keyword">const</span> SmartPointer&amp; other) = <span class="keyword">default</span>;        <span class="comment">// 2.</span></span><br><span class="line">  SmartPointer(SmartPointer&amp;&amp; other) <span class="keyword">noexcept</span> : point_&#123;other.point_&#125;, refc_&#123;<span class="built_in">std</span>::move(other.refc_)&#125; &#123;</span><br><span class="line">    other.point_ = <span class="literal">nullptr</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> SmartPointer&amp; other) &#123;      <span class="comment">// 3.</span></span><br><span class="line">    <span class="keyword">if</span> (refc_.only()) &#123;</span><br><span class="line">      <span class="keyword">delete</span> point_;</span><br><span class="line">    &#125;</span><br><span class="line">    refc_  = other.refc_;</span><br><span class="line">    point_ = other.point_;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  SmartPointer&amp; <span class="keyword">operator</span>=(SmartPointer&amp;&amp; other) <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (refc_.only()) &#123;</span><br><span class="line">      <span class="keyword">delete</span> point_;</span><br><span class="line">    &#125;</span><br><span class="line">    refc_  = <span class="built_in">std</span>::move(other.refc_);</span><br><span class="line">    point_ = other.point_;</span><br><span class="line">    other.point_ = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  ~SmartPointer() &#123;                                         <span class="comment">// 4.</span></span><br><span class="line">    <span class="keyword">if</span> (point_ <span class="keyword">and</span> refc_.only()) &#123;</span><br><span class="line">      <span class="keyword">delete</span> point_;</span><br><span class="line">      point_ = <span class="literal">nullptr</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  Point* <span class="keyword">operator</span>-&gt;() <span class="keyword">const</span> <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> point_;</span><br><span class="line">  &#125;</span><br><span class="line">  Point&amp; <span class="keyword">operator</span>*() <span class="keyword">const</span> <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> *point_;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  Point* point_ = <span class="literal">nullptr</span>;</span><br><span class="line">  RefCount refc_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>这里，(1) 处定义的四个构造函数，由于无需再使用 <code>PointCounter</code> 类，变得简单了一些；由于 <code>SmartPointer</code> 的所有数据成员都能自己处理好拷贝和移动，因此 (2) 处 <code>SmartPointer</code> 的拷贝构造函数可以让编译器自动生成；(3) 处实现的拷贝和移动赋值运算符和之前相比也有了很大变化：由于 <code>RefCount</code> 可以提供了 <code>only()</code> 接口，同时由于 <code>RefCount</code> 能够自行处理好拷贝和移动赋值，赋值运算的实现变得简单了很多；基于同样的原因，(4) 处的析构函数也无需处理 <code>RefCount</code> 类型的数据成员——交给它自己处理即可。</p>
+<h2 id="第三次尝试"><a href="#第三次尝试" class="headerlink" title="第三次尝试"></a>第三次尝试</h2><h3 id="分析-1"><a href="#分析-1" class="headerlink" title="分析"></a>分析</h3><p>相比第一版，第二版的 <code>SmartPointer</code> 有了不少改进。但是，它有点名不副实——虽然类的名字是 <code>SmartPointer</code>，但是却只能和 <code>Point</code> 这一个类联用。为此，我们需要 C++ 中的模板技术。</p>
+<p>在第二版 <code>SmartPointer</code> 实现中，大多数的内容都与 <code>Point</code> 类无关，唯独构造函数 <code>SmartPointer(int x, int y)</code> 是专为 <code>Point</code> 类设计的。这一构造函数所作的唯一一件事情，是将收到的参数转发给 <code>Point</code> 相应的构造函数。我们希望 <code>SmartPointer</code> 类的形式是 <code>template &lt;typename T&gt; class SmartPointer;</code>。但 <code>T</code> 的构造函数可以千奇百怪，于是若要将 <code>T</code> 的构造函数都在 <code>SmartPointer</code> 中做转发，就不得不变成 <code>template &lt;typename T, typename... Args&gt; class SmartPointer;</code>。这很不好；因此，我们需要将这类构造函数从 <code>SmartPointer</code> 的定义中迁移出去。</p>
+<p>另一方面，我们又希望能够保留从 <code>T</code> 的构造函数出发，直接构造 <code>SmartPointer</code> 的能力。为此，我们需要引入一个函数模板 <code>make_smart</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line">SmartPointer&lt;T&gt; make_smart(Args&amp;&amp;... args);</span><br></pre></td></tr></table></figure>
+<p>这个函数模板能够接受任意个数及类型的参数，并构造一个 <code>SmartPointer&lt;T&gt;</code> 类型的智能指针。</p>
+<p>接下来，我们首先改造 <code>SmartPointer</code> 的定义，然后实现 <code>make_smart</code> 函数模板。</p>
+<h3 id="改造智能指针"><a href="#改造智能指针" class="headerlink" title="改造智能指针"></a>改造智能指针</h3><p>将 <code>SmartPointer</code> 改造成类模板是很容易的事情：只需要将所有的 <code>Point</code> 改成 <code>T</code>，并声明为类模板即可——当然，要去掉上述构造函数。为了区分，这里将 <code>SmartPointer</code> 重命名为 <code>smart_ptr</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">smart_ptr</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">using</span> value_type = T;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  smart_ptr(value_type* pp) : value_&#123;pp&#125; &#123;&#125;</span><br><span class="line">  smart_ptr(<span class="keyword">const</span> value_type&amp; p) : value_&#123;<span class="keyword">new</span> value_type(p)&#125; &#123;&#125;</span><br><span class="line">  smart_ptr(value_type&amp;&amp; p) : value_&#123;<span class="keyword">new</span> value_type&#123;p&#125;&#125; &#123;&#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  smart_ptr() : value_&#123;<span class="keyword">new</span> value_type&#125; &#123;&#125;</span><br><span class="line">  smart_ptr(<span class="keyword">const</span> smart_ptr&amp; other) = <span class="keyword">default</span>;</span><br><span class="line">  smart_ptr(smart_ptr&amp;&amp; other) = <span class="keyword">default</span>;</span><br><span class="line">  smart_ptr&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> smart_ptr&amp; other) &#123;</span><br><span class="line">    <span class="keyword">if</span> (refc_.only()) &#123;</span><br><span class="line">      <span class="keyword">delete</span> value_;</span><br><span class="line">    &#125;</span><br><span class="line">    refc_  = other.refc_;</span><br><span class="line">    value_ = other.value_;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  smart_ptr&amp; <span class="keyword">operator</span>=(smart_ptr&amp;&amp; other) <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (refc_.only()) &#123;</span><br><span class="line">      <span class="keyword">delete</span> value_;</span><br><span class="line">    &#125;</span><br><span class="line">    refc_  = <span class="built_in">std</span>::move(other.refc_);</span><br><span class="line">    value_ = other.value_;</span><br><span class="line">    other.value_ = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  ~smart_ptr() &#123;</span><br><span class="line">    <span class="keyword">if</span> (value_ <span class="keyword">and</span> refc_.only()) &#123;</span><br><span class="line">      <span class="keyword">delete</span> value_;</span><br><span class="line">      value_ = <span class="literal">nullptr</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  value_type* <span class="keyword">operator</span>-&gt;() <span class="keyword">const</span> <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> value_;</span><br><span class="line">  &#125;</span><br><span class="line">  value_type&amp; <span class="keyword">operator</span>*() <span class="keyword">const</span> <span class="keyword">noexcept</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> *value_;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  value_type* value_ = <span class="literal">nullptr</span>;</span><br><span class="line">  RefCount refc_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<h3 id="实现-make-smart-函数模板"><a href="#实现-make-smart-函数模板" class="headerlink" title="实现 make_smart 函数模板"></a>实现 <code>make_smart</code> 函数模板</h3><p>基础版本的 <code>make_smart</code> 也是很容易的，只需要将接收到的参数转发给 <code>T</code> 的构造函数即可。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span>... Args&gt;                     <span class="comment">// 1.</span></span><br><span class="line">smart_ptr&lt;T&gt; make_smart(Args&amp;&amp;... args) &#123;                  <span class="comment">// 2.</span></span><br><span class="line">  <span class="keyword">return</span> smart_ptr&lt;T&gt;(<span class="keyword">new</span> T(<span class="built_in">std</span>::forward&lt;Args&gt;(args)...)); <span class="comment">// 3.</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里，(1) 处使用了 C++11 中名为「参数包」的技术，使得函数模板可以接收任意多个任意类型的参数；(2) 处对参数包进行解包，使用右值引用模式接受参数，借助「引用折叠」技术接收任意类型的参数；(3) 处使用了 <code>std::forward</code>，将接收到的参数原封不动地完美地转发给 <code>T</code> 的构造函数。</p>
+<blockquote>
+<p>关于参数包技术，将在未来的博文中介绍。</p>
+</blockquote>
+<p>至此，完整代码可见<a href="/uploads/codes/cpp/smart_ptr.cc">这里</a>。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2018/01/13/smart-pointer/" title="谈谈智能指针：原理及其实现">https://liam.page/2018/01/13/smart-pointer/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/C/" rel="tag"># C++</a>
+          
+            <a href="/tags/Surrogate/" rel="tag"># Surrogate</a>
+          
+            <a href="/tags/Handler/" rel="tag"># Handler</a>
+          
+            <a href="/tags/Pointer/" rel="tag"># Pointer</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/01/12/Mersenne-twister/" rel="next" title="谈谈梅森旋转：算法及其爆破">
+                <i class="fa fa-chevron-left"></i> 谈谈梅森旋转：算法及其爆破
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/01/15/AppleID-transfer-to-US/" rel="prev" title="将 Apple ID 迁移转区到美国">
+                将 Apple ID 迁移转区到美国 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#反思代理类"><span class="nav-number">1.</span> <span class="nav-text">反思代理类</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#代理类与智能指针"><span class="nav-number">2.</span> <span class="nav-text">代理类与智能指针</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第一次尝试"><span class="nav-number">3.</span> <span class="nav-text">第一次尝试</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#被绑定的对象"><span class="nav-number">3.1.</span> <span class="nav-text">被绑定的对象</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#智能指针"><span class="nav-number">3.2.</span> <span class="nav-text">智能指针</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#管理对象"><span class="nav-number">3.2.1.</span> <span class="nav-text">管理对象</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#获取对象"><span class="nav-number">3.2.2.</span> <span class="nav-text">获取对象</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#引用计数"><span class="nav-number">3.2.3.</span> <span class="nav-text">引用计数</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#SmartPointer-的实现"><span class="nav-number">3.2.4.</span> <span class="nav-text">SmartPointer 的实现</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第二次尝试"><span class="nav-number">4.</span> <span class="nav-text">第二次尝试</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#分析"><span class="nav-number">4.1.</span> <span class="nav-text">分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#引用计数器"><span class="nav-number">4.2.</span> <span class="nav-text">引用计数器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#重新实现智能指针"><span class="nav-number">4.3.</span> <span class="nav-text">重新实现智能指针</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#第三次尝试"><span class="nav-number">5.</span> <span class="nav-text">第三次尝试</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#分析-1"><span class="nav-number">5.1.</span> <span class="nav-text">分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#改造智能指针"><span class="nav-number">5.2.</span> <span class="nav-text">改造智能指针</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实现-make-smart-函数模板"><span class="nav-number">5.3.</span> <span class="nav-text">实现 make_smart 函数模板</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

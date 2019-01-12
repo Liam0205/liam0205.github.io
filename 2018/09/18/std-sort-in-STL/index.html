@@ -1,0 +1,2832 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前些天在 Bilibili 上看到一个视频（6 分钟演示 15 种排序算法）。好事者戏称：「在视频中，你能听到：冒泡咕噜声、飞机坠地声、暖瓶灌水声、猴子乱叫声等等」，实在搞笑得很。 C++ 的标准模板库有一个很霸气的解读：「标准模板库里的任意算法、数据结构，你找不到一个实现，在所有的情况下都优于标准模板库的实现；否则，它就应该进入标准模板库」。因此，对于排序问题来说，C++ 里的标准模板库中的 s">
+<meta name="keywords" content="Sort,STL">
+<meta property="og:type" content="article">
+<meta property="og:title" content="谈谈 STL 中的 std::sort">
+<meta property="og:url" content="https://liam.page/2018/09/18/std-sort-in-STL/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="前些天在 Bilibili 上看到一个视频（6 分钟演示 15 种排序算法）。好事者戏称：「在视频中，你能听到：冒泡咕噜声、飞机坠地声、暖瓶灌水声、猴子乱叫声等等」，实在搞笑得很。 C++ 的标准模板库有一个很霸气的解读：「标准模板库里的任意算法、数据结构，你找不到一个实现，在所有的情况下都优于标准模板库的实现；否则，它就应该进入标准模板库」。因此，对于排序问题来说，C++ 里的标准模板库中的 s">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/CS/stl-unguarded-partition-sample1.png">
+<meta property="og:image" content="https://liam.page/uploads/images/CS/stl-unguarded-partition-sample2.png">
+<meta property="og:updated_time" content="2019-01-12T07:15:40.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="谈谈 STL 中的 std::sort">
+<meta name="twitter:description" content="前些天在 Bilibili 上看到一个视频（6 分钟演示 15 种排序算法）。好事者戏称：「在视频中，你能听到：冒泡咕噜声、飞机坠地声、暖瓶灌水声、猴子乱叫声等等」，实在搞笑得很。 C++ 的标准模板库有一个很霸气的解读：「标准模板库里的任意算法、数据结构，你找不到一个实现，在所有的情况下都优于标准模板库的实现；否则，它就应该进入标准模板库」。因此，对于排序问题来说，C++ 里的标准模板库中的 s">
+<meta name="twitter:image" content="https://liam.page/uploads/images/CS/stl-unguarded-partition-sample1.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2018/09/18/std-sort-in-STL/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>谈谈 STL 中的 std::sort | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2018/09/18/std-sort-in-STL/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">谈谈 STL 中的 std::sort
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018 年 09 月 18 日 23:57:17" itemprop="dateCreated datePublished" datetime="2018-09-18T23:57:17+08:00">2018 年 09 月 18 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:15:40" itemprop="dateModified" datetime="2019-01-12T15:15:40+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">11k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">20 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>前些天在 Bilibili 上看到一个视频（<a href="https://www.bilibili.com/video/av26760438/" target="_blank" rel="noopener">6 分钟演示 15 种排序算法</a>）。好事者戏称：「在视频中，你能听到：冒泡咕噜声、飞机坠地声、暖瓶灌水声、猴子乱叫声等等」，实在搞笑得很。</p>
+<p>C++ 的标准模板库有一个很霸气的解读：「标准模板库里的任意算法、数据结构，你找不到一个实现，在所有的情况下都优于标准模板库的实现；否则，它就应该进入标准模板库」。因此，对于排序问题来说，C++ 里的标准模板库中的 <code>std::sort</code> 可想而知是一个在绝大多数情况下都能达到极限性能的排序算法。</p>
+<p><a href="/2018/08/29/introspective-sort/">前文</a>介绍的内省式排序算法正是 <code>std::sort</code> 采用的算法。但仅有一个理论上优秀的算法是不够的，<code>std::sort</code> 在内部也有很多技巧和权衡值得细细品味。这篇文章尝试来剖析 <code>std::sort</code>。</p>
+<a id="more"></a>
+<p>侯捷的《STL 源码剖析》选择了 SGI STL 2.91 版本来分析，理由是这个版本在技术层次、源代码组织、源代码可读性等方面的表现都非常好，并且这个版本代码较为稳定。本文也以这个版本为基础进行分析。</p>
+<h2 id="std-sort"><a href="#std-sort" class="headerlink" title="std::sort"></a><code>std::sort</code></h2><p>简便起见，我们分析默认版本的 <code>std::sort</code>，而不讨论传入仿函数 <code>Compare</code> 的版本。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">inline</span> <span class="title">void</span> <span class="title">sort</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>, <span class="title">RandomAccessIterator</span> <span class="title">last</span>) &#123;</span></span><br><span class="line">    <span class="keyword">if</span> (first != last) &#123;</span><br><span class="line">        __introsort_loop(first, last, value_type(first), __lg(last - first) * <span class="number">2</span>);</span><br><span class="line">        __final_insertion_sort(first, last);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这是一个函数模板，接受两个随机访问迭代器 <code>first</code> 和 <code>last</code>。两个随机访问迭代器构成了待排序的左闭右开区间 <code>[first, last)</code>。注意，这里假设 <code>last</code> 不会先于 <code>first</code>。显然，此时区间的有效性等价于 <code>first != last</code>。</p>
+<p>内部的 <code>__introsort_loop</code> 即是<a href="/2018/08/29/introspective-sort/">上一篇文章</a>介绍的内省式排序的实现。<code>__final_insertion_sort</code> 则是插入排序，参照<a href="/2018/08/29/introspective-sort/">前文</a>它在几乎有序的情况下效率很高。因此 <code>std::sort</code> 在内省式排序基本完成任务后调用插入排序以提升效率。</p>
+<h2 id="introsort-loop"><a href="#introsort-loop" class="headerlink" title="__introsort_loop"></a><code>__introsort_loop</code></h2><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>, <span class="title">class</span> <span class="title">T</span>, <span class="title">class</span> <span class="title">Size</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">void</span> __<span class="title">introsort_loop</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>,</span></span><br><span class="line"><span class="class">                      <span class="title">RandomAccessIterator</span> <span class="title">last</span>, <span class="title">T</span>*,</span></span><br><span class="line"><span class="class">                      <span class="title">Size</span> <span class="title">depth_limit</span>) &#123;</span></span><br><span class="line">    <span class="keyword">while</span> (last - first &gt; __stl_threshold) &#123;</span><br><span class="line">        <span class="keyword">if</span> (depth_limit == <span class="number">0</span>) &#123;</span><br><span class="line">            partial_sort(first, last, last);</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        --depth_limit;</span><br><span class="line">        RandomAccessIterator cut = __unguarded_partition</span><br><span class="line">          (first, last, T(__median(*first, *(first + (last - first) / <span class="number">2</span>),</span><br><span class="line">                                   *(last - <span class="number">1</span>))));</span><br><span class="line">        __introsort_loop(cut, last, value_type(first), depth_limit);</span><br><span class="line">        last = cut;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这是内省式排序的实现，它接收 4 个参数：前两个参数对应 <code>std::sort</code> 的左闭右开区间，第三个参数利用 Type Traits 获取待排序区间元素的类型，第四个参数则是<a href="/2018/08/29/introspective-sort/">前文</a>提到的递归深度限制。</p>
+<h3 id="stl-threshold"><a href="#stl-threshold" class="headerlink" title="__stl_threshold"></a><code>__stl_threshold</code></h3><p><code>__stl_threshold</code> 是一个预定义的宏，它对应<a href="/2018/08/29/introspective-sort/">前文</a>提到的超参数。当左闭右开区间的长度不大于该超参数时，可以认为序列基本有序，于是退出内省式排序，转向插入排序。</p>
+<h3 id="if-depth-limit-0-与-depth-limit"><a href="#if-depth-limit-0-与-depth-limit" class="headerlink" title="if (depth_limit == 0) 与 --depth_limit"></a><code>if (depth_limit == 0)</code> 与 <code>--depth_limit</code></h3><p>这是内省式排序判断快排递归恶化的一步。每次 <code>__introsort_loop</code> 的递归，参数 <code>depth_limit</code> 都会自减一次；当该参数为 0 时，意味着递归深度已经很深，很可能快排掉入了陷阱，因此调用堆排，并退出递归。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>, <span class="title">class</span> <span class="title">T</span>, <span class="title">class</span> <span class="title">Compare</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">void</span> __<span class="title">partial_sort</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>, <span class="title">RandomAccessIterator</span> <span class="title">middle</span>,</span></span><br><span class="line"><span class="class">                    <span class="title">RandomAccessIterator</span> <span class="title">last</span>, <span class="title">T</span>*, <span class="title">Compare</span> <span class="title">comp</span>) &#123;</span></span><br><span class="line">    make_heap(first, middle, comp);</span><br><span class="line">    <span class="keyword">for</span> (RandomAccessIterator i = middle; i &lt; last; ++i)</span><br><span class="line">        <span class="keyword">if</span> (comp(*i, *first))</span><br><span class="line">            __pop_heap(first, middle, i, T(*i), comp, distance_type(first));</span><br><span class="line">    sort_heap(first, middle, comp);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>, <span class="title">class</span> <span class="title">Compare</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">inline</span> <span class="title">void</span> <span class="title">partial_sort</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>,</span></span><br><span class="line"><span class="class">                         <span class="title">RandomAccessIterator</span> <span class="title">middle</span>,</span></span><br><span class="line"><span class="class">                         <span class="title">RandomAccessIterator</span> <span class="title">last</span>, <span class="title">Compare</span> <span class="title">comp</span>) &#123;</span></span><br><span class="line">    __partial_sort(first, middle, last, value_type(first), comp);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>值得一提的是，在 <code>std::sort</code> 当中，内省式排序的 <code>depth_limit</code> 初始值是 <code>__lg(last - first) * 2</code>，即 $2\log_2{n}$。这与<a href="/2018/08/29/introspective-sort/">前文</a>的分析是一致的。</p>
+<h3 id="递归结构"><a href="#递归结构" class="headerlink" title="递归结构"></a>递归结构</h3><p>处理过恶化情况后，理应是正常的快排算法的实现了。快排是一个典型的递归算法，写起来其实很简单：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">qsort(first, last):</span><br><span class="line">    cut = partition(first, last, pivot)  <span class="comment">// pivot is picked in [first, last)</span></span><br><span class="line">    qsort(cut + <span class="number">1</span>, last)</span><br><span class="line">    qsort(first, cut)</span><br></pre></td></tr></table></figure>
+<p>这无非是先分割，然后递归分别处理左右子序列。但是 <code>std::sort</code> 里的快排，生生写成了类似这样：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">qsort(first, last):</span><br><span class="line">    <span class="keyword">while</span> (valid) &#123;</span><br><span class="line">        cut = partition(first, last, pivot)</span><br><span class="line">        qsort(cut + <span class="number">1</span>, last)</span><br><span class="line">        last = cut</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+<p>这里先分割，然后递归处理右子序列，左子序列则通过重新设置 <code>last</code> 的位置交由下一轮循环处理。这种处理方式节省了一半的递归调用开销；在待排序序列非常长的时候，无疑能提高不少效率。可谓「为了效率，无所不用其极」。</p>
+<h3 id="pivot-的选择"><a href="#pivot-的选择" class="headerlink" title="pivot 的选择"></a>pivot 的选择</h3><p><a href="/2018/08/29/introspective-sort/">前文</a>提到，快排掉入陷阱的根本原因是主元选择得不好导致分割没有带来任何新的信息量。具体来说，就是主元选择了序列中最大或最小的元素。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">__median(*first, *(first + (last - first) / <span class="number">2</span>), *(last - <span class="number">1</span>))</span><br></pre></td></tr></table></figure>
+<p>为了避免这种情况，<code>std::sort</code> 中的快排，主元选择了首元素、尾元素和中央位置元素三者中的中位数。这样一来，除非这三个元素都是最大值或最小值，不然三者的中位数不会是整个序列的最大值或最小值，从而不容易让快排掉入陷阱。</p>
+<h3 id="unguarded-partition"><a href="#unguarded-partition" class="headerlink" title="__unguarded_partition"></a><code>__unguarded_partition</code></h3><p>快排的核心是根据主元对序列进行分割。<code>std::sort</code> 当中使用了 <code>__unguarded_partition</code> 函数进行这一操作。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>, <span class="title">class</span> <span class="title">T</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">RandomAccessIterator</span> __<span class="title">unguarded_partition</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>,</span></span><br><span class="line"><span class="class">                                           <span class="title">RandomAccessIterator</span> <span class="title">last</span>,</span></span><br><span class="line"><span class="class">                                           <span class="title">T</span> <span class="title">pivot</span>) &#123;</span></span><br><span class="line">    <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">        <span class="keyword">while</span> (*first &lt; pivot) ++first;      <span class="comment">// 1.2</span></span><br><span class="line">        --last;                              <span class="comment">// 2.1</span></span><br><span class="line">        <span class="keyword">while</span> (pivot &lt; *last) --last;        <span class="comment">// 2.2</span></span><br><span class="line">        <span class="keyword">if</span> (!(first &lt; last)) <span class="keyword">return</span> first;   <span class="comment">// 3.</span></span><br><span class="line">        iter_swap(first, last);              <span class="comment">// 4.</span></span><br><span class="line">        ++first;                             <span class="comment">// 1.1</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>函数接受 3 个参数，分别是左闭右开区间的迭代器和主元的值。</p>
+<p>(1.1) 和 (1.2) 配合，将 <code>first</code> 迭代器后移，指向第一个不小于主元的元素。(2.1) 和 (2.2) 配合，将 <code>last</code> 迭代器前移，指向第一个不大于主元的元素。在 (3) 处的判断，若第一个不小于主元的元素不先序于第一个不大于主元的元素，则说明分割已经完毕，返回第一个不小于主元的元素的位置，即 <code>first</code> 的当前值；否则，在 (4) 处交换 <code>first</code> 和 <code>last</code> 指向元素的值。参考《STL 源码剖析》的图示：</p>
+<p><img src="/uploads/images/CS/stl-unguarded-partition-sample1.png" alt=""></p>
+<p><img src="/uploads/images/CS/stl-unguarded-partition-sample2.png" alt=""></p>
+<p>对于该函数有两个地方值得一提：</p>
+<ul>
+<li>函数没有进行任何边界判断而不会陷入死循环的原因是 <code>pivot</code> 是 <code>[first, last)</code> 内的元素，因此在循环中 <code>first</code> 和 <code>last</code> 必然会破坏先序关系（不一定是交错）。避免边界判断，又节省了不少比较开销。</li>
+<li>不同于标准的 partition 返回主元的分割位置，<code>__unguarded_partition</code> 返回的是第一个不小于主元的元素位置。由于在 <code>[first, last)</code> 长度足够小时，函数会退出并交由插入排序实现，这种设计并不会影响算法的正确性。</li>
+</ul>
+<h2 id="final-insertion-sort"><a href="#final-insertion-sort" class="headerlink" title="__final_insertion_sort"></a><code>__final_insertion_sort</code></h2><!-- 参见：[这里](http://feihu.me/blog/2014/sgi-std-sort/#%E4%B8%BA%E4%BD%95__final_insertion_sort%E5%A6%82%E6%AD%A4%E5%AE%9E%E7%8E%B0) -->
+<p>在 <code>__introsort_loop</code> 将 <code>[first, last)</code> 调整为基本有序后，就会转而进入插入排序。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">void</span> __<span class="title">final_insertion_sort</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>,</span></span><br><span class="line"><span class="class">                            <span class="title">RandomAccessIterator</span> <span class="title">last</span>) &#123;</span></span><br><span class="line">    <span class="keyword">if</span> (last - first &gt; __stl_threshold) &#123;</span><br><span class="line">        __insertion_sort(first, first + __stl_threshold);</span><br><span class="line">        __unguarded_insertion_sort(first + __stl_threshold, last);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        __insertion_sort(first, last);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>函数模板内有一个 <code>if</code> 分支。当区间长度较小时，直接调用 <code>__insertion_sort</code>；当区间长度较大时，对前 <code>__stl_threshold</code> 个元素调用 <code>__insertion_sort</code>，而对前 <code>__stl_threshold</code> 个元素之后的元素调用 <code>__unguarded_insertion_sort</code>。有了之前分析 <code>__unguarded_partition</code> 的经验，显然我们能猜到 <code>__unguarded_insertion_sort</code> 一定做了某种优化以提升性能。但我们有几个问题待解决：</p>
+<ol>
+<li><code>__insertion_sort</code> 和 <code>__unguarded_insertion_sort</code> 分别是什么？它们与标准的插入排序有什么区别？各自的适用条件又是什么？</li>
+<li>在区间长度较长时，为什么要将前 <code>__stl_threshold</code> 个元素单独处理？</li>
+<li>为什么要对区间长度的大小进行划分？这与 <code>__introsort_loop</code> 中 <code>while</code> 循环的区间长度限制有什么联系？</li>
+</ol>
+<h3 id="插入排序的实现"><a href="#插入排序的实现" class="headerlink" title="插入排序的实现"></a>插入排序的实现</h3><p>标准的插入排序可以有这样的实现：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">void</span> <span class="title">insertion_sort</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>, <span class="title">RandomAccessIterator</span> <span class="title">last</span>) &#123;</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">not</span>(first &lt; last)) <span class="keyword">return</span>;</span><br><span class="line">    <span class="keyword">for</span> (RandomAccessIterator i = first + <span class="number">1</span>; i != last; ++i) &#123;  <span class="comment">// 1.</span></span><br><span class="line">        <span class="keyword">auto</span> key = *i;</span><br><span class="line">        RandomAccessIterator j;</span><br><span class="line">        <span class="keyword">for</span> (j = i - <span class="number">1</span>; first &lt;= j <span class="keyword">and</span> key &lt; *j; --j) &#123;         <span class="comment">// 2.</span></span><br><span class="line">            *(j + <span class="number">1</span>) = *j;                                      <span class="comment">// 3.</span></span><br><span class="line">        &#125;</span><br><span class="line">        *(j + <span class="number">1</span>) = key;                                         <span class="comment">// 4.</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>代码很简单。(1) 处从 <code>first</code> 之后的元素开始循环，假定 <code>first</code> 已经是排序完成的。(2) 处从目标位置 <code>i</code> 前一个元素向前循环，直到遇到区间头部或者遇到已排序元素小于目标元素时停止；在循环内的 (3) 处依次将大于目标元素的所有元素依次后移。(4) 处将目标元素放在目标位置。</p>
+<p>接下来我们首先来看 <code>__unguarded_linear_insert</code> 的代码，它是 <code>__insertion_sort</code> 和 <code>__unguarded_insertion_sort</code> 共同依赖的内部函数。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>, <span class="title">class</span> <span class="title">T</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">void</span> __<span class="title">unguarded_linear_insert</span>(<span class="title">RandomAccessIterator</span> <span class="title">last</span>, <span class="title">T</span> <span class="title">value</span>) &#123;</span></span><br><span class="line">    RandomAccessIterator next = last;</span><br><span class="line">    --next;</span><br><span class="line">    <span class="keyword">while</span> (value &lt; *next) &#123;</span><br><span class="line">        *last = *next;</span><br><span class="line">        last = next;</span><br><span class="line">        --next;</span><br><span class="line">    &#125;</span><br><span class="line">    *last = value;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>__unguarded_linear_insert</code> 函数模板的实现如其名称所展现的那样，它在对 <code>next</code> 迭代器的自减中，没有检查 <code>next</code> 迭代器是否向左超越边界。更有甚者，它根本无需输入左边界，而只需输入右边界迭代器和带插入元素的值即可；这也意味着，<code>__unguarded_linear_insert</code> 不是完整的插入排序的实现。事实上，它只完成了原版插入排序中 (2)(3)(4) 的部分功能。</p>
+<p>显然，这种情况下，为了保证函数执行的正确性，函数必然有额外的前提假设。此处假设应当是：<strong><code>while</code> 循环会在 <code>next</code> 迭代器向左越界之前停止</strong>；这也就是说，<strong>在 <code>[first, last)</code> 之间必然存在不大于 <code>value</code> 的元素</strong>。因此，为防止越界，在调用该函数模板之前，我们必须要保证这一假设成立。</p>
+<p>接下来我们来看内部函数 <code>__linear_insert</code> 的实现。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>, <span class="title">class</span> <span class="title">T</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">inline</span> <span class="title">void</span> __<span class="title">linear_insert</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>,</span></span><br><span class="line"><span class="class">                            <span class="title">RandomAccessIterator</span> <span class="title">last</span>, <span class="title">T</span>*) &#123;</span></span><br><span class="line">    T value = *last;</span><br><span class="line">    <span class="keyword">if</span> (value &lt; *first) &#123;</span><br><span class="line">        copy_backward(first, last, last + <span class="number">1</span>);</span><br><span class="line">        *first = value;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        __unguarded_linear_insert(last, value);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>__linear_insert</code> 函数模板的意图是将 <code>last</code> 所指向的元素插入到正确位置，这里蕴含的前提假设是<strong><code>[first, last)</code> 区间的元素是已经排好序的</strong>。在这一假设下，若 <code>*last &lt; *first</code>，则毫无疑问，<code>last</code> 指向的元素应当插入在上述区间的最前面，因此有 <code>std::copy_backward</code>；若不满足条件判断，则在 <code>[first, last)</code> 之间必然存在不大于 <code>value</code> 的元素（比如至少 <code>*first</code> 是这样），因此可以调用 <code>__unguarded_linear_insert</code> 来解决问题，而不必担心在 <code>__unguarded_linear_insert</code> 中 <code>next</code> 迭代器向左越界。对于 <code>*last &lt; *first</code> 的情况，<code>__linear_insert</code> 将 <code>last - first - 1</code> 次比较和交换操作变成了一次 <code>std::copy_backward</code> 操作，相当于节省了 <code>last - first - 1</code> 次比较操作。</p>
+<p>利用 <code>__linear_insert</code> 可以将 <code>last</code> 指向的元素插入到已排序区间中的正确位置；而这正式标准的插入排序函数中 (2)(3)(4) 处的目的。因此 <code>__insertion_sort</code> 就很好理解了。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">void</span> __<span class="title">insertion_sort</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>, <span class="title">RandomAccessIterator</span> <span class="title">last</span>) &#123;</span></span><br><span class="line">    <span class="keyword">if</span> (first == last) <span class="keyword">return</span>;</span><br><span class="line">    <span class="keyword">for</span> (RandomAccessIterator i = first + <span class="number">1</span>; i != last; ++i)</span><br><span class="line">        __linear_insert(first, i, value_type(first));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>接下来我们看 <code>__unguarded_insertion_sort</code> 的实现。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>, <span class="title">class</span> <span class="title">T</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">void</span> __<span class="title">unguarded_insertion_sort_aux</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>,</span></span><br><span class="line"><span class="class">                                    <span class="title">RandomAccessIterator</span> <span class="title">last</span>, <span class="title">T</span>*) &#123;</span></span><br><span class="line">    <span class="keyword">for</span> (RandomAccessIterator i = first; i != last; ++i)</span><br><span class="line">        __unguarded_linear_insert(i, T(*i));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">RandomAccessIterator</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">inline</span> <span class="title">void</span> __<span class="title">unguarded_insertion_sort</span>(<span class="title">RandomAccessIterator</span> <span class="title">first</span>,</span></span><br><span class="line"><span class="class">                                <span class="title">RandomAccessIterator</span> <span class="title">last</span>) &#123;</span></span><br><span class="line">    __unguarded_insertion_sort_aux(first, last, value_type(first));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><code>__unguarded_insertion_sort_aux</code> 是一个简单的辅助函数，其目的只是获取模板参数 <code>T</code>，以便正确调用 <code>__unguarded_linear_insert</code>。<code>__unguarded_insertion_sort</code> 没有边界检查，因此它一定比 <code>__insertion_sort</code> 要快。但由于 <code>__unguarded_insertion_sort_aux</code> 会从 <code>first</code> 开始调用 <code>__unguarded_linear_insert</code>；因此使用 <code>__unguarded_insertion_sort</code> 的条件比 <code>__unguarded_linear_insert</code> 更加严格。它必须保证以下假设成立：<strong>在 <code>first</code> 左边的有效位置上，存在不大于 <code>[first, last)</code> 中所有元素的元素</strong>。</p>
+<h3 id="回答三个问题"><a href="#回答三个问题" class="headerlink" title="回答三个问题"></a>回答三个问题</h3><p>至此我们可以回答第一个问题：</p>
+<ul>
+<li><code>__insertion_sort</code> 实现了标准的插入排序的功能。但由于内部使用了 <code>__linear_insert</code> 和 <code>__unguarded_linear_insert</code> 内部函数，其效率比标准的插入排序效率要高。</li>
+<li><code>__unguarded_insertion_sort</code> 基本上也实现了插入排序的思想，但它实现的功能比标准的插入排序稍弱。它要求在 <code>first</code> 左边的有效位置上，存在不大于 <code>[first, last)</code> 中所有元素的元素。</li>
+</ul>
+<p>以及我们可以部分回答第二个问题：</p>
+<ul>
+<li><code>__unguarded_insertion_sort</code> 的效率比 <code>__insertion_sort</code> 高，因此我们应该尽可能对更多的元素使用 <code>__unguarded_insertion_sort</code>。但使用它是有前提的，因此至少对最头部的一些元素，我们不能使用 <code>__unguarded_insertion_sort</code>。</li>
+<li>但这只是部分回答了第二个问题；因为我们仍然没有说明为什么对头部 <code>__stl_threshold</code> 个元素之外的元素使用 <code>__unguarded_insertion_sort</code> 是安全的。也即我们需要证明：头部 <code>__stl_threshold</code> 个元素中一定存在不小于区间 <code>[first + __stl_threshold, last)</code> 中所有元素的元素。</li>
+</ul>
+<p>以及我们可以回答第三个问题：</p>
+<ul>
+<li>若 <code>last - first &gt; __stl_threshold</code> 不成立，则事实上 <code>__introsort_loop</code> 不会对序列做任何实际操作——这是由内省式排序 <code>while</code> 循环的条件确保的。这种情况下，不能使用 <code>__unguarded_insertion_sort</code>，而是要使用具有完整排序能力的 <code>__insertion_sort</code> 来执行最终的插入排序操作。</li>
+</ul>
+<h3 id="完整回答第二个问题"><a href="#完整回答第二个问题" class="headerlink" title="完整回答第二个问题"></a>完整回答第二个问题</h3><p>至此，我们唯独遗留的问题是要证明：头部 <code>__stl_threshold</code> 个元素中一定存在不小于区间 <code>[first + __stl_threshold, last)</code> 中所有元素的元素。</p>
+<p>由于 <code>__final_insertion_sort</code> 在 <code>__introsort_loop</code> 之后调用，这个问题某种程度上是显然的。考虑 <code>__introsort_loop</code> 的两个退出条件，然后分类讨论：</p>
+<ol>
+<li>因递归切分，导致 <code>last - first &gt; __stl_threshold</code> 不成立而退出。</li>
+<li>因递归过深，调用堆排序而退出。</li>
+</ol>
+<p>对第一种情况，考虑快排特性可知，最左侧的 <code>[first, last)</code> 区间的所有元素，都不大于右侧所有元素。又因为 <code>last - first &lt;= __stl_threshold</code>，因此在 <code>[first, first + __stl_threshold)</code> 中必然存在一个元素，不大于 <code>[first + __stl_threshold, last)</code> 中的所有元素。</p>
+<p>对第二种情况，同样考虑快排特性，最左侧的 <code>[first, last)</code> 区间的所有元素，都不大于右侧所有元素。尽管此时不一定成立 <code>last - first &lt;= __stl_threshold</code>，但堆排保证了 <code>first</code> 元素是该区间内值最小的元素。因此至少它不大于 <code>[first + __stl_threshold, last)</code> 中的所有元素。</p>
+<p>因此我们说，经过 <code>__introsort_loop</code> 之后，头部 <code>__stl_threshold</code> 个元素中一定存在不小于区间 <code>[first + __stl_threshold, last)</code> 中所有元素的元素。</p>
+<h2 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h2><p>纵观整个 <code>std::sort</code> 的实现，可以看到很多为了效率，而无所不用其极地对代码进行精雕细琢。作为程序员，相信没有人能对这种精湛技艺熟视无睹。欣赏 STL 代码时，我们一方面需要去理解这样做为什么是对的，还要去理解这样做为什么能提高效率。如此，才能真正吃透 STL 的代码，并能有自己的收获。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2018/09/18/std-sort-in-STL/" title="谈谈 STL 中的 std::sort">https://liam.page/2018/09/18/std-sort-in-STL/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Sort/" rel="tag"># Sort</a>
+          
+            <a href="/tags/STL/" rel="tag"># STL</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/09/18/classification-of-colds/" rel="next" title="谈谈感冒的分类及治疗">
+                <i class="fa fa-chevron-left"></i> 谈谈感冒的分类及治疗
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/10/10/logistic-regression/" rel="prev" title="谈谈逻辑回归模型">
+                谈谈逻辑回归模型 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#std-sort"><span class="nav-number">1.</span> <span class="nav-text">std::sort</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#introsort-loop"><span class="nav-number">2.</span> <span class="nav-text">__introsort_loop</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#stl-threshold"><span class="nav-number">2.1.</span> <span class="nav-text">__stl_threshold</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#if-depth-limit-0-与-depth-limit"><span class="nav-number">2.2.</span> <span class="nav-text">if (depth_limit == 0) 与 --depth_limit</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#递归结构"><span class="nav-number">2.3.</span> <span class="nav-text">递归结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#pivot-的选择"><span class="nav-number">2.4.</span> <span class="nav-text">pivot 的选择</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#unguarded-partition"><span class="nav-number">2.5.</span> <span class="nav-text">__unguarded_partition</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#final-insertion-sort"><span class="nav-number">3.</span> <span class="nav-text">__final_insertion_sort</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#插入排序的实现"><span class="nav-number">3.1.</span> <span class="nav-text">插入排序的实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#回答三个问题"><span class="nav-number">3.2.</span> <span class="nav-text">回答三个问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#完整回答第二个问题"><span class="nav-number">3.3.</span> <span class="nav-text">完整回答第二个问题</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#结语"><span class="nav-number">4.</span> <span class="nav-text">结语</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: "AMS"
+      }
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+      for (i = 0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+  });
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $("code").map(function(){
+    match = /^\$(.*)\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\$\$(.*)\$\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\\begin/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+  });
+});
+</script>
+
+<script src="//cdn.jsdelivr.net/npm/mathjax@2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+<style>
+.MathJax_Display {
+  overflow: auto hidden;
+}
+</style>
+
+    
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

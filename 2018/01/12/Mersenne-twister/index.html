@@ -1,0 +1,3001 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="现代编程语言，大都在标准库中包含了随机库。例如，C++ 在 C++11 标准中添加了 random 头文件，提供了现代的随机库；Python 则有 random。C++11 的随机库将生成随机数的过程在逻辑上切分成了两个步骤：随机数生成引擎和分布。在学习 C++11 的 random 库时，std::mt19937 这一随机数生成引擎的名字看起来十分奇怪，成功吸引了我的注意力。 查询后得知，std">
+<meta name="keywords" content="Random,PRNG">
+<meta property="og:type" content="article">
+<meta property="og:title" content="谈谈梅森旋转：算法及其爆破">
+<meta property="og:url" content="https://liam.page/2018/01/12/Mersenne-twister/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="现代编程语言，大都在标准库中包含了随机库。例如，C++ 在 C++11 标准中添加了 random 头文件，提供了现代的随机库；Python 则有 random。C++11 的随机库将生成随机数的过程在逻辑上切分成了两个步骤：随机数生成引擎和分布。在学习 C++11 的 random 库时，std::mt19937 这一随机数生成引擎的名字看起来十分奇怪，成功吸引了我的注意力。 查询后得知，std">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/mathematics/LFSR.png">
+<meta property="og:image" content="https://liam.page/uploads/images/mathematics/incomplete_array.png">
+<meta property="og:image" content="https://liam.page/uploads/images/mathematics/B_transform.png">
+<meta property="og:updated_time" content="2019-01-12T07:22:33.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="谈谈梅森旋转：算法及其爆破">
+<meta name="twitter:description" content="现代编程语言，大都在标准库中包含了随机库。例如，C++ 在 C++11 标准中添加了 random 头文件，提供了现代的随机库；Python 则有 random。C++11 的随机库将生成随机数的过程在逻辑上切分成了两个步骤：随机数生成引擎和分布。在学习 C++11 的 random 库时，std::mt19937 这一随机数生成引擎的名字看起来十分奇怪，成功吸引了我的注意力。 查询后得知，std">
+<meta name="twitter:image" content="https://liam.page/uploads/images/mathematics/LFSR.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2018/01/12/Mersenne-twister/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>谈谈梅森旋转：算法及其爆破 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2018/01/12/Mersenne-twister/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">谈谈梅森旋转：算法及其爆破
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018 年 01 月 12 日 11:52:48" itemprop="dateCreated datePublished" datetime="2018-01-12T11:52:48+08:00">2018 年 01 月 12 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:22:33" itemprop="dateModified" datetime="2019-01-12T15:22:33+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">13k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">24 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>现代编程语言，大都在标准库中包含了随机库。例如，C++ 在 C++11 标准中添加了 <code>random</code> 头文件，提供了现代的随机库；Python 则有 <a href="/2016/09/23/Python-random/">random</a>。C++11 的随机库将生成随机数的过程在逻辑上切分成了两个步骤：随机数生成引擎和分布。在学习 C++11 的 <code>random</code> 库时，<code>std::mt19937</code> 这一随机数生成引擎的名字看起来十分奇怪，成功吸引了我的注意力。</p>
+<p>查询后得知，<code>std::mt19937</code> 中的 MT 是 Mersenne Twister 的缩写，这是伪随机数生成算法的名字（梅森旋转算法）；而 19937 则取自算法中用到的梅森素数 $2^{19937} - 1$。这里，梅森素数是算法生成伪随机数的循环长度（period），而旋转则说的是算法内部对定长二进制串循环位移的过程。</p>
+<p>此篇讲解梅森旋转算法的一些原理，并介绍对其的一个「爆破」方法。</p>
+<a id="more"></a>
+<h2 id="伪随机数发生器质量的度量——-k-维-v-比特准确度"><a href="#伪随机数发生器质量的度量——-k-维-v-比特准确度" class="headerlink" title="伪随机数发生器质量的度量——$k$-维 $v$-比特准确度"></a>伪随机数发生器质量的度量——$k$-维 $v$-比特准确度</h2><p>梅森旋转算法（Mersenne Twister Algorithm，简称 MT）是为了解决过去伪随机数发生器（Pseudo-Random Number Generator，简称 PRNG）产生的伪随机数质量不高而提出的新算法。该算法由松本眞（Makoto Matsumoto）和西村拓士（Takuji Nishimura）在 1997 年提出，期间还得到了「算法之神」高德纳（Donald Ervin Knuth）的帮助。</p>
+<p>既然 MT 是为了解决过去 PRNG 质量低下的问题，那么首先我们就必须要有一个能够度量 PRNG 质量的方法。否则，「公说公有理婆说婆有理」，我们就无法对 PRNG 作出统一的评价了。</p>
+<p>这里介绍评价 PRNG 最严格指标[Tootill et al. 1973][Fushimi and Tezuka 1983][Couture et al. 1993][Tezuka 1995][Tezuka 1994][Tezuka and L’Ecuyer 1991][L’Ecuyer 1996]：$k$-维 $v$-比特准确度（$k$-distributed to $v$-bit accuracy）。</p>
+<p>假设某一 PRNG 能够产生周期为 $P$ 的 $w$-比特的随机数序列 $\{\vec x_i\}$；同时，将 $w$-比特的随机数 $\vec x$ 的最高 $v$ 位组成的数记作 $\text{trunc}_v(\vec x)$。现构造如下长度为 $kv$-比特的二进制数</p>
+<p><code>$$\text{PRNG}_{k, v}(i) \overset{\text{def}}{=}(\text{trunc}_v(\vec x_i),\text{trunc}_v(\vec x_{i + 1}),\ldots,\text{trunc}_v(\vec x_{i + k - 1})).$$</code></p>
+<p>由于 <code>$\text{PRNG}_{k, v}(i)$</code> 是长度为 $kv$-比特的二进制数，所以它可以有 $2^{kv}$ 中不同的取值。若当 $i$ 遍历 $[0, P)$，<code>$\text{PRNG}_{k, v}(i)$</code> 的取值在这 $2^{kv}$ 中均匀分布。具体来说，<code>$\text{PRNG}_{k, v}(i)$</code> 落在这 $2^{kv}$ 个取值上的数量完全相等（$\frac{P + 1}{2^{kv}}$），除了全零的取值会少不多不少正好一次（$\frac{P + 1}{2^{kv}} - 1$）。</p>
+<p>显而易见，对任意固定的 $v$，若 PRNG 是 $k$-维 $v$-比特准确的，那么必然也是 $(k - 1)$-维 $v$-比特准确的，但不一定是 $(k + 1)$-维 $v$-比特准确的。考虑 $k$ 是有上限的，因此，对于任意固定的 $v$，必然存在最大的 $k = k(v)$ 使得 PRNG 是 $k(v)$-维 $v$-比特准确的。那么，根据定义，显然有 $2^{k(v)v} - 1 \leqslant P$。</p>
+<blockquote>
+<p>$k$-维 $v$-比特准确度也可以有密码学角度的描述：若 PRNG 是 $k$-维 $v$-比特准确的，那么即使已知 PRNG 生成的 $l &lt; k$ 个伪随机数的最高 $v$ 位，也无法推出 PRNG 生成的第 $l + 1$ 个伪随机数的最高 $v$ 位。</p>
+</blockquote>
+<p>根据这样的定义，MT 算法具有非常优良的性能。首先 MT 算法（MT19937）的周期非常长。其周期 $P = 2^{19937} - 1$，要比预估的宇宙可观测的粒子总数（$10^{87}$）还要高出数千个数量级。其次，作为一个 $32$ 比特随机数生成器，MT19937 是 $623$-维 $32$-比特准确的。考虑到 $\bigl\lfloor \frac{19937}{32}\bigr\rfloor = 623$，MT19937 在 $k$-维 $v$-比特准确度上的性能已达到理论上的最大值。因此，MT19937 具有非常优良的性能。</p>
+<h2 id="梅森旋转算法的描述"><a href="#梅森旋转算法的描述" class="headerlink" title="梅森旋转算法的描述"></a>梅森旋转算法的描述</h2><h3 id="旋转"><a href="#旋转" class="headerlink" title="旋转"></a>旋转</h3><p>32 位的梅森旋转算法能够产生周期为 $P$ 的 $w$-比特的随机数序列 $\{\vec x_i\}$；其中 $w = 32$。这也就是说，每一个 $\vec x$ 是一个长度为 32 的行向量，并且其中的每一个元素都是二元数域 $\mathbb{F}_2 \overset{\text{def}}{=} \{0, 1\}$ 中的元素。现在，我们定义如下一些记号，来描述梅森旋转算法是如何进行旋转（线性移位）的。</p>
+<ul>
+<li>$n$：参与梅森旋转的随机数个数；</li>
+<li>$r$：$[0, w)$ 之间的整数；</li>
+<li>$m$：$(0, n]$ 之间的整数；</li>
+<li>$\mathbf{A}$：$w \times w$ 的常矩阵；</li>
+<li>$\vec x^{(u)}$：$\vec x$ 的最高 $w - r$ 比特组成的数（低位补零）；</li>
+<li>$\vec x^{(l)}$：$\vec x$ 的最低 $r$ 比特组成的数（高位补零）。</li>
+</ul>
+<p>梅森旋转算法，首先需要根据随机数种子初始化 $n$ 个行向量：</p>
+<p><code>$$\vec x_0, \vec x_1, \ldots, \vec x_{n - 1}.$$</code></p>
+<p>而后根据下式，从 $k = 0$ 开始依次计算 $\vec x_{n}$：</p>
+<p><code>\begin{equation}\vec x_{k + n} \overset{\text{def}}{=} \vec x_{k + m}\oplus \bigl(\vec x_{k}^{(u)}\mid \vec x_{k + 1}^{(l)}\bigr)\mathbf{A}.\label{eq:twister}\end{equation}</code></p>
+<p>其中，<code>$\vec x\mid \vec x&#39;$</code> 表示两个二进制数按位或；<code>$\vec x\oplus \vec x&#39;$</code> 表示两个二进制数按位半加（不进位，也就是按位异或）；$\vec x\mathbf A$ 则表示按位半加的矩阵乘法。在 MT 中，$\mathbf A$ 被定义为</p>
+<p><code>$$\begin{pmatrix}
+&amp; 1 \\
+&amp; &amp; 1 \\
+&amp; &amp; &amp; \ddots \\
+&amp; &amp; &amp; &amp; 1 \\
+a_{w - 1} &amp; a_{w - 2} &amp; a_{w - 3} &amp; \cdots &amp; a_0
+\end{pmatrix}$$</code></p>
+<p>因此</p>
+<p><code>$$\vec x\mathbf A = \begin{cases}\vec x &gt;&gt; 1&amp; \text{if $x_0 = 0$} \\ (\vec x &gt;&gt; 1)\oplus\vec a&amp; \text{if $x_0 = 1$}\end{cases}.$$</code></p>
+<blockquote>
+<p>此处，若 $r = 0$，则 MT 退化为 TGFSR (Matsumoto and Kurita 1992, 1994)；若再加上 $\mathbf A = \mathbf I_{w}$，则又从 TGFSR 退化为 GFSR (Lewis and Payne 1973)。</p>
+</blockquote>
+<p>因此，梅森旋转 \ref{eq:twister} 式完全由位运算组成（移位、按位与、按位或、按位异或）。</p>
+<h3 id="线性反馈移位寄存器、旋转之名、周期"><a href="#线性反馈移位寄存器、旋转之名、周期" class="headerlink" title="线性反馈移位寄存器、旋转之名、周期"></a>线性反馈移位寄存器、旋转之名、周期</h3><p>上一小节我们介绍了 MT 算法当中的「旋转」。但只凭抽象的数学公式（尤其是二进制的逻辑数学），很难看出它为什么是「旋转」。这一节我们首先介绍线性反馈移位寄存器（Linear Feedback Shifting Register，简称 LFSR），看到它是如何「旋转」的；最后再将 LFSR 和 MT 算法当中的旋转步骤统一起来。</p>
+<p>反馈移位寄存器是对二进制序列进行等长变换的一种特殊函数。它包括两个部分：</p>
+<ol>
+<li>级。等长変换的长度即是反馈移位寄存器的级。</li>
+<li>反馈函数。若反馈函数是线性的，则称线性反馈移位寄存器；否则是非线性反馈移位寄存器。</li>
+</ol>
+<p>一般来说，LFSR 是基于异或运算的。一个 LFSR 的工作步骤是这样的：</p>
+<ul>
+<li>将原寄存器状态的最低位作为输出。</li>
+<li>执行线性反馈函数；也就是选取其中若干位，从高位到低位迭代异或。</li>
+<li>将元寄存器状态向低位移位 1 位，并以上述迭代异或的结果作为填充值填入最高位。</li>
+</ul>
+<p>在不断的迭代异或、填充高位的过程中，二进制位在寄存器中循环旋转。这就是「旋转」的来由。</p>
+<p>对于一个 4 级的 LFSR 来说，假设其反馈函数是 $f(x) = x^4 + x^2 + x + 1$。则 LFSR 每次从最低位取出结果，将最高位（$x^4$）和倒数第二低位（$x^2$）取异或后，再与最低位（$x$）取异或后，填入移位后的最高位。</p>
+<p><img src="/uploads/images/mathematics/LFSR.png" alt=""></p>
+<!--
+\documentclass{article}
+\usepackage{tikz}
+\usetikzlibrary{calc}
+\usepackage{amsmath}
+
+\begin{document}
+\begin{tikzpicture}
+  \node (A) at (0, 0) {$ a_3 $};
+  \node (B) at (1, 0) {$ a_2 $};
+  \node (C) at (2, 0) {$ a_1 $};
+  \node (D) at (3, 0) {$ a_0 $};
+
+  \node (E) at (2, 1) {$ \oplus $};
+  \node (F) at (3, 2) {$ \oplus $};
+
+  \node (G) at (-1, 0) {$ a_{\text{new}} $};
+
+  \draw[->] (A.north) |- (E.west);
+  \draw[->] (C.north) -- (E.south);
+
+  \draw[->] (E.north) |- (F.west);
+  \draw[->] (D.north) -- (F.south);
+
+  \draw[->] (F.north) -- ($ (F.center) + (0, 1) $) -- ++ (-4, 0) -- (G.north);
+
+  \draw[dashed] (G.south west) rectangle (C.north east);
+
+  \node at (1, -.5) {$ f(x) = x^4 + x^2 + x + 1 $};
+\end{tikzpicture}
+\end{document}
+-->
+<p>因此，若初始状态为 $(1000)_2$，则有</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">1000</span><br><span class="line">1100</span><br><span class="line">1110</span><br><span class="line">0111</span><br><span class="line">0011</span><br><span class="line">0001</span><br><span class="line">1000  # 复原</span><br></pre></td></tr></table></figure>
+<p>如此，我们就构建了一个循环长度为 6 的 LFSR。</p>
+<p>考虑一个 $w$ 级的 LFSR，其最多共有 $2^w$ 种状态。又考虑对于异或来说，全零的状态是不可用的（因为不论如何运算都是全零），因此一个 $w$ 级的 LFSR，其有效状态共有 $2^w - 1$ 个。因此，理论上，一个 LFSR 的循环长度最大为 $2^w - 1$。可以证明，当且仅当反馈函数是 $\mathbb F_2$ 上的本原多项式（素多项式）时，LFSR 的循环长度达到最大值。</p>
+<p><img src="/uploads/images/mathematics/incomplete_array.png" alt=""></p>
+<!--
+\documentclass{article}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{calc}
+\begin{document}
+\begin{tikzpicture}[scale = 0.5]
+\foreach \i in {0, 1, ..., 5} {
+    \draw (0, \i) rectangle (10, \i + 1);
+}
+\foreach \i/\j in {0/1, 1/2, 2/3} {
+    \node at (5, \i + 0.5) {$\vec x_{n - \j}$};
+}
+\foreach \i/\j in {4/2, 5/1} {
+    \node at (5, \i + 0.5) {$\vec x_{\j}$};
+}
+\node at (5, 3.5) {$\cdots$};
+\draw (0, 6) rectangle (6, 7);
+\node at (3, 6.5) {$\vec x_{0}^{(u)}$};
+
+\node (A) at (0, 0) {};
+\node (B) at (10, 0) {};
+\node (C) at (0, 7) {};
+\node (D) at (6, 7) {};
+\node (E) at (10, 7) {};
+
+\draw[<->] (A.south) -- (B.south) node [midway, below] {$w$};
+\draw[<->] (A.west) -- (C.west) node [midway, left] {$n$};
+\draw[<->] (C.north) -- (D.north) node [midway, above] {$w - r$};
+\draw[<->] (D.north) -- (E.north) node [midway, above] {$r$};
+\end{tikzpicture}
+\end{document}
+ -->
+<p>回过头来看 \ref{eq:twister} 式，不难发现，这其实相当于一个 $nw - r$ 级的线性反馈移位寄存器（取 <code>$\vec x_k^{(u)}$</code> 的最高 $w - r$ 位与 <code>$\vec x_{k + 1}^{(l)}$</code> 的最低 $r$ 位进行迭代异或，再经过一个不影响周期的线性变换 $\mathbf A$）。只不过，\ref{eq:twister} 式每一次运算，相当于 LFSR 进行了 $w$ 轮计算。若 $w$ 与 $nw - r$ 互素，那么这一微小的改变是不会影响 LFSR 的周期的。考虑到 LFSR 的计算过程像是在「旋转」，这即是「梅森『旋转』」名字的来由。</p>
+<p>对这个等效的 $nw - r$ 级 LFSR 来说，当且仅当反馈函数是 $\mathbb F_2$ 上的本原多项式（素多项式）时，MT 的循环周期长度 $P$ 达到最大值（$2^{nw - r} - 1$）。</p>
+<h3 id="提取（tempering）输出"><a href="#提取（tempering）输出" class="headerlink" title="提取（tempering）输出"></a>提取（tempering）输出</h3><p>MT19937 有两个主要特性。一是周期很长，达到 $2^{19937} - 1$，二是满足 $623$-维 $32$-比特准确性。上述「旋转」的过程，帮助我们达成了较长的周期。接下来，我们需要将每次旋转的结果提取（tempering）输出，以保证 MT 是 $623$-维 $32$-比特准确的。</p>
+<p>提取的方法很简单，只需要将每次旋转得到的输出右乘一个可逆矩阵 $\mathbf T$ 即可。将 $\vec x\mapsto \vec x\mathbf T$ 表述成位运算，则有</p>
+<p><code>\begin{align}
+\vec y &amp;{}\gets \vec x\oplus (\vec x &gt;&gt; u) \\
+\vec y &amp;{}\gets \vec y\oplus ((\vec y &lt;&lt; s) \mathop{\mathbf{AND}} \vec b) \\
+\vec y &amp;{}\gets \vec y\oplus ((\vec y &lt;&lt; t) \mathop{\mathbf{AND}} \vec c) \\
+\vec z &amp;{}\gets \vec y\oplus (\vec y &gt;&gt; l)
+\end{align}</code></p>
+<p>此处，$u$, $s$, $t$, $l$ 是整数参数；$\vec b$ 和 $\vec c$ 是 $w$-比特的整数，用作比特遮罩（bit mask）；最终能得到的 $\vec z$ 即是当前轮次的随机数输出。</p>
+<h3 id="算法描述"><a href="#算法描述" class="headerlink" title="算法描述"></a>算法描述</h3><p>这样一来，MT 算法的主要有两个部分：旋转、提取。</p>
+<p>旋转部分有参数</p>
+<ul>
+<li>$w$：生成的随机数的二进制长度；</li>
+<li>$n$：参与旋转的随机数个数（旋转的深度）；</li>
+<li>$m$：参与旋转的中间项；</li>
+<li>$r$：<code>$\vec x_{k}^{(u)}$</code> 和 <code>$\vec x_{k + 1}^{(l)}$</code> 的切分位置；</li>
+<li>$\vec a$：矩阵 $\mathbf A$ 的最后一行。</li>
+</ul>
+<p>提取部分有参数</p>
+<ul>
+<li>$u$, $s$, $t$, $l$：整数参数，移位运算的移动距离；</li>
+<li>$\vec b$, $\vec c$：比特遮罩。</li>
+</ul>
+<p>于是，我们得到 MT 算法的完整描述如下。</p>
+<blockquote>
+<ol>
+<li>常量初始化。<br><code>\begin{align*}
+\vec{lower} &amp;{}\gets 0 \\
+\vec{lower} &amp;{}\gets (\vec{lower} &lt;&lt; 1) \mathop{\mathrm{AND}} 1\quad \text{for $r$ times.} \\
+\vec{upper} &amp;{}\gets \mathop{\mathrm{COMPL}}\vec{lower} \\
+\vec a &amp;{}\gets a_{w - 1}a_{w - 2}\cdots a_{1}a_{0} \\
+i &amp;{}\gets 0
+\end{align*}</code></li>
+<li>工作区非零初始化。<br><code>$$\vec x[0], \vec x[1], \ldots, \vec x[n - 1]$$</code></li>
+<li>旋转<br><code>\begin{align*}
+\vec t &amp;{}\gets (\vec x[i]\mathop{\mathrm{AND}} \vec{upper}) \mathop{\mathrm{OR}} (\vec x[(i + 1) \mod n]\mathop{\mathrm{AND}} \vec{lower}) \\
+\vec x[i] &amp;{}\gets \vec x[(i + m) \mod n]\mathop{\mathrm{XOR}} (\vec t &gt;&gt; 1) \mathop{\mathrm{XOR}} \begin{cases}\vec 0&amp; \text{if $t_0 = 0$}\\ \vec a&amp; \text{otherwise}\end{cases}
+\end{align*}</code></li>
+<li>提取输出。<br><code>\begin{align*}
+\vec y &amp;{}\gets \vec x[i] \\
+\vec y &amp;{}\gets \vec y \mathop{\mathbf{XOR}} (\vec y &gt;&gt; u) \\
+\vec y &amp;{}\gets \vec y \mathop{\mathbf{XOR}} ((\vec y &lt;&lt; s) \mathop{\mathbf{AND}} \vec b) \\
+\vec y &amp;{}\gets \vec y \mathop{\mathbf{XOR}} ((\vec y &lt;&lt; t) \mathop{\mathbf{AND}} \vec c) \\
+\vec y &amp;{}\gets \vec y \mathop{\mathbf{XOR}} (\vec y &gt;&gt; l) \\
+&amp;{} \text{output $\vec y$}
+\end{align*}</code></li>
+<li>更新循环变量 $i\gets (i + 1)\mod n$，而后跳转至步骤 3 继续进行。</li>
+</ol>
+</blockquote>
+<h2 id="再探梅森旋转"><a href="#再探梅森旋转" class="headerlink" title="再探梅森旋转"></a>再探梅森旋转</h2><p>至此，我们已经探索了梅森旋转算法表面上的全部内容：我们已经知道梅森旋转算法是什么，也知道梅森旋转算法为什么这样起名，也有了完整的算法描述。但是，关于梅森旋转算法还有很多深层的问题我们未曾探索。比如说，对于 $n$, $w$ 和 $r$ 的组合，我们是否有必要追求最长周期 $P$ 使得 $P = w^{nw - r} - 1$？又比如说，我们提到 LFSR 取得最长周期的充要条件是反馈函数是 $\mathbb F_{2}$ 上的素多项式，那么怎样验证反馈函数是否是素的？</p>
+<p>这一节，我们来讨论这些问题。</p>
+<h3 id="关于周期"><a href="#关于周期" class="headerlink" title="关于周期"></a>关于周期</h3><p>前文提到，梅森旋转的过程，实际上是对长度为 $nw - r$ 的二进制串做了一个 LFSR 的变体。这里，我们将它记作 $\mathbf B$。</p>
+<p><img src="/uploads/images/mathematics/B_transform.png" alt=""></p>
+<!--
+\documentclass[margin = 0.3cm]{standalone}
+\usepackage{tikz}
+\usepackage{amsmath}
+\usetikzlibrary{calc}
+\begin{document}
+\begin{tikzpicture}[scale = 0.5]
+\foreach \i in {0, 1, ..., 5} {
+    \draw (0, \i) rectangle (10, \i + 1);
+}
+\foreach \i/\j in {0/1, 1/2, 2/3} {
+    \node at (5, \i + 0.5) {$\vec x_{n - \j}$};
+}
+\foreach \i/\j in {4/2, 5/1} {
+    \node at (5, \i + 0.5) {$\vec x_{\j}$};
+}
+\node at (5, 3.5) {$\cdots$};
+\draw (0, 6) rectangle (6, 7);
+\node at (3, 6.5) {$\vec x_{0}^{(u)}$};
+
+\begin{scope}[xshift = 14cm]
+\foreach \i in {0, 1, ..., 5} {
+    \draw (0, \i) rectangle (10, \i + 1);
+}
+\foreach \i in {1, 2} {
+    \node at (5, \i + 0.5) {$\vec x_{n - \i}$};
+}
+\node at (5, 0.5) {$\vec x_{n}$};
+\foreach \i/\j in {4/3, 5/2} {
+    \node at (5, \i + 0.5) {$\vec x_{\j}$};
+}
+\node at (5, 3.5) {$\cdots$};
+\draw (0, 6) rectangle (6, 7);
+\node at (3, 6.5) {$\vec x_{1}^{(u)}$};
+\end{scope}
+
+\draw[|->] (10.3, 3.5) -- +(3.4, 0) node [midway, above] {$\mathbf B$};
+\end{tikzpicture}
+\end{document}
+ -->
+<p>我们已经知道，这个 LFSR 的变体，其周期的上限是 $2^{nw - r} - 1$。这样一来，整个序列的周期达到这一上限就意味着除去全零的状态，整个序列每一种可能状态都被遍历了一遍；而全零的状态则被遍历了 1 遍。考虑在这 $nw - r$ 比特的序列中，<code>$\\{\vec x_n\\}$</code> 有 $n - 1$ 个完整的 $w$-比特向量；因此，<code>$\\{\vec x_n\\}$</code> 显然是 $(n - 1)$-维的。这也就是说，选择不同的随机数种子，至多只能改变 ${\vec x_n}$ 序列的起始相位。</p>
+<p>这样一来，我们有：当梅森旋转达到最大周期时，若 $n$ 确定，$n - 1$ 就确定了，进而整个序列同分布的维数 $n - 1$ 也就确定了。因此，对于梅森旋转而言，提升维数是很容易的事情。</p>
+<p>这即是努力使梅森旋转达到最大周期的意义。</p>
+<h3 id="多项式素检测与参数调优"><a href="#多项式素检测与参数调优" class="headerlink" title="多项式素检测与参数调优"></a>多项式素检测与参数调优</h3><p>在梅森旋转算法中，反馈函数（$\mathbf B$ 的特征多项式）的素检测是很容易的。这是因为，对于 $p = nw - r$（其中 $p$ 是梅森素数的幂）级的 LFSR 来说，其反馈函数在 <code>$\mathbb F_2$</code> 上的素检测的复杂度是 $O(p^2)$。这一方面得益于梅森素数的性质，另一方面得益于 MT 是工作在 <code>$\mathbb F_2$</code> 上的算法。(Matsumoto and Nishimura, 1997) 这一特性的证明，牵扯到很多抽象代数和数论方面的知识；此处我们按下不表，留待后续用专门的文章来证明。</p>
+<p>梅森旋转算法中，要实现 PRNG 的最佳性能，需要对旋转和提取两部分参数做细致的调整。调整这部分参数，寻得最优参数组合，是有特定算法可寻的。这部分内容十分繁琐，此处也不表。有兴趣的用户可阅读梅森旋转算法原始论文第四节、第五节。</p>
+<h2 id="梅森旋转算法的-Python-实现"><a href="#梅森旋转算法的-Python-实现" class="headerlink" title="梅森旋转算法的 Python 实现"></a>梅森旋转算法的 Python 实现</h2><p>此处给出一个 Python 实现的梅森旋转算法（mt19937），为后续对算法的「爆破」提供素材。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#! coding: utf-8</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MersenneTwister</span>:</span></span><br><span class="line">    __n = <span class="number">624</span></span><br><span class="line">    __m = <span class="number">397</span></span><br><span class="line">    __a = <span class="number">0x9908b0df</span></span><br><span class="line">    __b = <span class="number">0x9d2c5680</span></span><br><span class="line">    __c = <span class="number">0xefc60000</span></span><br><span class="line">    __kInitOperand = <span class="number">0x6c078965</span></span><br><span class="line">    __kMaxBits = <span class="number">0xffffffff</span></span><br><span class="line">    __kUpperBits = <span class="number">0x80000000</span></span><br><span class="line">    __kLowerBits = <span class="number">0x7fffffff</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, seed = <span class="number">0</span>)</span>:</span></span><br><span class="line">        self.__register = [<span class="number">0</span>] * self.__n</span><br><span class="line">        self.__state = <span class="number">0</span></span><br><span class="line"></span><br><span class="line">        self.__register[<span class="number">0</span>] = seed</span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">1</span>, self.__n):</span><br><span class="line">            prev = self.__register[i - <span class="number">1</span>]</span><br><span class="line">            temp = self.__kInitOperand * (prev ^ (prev &gt;&gt; <span class="number">30</span>)) + i</span><br><span class="line">            self.__register[i] = temp &amp; self.__kMaxBits</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__twister</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">for</span> i <span class="keyword">in</span> range(self.__n):</span><br><span class="line">            y = (self.__register[i] &amp; self.__kUpperBits) + \</span><br><span class="line">                    (self.__register[(i + <span class="number">1</span>) % self.__n] &amp; self.__kLowerBits)</span><br><span class="line">            self.__register[i] = self.__register[(i + self.__m) % self.__n] ^ (y &gt;&gt; <span class="number">1</span>)</span><br><span class="line">            <span class="keyword">if</span> y % <span class="number">2</span>:</span><br><span class="line">                self.__register[i] ^= self.__a</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">None</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__temper</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> self.__state == <span class="number">0</span>:</span><br><span class="line">            self.__twister()</span><br><span class="line"></span><br><span class="line">        y = self.__register[self.__state]</span><br><span class="line">        y = y ^ (y &gt;&gt; <span class="number">11</span>)</span><br><span class="line">        y = y ^ (y &lt;&lt; <span class="number">7</span>) &amp; self.__b</span><br><span class="line">        y = y ^ (y &lt;&lt; <span class="number">15</span>) &amp; self.__c</span><br><span class="line">        y = y ^ (y &gt;&gt; <span class="number">18</span>)</span><br><span class="line"></span><br><span class="line">        self.__state = (self.__state + <span class="number">1</span>) % self.__n</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> y</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> self.__temper()</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">load_register</span><span class="params">(self, register)</span>:</span></span><br><span class="line">        self.__state = <span class="number">0</span></span><br><span class="line">        self.__register = register</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    mt = MersenneTwister(<span class="number">0</span>)</span><br><span class="line">    tank = set()</span><br><span class="line">    kLen = <span class="number">100</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(kLen):</span><br><span class="line">        t = mt()</span><br><span class="line">        tank.add(t)</span><br><span class="line">        print(t)</span><br><span class="line">    print(len(tank) == kLen)</span><br></pre></td></tr></table></figure>
+<h2 id="爆破梅森旋转算法"><a href="#爆破梅森旋转算法" class="headerlink" title="爆破梅森旋转算法"></a>爆破梅森旋转算法</h2><p>梅森旋转算法的设计目的是优秀的伪随机数发生算法，而不是产生密码学上安全的随机数。从梅森旋转算法的结构上说，其提取算法 <code>__temper</code> 完全基于二进制的按位异或；而二进制按位异或是可逆的，故而 <code>__temper</code> 是可逆的。这就意味着，攻击者可以从梅森旋转算法的输出，逆推出产生该输出的内部寄存器状态 <code>__register[__state]</code>。若攻击者能够获得连续的至少 <code>__n</code> 个寄存器状态，那么攻击者就能预测出接下来的随机数序列。</p>
+<p>现在我们遵循这个思路，爆破梅森旋转算法。</p>
+<h3 id="逆向-temper"><a href="#逆向-temper" class="headerlink" title="逆向 __temper"></a>逆向 <code>__temper</code></h3><p>我们以向右移位后异或为例，首先观察原函数。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">right_shift_xor</span><span class="params">(value, shift)</span>:</span></span><br><span class="line">    result = value</span><br><span class="line">    result ^= (result &gt;&gt; shift)</span><br><span class="line">    <span class="keyword">return</span> result</span><br></pre></td></tr></table></figure>
+<p>简单起见，我们观察一个 8 位二进制数，右移 3 位后异或的过程。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">value:    1101 0010</span><br><span class="line">shifted:  0001 1010 # 010 (&gt;&gt; 3)</span><br><span class="line">result:   1100 1000</span><br></pre></td></tr></table></figure>
+<p>首先，观察到 <code>result</code> 的最高 <code>shift</code> 位与 <code>value</code> 的最高 <code>shift</code> 位是一样的。因此，在 <code>result</code> 的基础上，我们可以将其与一个二进制遮罩取与，得到 <code>value</code> 的最高 <code>shift</code> 位。这个遮罩应该是：<code>1111 1111 &lt;&lt; (8 - 3) = 1110 0000</code>。于是我们得到 <code>1100 0000</code>。</p>
+<p>其次，注意到对于异或运算有如下事实：<code>a ^ b ^ b = a</code>。依靠二进制遮罩，我们已经获得了 <code>value</code> 的最高 <code>shift</code> 位。因此，我们也就能得到 <code>shifted</code> 的最高 <code>2 * shift</code> 位。它应该是 <code>1100 0000 &gt;&gt; 3 = 0001 1000</code>。将其与 <code>result</code> 取异或，则能得到 <code>value</code> 的最高 <code>2 * shift</code> 位。于是我们得到 <code>1101 0000</code>。</p>
+<p>如此往复，即可复原 <code>value</code>。据此有代码</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">inverse_right_shift_xor</span><span class="params">(value, shift)</span>:</span></span><br><span class="line">    i, result = <span class="number">0</span>, <span class="number">0</span></span><br><span class="line">    <span class="keyword">while</span> i * shift &lt; <span class="number">32</span>:</span><br><span class="line">        part_mask = ((<span class="number">0xffffffff</span> &lt;&lt; (<span class="number">32</span> - shift)) &amp; <span class="number">0xffffffff</span>) &gt;&gt; (i * shift)</span><br><span class="line">        part = value &amp; part_mask</span><br><span class="line">        value ^= part &gt;&gt; shift</span><br><span class="line">        result |= part</span><br><span class="line">        i += <span class="number">1</span></span><br><span class="line">    <span class="keyword">return</span> result</span><br></pre></td></tr></table></figure>
+<p>对左移后取异或，也有类似分析。于是，得到对 <code>__temper</code> 的完整求逆代码。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">TemperInverser</span>:</span></span><br><span class="line">    __b = <span class="number">0x9d2c5680</span></span><br><span class="line">    __c = <span class="number">0xefc60000</span></span><br><span class="line">    __kMaxBits = <span class="number">0xffffffff</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__inverse_right_shift_xor</span><span class="params">(self, value, shift)</span>:</span></span><br><span class="line">        i, result = <span class="number">0</span>, <span class="number">0</span></span><br><span class="line">        <span class="keyword">while</span> i * shift &lt; <span class="number">32</span>:</span><br><span class="line">            part_mask = ((self.__kMaxBits &lt;&lt; (<span class="number">32</span> - shift)) &amp; self.__kMaxBits) &gt;&gt; (i * shift)</span><br><span class="line">            part = value &amp; part_mask</span><br><span class="line">            value ^= part &gt;&gt; shift</span><br><span class="line">            result |= part</span><br><span class="line">            i += <span class="number">1</span></span><br><span class="line">        <span class="keyword">return</span> result</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__inverse_left_shift_xor</span><span class="params">(self, value, shift, mask)</span>:</span></span><br><span class="line">        i, result = <span class="number">0</span>, <span class="number">0</span></span><br><span class="line">        <span class="keyword">while</span> i * shift &lt; <span class="number">32</span>:</span><br><span class="line">            part_mask = (self.__kMaxBits &gt;&gt; (<span class="number">32</span> - shift)) &lt;&lt; (i * shift)</span><br><span class="line">            part = value &amp; part_mask</span><br><span class="line">            value ^= (part &lt;&lt; shift) &amp; mask</span><br><span class="line">            result |= part</span><br><span class="line">            i += <span class="number">1</span></span><br><span class="line">        <span class="keyword">return</span> result</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__inverse_temper</span><span class="params">(self, tempered)</span>:</span></span><br><span class="line">        value = tempered</span><br><span class="line">        value = self.__inverse_right_shift_xor(value, <span class="number">18</span>)</span><br><span class="line">        value = self.__inverse_left_shift_xor(value, <span class="number">15</span>, self.__c)</span><br><span class="line">        value = self.__inverse_left_shift_xor(value, <span class="number">7</span>, self.__b)</span><br><span class="line">        value = self.__inverse_right_shift_xor(value, <span class="number">11</span>)</span><br><span class="line">        <span class="keyword">return</span> value</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self, tempered)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> self.__inverse_temper(tempered)</span><br></pre></td></tr></table></figure>
+<h3 id="爆破"><a href="#爆破" class="headerlink" title="爆破"></a>爆破</h3><p>逆向 <code>__temper()</code> 之后，只要获得足够的状态，即可构建出梅森旋转内部的寄存器状态。因此有如下验证代码。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">MersenneTwisterCracker</span>:</span></span><br><span class="line">    __n = <span class="number">624</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, mt_obj)</span>:</span></span><br><span class="line">        inverser  = TemperInverser()</span><br><span class="line">        register  = [inverser(mt_obj()) <span class="keyword">for</span> i <span class="keyword">in</span> range(self.__n)]</span><br><span class="line">        self.__mt = MersenneTwister(<span class="number">0</span>)</span><br><span class="line">        self.__mt.load_register(register)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> self.__mt()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    mt  = MersenneTwister(<span class="number">0</span>)</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">100</span>):</span><br><span class="line">        mt()</span><br><span class="line">    mtc = MersenneTwisterCracker(mt)</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(<span class="number">100</span>):</span><br><span class="line">        <span class="keyword">assert</span>(mt() == mtc())</span><br></pre></td></tr></table></figure>
+<p>运行后，Python 没有抛出异常，顺利推出。这说明 <code>mtc</code> 已能够成功预测 <code>mt</code> 之后的任意顺序输出。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>梅森旋转算法，是一个优秀的伪随机数发生算法。在伪随机数的评价体系中，它是一个相当优秀的算法：周期长、均匀性好、速度快（基本都是位运算）。在条件允可的情形下，若有使用随机数的需求，应首先考虑梅森旋转算法。</p>
+<p>同时也应该注意到，梅森旋转算法不是为了密码学随机而设计的——在获得足够连续输出的情况下，梅森旋转算法接下来的输出值是可以准确预测的。梅森旋转算法容易被爆破的根源在于，其提取输出函数是可逆的，因此暴露了其内部状态。若要产生密码学上的随机数，可考虑在梅森旋转算法之后，拼接一值得信赖的单向杂凑函数（如 sha256）。否则，若直接用梅森旋转算法的输出值作密码学用途，则有信息泄露的风险，应引起注意。</p>
+<blockquote>
+<p>错误应用梅森旋转算法，导致高危漏洞的一个典型是 Discuz! 的密码重置漏洞。</p>
+</blockquote>
+<p>扩展阅读：<a href="http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/ARTICLES/mt.pdf" target="_blank" rel="noopener">梅森旋转算法的原始论文</a></p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2018/01/12/Mersenne-twister/" title="谈谈梅森旋转：算法及其爆破">https://liam.page/2018/01/12/Mersenne-twister/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Random/" rel="tag"># Random</a>
+          
+            <a href="/tags/PRNG/" rel="tag"># PRNG</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/01/11/floats-in-LaTeX-multiple-elements-in-a-single-float/" rel="next" title="LaTeX 中的浮动体：摆放多个子元素">
+                <i class="fa fa-chevron-left"></i> LaTeX 中的浮动体：摆放多个子元素
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/01/13/smart-pointer/" rel="prev" title="谈谈智能指针：原理及其实现">
+                谈谈智能指针：原理及其实现 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#伪随机数发生器质量的度量——-k-维-v-比特准确度"><span class="nav-number">1.</span> <span class="nav-text">伪随机数发生器质量的度量——$k$-维 $v$-比特准确度</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#梅森旋转算法的描述"><span class="nav-number">2.</span> <span class="nav-text">梅森旋转算法的描述</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#旋转"><span class="nav-number">2.1.</span> <span class="nav-text">旋转</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#线性反馈移位寄存器、旋转之名、周期"><span class="nav-number">2.2.</span> <span class="nav-text">线性反馈移位寄存器、旋转之名、周期</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#提取（tempering）输出"><span class="nav-number">2.3.</span> <span class="nav-text">提取（tempering）输出</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#算法描述"><span class="nav-number">2.4.</span> <span class="nav-text">算法描述</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#再探梅森旋转"><span class="nav-number">3.</span> <span class="nav-text">再探梅森旋转</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#关于周期"><span class="nav-number">3.1.</span> <span class="nav-text">关于周期</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#多项式素检测与参数调优"><span class="nav-number">3.2.</span> <span class="nav-text">多项式素检测与参数调优</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#梅森旋转算法的-Python-实现"><span class="nav-number">4.</span> <span class="nav-text">梅森旋转算法的 Python 实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#爆破梅森旋转算法"><span class="nav-number">5.</span> <span class="nav-text">爆破梅森旋转算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#逆向-temper"><span class="nav-number">5.1.</span> <span class="nav-text">逆向 __temper</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#爆破"><span class="nav-number">5.2.</span> <span class="nav-text">爆破</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">6.</span> <span class="nav-text">总结</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: "AMS"
+      }
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+      for (i = 0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+  });
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $("code").map(function(){
+    match = /^\$(.*)\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\$\$(.*)\$\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\\begin/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+  });
+});
+</script>
+
+<script src="//cdn.jsdelivr.net/npm/mathjax@2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+<style>
+.MathJax_Display {
+  overflow: auto hidden;
+}
+</style>
+
+    
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

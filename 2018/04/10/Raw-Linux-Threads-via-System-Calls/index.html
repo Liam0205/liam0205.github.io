@@ -1,0 +1,2811 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="本文是译文，原文由 Chris Wellons 创作，首刊于这里。本文已被翻译成日语、乌克兰语及中文。本文还有一后续。   Linux 的线程设计十分优美：线程只不过是共享虚拟地址空间和文件描述符表的进程而已。由某一进程产生的线程是该主线程（父进程）的子进程。除了少数线程相关的系统调用，操作线程的系统调用与操作进程的系统调用完全相同。这种优美与文件描述符的优美异曲同工。  通常来说，在类-Uni">
+<meta name="keywords" content="Linux,System Call,Tutorial,C,Thread,x86">
+<meta property="og:type" content="article">
+<meta property="og:title" content="借由系统调用实现 Linux 原生线程">
+<meta property="og:url" content="https://liam.page/2018/04/10/Raw-Linux-Threads-via-System-Calls/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是译文，原文由 Chris Wellons 创作，首刊于这里。本文已被翻译成日语、乌克兰语及中文。本文还有一后续。   Linux 的线程设计十分优美：线程只不过是共享虚拟地址空间和文件描述符表的进程而已。由某一进程产生的线程是该主线程（父进程）的子进程。除了少数线程相关的系统调用，操作线程的系统调用与操作进程的系统调用完全相同。这种优美与文件描述符的优美异曲同工。  通常来说，在类-Uni">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/computer-architecture/register.png">
+<meta property="og:image" content="https://liam.page/uploads/images/computer-architecture/clone.png">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="借由系统调用实现 Linux 原生线程">
+<meta name="twitter:description" content="本文是译文，原文由 Chris Wellons 创作，首刊于这里。本文已被翻译成日语、乌克兰语及中文。本文还有一后续。   Linux 的线程设计十分优美：线程只不过是共享虚拟地址空间和文件描述符表的进程而已。由某一进程产生的线程是该主线程（父进程）的子进程。除了少数线程相关的系统调用，操作线程的系统调用与操作进程的系统调用完全相同。这种优美与文件描述符的优美异曲同工。  通常来说，在类-Uni">
+<meta name="twitter:image" content="https://liam.page/uploads/images/computer-architecture/register.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2018/04/10/Raw-Linux-Threads-via-System-Calls/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>借由系统调用实现 Linux 原生线程 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2018/04/10/Raw-Linux-Threads-via-System-Calls/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">借由系统调用实现 Linux 原生线程
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2018 年 04 月 10 日 18:18:01" itemprop="dateCreated datePublished" datetime="2018-04-10T18:18:01+08:00">2018 年 04 月 10 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">6.3k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">12 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <blockquote>
+<p>本文是译文，原文由 <a href="https://nullprogram.com/" target="_blank" rel="noopener">Chris Wellons</a> 创作，首刊于<a href="https://nullprogram.com/blog/2015/05/15/" target="_blank" rel="noopener">这里</a>。<br>本文已被翻译成<a href="http://postd.cc/raw-linux-threads-via-system-calls/" target="_blank" rel="noopener">日语</a>、<a href="http://www.opensourceinitiative.net/edu/LinuxThreads" target="_blank" rel="noopener">乌克兰语</a>及<a href="/2018/04/10/Raw-Linux-Threads-via-System-Calls/">中文</a>。<br>本文还有一<a href="https://nullprogram.com/blog/2016/09/23/" target="_blank" rel="noopener">后续</a>。</p>
+</blockquote>
+<!-- Linux has an elegant and beautiful design when it comes to threads: threads are nothing more than processes that share a virtual address space and file descriptor table. Threads spawned by a process are additional child processes of the main “thread’s” parent process. They’re manipulated through the same process management system calls, eliminating the need for a separate set of thread-related system calls. It’s elegant in the same way file descriptors are elegant. -->
+<p>Linux 的线程设计十分优美：线程只不过是共享虚拟地址空间和文件描述符表的进程而已。由某一进程产生的线程是该主线程（父进程）的子进程。除了少数线程相关的系统调用，操作线程的系统调用与操作进程的系统调用完全相同。这种优美与文件描述符的优美异曲同工。</p>
+<!-- Normally on Unix-like systems, processes are created with fork(). The new process gets its own address space and file descriptor table that starts as a copy of the original. (Linux uses copy-on-write to do this part efficiently.) However, this is too high level for creating threads, so Linux has a separate clone() system call. It works just like fork() except that it accepts a number of flags to adjust its behavior, primarily to share parts of the parent’s execution context with the child. -->
+<p>通常来说，在类-Unix 的系统上，进程是通过 <code>fork()</code> 来生成的。新生成的进程的虚拟内存空间是原进程的拷贝，但具有独立的地址空间和文件描述符表。（Linux 使用写时拷贝技术提升了这一步骤的效率）不过，对于创建线程来说，这种做法太高级（high-level）了；因此 Linux 还有名为 <a href="http://man7.org/linux/man-pages/man2/clone.2.html" target="_blank" rel="noopener"><code>clone()</code></a> 的系统调用。它与 <code>fork()</code> 的行为大致相同，只不过它能通过一系列参数控制其行为：主要是控制子进程与父进程之间共享那些运行时上下文。</p>
+<!-- It’s so simple that it takes less than 15 instructions to spawn a thread with its own stack, no libraries needed, and no need to call Pthreads! In this article I’ll demonstrate how to do this on x86-64. All of the code with be written in NASM syntax since, IMHO, it’s by far the best (see: nasm-mode). -->
+<p>在进程的栈上创建一个新的线程非常简单——只需要 15 条命令，而无需任何库，特别是不需要调用 <code>pthread</code> 库！本文中，我将以 x86-64 平台为例。所有代码均以 <a href="https://www.nasm.us/" target="_blank" rel="noopener">NASM</a> 语法写就，因为，依我愚见，它是至今为止最好的（参见：<a href="https://nullprogram.com/blog/2015/04/19/" target="_blank" rel="noopener">这里</a>）。</p>
+<!-- I’ve put the complete demo here if you want to see it all at once: -->
+<!-- Pure assembly, library-free Linux threading demo -->
+<p>此处是完整的示例代码：<a href="https://github.com/skeeto/pure-linux-threads-demo" target="_blank" rel="noopener">Pure assembly, library-free Linux threading demo</a>。</p>
+<a id="more"></a>
+<h2 id="x86-64-启蒙"><a href="#x86-64-启蒙" class="headerlink" title="x86-64 启蒙"></a>x86-64 启蒙</h2><!-- I want you to be able to follow along even if you aren’t familiar with x86_64 assembly, so here’s a short primer of the relevant pieces. If you already know x86-64 assembly, feel free to skip to the next section. -->
+<p>为了在你不熟悉 x86-64 汇编的情况下能够读完本文，此处给出 x86-64 中相关内容的启蒙教程。若你对这些内容很熟悉，则可跳过本节。</p>
+<!-- x86-64 has 16 64-bit general purpose registers, primarily used to manipulate integers, including memory addresses. There are many more registers than this with more specific purposes, but we won’t need them for threading. -->
+<p>x86-64 有 16 个 64 位通用寄存器（general purpose registers）。它们主要被用来操作包括内存地址在内的整数。除此之外，还有很多有各种用途的寄存器；不过它们与线程没什么关系。</p>
+<ul>
+<li><code>rsp</code>：栈指针</li>
+<li><code>rbp</code>：基指针（在排错和效能分析中仍有用到）</li>
+<li><code>rax</code> <code>rbx</code> <code>rcx</code> <code>rdx</code>：通用寄存器（注意 <code>a</code>, <code>b</code>, <code>c</code>, <code>d</code>）</li>
+<li><code>rdi</code> <code>rsi</code>：<code>d</code> 和 <code>r</code> 分别表示 “destination” 和 “source”，不过现在已经没有意义了</li>
+<li><code>r8</code> <code>r9</code> <code>r10</code> <code>r11</code> <code>r12</code> <code>r13</code> <code>r14</code> <code>r15</code>：在 x86-64 中新增的寄存器</li>
+</ul>
+<p><img src="/uploads/images/computer-architecture/register.png" alt=""></p>
+<!-- The “r” prefix indicates that they’re 64-bit registers. It won’t be relevant in this article, but the same name prefixed with “e” indicates the lower 32-bits of these same registers, and no prefix indicates the lowest 16 bits. This is because x86 was originally a 16-bit architecture, extended to 32-bits, then to 64-bits. Historically each of of these registers had a specific, unique purpose, but on x86-64 they’re almost completely interchangeable. -->
+<p>前缀 <code>r</code> 表明它们是 64 位寄存器。虽与本文主旨无关，但仍然提一句：前缀 <code>e</code> 表示同一寄存器的最低 32 位，以及没有前缀的则表示同一寄存器的最低 16 位。这是因为 <a href="https://nullprogram.com/blog/2014/12/09/" target="_blank" rel="noopener">x86 最早是 16 位的</a>，后来扩展到 32 位，又扩展到 64 位。历史上这些寄存器都有专门的用途，但是在 x86-64 上，它们基本上是地位等同的。</p>
+<!-- There’s also a “rip” instruction pointer register that conceptually walks along the machine instructions as they’re being executed, but, unlike the other registers, it can only be manipulated indirectly. Remember that data and code live in the same address space, so rip is not much different than any other data pointer. -->
+<p>还有一个名为 <code>rip</code> 的指令指针寄存器。概念上说，在程序执行时，它随着执行过程遍历进程空间中的机器指令。尽管它的特别之处在于它无法被直接操作，而只能被间接修改；但考虑到<a href="http://en.wikipedia.org/wiki/Von_Neumann_architecture" target="_blank" rel="noopener">代码和数据处于同一地址空间中</a>，<code>rip</code> 和其他数据指针也就没什么区别了。</p>
+<h3 id="栈（stack）"><a href="#栈（stack）" class="headerlink" title="栈（stack）"></a>栈（stack）</h3><!-- The rsp register points to the “top” of the call stack. The stack keeps track of who called the current function, in addition to local variables and other function state (a stack frame). I put “top” in quotes because the stack actually grows downward on x86 towards lower addresses, so the stack pointer points to the lowest address on the stack. This piece of information is critical when talking about threads, since we’ll be allocating our own stacks. -->
+<p><code>rsp</code> 寄存器指向调用栈的「栈顶」。调用栈始终追踪着当前函数的调用者，以及局部变量和函数状态（这是<strong>栈帧</strong>保存的内容）。之所以「栈顶」打上了引号，是因为在 x86 中，栈实际上是往地址较低的方向生长的，因此栈指针指向栈的最低有效地址。这部分信息在讨论线程时十分关键，因为在生成线程时我们要在栈上分配内存。</p>
+<!-- The stack is also sometimes used to pass arguments to another function. This happens much less frequently on x86-64, especially with the System V ABI used by Linux, where the first 6 arguments are passed via registers. The return value is passed back via rax. When calling another function function, integer/pointer arguments are passed in these registers in this order: -->
+<p>有时栈也被用来向其他函数传参。在 x86-64 上，这种情况甚少发生，尤其是在 Linux 使用的 <a href="http://wiki.osdev.org/System_V_ABI" target="_blank" rel="noopener">System V 二进制接口</a>中：前 6 个参数通过寄存器传参。函数的返回值则通过 <code>rax</code> 寄存器返回。当函数调用发生时，整型变量/指针按照如下顺序通过寄存器传递：<code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>rcx</code>, <code>r8</code>, <code>r9</code>。</p>
+<!-- So, for example, to perform a function call like foo(1, 2, 3), store 1, 2 and 3 in rdi, rsi, and rdx, then call the function. The mov instruction stores the source (second) operand in its destination (first) operand. The call instruction pushes the current value of rip onto the stack, then sets rip (jumps) to the address of the target function. When the callee is ready to return, it uses the ret instruction to pop the original rip value off the stack and back into rip, returning control to the caller. -->
+<p>因此，举例来说，当调用 <code>foo(1, 2, 3)</code> 时，参数 <code>1</code>, <code>2</code>, <code>3</code> 会被分别保存在 <code>rdi</code>, <code>rsi</code> 和 <code>rdx</code> 三个寄存器当中。<code>mov</code> 指令将第二个操作数的值保存在第一个操作数（寄存器名称）中。<code>call</code> 指令将 <code>rip</code> 寄存器的当前值压栈，而后将 <code>rip</code> 设置为目标函数的起始地址（跳转）。当被调用的函数执行完毕准备返回时，它会使用 <code>ret</code> 指令将 <code>rip</code> 寄存器的原始值弹栈并保存在 <code>rip</code> 寄存器当中，以将程序的控制权交还给调用者。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mov rdi, 1</span><br><span class="line">mov rsi, 2</span><br><span class="line">mov rdx, 3</span><br><span class="line">call foo</span><br></pre></td></tr></table></figure>
+<!-- Called functions must preserve the contents of these registers (the same value must be stored when the function returns): -->
+<!-- rbx, rsp, rbp, r12, r13, r14, r15 -->
+<p>在被调用函数返回时，它还必须保证下列寄存器的值与被调用前保持一致：<code>rbx</code>, <code>rsp</code>, <code>rbp</code>, <code>r12</code>, <code>r13</code>, <code>r14</code>, <code>r15</code>。</p>
+<h3 id="系统调用"><a href="#系统调用" class="headerlink" title="系统调用"></a>系统调用</h3><!-- When making a system call, the argument registers are slightly different. Notice rcx has been changed to r10. -->
+<!-- rdi, rsi, rdx, r10, r8, r9 -->
+<p>执行系统调用时，用于传参的寄存器<a href="http://man7.org/linux/man-pages/man2/syscall.2.html" target="_blank" rel="noopener">稍有不同</a>。注意，<code>rcx</code> 换成了 <code>r10</code>：<code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>r10</code>, <code>r8</code>, <code>r9</code>。</p>
+<!-- Each system call has an integer identifying it. This number is different on each platform, but, in Linux’s case, it will never change. Instead of call, rax is set to the number of the desired system call and the syscall instruction makes the request to the OS kernel. Prior to x86-64, this was done with an old-fashioned interrupt. Because interrupts are slow, a special, statically-positioned “vsyscall” page (now deprecated as a security hazard), later vDSO, is provided to allow certain system calls to be made as function calls. We’ll only need the syscall instruction in this article. -->
+<p>每个系统调用都有一个整数标识符。在不同平台上，系统调用的编号可能不同。不过，在 Linux 中，这些标识符是<a href="https://www.youtube.com/watch?v=1Mg5_gxNXTo#t=8m28" target="_blank" rel="noopener">永远不会变</a>的。与 <code>call</code> 指令不同，在 <code>syscall</code> 指令之前，相应的系统调用编号需要保存在 <code>rax</code> 当中，而后由 <code>syscall</code> 指令向系统内核发起系统调用请求。在 x86-64 之前，系统调用是通过旧式的中断来实现的。因为中断效率低下，旧式的中断先后被一个特别的静态定位的 <code>vsyscall</code> 帧（现在因为<a href="http://en.wikipedia.org/wiki/Return-oriented_programming" target="_blank" rel="noopener">安全风险</a>而弃用）和 <a href="https://lwn.net/Articles/446528/" target="_blank" rel="noopener">vDSO</a> 所代替，使得一些系统调用能像普通函数调用那样被调用。在本文中，我们只需要 <code>syscall</code> 指令即可。</p>
+<!-- So, for example, the write() system call has this C prototype. -->
+<p>因此，例如说系统调用 <code>write()</code> 有如下 C 函数原型。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ssize_t</span> write(<span class="keyword">int</span> fd, <span class="keyword">const</span> <span class="keyword">void</span> *buf, <span class="keyword">size_t</span> count);</span><br></pre></td></tr></table></figure>
+<!-- On x86-64, the write() system call is at the top of the system call table as call 1 (read() is 0). Standard output is file descriptor 1 by default (standard input is 0). The following bit of code will write 10 bytes of data from the memory address buffer (a symbol defined elsewhere in the assembly program) to standard output. The number of bytes written, or -1 for error, will be returned in rax. -->
+<p>在 x86-64 中，系统调用 <code>write()</code> 位于<a href="https://filippo.io/linux-syscall-table/" target="_blank" rel="noopener">系统调用表</a>的顶端，编号为 1（编号为 0 的是系统调用 <code>read()</code>）。标准输出的文件描述符是 1（标准输入是 0）。下面的代码将从内存地址 <code>buffer</code> 中（在汇编程序其他位置定义的符号）读取 10 字节的内容写至标准输出。成功写入的字节数将被保存在 <code>rax</code> 中返回；若返回 -1，则表示出现错误。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mov rdi, 1        ; fd</span><br><span class="line">mov rsi, buffer</span><br><span class="line">mov rdx, 10       ; 10 bytes</span><br><span class="line">mov rax, 1        ; SYS_write</span><br><span class="line">syscall</span><br></pre></td></tr></table></figure>
+<h3 id="有效地址"><a href="#有效地址" class="headerlink" title="有效地址"></a>有效地址</h3><!-- There’s one last thing you need to know: registers often hold a memory address (i.e. a pointer), and you need a way to read the data behind that address. In NASM syntax, wrap the register in brackets (e.g. [rax]), which, if you’re familiar with C, would be the same as dereferencing the pointer. -->
+<p>还有最后一个知识点：寄存器通常保存着内存地址（也就是一个指针），而你需要有办法读取这一地址中保存的内容。在 NASM 语法中，用方括号包裹寄存器的名字（例如 <code>[rax]</code>）和 C 中对指针进行解引用是一个效果。</p>
+<!-- These bracket expressions, called an effective address, may be limited mathematical expressions to offset that base address entirely within a single instruction. This expression can include another register (index), a power-of-two scalar (bit shift), and an immediate signed offset. For example, [rax + rdx*8 + 12]. If rax is a pointer to a struct, and rdx is an array index to an element in array on that struct, only a single instruction is needed to read that element. NASM is smart enough to allow the assembly programmer to break this mold a little bit with more complex expressions, so long as it can reduce it to the [base + index*2^exp + offset] form. -->
+<p>这些方括号表达式被称为有效地址。在单条指令中，方括号内可以有有限的算数表达式去计算基地址之上的偏移量。这种表达式内可以有另一个寄存器（<code>index</code>）、一个 2 的幂方的标量（按位移动）以及一个有符号的偏移量。比如对于该表达式：<code>[rax + rdx * 8 + 12]</code>；如果 <code>rax</code> 是一个指向结构体的指针，<code>rdx</code> 是结构体内数组内某一元素的索引，则读取该元素只需要一条指令即可。NASM 聪明地扩展了有效地址表达式，它允许汇编程序员写出超出上述模式的表达式。例如：<code>[base + index * 2 ^ exp + offset]</code>。</p>
+<!-- The details of addressing aren’t important this for this article, so don’t worry too much about it if that didn’t make sense. -->
+<p>本文不关注寻址的细节，因此如果搞不懂它也没关系。</p>
+<h2 id="分配栈"><a href="#分配栈" class="headerlink" title="分配栈"></a>分配栈</h2><!-- Threads share everything except for registers, a stack, and thread-local storage (TLS). The OS and underlying hardware will automatically ensure that registers are per-thread. Since it’s not essential, I won’t cover thread-local storage in this article. In practice, the stack is often used for thread-local data anyway. The leaves the stack, and before we can span a new thread, we need to allocate a stack, which is nothing more than a memory buffer. -->
+<p>线程之间共享除寄存器、栈、线程内本地存储（thread-local storage, TLS）之外的所有东西。操作系统和底层硬件天然地保证了线程不会共享寄存器；而由于 TLS 不是必须的，所以本文也不表 TLS 相关操作——在实践中，通常会将栈作为 TLS 使用。因此，我们需要特别处理的就是栈了。在创建线程之前，我们必须先为之分配一个栈。当然，这种栈不仅仅是内存缓冲区那么简单。</p>
+<!-- The trivial way to do this would be to reserve some fixed .bss (zero-initialized) storage for threads in the executable itself, but I want to do it the Right Way and allocate the stack dynamically, just as Pthreads, or any other threading library, would. Otherwise the application would be limited to a compile-time fixed number of threads. -->
+<p>最平凡的方式是在可执行程序的 <code>.bss</code> 段（全零初始化）中为线程保留固定长度的存储空间。但我希望如 <code>pthread</code> 之类的线程库那样，以正确的方式动态分配栈空间。否则，应用程序所能支持的线程数量在编译期就会被限制死了。</p>
+<!-- You can’t just read from and write to arbitrary addresses in virtual memory, you first have to ask the kernel to allocate pages. There are two system calls this on Linux to do this: -->
+<p>在虚拟内存空间内你<a href="http://marek.vavrusa.com/c/memory/2015/02/20/memory/" target="_blank" rel="noopener">不能直接的任意地址上读取或写入</a>，而是<a href="https://nullprogram.com/blog/2015/03/19/" target="_blank" rel="noopener">必须向操作系统请求分配内存页帧</a>。Linux 系统中有两个系统调用能实现我们的需求：</p>
+<!-- * `brk()`: Extends (or shrinks) the heap of a running process, typically located somewhere shortly after the .bss segment. Many allocators will do this for small or initial allocations. This is a less optimal choice for thread stacks because the stacks will be very near other important data, near other stacks, and lack a guard page (by default). It would be somewhat easier for an attacker to exploit a buffer overflow. A guard page is a locked-down page just past the absolute end of the stack that will trigger a segmentation fault on a stack overflow, rather than allow a stack overflow to trash other memory undetected. A guard page could still be created manually with mprotect(). Also, there’s also no room for these stacks to grow. -->
+<ul>
+<li><code>brk()</code>：扩展或缩减执行中进程的堆的大小。堆通常在 <code>.bss</code> 端后不远处；许多分配器会在分配少量内存或初始化时这样做。考虑到栈是向下生长的，而 <code>brk()</code> 在默认情况下不会设置保护页帧，栈的生长可能会破坏临近的重要数据，因而这不是一个很好的选择。这种情况下，攻击者的实施栈溢出会更加容易。所谓保护页帧是位于栈空间尾部的页帧，它被锁住，并且在栈溢出时会触发段错误，而不会让栈溢出的数据破坏其他内存数据。当然，也可以用系统调用 <code>mprotect()</code> 手工创建一个保护页帧。除了保护页帧的问题之外，这种方式设置的线程栈无法继续生长，也是一个问题。<!-- * `mmap()`: Use an anonymous mapping to allocate a contiguous set of pages at some randomized memory location. As we’ll see, you can even tell the kernel specifically that you’re going to use this memory as a stack. Also, this is simpler than using brk() anyway. --></li>
+<li><code>mmap()</code>：使用匿名映射，在随机内存地址上分配一组连续的内存页帧。如我们即将看到的，你可以明确告诉内核，这部分内存将被用来做线程的栈。这比使用系统调用 <code>brk()</code> 来得简单。</li>
+</ul>
+<!-- On x86-64, mmap() is system call 9. I’ll define a function to allocate a stack with this C prototype. -->
+<p>在 x86-64 中，系统调用 <code>mmap()</code> 的编号是 9。我将以如下 C 函数原型来分配一个线程栈。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> *<span class="title">stack_create</span><span class="params">(<span class="keyword">void</span>)</span></span>;</span><br></pre></td></tr></table></figure>
+<!-- The mmap() system call takes 6 arguments, but when creating an anonymous memory map the last two arguments are ignored. For our purposes, it looks like this C prototype. -->
+<p>系统调用 <code>mmap()</code> 需要 6 个参数。不过在创建匿名内存映射时，最后两个参数会被忽略掉。对于我们的需求来说，它有如下 C 函数原型。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> *<span class="title">mmap</span><span class="params">(<span class="keyword">void</span> *addr, <span class="keyword">size_t</span> length, <span class="keyword">int</span> prot, <span class="keyword">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+<!-- For flags, we’ll choose a private, anonymous mapping that, being a stack, grows downward. Even with that last flag, the system call will still return the bottom address of the mapping, which will be important to remember later. It’s just a simple matter of setting the arguments in the registers and making the system call. -->
+<p>对于 <code>flags</code>，考虑到我们将用这块内存作为线程栈，我们将选择私有、匿名、向下生长。不过，哪怕设置了向下生长，系统调用 <code>mmap()</code> 仍然会返回内存映射的底部地址。一会儿会用到这一重要信息。于是，事情就简单了：只需要将寄存器的值设置好，而后执行 <code>syscall</code> 指令即可。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">%define SYS_mmap    9</span><br><span class="line">%define STACK_SIZE  (4096 * 1024)   ; 4 MB</span><br><span class="line"></span><br><span class="line">stack_create:</span><br><span class="line">    mov rdi, 0</span><br><span class="line">    mov rsi, STACK_SIZE</span><br><span class="line">    mov rdx, PROT_WRITE | PROT_READ</span><br><span class="line">    mov r10, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN</span><br><span class="line">    mov rax, SYS_mmap</span><br><span class="line">    syscall</span><br><span class="line">    ret</span><br></pre></td></tr></table></figure>
+<!-- Now we can allocate new stacks (or stack-sized buffers) as needed. -->
+<p>此时，我们就能为线程分配栈空间（或者准确说是和栈大小相同的内存缓冲区）了。</p>
+<h2 id="生成线程"><a href="#生成线程" class="headerlink" title="生成线程"></a>生成线程</h2><!-- Spawning a thread is so simple that it doesn’t even require a branch instruction! It’s a call to clone() with two arguments: clone flags and a pointer to the new thread’s stack. It’s important to note that, as in many cases, the glibc wrapper function has the arguments in a different order than the system call. With the set of flags we’re using, it takes two arguments. -->
+<p>生成线程非常简单，因为它甚至不涉及指令分支！只需往系统调用 <code>clone()</code> 中传入两个参数即可：<code>clone()</code> 的标记以及指向新线程栈的指针。注意，和其他诸多系统调用一样，glibc 包装的函数，其参数顺序与原始系统调用有所不同。总之，包括我们使用的标记在内，它接收两个参数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">sys_clone</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">long</span> flags, <span class="keyword">void</span> *child_stack)</span></span>;</span><br></pre></td></tr></table></figure>
+<!-- Our thread spawning function will have this C prototype. It takes a function as its argument and starts the thread running that function. -->
+<p>我们用于生成线程的函数有如下 C 原型。它接收一个函数指针，而后在线程中执行该函数。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">thread_create</span><span class="params">(<span class="keyword">void</span> (*)(<span class="keyword">void</span>))</span></span>;</span><br></pre></td></tr></table></figure>
+<!-- The function pointer argument is passed via rdi, per the ABI. Store this for safekeeping on the stack (push) in preparation for calling stack_create(). When it returns, the address of the low end of stack will be in rax. -->
+<p>根据 ABI，函数指针参数会通过寄存器 <code>rdi</code> 传给 <code>thread_create</code> 函数。首先，我们将其安全地保存（<code>push</code>）在栈中，并调用 <code>stack_create()</code>。最后，当函数返回时，线程栈的底部地址会保存在寄存器 <code>rax</code> 当中。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">thread_create:</span><br><span class="line">    push rdi</span><br><span class="line">    call stack_create</span><br><span class="line">    lea rsi, [rax + STACK_SIZE - 8]</span><br><span class="line">    pop qword [rsi]</span><br><span class="line">    mov rdi, CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | \</span><br><span class="line">             CLONE_PARENT | CLONE_THREAD | CLONE_IO</span><br><span class="line">    mov rax, SYS_clone</span><br><span class="line">    syscall</span><br><span class="line">    ret</span><br></pre></td></tr></table></figure>
+<!-- The second argument to clone() is a pointer to the high address of the stack (specifically, just above the stack). So we need to add STACK_SIZE to rax to get the high end. This is done with the lea instruction: load effective address. Despite the brackets, it doesn’t actually read memory at that address, but instead stores the address in the destination register (rsi). I’ve moved it back by 8 bytes because I’m going to place the thread function pointer at the “top” of the new stack in the next instruction. You’ll see why in a moment. -->
+<p>系统调用 <code>clone()</code> 的第二个参数指向线程栈的顶部地址（具体来说，是线程栈顶部上方页帧的地址）。在代码中，我们通过 <code>lea</code> 指令来计算：读取有效地址（<strong><em>l</em></strong>oad <strong><em>e</em></strong>ffective <strong><em>a</em></strong>ddress）。尽管有花括号，但它并不会真的去读取目标内存地址中的内容，而是将该地址保存在目标寄存器（<code>rsi</code>）当中。在代码中，我回退 8 字节的原因是我希望在下一条指令中，把线程函数的指针放在栈顶端。这样做的原因稍后即晓。</p>
+<p><img src="/uploads/images/computer-architecture/clone.png" alt=""></p>
+<!-- Remember that the function pointer was pushed onto the stack for safekeeping. This is popped off the current stack and written to that reserved space on the new stack. -->
+<p>注意，函数指针先前被压栈。此处我们将其弹栈并写入当前线程栈空间保留的空间中。</p>
+<!-- As you can see, it takes a lot of flags to create a thread with clone(). Most things aren’t shared with the callee by default, so lots of options need to be enabled. See the clone(2) man page for full details on these flags. -->
+<p>如你所见，使用系统调用 <code>clone()</code> 创建线程时使用了不少标记。这是因为，在默认情况下，大多数东西新的进程都不与原进程共享。你可在 <code>clone(2)</code> 的手册页上找到这些标记的详细含义。</p>
+<!-- * `CLONE_THREAD`: Put the new process in the same thread group. -->
+<ul>
+<li><code>CLONE_THREAD</code>：将子进程放在与父进程相同的线程组内。<!-- * `CLONE_VM`: Runs in the same virtual memory space. --></li>
+<li><code>CLONE_VM</code>：子进程与父进程在同一虚拟内存空间内运行。<!-- * `CLONE_PARENT`: Share a parent with the callee. --></li>
+<li><code>CLONE_PARENT</code>：新的进程与当前进程共享父进程。<!-- * `CLONE_SIGHAND`: Share signal handlers. --></li>
+<li><code>CLONE_SIGHAND</code>：共享信号处理器。<!-- * `CLONE_FS`, `CLONE_FILES`, `CLONE_IO`: Share filesystem information. --></li>
+<li><code>CLONE_FS</code>, <code>CLONE_FILES</code>, <code>CLONE_IO</code>：共享文件系统信息。</li>
+</ul>
+<!-- A new thread will be created and the syscall will return in each of the two threads at the same instruction, exactly like fork(). All registers will be identical between the threads, except for rax, which will be 0 in the new thread, and rsp which has the same value as rsi in the new thread (the pointer to the new stack). -->
+<p>如此，系统会创建新的线程，并且，如 <code>fork()</code> 一样，<code>syscall</code> 会在两个线程的同一指令处返回。两个线程中，所有的寄存器的值完全相同；但在新线程中 <code>rax</code> 的值是 0，并且在新线程中 <code>rsp</code> 的值与 <code>rsi</code> 的值相等（指向新的线程的栈的指针）。</p>
+<!-- Now here’s the really cool part, and the reason branching isn’t needed. There’s no reason to check rax to determine if we are the original thread (in which case we return to the caller) or if we’re the new thread (in which case we jump to the thread function). Remember how we seeded the new stack with the thread function? When the new thread returns (ret), it will jump to the thread function with a completely empty stack. The original thread, using the original stack, will return to the caller. -->
+<p><strong>最酷的地方来了</strong>，我们来看看为什么不需要指令分支；即，为什么我们没有必要检查 <code>rax</code> 的值，来确定是原始线程（返回到调用者）还是新线程（跳转到线程函数）？注意新线程的栈顶部保存着指向线程函数的指针：当函数在新线程返回时，执行序列会跳转到线程函数，且线程栈是空的。而原始线程则会使用原始线程的栈，返回调用者。</p>
+<!-- The value returned by thread_create() is the process ID of the new thread, which is essentially the thread object (e.g. Pthread’s pthread_t). -->
+<p>函数 <code>thread_create()</code> 的返回值是新线程的 PID，本质上就是线程对象（例如 <code>pthread_t</code>）。</p>
+<h2 id="清理并退出线程"><a href="#清理并退出线程" class="headerlink" title="清理并退出线程"></a>清理并退出线程</h2><!-- The thread function has to be careful not to return (ret) since there’s nowhere to return. It will fall off the stack and terminate the program with a segmentation fault. Remember that threads are just processes? It must use the exit() syscall to terminate. This won’t terminate the other threads. -->
+<p>由于线程函数没有逻辑上的调用者，所以它不能有返回（<code>ret</code> 指令）；否则，将导致执行序列脱离线程栈而引发段错误并使程序停止运行。还记得线程其实只是进程吗？它们必须使用系统调用 <code>exit()</code> 来结束运行。在线程中执行系统调用 <code>exit()</code> 不会退出其他线程。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">%define SYS_exit    60</span><br><span class="line"></span><br><span class="line">exit:</span><br><span class="line">    mov rax, SYS_exit</span><br><span class="line">    syscall</span><br></pre></td></tr></table></figure>
+<!-- Before exiting, it should free its stack with the munmap() system call, so that no resources are leaked by the terminated thread. The equivalent of pthread_join() by the main parent would be to use the wait4() system call on the thread process. -->
+<p>在退出前，应当使用系统调用 <code>munmap()</code> 释放线程栈，以防有资源泄漏。主线程中等价于 <code>pthread_join()</code> 的系统调用是 <code>wait4()</code>。</p>
+<h2 id="后续"><a href="#后续" class="headerlink" title="后续"></a>后续</h2><!-- If you found this interesting, be sure to check out the full demo link at the top of this article. Now with the ability to spawn threads, it’s a great opportunity to explore and experiment with x86’s synchronization primitives, such as the lock instruction prefix, xadd, and compare-and-exchange (cmpxchg). I’ll discuss these in a future article. -->
+<p>若你觉得本文有趣，别忘了查看文章开头处的完整示例之链接。有能力产生线程之后，我们就有机会探索并实验 x86 的同步原语了；例如 <code>lock</code> 前缀的各种锁、<code>xadd</code> 以及诸如 <a href="https://nullprogram.com/blog/2014/09/02/" target="_blank" rel="noopener">compare-and-exchange</a>（<code>cmpxchg</code>）之类的原子操作。这些内容将在后续文章中讨论。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2018/04/10/Raw-Linux-Threads-via-System-Calls/" title="借由系统调用实现 Linux 原生线程">https://liam.page/2018/04/10/Raw-Linux-Threads-via-System-Calls/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/System-Call/" rel="tag"># System Call</a>
+          
+            <a href="/tags/Tutorial/" rel="tag"># Tutorial</a>
+          
+            <a href="/tags/C/" rel="tag"># C</a>
+          
+            <a href="/tags/Thread/" rel="tag"># Thread</a>
+          
+            <a href="/tags/x86/" rel="tag"># x86</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2018/04/09/pitch-interval-and-harmonic/" rel="next" title="乐理漫谈：音高、音程、泛音">
+                <i class="fa fa-chevron-left"></i> 乐理漫谈：音高、音程、泛音
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2018/04/11/break-firewall-by-the-use-of-SSH-tunnel/" rel="prev" title="最佳搭档：利用正反 SSH 隧道穿透防火墙访问内网服务器">
+                最佳搭档：利用正反 SSH 隧道穿透防火墙访问内网服务器 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#x86-64-启蒙"><span class="nav-number">1.</span> <span class="nav-text">x86-64 启蒙</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#栈（stack）"><span class="nav-number">1.1.</span> <span class="nav-text">栈（stack）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#系统调用"><span class="nav-number">1.2.</span> <span class="nav-text">系统调用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#有效地址"><span class="nav-number">1.3.</span> <span class="nav-text">有效地址</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分配栈"><span class="nav-number">2.</span> <span class="nav-text">分配栈</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#生成线程"><span class="nav-number">3.</span> <span class="nav-text">生成线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#清理并退出线程"><span class="nav-number">4.</span> <span class="nav-text">清理并退出线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#后续"><span class="nav-number">5.</span> <span class="nav-text">后续</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

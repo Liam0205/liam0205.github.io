@@ -1,0 +1,2757 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前作介绍了 Python 中的 yield 关键字。此篇介绍如何使用 yield 表达式，在 Python 中实现一个最基本的协程调度示例，避免 I/O 操作占用大量 CPU 计算时间。">
+<meta name="keywords" content="Python,Yield,Coroutine,Generator,Asynchronism">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python 中的黑暗角落（二）：生成器协程的调度问题">
+<meta property="og:url" content="https://liam.page/2017/06/30/generator-coroutine-in-python-basic-topics/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="前作介绍了 Python 中的 yield 关键字。此篇介绍如何使用 yield 表达式，在 Python 中实现一个最基本的协程调度示例，避免 I/O 操作占用大量 CPU 计算时间。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Python 中的黑暗角落（二）：生成器协程的调度问题">
+<meta name="twitter:description" content="前作介绍了 Python 中的 yield 关键字。此篇介绍如何使用 yield 表达式，在 Python 中实现一个最基本的协程调度示例，避免 I/O 操作占用大量 CPU 计算时间。">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2017/06/30/generator-coroutine-in-python-basic-topics/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>Python 中的黑暗角落（二）：生成器协程的调度问题 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/06/30/generator-coroutine-in-python-basic-topics/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">Python 中的黑暗角落（二）：生成器协程的调度问题
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017 年 06 月 30 日 19:16:27" itemprop="dateCreated datePublished" datetime="2017-06-30T19:16:27+08:00">2017 年 06 月 30 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">9.4k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">17 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><a href="/2017/06/30/understanding-yield-in-python/">前作</a>介绍了 Python 中的 <code>yield</code> 关键字。此篇介绍如何使用 <code>yield</code> 表达式，在 Python 中实现一个最基本的协程调度示例，避免 I/O 操作占用大量 CPU 计算时间。</p>
+<a id="more"></a>
+<h2 id="协程及其特点"><a href="#协程及其特点" class="headerlink" title="协程及其特点"></a>协程及其特点</h2><p>协程是一种特殊的子程序，它<strong>可以在特定的位置暂停/恢复</strong>（而不是像普通函数那样在逻辑上顺序执行）；并且<strong>每当协程暂停时，调用者可以从协程中获取状态，决定调用者接下来的走向</strong>；以及<strong>每当协程恢复时，调用者可以传递信息给协程，影响协程的行为</strong>。</p>
+<p>从「可以暂停/恢复」来看，协程类似于 Python 中的迭代器。不过，迭代器仅只是将值返回给调用者，其内部的逻辑是确定的，无法与调用者做更多的交互。</p>
+<p>因为协程可以暂停/恢复，所以，我们可以在多个协程中分别执行不同的任务；然后由调度器管理协程之间的执行，实现多任务并发。</p>
+<p>此外，协程和调用者在同一线程中执行；考虑到<a href="/2017/01/17/layers-and-operation-system/">线程是操作系统进行任务调度的最小单元</a>，<strong>协程和调用者之间的切换，没有 CPU 上下文切换的开销</strong>。因此，相对使用多线程、多进程实现多任务并发，协程在这方面的开销非常小。</p>
+<p>同样由于协程之间共享线程，所以使用协程实现的多任务并发，无法实现<a href="/2017/05/06/cxx-concurrency-multithread-basic-problems/#%E5%B9%B6%E5%8F%91%E4%B8%8E%E5%B9%B6%E8%A1%8C">真正的并行</a>。因此，显而易见，<strong>协程适合 I/O 密集型的任务并发，而不适合 CPU 密集型的任务并发</strong>。</p>
+<h2 id="协程调度基础"><a href="#协程调度基础" class="headerlink" title="协程调度基础"></a>协程调度基础</h2><p>最简单的协程的例子，我们实际上已经见过了。在「使用 <code>send()</code> 方法与生成器函数通信」一节中，<code>func</code> 就扮演了协程函数的角色。每当协程函数在 <code>yield</code> 表达式处暂停，调用者就收到上一步计算的结果；每当协程函数自 <code>yield</code> 表达式处恢复，协程函数就用接收到的数进行下一轮计算。</p>
+<p>在见识过最简单的协程示例之后，我们试着看看在调度协程的过程中，需要怎样处理。</p>
+<figure class="highlight python"><figcaption><span>coroutine_basic.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> collections <span class="keyword">import</span> deque               <span class="comment"># 1.</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Dispatcher</span><span class="params">(object)</span>:</span>                   <span class="comment"># 2.</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, tasks)</span>:</span></span><br><span class="line">        self.tasks = deque(tasks)           <span class="comment"># 3.</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">next</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> self.tasks.pop()             <span class="comment"># 4.</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">while</span> len(self.tasks):              <span class="comment"># 5.</span></span><br><span class="line">            task = self.next()</span><br><span class="line">            <span class="keyword">try</span>:</span><br><span class="line">                next(task)                  <span class="comment"># 6.</span></span><br><span class="line">            <span class="keyword">except</span> StopIteration:</span><br><span class="line">                <span class="keyword">pass</span>                        <span class="comment"># 7.</span></span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                self.tasks.appendleft(task) <span class="comment"># 8.</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">greeting</span><span class="params">(name, times)</span>:</span>                  <span class="comment"># 9.</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(times):</span><br><span class="line">        <span class="keyword">yield</span>                               <span class="comment"># 10.</span></span><br><span class="line">        print(<span class="string">"Hello, %s.%d!"</span> % (name, i))</span><br><span class="line"></span><br><span class="line">dispatcher = Dispatcher([greeting(<span class="string">'Liam'</span>, <span class="number">5</span>), greeting(<span class="string">'Sophia'</span>, <span class="number">4</span>),</span><br><span class="line">                                            greeting(<span class="string">'Cancan'</span>, <span class="number">6</span>)])</span><br><span class="line"></span><br><span class="line">dispatcher.run()</span><br></pre></td></tr></table></figure>
+<p>这段代码中，有两个主要角色：调度器 (2) 和任务 (9)。</p>
+<p>从调度器的角度来说，我们自 <code>collections</code> 模块引入了 <code>deque</code> 容器 (1)，用于在 (3) 处保存任务。而后，我们在 (4) 定义了调度器 <code>Dispatcher</code> 的轮询函数 <code>next()</code>，它返回下一个尚未终止的任务。在调度器的 <code>run()</code> 函数中，(5) 和 (8) 保证了循环处理所有尚未完成的任务并清理已完成的任务，(6) 和 (7) 则负责触发每个任务的下一步动作。</p>
+<p>从任务的角度来说，<code>greeting</code> 是一个生成器函数，是具体的协程任务。在 (10) 处，<code>yield</code> 表达式标记了函数暂停/恢复的位置；它将逻辑上连续的任务，在时间上切分成了若干段。</p>
+<p>这段代码执行起来结果大致是这样：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">Hello, Cancan.0!</span><br><span class="line">Hello, Sophia.0!</span><br><span class="line">Hello, Liam.0!</span><br><span class="line">Hello, Cancan.1!</span><br><span class="line">Hello, Sophia.1!</span><br><span class="line">Hello, Liam.1!</span><br><span class="line">Hello, Cancan.2!</span><br><span class="line">Hello, Sophia.2!</span><br><span class="line">Hello, Liam.2!</span><br><span class="line">Hello, Cancan.3!</span><br><span class="line">Hello, Sophia.3!</span><br><span class="line">Hello, Liam.3!</span><br><span class="line">Hello, Cancan.4!</span><br><span class="line">Hello, Liam.4!</span><br><span class="line">Hello, Cancan.5!</span><br></pre></td></tr></table></figure>
+<p>看起来和多线程那种乱七八糟的输出顺序有点像，不是吗？当然，此处由于使用 <code>deque.pop()</code> 轮询任务队列，所以输出顺序大致是有迹可循的。不过，这并不影响我们将其作为协程调度的示例。</p>
+<p>在这个例子中，尽管调用者和协程之间没有其他的通信，协程函数内也没有真正意义上的 I/O 操作，但我们仍可以进行一些总结。</p>
+<p>首先，生成器函数充当了协程函数，实现了协程。</p>
+<p>其次，协程任务在逻辑上是连续的，但是我们可以用 <code>yield</code> 表达式在时间上把协程任务分成若干部分。</p>
+<p>再次，用 <code>yield</code> 分割的任务，需要有一个机制控制器暂停/恢复。这个机制此处由调度器提供。</p>
+<p>再者，对于调度器来说，它需要知道「有哪些协程任务需要恢复」。因此，它必然直接或间接地维护一个事件队列。此处，我们用 <code>Dispatcher.tasks</code> 完成了这一工作。</p>
+<p>最后，对于每个协程（任务）来说，一旦被暂停，其恢复就必须依赖主动唤起。因此，调度器必须「恰到好处」地反复唤起线程——不能多也不能少：多则浪费执行时间，甚至抛出异常；少则留下未能完成的任务。因此，调度器必须恰当地维护上述队列，确定何时从队列中移除已完成的任务。在我们的例子中，(6) 和 (7) 协同完成了这一工作。</p>
+<h2 id="异步-I-O-任务模拟"><a href="#异步-I-O-任务模拟" class="headerlink" title="异步 I/O 任务模拟"></a>异步 I/O 任务模拟</h2><p>回顾一下刚才的协程任务。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">greeting</span><span class="params">(name, times)</span>:</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(times):</span><br><span class="line">        <span class="keyword">yield</span></span><br><span class="line">        print(<span class="string">"Hello, %s.%d!"</span> % (name, i))</span><br></pre></td></tr></table></figure>
+<p>在这个任务里，<code>yield</code> 表达式将原本在逻辑上连续的循环，人为地在时间上切分成了若干份。然而，除了用于演示暂停/恢复的携程调度之外，这个例子实际上没有必要使用协程实现。这是因为，在协程任务中，去掉 <code>yield</code> 表达式之后，所有的操作都是立即完成的；不存在需要阻塞以等待 I/O 的空耗 CPU 的情况。</p>
+<p>下列代码模拟了一个需要阻塞等待 I/O 的任务。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> time <span class="keyword">import</span> sleep</span><br><span class="line"><span class="keyword">from</span> random <span class="keyword">import</span> random <span class="keyword">as</span> rd</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">greeting</span><span class="params">(name, times, duration = <span class="number">1</span>)</span>:</span>    <span class="comment"># 1.</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(times):</span><br><span class="line">        sleep(<span class="number">2</span> * duration * rd())          <span class="comment"># 2.</span></span><br><span class="line">        print(<span class="string">"Hello, %s.%d!"</span> % (name, i))</span><br></pre></td></tr></table></figure>
+<p>此处，新定义的 <code>greeting</code> 函数 (1) 有一个新的参数：<code>duration</code>。而后，在每次循环打印招呼信息的之前，会现行阻塞一段时间 (2)。这一阻塞就模拟了实际情况中的 I/O 类操作：空占 CPU 资源，但不进行任何计算。阻塞的时间是 <code>2 * duration * rd()</code>，这是一个一 <code>duration</code> 为期望的随机变量，用来模拟预计阻塞 <code>duration</code> 秒但实际情况会有波动的 I/O 任务。</p>
+<p>假设 <code>duration</code> 设置为定值 1 而 <code>times</code> 设置为定值 3，那么执行一次 <code>greeting</code> 函数，平均需要耗时 3 秒。如若顺序执行 3 个这样的函数，平均下来，一共需要耗费 9 秒的时间。而这 9 秒之中，大多数时间 CPU 都仅只在空耗，没有执行实际的计算任务。因此，我们可以考虑用协程将它们并发起来执行，降低总的空耗的时间。为此，我们有如下思路。</p>
+<ul>
+<li>将每个 I/O 任务理解为一个事件；</li>
+<li>维护一个队列，用于记录尚在进行中的事件，以便后续操作；</li>
+<li>当事件生成时，向上述队列注册（即将事件添加进队列）；</li>
+<li>使用轮询（polling）等方式，捕获完成的事件；</li>
+<li>对已完成的事件，进行后续操作（特别地，恢复协程函数），而后从队列中删除该事件。</li>
+</ul>
+<p>现在，我们开始逐步在这一思路的指导下，实现协程并发。</p>
+<h3 id="引出休眠事件（SleepEvent）"><a href="#引出休眠事件（SleepEvent）" class="headerlink" title="引出休眠事件（SleepEvent）"></a>引出休眠事件（<code>SleepEvent</code>）</h3><p>回顾一下新版的 <code>greeting</code> 函数。若要通过生成器实现协程，就必然要添加 <code>yield</code> 表达式。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> time <span class="keyword">import</span> sleep</span><br><span class="line"><span class="keyword">from</span> random <span class="keyword">import</span> random <span class="keyword">as</span> rd</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">greeting</span><span class="params">(name, times, duration = <span class="number">1</span>)</span>:</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(times):</span><br><span class="line">        <span class="keyword">yield</span> sleep(<span class="number">2</span> * duration * rd())          <span class="comment"># 1.</span></span><br><span class="line">        print(<span class="string">"Hello, %s.%d!"</span> % (name, i))</span><br></pre></td></tr></table></figure>
+<p>简单粗暴地以 (1) 的方式加上 <code>yield</code> 表达式是不行的。这是因为，<code>yield</code> 表达式会对 <code>sleep</code> 函数求值，而后将该值返回给调用者并暂停。但是，对 <code>sleep</code> 函数求值的过程，就是模拟的 I/O 操作，会阻塞执行线程。在阻塞完毕之后，再通过 <code>yield</code> 暂停，这就没有意义了。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">coroutine_sleep</span><span class="params">(duration)</span>:</span>              <span class="comment"># 1.</span></span><br><span class="line">    <span class="keyword">return</span> SleepEvent(duration)             <span class="comment"># 2.</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">greeting</span><span class="params">(name, times, duration = <span class="number">1</span>)</span>:</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(times):</span><br><span class="line">        <span class="keyword">yield</span> coroutine_sleep(duration)     <span class="comment"># 3.</span></span><br><span class="line">        print(<span class="string">"Hello, %s.%d!"</span> % (name, i))</span><br></pre></td></tr></table></figure>
+<p>因此，我们需要定义新的 <code>coroutine_sleep</code> 函数 (1)。这个函数会生成一个事件（<code>SleepEvent</code>），然后不阻塞地立即返回 (2)。因此，在 (3) 处，<code>yield</code> 表达式会将 <code>coroutine_sleep</code> 返回的 <code>SleepEvent</code> 对象传递给协程函数的调用者，并暂停当前协程函数。</p>
+<h3 id="定义事件框架"><a href="#定义事件框架" class="headerlink" title="定义事件框架"></a>定义事件框架</h3><p>接下来，我们需要定义事件框架。在实际动手之前，我们应该先分析一下一个事件类需要有哪些功能。</p>
+<ul>
+<li>首先，事件应该有能力让外部知道自身存在。因此事件类应该伴随一个队列；并且在生成事件对象时，将自身注册进这个队列。</li>
+<li>其次，事件应该有能力让外部知道自身状态，以便检查事件状态，进而进行下一步操作。因此，事件类应该是一个闭包，保存生成事件时的一些状态；并提供一个接口，利用这些状态检查事件是否完成。</li>
+<li>最后，事件应当提供一个接口，记录在事件完成之后应当做什么；并且在事件完成之后执行这些操作。</li>
+</ul>
+<p>据此，我们应该有如下代码。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">events_list = list()                    <span class="comment"># 1.</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Event</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, *args, **kwargs)</span>:</span></span><br><span class="line">        events_list.append(self)        <span class="comment"># 2.</span></span><br><span class="line">        self._callback = <span class="keyword">lambda</span>:<span class="keyword">None</span>    <span class="comment"># 3.</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">is_ready</span><span class="params">(self)</span>:</span>                 <span class="comment"># 4.</span></span><br><span class="line">        ready = self._is_ready()</span><br><span class="line">        <span class="keyword">if</span> ready:</span><br><span class="line">            self._callback()            <span class="comment"># 5.</span></span><br><span class="line">        <span class="keyword">return</span> ready</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">set_callback</span><span class="params">(self, callback)</span>:</span>   <span class="comment"># 6.</span></span><br><span class="line">        self._callback = callback</span><br></pre></td></tr></table></figure>
+<p>这里，(1) 处我们定义了一个全局的队列，用于记录尚在进行中的事件；与此同时，每当生成事件类对象时，(2) 会将当前事件对象注册到队列中。(3) 则定义了回调函数，用于记录事件完成之后执行什么操作。</p>
+<p>(4) 和 (6) 分别是对外的接口。(4) 让外部有能力知道自身状态，其中 <code>_is_ready()</code> 需要在子类中实现；而 (6) 允许外部记录在事件完成之后应当做什么。(5) 则保证了当事件完成之后，(6) 中的设置会被正确执行。</p>
+<p>至此，我们可以定义出 <code>SleepEvent</code> 类。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> time <span class="keyword">import</span> time <span class="keyword">as</span> current_time</span><br><span class="line"><span class="keyword">from</span> random <span class="keyword">import</span> random <span class="keyword">as</span> rd</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SleepEvent</span><span class="params">(Event)</span>:</span>                                    <span class="comment"># 1.</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, duration)</span>:</span></span><br><span class="line">        super(SleepEvent, self).__init__(duration)</span><br><span class="line">        self._duration = <span class="number">2</span> * rd() * duration                <span class="comment"># 2.</span></span><br><span class="line">        self._start_time = current_time()                   <span class="comment"># 3.</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_is_ready</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> (current_time() - self._start_time &gt;= self._duration)<span class="comment"># 4.</span></span><br></pre></td></tr></table></figure>
+<p>这里，(1) 处定义了 <code>SleepEvent</code> 事件类，用来模拟 I/O 事件；模拟的核心在于 (2) 处定义的睡眠时长。(3) 则记录了事件诞生时的状态，用在 (4) 处确认事件是否已完成。</p>
+<p>至此，协程函数这一侧的代码我们已经完成了，接下来我们看看调度器一侧的代码如何实现。</p>
+<h3 id="用轮询捕捉已完成的事件"><a href="#用轮询捕捉已完成的事件" class="headerlink" title="用轮询捕捉已完成的事件"></a>用轮询捕捉已完成的事件</h3><p>因为我们在 <code>events_list</code> 中保存了所有尚在执行中的事件。这是相当简单的工作，所以不作过多的解释。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> len(events_list):</span><br><span class="line">    <span class="keyword">for</span> event <span class="keyword">in</span> events_list:</span><br><span class="line">        <span class="keyword">if</span> event.is_ready():</span><br><span class="line">            events_list.remove(event)</span><br><span class="line">            <span class="keyword">break</span></span><br></pre></td></tr></table></figure>
+<h3 id="唤醒逻辑"><a href="#唤醒逻辑" class="headerlink" title="唤醒逻辑"></a>唤醒逻辑</h3><p>在 <code>Event</code> 类的定义中，<code>is_ready()</code> 函数会在事件完成后调用 <code>_callback</code> 函数。而对于协程函数来说，一个事件完成后，需要做的事情无非是：唤醒，恢复执行到下一个暂停点。因此可以有这样的唤醒逻辑。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">_next</span><span class="params">(gen_task)</span>:</span></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        yielded_event = next(gen_task)                      <span class="comment"># 1.</span></span><br><span class="line">        yielded_event.set_callback(<span class="keyword">lambda</span>: _next(gen_task)) <span class="comment"># 2.</span></span><br><span class="line">    <span class="keyword">except</span> StopIteration:</span><br><span class="line">        <span class="keyword">pass</span>                                                <span class="comment"># 3.</span></span><br></pre></td></tr></table></figure>
+<p>这里，(1) 调用 Python 内建的 <code>next</code> 函数，唤醒协程函数，执行到下一个暂停点，并接受其返回值，保存在 <code>yielded_event</code> 当中。而后，在 (2) 处将该 <code>Event</code> 对象设置为 Lambda 函数 <code>lambda: _next(gen_task)</code>。显然，这是一个递归调用 <code>_next</code> 函数自身的闭包——捕获了需要继续唤醒的生成器 <code>gen_task</code>。若生成器执行完毕，则无需继续唤醒。因此在 (3) 处，直接 <code>pass</code> 即可。</p>
+<h3 id="完整实验"><a href="#完整实验" class="headerlink" title="完整实验"></a>完整实验</h3><p>将上述代码整合起来，就可以做实验了。</p>
+<figure class="highlight python"><figcaption><span>coroutine_async.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python3</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> time <span class="keyword">import</span> time <span class="keyword">as</span> current_time</span><br><span class="line"><span class="keyword">from</span> random <span class="keyword">import</span> random <span class="keyword">as</span> rd</span><br><span class="line"></span><br><span class="line">events_list = list()</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Event</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, *args, **kwargs)</span>:</span></span><br><span class="line">        events_list.append(self)</span><br><span class="line">        self._callback = <span class="keyword">lambda</span>:<span class="keyword">None</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">is_ready</span><span class="params">(self)</span>:</span></span><br><span class="line">        ready = self._is_ready()</span><br><span class="line">        <span class="keyword">if</span> ready:</span><br><span class="line">            self._callback()</span><br><span class="line">        <span class="keyword">return</span> ready</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">set_callback</span><span class="params">(self, callback)</span>:</span></span><br><span class="line">        self._callback = callback</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">SleepEvent</span><span class="params">(Event)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, duration)</span>:</span></span><br><span class="line">        super(SleepEvent, self).__init__(duration)</span><br><span class="line">        self._duration = <span class="number">2</span> * rd() * duration</span><br><span class="line">        self._start_time = current_time()</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_is_ready</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">return</span> (current_time() - self._start_time &gt;= self._duration)</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Dispatcher</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, tasks)</span>:</span></span><br><span class="line">        self.tasks = tasks</span><br><span class="line">        self._start()</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_next</span><span class="params">(self, gen_task)</span>:</span></span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            yielded_event = next(gen_task)</span><br><span class="line">            yielded_event.set_callback(<span class="keyword">lambda</span>: self._next(gen_task))</span><br><span class="line">        <span class="keyword">except</span> StopIteration:</span><br><span class="line">            <span class="keyword">pass</span></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_start</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">for</span> task <span class="keyword">in</span> self.tasks:</span><br><span class="line">            self._next(task)</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">polling</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">while</span> len(events_list):</span><br><span class="line">            <span class="keyword">for</span> event <span class="keyword">in</span> events_list:</span><br><span class="line">                <span class="keyword">if</span> event.is_ready():</span><br><span class="line">                    events_list.remove(event)</span><br><span class="line">                    <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">coroutine_sleep</span><span class="params">(duration)</span>:</span></span><br><span class="line">    <span class="keyword">return</span> SleepEvent(duration)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">greeting</span><span class="params">(name, times, duration = <span class="number">1</span>)</span>:</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> range(times):</span><br><span class="line">        <span class="keyword">yield</span> coroutine_sleep(duration)</span><br><span class="line">        print(<span class="string">"Hello, %s.%d!"</span> % (name, i))</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">test</span><span class="params">()</span>:</span></span><br><span class="line">        dispatcher = Dispatcher([greeting(<span class="string">'Liam'</span>, <span class="number">3</span>), greeting(<span class="string">'Sophia'</span>, <span class="number">3</span>), greeting(<span class="string">'Cancan'</span>, <span class="number">3</span>)])</span><br><span class="line">        dispatcher.polling()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">import</span> timeit</span><br><span class="line">    timeit_times = <span class="number">10</span></span><br><span class="line">    avg_cost = timeit.timeit(<span class="keyword">lambda</span>: test(), number = timeit_times) / timeit_times</span><br><span class="line">    print(<span class="string">'%.3f'</span> % (avg_cost))</span><br></pre></td></tr></table></figure>
+<p>可能的执行结果是：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ python coroutine_async.py</span><br><span class="line">Hello, Liam.0!</span><br><span class="line">Hello, Liam.1!</span><br><span class="line">Hello, Liam.2!</span><br><span class="line">Hello, Cancan.0!</span><br><span class="line">Hello, Sophia.0!</span><br><span class="line">Hello, Cancan.1!</span><br><span class="line">Hello, Sophia.1!</span><br><span class="line">Hello, Cancan.2!</span><br><span class="line">Hello, Sophia.2!</span><br><span class="line">......</span><br><span class="line">Hello, Liam.0!</span><br><span class="line">Hello, Sophia.0!</span><br><span class="line">Hello, Sophia.1!</span><br><span class="line">Hello, Cancan.0!</span><br><span class="line">Hello, Liam.1!</span><br><span class="line">Hello, Sophia.2!</span><br><span class="line">Hello, Liam.2!</span><br><span class="line">Hello, Cancan.1!</span><br><span class="line">Hello, Cancan.2!</span><br><span class="line">3.400</span><br></pre></td></tr></table></figure>
+<p>可以看到，平均下来，使用协程并发地执行三个 <code>greeting</code> 任务（<code>times = 3, duration = 1</code>）只需要 3.4 秒；耗时远低于顺序执行所需的 9 秒。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2017/06/30/generator-coroutine-in-python-basic-topics/" title="Python 中的黑暗角落（二）：生成器协程的调度问题">https://liam.page/2017/06/30/generator-coroutine-in-python-basic-topics/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Python/" rel="tag"># Python</a>
+          
+            <a href="/tags/Yield/" rel="tag"># Yield</a>
+          
+            <a href="/tags/Coroutine/" rel="tag"># Coroutine</a>
+          
+            <a href="/tags/Generator/" rel="tag"># Generator</a>
+          
+            <a href="/tags/Asynchronism/" rel="tag"># Asynchronism</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/06/30/understanding-yield-in-python/" rel="next" title="Python 中的黑暗角落（一）：理解 yield 关键字">
+                <i class="fa fa-chevron-left"></i> Python 中的黑暗角落（一）：理解 yield 关键字
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/06/30/create-overlayed-symbols-by-ooalign/" rel="prev" title="LaTeX 黑魔法（二）：使用 \ooalign 命令创建叠加在一起的记号">
+                LaTeX 黑魔法（二）：使用 \ooalign 命令创建叠加在一起的记号 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#协程及其特点"><span class="nav-number">1.</span> <span class="nav-text">协程及其特点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#协程调度基础"><span class="nav-number">2.</span> <span class="nav-text">协程调度基础</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#异步-I-O-任务模拟"><span class="nav-number">3.</span> <span class="nav-text">异步 I/O 任务模拟</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#引出休眠事件（SleepEvent）"><span class="nav-number">3.1.</span> <span class="nav-text">引出休眠事件（SleepEvent）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#定义事件框架"><span class="nav-number">3.2.</span> <span class="nav-text">定义事件框架</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#用轮询捕捉已完成的事件"><span class="nav-number">3.3.</span> <span class="nav-text">用轮询捕捉已完成的事件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#唤醒逻辑"><span class="nav-number">3.4.</span> <span class="nav-text">唤醒逻辑</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#完整实验"><span class="nav-number">3.5.</span> <span class="nav-text">完整实验</span></a></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

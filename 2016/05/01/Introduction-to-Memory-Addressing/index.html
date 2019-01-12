@@ -1,0 +1,2930 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="公认的计算机之父是阿兰·图灵在 1936 年提出了「图灵机」的概念。图灵机是一个抽象的计算模型，它可以形象地表述为：  有一个向两端无限延伸的带子，可以在上面记录内容 有一个可以在带子上擦除/写入的读写头，可以在带子上任意移动 有一个控制器，控制读写头的移动和擦除/写入操作  图灵机的表述看似纸上谈兵，但实际与现在计算机的体系结构有良好的对应，甚至可以说是所有现代计算机背后的灵魂。  带子对应于内">
+<meta name="keywords" content="Architecture,CPU,Memory,Addressing,x86">
+<meta property="og:type" content="article">
+<meta property="og:title" content="内存寻址">
+<meta property="og:url" content="https://liam.page/2016/05/01/Introduction-to-Memory-Addressing/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="公认的计算机之父是阿兰·图灵在 1936 年提出了「图灵机」的概念。图灵机是一个抽象的计算模型，它可以形象地表述为：  有一个向两端无限延伸的带子，可以在上面记录内容 有一个可以在带子上擦除/写入的读写头，可以在带子上任意移动 有一个控制器，控制读写头的移动和擦除/写入操作  图灵机的表述看似纸上谈兵，但实际与现在计算机的体系结构有良好的对应，甚至可以说是所有现代计算机背后的灵魂。  带子对应于内">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/ACS/x86_GDT_demo.png">
+<meta property="og:updated_time" content="2019-01-12T07:15:39.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="内存寻址">
+<meta name="twitter:description" content="公认的计算机之父是阿兰·图灵在 1936 年提出了「图灵机」的概念。图灵机是一个抽象的计算模型，它可以形象地表述为：  有一个向两端无限延伸的带子，可以在上面记录内容 有一个可以在带子上擦除/写入的读写头，可以在带子上任意移动 有一个控制器，控制读写头的移动和擦除/写入操作  图灵机的表述看似纸上谈兵，但实际与现在计算机的体系结构有良好的对应，甚至可以说是所有现代计算机背后的灵魂。  带子对应于内">
+<meta name="twitter:image" content="https://liam.page/uploads/images/ACS/x86_GDT_demo.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2016/05/01/Introduction-to-Memory-Addressing/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>内存寻址 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2016/05/01/Introduction-to-Memory-Addressing/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">内存寻址
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2016 年 05 月 01 日 00:40:00" itemprop="dateCreated datePublished" datetime="2016-05-01T00:40:00+08:00">2016 年 05 月 01 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:15:39" itemprop="dateModified" datetime="2019-01-12T15:15:39+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">11k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">19 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>公认的计算机之父是阿兰·图灵在 1936 年提出了「图灵机」的概念。图灵机是一个抽象的计算模型，它可以形象地表述为：</p>
+<ol>
+<li>有一个向两端无限延伸的带子，可以在上面记录内容</li>
+<li>有一个可以在带子上擦除/写入的读写头，可以在带子上任意移动</li>
+<li>有一个控制器，控制读写头的移动和擦除/写入操作</li>
+</ol>
+<p>图灵机的表述看似纸上谈兵，但实际与现在计算机的体系结构有良好的对应，甚至可以说是所有现代计算机背后的灵魂。</p>
+<ol>
+<li>带子对应于内存（当然内存不能无限大，这限制了计算机的处理能力是有上限的）</li>
+<li>读写头可以在带子上任意移动读写对应内存的随机存取（内存的英文名字就是 Random Access Memory）</li>
+<li>控制器对应中央处理器</li>
+</ol>
+<p>在内存这条带子上，找到正确的位置以便进行存取的过程，就是所谓的「内存寻址」过程。在图灵机这个思想模型中，我们可以假设读写头可以按照要求立即在带子上找到正确的位置。但是在现实生活中，有效地内存寻址是必须要解决的问题。因此，内存寻址可谓是计算机体系结构的核心问题之一。</p>
+<p>这篇文章主要讨论 Intel x86 架构上的内存寻址问题。纯干货，吃到撑。</p>
+<a id="more"></a>
+<h2 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a>基本概念</h2><h3 id="物理内存和物理地址"><a href="#物理内存和物理地址" class="headerlink" title="物理内存和物理地址"></a>物理内存和物理地址</h3><p>物理内存指的就是那些看得见摸得着的内存条实际提供的内存空间。</p>
+<p>在文章开头处，我们说「在内存这条带子上，找到正确的位置以便进行存取的过程，就是所谓的『内存寻址』过程」。既然有所谓的「正确的位置」，那么就必然有一个描述位置的方法。在内存空间中描述位置的方法，就是内存地址。</p>
+<p>对于物理内存来说，我们将它的内存空间按照字节（Byte, 1 Byte = 8 bit）划分开来，并从 0 开始将它们标上号。这些无符号的整数编号，就是物理内存地址。物理地址和地址总线上传输的地址一一对应。</p>
+<p>如果正在运行的程序，能够直接通过物理地址操作物理内存，那么写这种代码的方式被称为「硬编码」。在硬编码的情形下，内存寻址的任务最简单：只需要拿着硬编码得到的地址，输进地址总线去访问内存就可以了。</p>
+<h3 id="线性内存和线性地址"><a href="#线性内存和线性地址" class="headerlink" title="线性内存和线性地址"></a>线性内存和线性地址</h3><p>上节提到，物理内存按照字节划分开来，并从 0 开始编号，逐渐增大。这个增大的过程是线性的。</p>
+<p>线性内存和物理内存类似，它的地址编号也是从 0 开始，线性增加。线性地址和物理地址的不同在于：</p>
+<ul>
+<li>物理地址总是一一对应于实际物理内存空间的位置；但是线性地址则不一定这样：可以有多个线性地址对应到一个物理地址上。</li>
+<li>物理地址的增加，总是线性地对应着内存空间的位置；但是线性地址的增加，对应到物理地址上，可以分段跳跃。</li>
+</ul>
+<h3 id="逻辑内存（虚拟内存）和逻辑地址（虚拟地址）"><a href="#逻辑内存（虚拟内存）和逻辑地址（虚拟地址）" class="headerlink" title="逻辑内存（虚拟内存）和逻辑地址（虚拟地址）"></a>逻辑内存（虚拟内存）和逻辑地址（虚拟地址）</h3><p>现代的内存寻址机制，都引入了名为「分段」的概念：不同级别的程序、程序的不同数据类型，存放在不同的「段」上面，然后再定义在「段」上的偏移量。也就是说，现代程序看到的地址都不是线性的，而是分段过的地址，形如：<code>segment:offset</code>。</p>
+<p>这些段和偏移量组成的空间，就是逻辑内存空间；这些二元组，就是逻辑地址。</p>
+<p>逻辑内存经过转换得到的地址，如果是线性地址，就说明当前机器开启了内存分段机制和分页机制；如果是物理地址，那就说明当前机器只开启了内存分段机制。</p>
+<h3 id="宽度"><a href="#宽度" class="headerlink" title="宽度"></a>宽度</h3><p>计算机体系结构中讲到的宽度，也称位宽，讲的是某个东西在同一时刻能够处理的数据的量。它的单位是数学中数字的「位」；现代计算机是以二进制为基础的，所以它的单位准确来说是「二进制的位数」。</p>
+<p>上面提到的「处理」这一动作，根据讨论的对象的不同可能会发生改变。</p>
+<p>比如，对于 CPU 中负责进行二进制算数运算的算术逻辑单元（Arithmetic Logic Unit, ALU）来说，它的处理就是进行二进制数的算术运算（二进制的加减乘，不包括除）。于是，如果一个 ALU 能够同时处理 4 bit 数据，也就是能一次计算 4 bit 二进制数的加减乘法，那么它就是一个 4 位的 ALU。对于 CPU 来说，ALU 的位宽也叫字长。</p>
+<p>又如，对于负责 CPU 和北桥芯片（Northbridge Chip）的数据传递的前端总线（Front Side Bus, FSB）来说，它的处理就是传递二进制数据。于是，如果一条 FSB 能够一次性传输 8 bit 的数据，那么它就是一条 8 位的 FSB。对于总线来说，位宽也叫带宽。</p>
+<h3 id="CPU-的寻址能力浅说"><a href="#CPU-的寻址能力浅说" class="headerlink" title="CPU 的寻址能力浅说"></a>CPU 的寻址能力浅说</h3><p>这一小节提到的寻址能力，都以 Byte 为单位：亦即在不讨论内存分页的情况下，进行寻址能力的讨论。</p>
+<p>对于 $x$ 位 CPU 来说，它一次性能够表示的无符号数的范围是 $ [0, 2^{x} - 1] $。因此，对这枚 CPU 来说，它以字节（Byte）为单位寻址时，最多能在 $2^{x} \text{ Bytes}$ 的内存空间中找到它需要的数据。如果在寻址时，不加入其它信息，那么这是它的寻址能力上限。</p>
+<p>CPU 需要通过地址总线去内存寻址。若地址总线的带宽为 $y$ 位，那么在地址总线中传输的物理内存地址的范围是 $ [0, 2^{y} - 1] $。也就是说，地址总线的可寻址空间是 $2^{y} \text{ Bytes}$。地址总线中的地址，是与物理内存地址保持一致的。</p>
+<p>因此，如果在寻址时，不加入其它信息，CPU 具体的寻址能力取决于 CPU 本身的位宽和它连接的地址总线的带宽：$2^{\min(x, y)} \text{ Bytes}$。</p>
+<p>值得一提的是，二进制数据在计算机内部用电信号表示，每一位二进制，就需要一份电信号。这就是说，在<strong>不考虑复用</strong>的情况下，$x$ 位的 CPU 需要 $x$ 个引脚与前端总线相连；$y$ 位的地址总线又需要 $y$ 个引脚。因此这枚微处理器的引脚个数必然不小于 $ x + y $。</p>
+<h2 id="硬编码的寻址"><a href="#硬编码的寻址" class="headerlink" title="硬编码的寻址"></a>硬编码的寻址</h2><p>世界上第一款 CPU 是 Intel 公司于 1971 年 11 月 15 日发布的 <a href="http://www.intel.com/pressroom/kits/quickrefyr.htm" target="_blank" rel="noopener">4004 微处理器</a>。这是一款 4 位的处理器，地址总线的带宽是 12 位的（4004 的引脚个数正是 16 针），<a href="http://www.intel.com/pressroom/kits/quickreffam.htm#i486" target="_blank" rel="noopener">能够使用 640 Bytes 的内存</a>。</p>
+<p>随后，Intel 公司在 1974 年 4 月发布了 <a href="http://www.intel.com/pressroom/kits/quickrefyr.htm#1974" target="_blank" rel="noopener">8080 微处理器</a>。这是一款 8 位处理器，它有 7 个累加器：ABCDEHL。其中 A 是主累加器，其余的是次累加器。而次累加器可以配对，比如配对成 BC 或者 HL。两个 8 位的次累加器配对，可以表示 16 位的二进制数。据此，8080 可以访问 $ 2^{16} = 64 \text{ KiB}$ 的内存空间。</p>
+<p>这两款 CPU 没有任何分段或分页的概念，都使用的是硬编码的方式去寻址。因此，当 CPU 接收到进程的访存请求后，直接将请求地址传入地址总线，然后去存取内存。可谓是简单粗暴。</p>
+<h2 id="实模式与内存分段初步"><a href="#实模式与内存分段初步" class="headerlink" title="实模式与内存分段初步"></a>实模式与内存分段初步</h2><p>1976 年 3 月，Intel 公司发布了 <a href="http://www.intel.com/pressroom/kits/quickrefyr.htm#1978" target="_blank" rel="noopener">8086 微处理器</a>，并搭配了 20 位的地址总线。因此，从地址总线的角度来说，8086 应当可以访问 1 MiB 的内存空间。不过，尴尬的是，8086 的 ALU 是 16 位的，也就是它是一个 16 位的处理器。</p>
+<blockquote>
+<p>为什么要用 20 位这么「奇怪」的数字呢？原因有两个：一是当时要凑 1 MiB 的内存，所以地址总线至少得有 20 位的带宽；二是限于当时技术，造不出多于 40 个引脚的 CPU，又因为没有复用技术，所以搭配 16 位 CPU 的话，地址总线带宽最多是 24 位。所以最终就确定了 20 位的地址总线。</p>
+</blockquote>
+<p>好了，再看到之前我们对 CPU 寻址能力的分析，我们就知道：这种时候，必然要引入额外的信息。Intel 将它称之为「内存分段（Segment）」。</p>
+<p>具体做法是引入 4 个 16 位的段寄存器：CS, DS, SS 和 ES，分别用来存储程序的代码段、数据段、堆栈段和其他段。具体访问内存的时候，将相应的段寄存器的值左移 4 位，与 CPU 产生的 16 位访存地址相加，这样就得到一个 20 bit 的地址。这种带有分段的寻址模式，叫做<strong>实模式</strong>（Real Mode）。</p>
+<p>举个栗子。假设 <code>ES = 0x1000</code>, <code>DI=0xffff</code>。那么，<code>ES:DI</code> 对应的物理地址就是：<code>AD = ES * 0x10 + DI = 0x1ffff</code>。</p>
+<p>对于程序员来说，在采用这种寻址方式的 CPU 上编程时，只需要知道 CPU 的访存地址，不需要去计算 20 位的物理地址——硬件在底层会自动操作。也就是说，程序在运行的时候，进程内部只需要处理一个线性的 <code>offset</code> 即可，至于段基址，依靠操作系统在程序执行时绑定就好。这样一来，程序员在编程时就不需要「硬编码」了，调试和内存相关的错误，也更容易定位了；另一方面，对于编译器来说，也是一种解脱。</p>
+<p>问题就此解决了吗？并没有……</p>
+<p>我们知道，20 位的寻址空间，能够表达的地址范围是 <code>0x00000 -- 0xfffff</code>。然而，用实模式寻址，最高能够得到的地址是 <code>0xffff + 0xffff = 0x10ffef</code>。这超出了寻址总线 20 位带宽允许的寻址空间的上限，但在逻辑上却完全正常，这就产生了矛盾。为了解决这个问题，Intel 引入了被称为 Wrap-around 的技术。这一技术是说，当实模式寻址的时候，如果需要访问实际不存在的 <code>0x100000 -- 0x10ffef</code> 范围内的物理内存时，对求得的物理地址用 <code>0xfffff</code> 取模。也就是说，Intel 将上述范围的地址，映射到 <code>0x00000 -- 0x0ffef</code> 上去。</p>
+<p>不过，实模式虽然分段，但是只要获取到段寄存器中的地址，任何程序都可以直接操作内存读写。这就产生了两个显而易见的风险：</p>
+<ol>
+<li>应用程序可以直接修改内存中的数据，甚至是操作系统的数据。因此，一旦应用程序把内存写烂了，那么整个系统就会立即挂掉。</li>
+<li>第二个风险是第一个风险的扩展。因为应用程序可以直接修改内存中的数据，所以应用程序互相之间可能产生干扰。因此，实模式下，程序的安全性无法得到保证，操作系统无法支持多任务。</li>
+</ol>
+<p>此外，具体到一个物理地址上，可以有多种不同的表示方式。例如，<code>0x0001:0x0000</code> 和 <code>0x0000:0x0010</code> 都表示的是 <code>0x00010</code> 这个物理地址。这种歧义性，也会带来一些难以控制的风险。</p>
+<h2 id="保护模式和内存分段进阶"><a href="#保护模式和内存分段进阶" class="headerlink" title="保护模式和内存分段进阶"></a>保护模式和内存分段进阶</h2><p>Intel 在 1982 年 2 月发布了它的进化版：<a href="http://www.intel.com/pressroom/kits/quickreffam.htm#i486" target="_blank" rel="noopener">80286 (iAPX 286)</a>。80286 和 8086 一样，也是 16 位 CPU，不过搭配的地址总线则上升到了 24 位。因此它可以支持最大 16 MiB 的内存空间。</p>
+<p>80286 引入了保护模式。在这种模式下，CPU 够对内存及一些其他外围设备做硬件级的保护设置（实质上就是屏蔽一些地址的访问）。特别地，在访问内存时，程序不能从段寄存器直接获得段的起始地址（段基地址）了，而要进行额外的转换和检查。</p>
+<p>具体来说，保护模式中：</p>
+<ol>
+<li>CPU 的访存地址与 8086 一样，仍旧是 16 位。这意味着，每个内存段的大小上限依旧是 64 KiB。</li>
+<li>段寄存器的位宽与 8086 的段寄存器一样，也依然是 16 位。不过，80286 的段寄存器中存放的不在是段基地址，而是一个被称为选择器（Selector）的数据 struct。</li>
+<li>CPU 根据选择器中记录的数据，在描述符表（Descriptor Table，亦称段表）中找到段的详细信息，确定段基址和段地址上界，比对访问权级，成功后访问转为相应内存地址访问。</li>
+</ol>
+<p>16 位选择器的具体组成如下：</p>
+<ol>
+<li><strong>0–1 位</strong>：访问权级（0 最高，3 最低）</li>
+<li><strong>2 位</strong>：段表类型</li>
+<li><strong>3–15 位</strong>：段表位置索引</li>
+</ol>
+<p>其中，最低 2 位的访问权级是保护模式的核心内容，低权级的访存请求不能访问高权级的内存空间。描述符表类型是为了区分全局段表（Global DT, GDT）和进程自己维护的局部段表（Local DT, LDT）。段表的位置索引，则是指引 CPU 去访问段表，查找相应段的具体信息的无符号整数。</p>
+<p>段表中的项的结构则比较复杂，不过最重要的信息，是段的起始地址（24 位），以及段的长度（16 位）。</p>
+<p>不难看出，80286 引入的保护模式，与 8086 的实模式格格不入。为了 Intel 良好的「兼容传统」，80286 被制作成启动时继承了以前版本芯片的特性，工作在实模式下。这种模式实际上是关闭了新引入的的保护特性，因此过去的软件，可以继续工作在新的芯片下。后续的 x86 处理器都是在计算机加电启动时都是工作在实模式下，只能访问 1 MiB 的内存空间，而后切换到保护模式下。实际上，操作系统启动时最重要的几件事情之一，就是将 CPU 切换为保护模式。</p>
+<p>因为 CPU 位宽限制，CPU 每次访存所要访问的物理地址为段表相应条目给出的 24 位段起始物理地址再加上 16 位的偏移量。可见，80286 保护模式下的应用程序能访问的内存线性地址空间仅为 64 KiB，非常有限。所以程序员编写使用大内存的应用程序时还必须使用远指针、近指针，相当繁琐。这种天生残废，影响了 286 保护模式的推广使用。</p>
+<h2 id="80386-的分段机制"><a href="#80386-的分段机制" class="headerlink" title="80386 的分段机制"></a>80386 的分段机制</h2><p>相对于实模式，80286 引入的保护模式无疑是一大进步。然而，80286 的天生残疾，注定了它不会长久。</p>
+<p>1985 年 10 月 17 日，<a href="http://www.intel.com/pressroom/kits/quickrefyr.htm#1985" target="_blank" rel="noopener">Intel 发布 80386</a>。386 是正儿八经的 32 位 CPU——它的 ALU 位宽是 32 位，同时地址总线带宽与此保持一致，也是 32 位的。做一个简单的计算，我们知道，386 的寻址能力已经能够达到 4 GiB。</p>
+<h3 id="386-的寄存器"><a href="#386-的寄存器" class="headerlink" title="386 的寄存器"></a>386 的寄存器</h3><p>在 8086 时代，为了强行寻址 1 MiB 的空间，16 位的 CPU 搭配 20 位的地址总线，不得不发明出内存分段的概念。在 80286 时代，依旧是 16 位的 CPU，但地址总线已经有 24 位。更加显著的差距，加上新引入的保护模式，在兼容的指导思想下，80286 的寻址模式被设计得更加复杂。</p>
+<p>按说，80386 的 CPU 和地址总线都是 32 位的，内存寻址的方式应该可以变得十分简洁。然而很遗憾，依旧是「兼容思想」惹的祸，80386 必须兼容实模式，维护那些段寄存器。作为第一个 32 位 CPU，我们来看一下它相对于 16 位的 80286 的变化。</p>
+<ol>
+<li>原 16 位的通用寄存器、标志寄存器以及指令寄存器，被扩充为 32 位。</li>
+<li>增加 4 个 32 位的控制寄存器。</li>
+<li>增加 4 个系统地址寄存器，两个 48 位的，另外两个是 16 位的。</li>
+<li>增加 8 个 32 位的调试寄存器。</li>
+<li>增加 2 个 32 位的测试寄存器。</li>
+<li>段寄存器仍是 16 位；不过在数量上，除了原有的 4 个 CS, DS, SS 和 ES 段寄存器，还增加了 2 个段寄存器：FS 和 GS。</li>
+</ol>
+<p>除了 6 个段寄存器，其他寄存器大都扩充到了 32 位甚至更高。唯二的两个 16 位的系统地址寄存器，也是因为分段的缘故，停留在了 16 位。这样的设计，想想当年 Intel 的设计师，估计脸都是黑的。</p>
+<h3 id="386-的描述符"><a href="#386-的描述符" class="headerlink" title="386 的描述符"></a>386 的描述符</h3><p>与 286 一样，引入了保护模式的 386 不再于段寄存器中保存段基址（段的起始地址），而是保存 16 位的选择器；具体选择器的内容也和 286 完全一致。</p>
+<p>与 286 不同的是，386 的描述符足有 8 字节（64 位），具体内容如下：</p>
+<ol>
+<li><strong>63 – 56 位</strong>：段基址的 31 – 24 位。</li>
+<li><strong>55 位</strong>：寻址粒度位（G）。当 G = 0 时，段长度以字节计算；当 G = 1 时，段长度以分页长度 4 KiB 计算。</li>
+<li><strong>54 位</strong>：默认操作数位（D）。当 D = 0 时，操作数为 16 位；当 D = 1 时，操作数为 32 位。</li>
+<li><strong>53 – 52 位</strong>：强行置 0，留作向后兼容。</li>
+<li><strong>51 – 48 位</strong>：段界限的 19 – 16 位。</li>
+<li><strong>47 位</strong>：存在位（P）。当 P = 0 时，该段不存在于物理内存中；当 P = 1 时，该段存在于物理内存中。</li>
+<li><strong>46 – 45 位</strong>：访问权级位（DPL）。与选择符的 0 – 1 位对应，是保护模式的核心。</li>
+<li><strong>44 位</strong>：系统位（S）。当 S = 0 时，该段为系统段；当 S = 1 时，该段为用户程序的代码段、数据段或堆栈段。</li>
+<li><strong>43 – 41 位</strong>：类型段。3 位类型段的含义，根据该段的种类（代码段或是数据段、堆栈段）有不同。</li>
+<li><strong>40 位</strong>：存取权限字节的访问位（A 位）。在分段而不分页的系统中，当该段被访问时，该位置 1；对于使用分页的系统，该段无意义。</li>
+<li><strong>39 – 32 位</strong>：段基址的 23 – 16 位。</li>
+<li><strong>31 – 24 位</strong>：段基址的 15 –  8 位。</li>
+<li><strong>23 – 16 位</strong>：段基址的  7 –  0 位。</li>
+<li><strong>15 –  8 位</strong>：段界限的 15 –  8 位。</li>
+<li><strong> 7 –  0 位</strong>：段界限的  7 –  0 位。</li>
+</ol>
+<p>我们发现，描述符的前 5 字节相对规整，包含 24 位段基址，以及 16 位段界限。实际上，这正是从 286 的描述符继承而来的。描述符的第 7 字节（从 0 开始编号，最后一字节）存放的是段基址的最后 8 位；描述符第 6 字节的前 4 位，存放的是段界限的最后 4 位。这样一来，386 的段基址有 32 位，段界限则是 20 位。因此（参见寻址粒度 G 位），当以字节为单位寻址时，386 的内存分段，最大长度可以达到 1 MiB；而当以（后面将会介绍的）分页为单位寻址时，386 的内存分段，最大长度可以达到 4 GiB。这样一来，286 中令人吐血的「近指针」、「远指针」问题就不存在了。</p>
+<p>如果我们把描述符中的内容，简单划分为三部分：段基址（Base）、段界限（Limit）和属性（Attribute），那么段表大致可以用下图所示的表格表示。</p>
+<p><img src="/uploads/images/ACS/x86_GDT_demo.png" alt=""></p>
+<p>图中「索引」指的是选择器中的索引。</p>
+<h3 id="386-的段表"><a href="#386-的段表" class="headerlink" title="386 的段表"></a>386 的段表</h3><p>386 的段表定义了系统中所有段的情况。因为 386 的描述符占 8 个字节，所以 386 的段表的大小，按字节计算，总是 8 的整数倍。段表中，最少含有一个描述符，最多含有 8 Ki 个描述符（选择器的索引位是 13 位）。因此段表的大小应当居于 8 Bytes – 64 KiB 之间。</p>
+<p>386 将段表分为了 3 类：全局段表、局部段表和中断段表。全局段表，记录了除中断段表之外，其他所有任务公用的段的描述符；局部段表，则是每个任务都有一个，用于实现任务之间段层次的隔离；中断段表，对于程序员来说，不必太关心。</p>
+<h2 id="内存分页机制"><a href="#内存分页机制" class="headerlink" title="内存分页机制"></a>内存分页机制</h2><p>这一节里，我们仍以 386 为例。</p>
+<h3 id="硬件中的内存分页"><a href="#硬件中的内存分页" class="headerlink" title="硬件中的内存分页"></a>硬件中的内存分页</h3><p>在介绍 386 的段描述符时，我们讲到描述符的第 55 位记录着分段内存的计算方式。当 G = 0 时，分页机制被禁用，逻辑地址经过分段机制转换出来的线性地址以字节计算；当 G = 1 时，分页机制启用，线性地址以分页长度计算。</p>
+<p>那么什么叫分页呢？简单来说，分页就是人为地在逻辑上将连续的内存空间，按照固定大小切分成一段一段。对于线性内存来说，这样切分出来的固定大小叫做「页（Page）」；对于物理内存来说，这样切分出来的固定大小叫做「页帧（Page Frame）」。</p>
+<p>因此，总结起来，分页机制将线性内存分为若干页，将物理内存分为若干帧，并建立从页到帧的映射关系。这个映射关系，是一个「多对一」的映射。</p>
+<p>对于 386 来说，分页长度是 4 KiB。也就是说，对于一个 32 位的线性地址来说，它用末尾的 12 位表示分页内的偏移量。这 12 位的偏移量在页被映射到实际物理内存上的帧时，直接作为物理地址的末尾 12 位。至于线性地址的首 20 位，则作为从页映射到帧的编号参与映射计算。</p>
+<h3 id="页帧映射和页表"><a href="#页帧映射和页表" class="headerlink" title="页帧映射和页表"></a>页帧映射和页表</h3><p>内存分页机制，主要解决的问题，就是当 CPU 取得一个线性地址时，如何将它映射到正确的物理地址上面。这个过程就是页帧映射。</p>
+<p>显而易见，最简单的方式是建立一张足够大的表（称为页表）：表中的 key 由线性地址的首 20 位计算得到（或者干脆就是它自己）；表中的 value 则是对应页帧在物理内存中的起始地址（帧基址）。</p>
+<p>这种情况下，我们假设极端的情况：每个进程都请求了 4 GiB 的线性空间。按照 4 KiB 每页计算，共需 1 M 个页帧信息。每份页帧信息至少包括 20 位的帧基址，再加上其他信息凑齐 4 Bytes。这样一来，每个进程的页表就需要 4 MiB 的空间。相对于需要高速数据交换的 CPU 来说，这个量太大了。在这种情况下，多级页表出现了。</p>
+<h3 id="二级页表"><a href="#二级页表" class="headerlink" title="二级页表"></a>二级页表</h3><p>多级页表的原理和二级页表一样，所以这里以二级页表为例。</p>
+<p>二级页表的原理是这样的：</p>
+<ol>
+<li>维护一个大小为 4 KiB 的目录，称为页目录表（一级页表）。一级页表总共 1 Ki 项，对应线性地址的最高 10 位，每一项占 4 Bytes。每个进程在一级页表中对应一个表项，表项指向了进程实际二级页表的位置。</li>
+<li>二级页表也是一个大小为 4 KiB 的映射表。二级页表同样一共有 1 Ki 项，对应线性地址中间的 10 位，其中每一项占 4 Bytes。表项记录了帧基址和其他一些控制信息。</li>
+</ol>
+<h4 id="高速缓存"><a href="#高速缓存" class="headerlink" title="高速缓存"></a>高速缓存</h4><p>这样一来，每次从线性地址转换为物理地址，就需要查表两次，每次交换 8 KiB 的数据。对于 CPU 高速频繁访存的操作来说，每次交换这么多数据无法满足性能要求。因此 386 增加了高速缓存机制。</p>
+<p>高速缓存将最近的访存页面对应的内容保存其中。当 CPU 访存时，首先在缓存中查询是否有目标页内容：若有，则直接存取内容；否则，再进行二级页表的查询，到内存中存取内容。如果缓存存满了，则根据一定的算法（退场机制），将缓存中的过期数据退场。</p>
+<p>根据 Intel 自己的统计，大约 98% 的访存请求可以通过高速缓存处理。亦即，只有 2% 的访存请求，需要进行两次页表查询。可见，高速缓存的存在，大大降低了数据交换的量和频次。因此，高速缓存大大提升了寻址/访存速度。</p>
+<h4 id="一级页表项"><a href="#一级页表项" class="headerlink" title="一级页表项"></a>一级页表项</h4><p>一级页表项占 4 字节，共 32 位。其中：</p>
+<ul>
+<li><strong>第 31 – 12 位</strong>：20 位的页表地址。之所以可以用 20 位表示页表地址，是因为页表地址的低 12 位总是 0。</li>
+<li><strong>第 11 –  9 位</strong>：留待操作系统使用。</li>
+<li><strong>第 8 位</strong>：总是置 0。</li>
+<li><strong>第 7 位</strong>：扩展分页标志（PSE）。PSE = 0 时，页大小为 4 KiB；PSE = 1 时，页大小为 4 MiB。</li>
+<li><strong>第 6 位</strong>：总是置 0。</li>
+<li><strong>第 5 位</strong>：访问位（A）。A = 1 时，说明当前项正在被访问。</li>
+<li><strong>第 4 位</strong>：高速缓存标志位（PCD）。PCD = 0 时，不启用高速缓存；PCD = 1 时，启用高速缓存。</li>
+<li><strong>第 3 位</strong>：高速缓存直写标志位（PWT）。PWT = 0 时，访存时只修改内存中的数据；PWT = 1 时，访存时同时修改内存和缓存中的数据。</li>
+<li><strong>第  2 –  1 位</strong>：页保护位。</li>
+<li><strong>第 0 位</strong>：存在位（P）。当 P = 1 时，页对应的帧存在于物理内存中；当 P = 0 时，页对应的帧不存在与物理内存中。</li>
+</ul>
+<p>值得一提的是，当 P = 0 时，访问该页将会引发一个「缺页错误」。操作系统内核会从交换空间（或者 Windows 的页面文件，都是访问速度更慢一级的硬盘）中交换数据到内存中去。这就是为什么，线性空间可以远远大于实际的物理内存空间的原因。</p>
+<h4 id="二级页表项"><a href="#二级页表项" class="headerlink" title="二级页表项"></a>二级页表项</h4><p>二级页表项同样占据 4 字节，共 32 位。二级页表项的高 20 位，存放的是帧基址；低 12 位的定义和内容含义与一级页表项完全相同；唯独区别在于一级页表项的第 6 位。</p>
+<ul>
+<li><strong>第 6 位</strong>：存取位（D）。当访存操作会修改内存中保存的内容时，该位置 1；否则置 0。</li>
+</ul>
+<h3 id="寻址空间的计算"><a href="#寻址空间的计算" class="headerlink" title="寻址空间的计算"></a>寻址空间的计算</h3><p>讲清楚了选择符、描述符和段表，我们就以 386 的寻址方案，计算一下 CPU 最多能查找多大的内存空间。</p>
+<p>首先，最底层的是描述符。描述符里，段界限占据了 20 位。当描述符粒度位 G = 1 时，段以分页大小 4 KiB 为单位寻址。因此一个描述符，最多能寻址 $2^{32}$ Bytes。</p>
+<p>其次，16 位的选择器中，有 13 位用来记录描述符在段表中的索引位置。因此，一个段表可以有 $2^{13}$ 个描述符。</p>
+<p>最后，在 16 位的选择器中，第 2 位记录的是段表类型（GDT 还是 LDT）。这样一来，寻址时可以有 2 个段表。</p>
+<p>因此，386 的寻址方案，在不讨论扩展分页的情况下，最多能在 $2 \times 2^{13} \times 2^{32} = 2^{46}$ Bytes，也就是 64 TiB 的巨大空间中寻址。这个空间，因为它是从 0 开始编号，逐渐编号到 64 TiB 的，所以我们将它称为「线性空间」。这也就是说，在 386 的分段和分段机制的搭配下，它能够在 64 TiB 的线性空间中寻址。</p>
+<h2 id="实际寻址流程"><a href="#实际寻址流程" class="headerlink" title="实际寻址流程"></a>实际寻址流程</h2><p>当打开分页机制的 80386 接收到程序发来的访存请求 <code>segment:offset</code> 时，CPU 会……</p>
+<ol>
+<li>读取段寄存器中的选择器；</li>
+<li>验证访问权级（保护模式）——通过；</li>
+<li>根据段表类型和段表位置索引，读取段表中的描述符；</li>
+<li>检查访问权级位（保护模式）——通过；</li>
+<li>检查 <code>offset</code>，看偏移量是否超过段界限；</li>
+<li>检查 P 位，确保目标位置在物理内存中可用；</li>
+<li>将段基址与 <code>offset</code> 拼接成线性地址；</li>
+<li>检查是否命中高速缓存——未命中；</li>
+<li>根据线性地址最高 10 位，读取一级页表；</li>
+<li>一级页表检查访问权级——通过；</li>
+<li>得到 20 位 + 12 位补 0 的二级页表位置；</li>
+<li>根据二级页表位置访问二级页表；</li>
+<li>根据线性地址中间 10 位，读取二级页表；</li>
+<li>二级页表检查访问权级——通过；</li>
+<li>得到 20 位帧基址；</li>
+<li>与线性地址的低位 12 位拼接成 32 位的物理地址；</li>
+<li>访存。</li>
+</ol>
+<h2 id="x86-与-IA32"><a href="#x86-与-IA32" class="headerlink" title="x86 与 IA32"></a>x86 与 IA32</h2><p>由于 80386 设计的这套架构太流弊，它的后继者门也纷纷沿用并保持兼容。所以后来 Intel 将这套架构称之为 IA32 (32 Bit Intel Architecture)。又因为 IA32 家族最开始的 CPU 名称是 8086, 80286, 80386, 80486，所以，这套架构又被称作是 x86。</p>
+<h2 id="后记"><a href="#后记" class="headerlink" title="后记"></a>后记</h2><p>本文写得太急，内容铺开太广，而作者水平有限。因此，文中难免有疏漏。此外，文章还应该补上许多释义说明的图，然而这几天我把 Mac 里的 TeX 系统折腾挂了，所以没有合适的绘图工具。</p>
+<p>诸如此类，待后续修补。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2016/05/01/Introduction-to-Memory-Addressing/" title="内存寻址">https://liam.page/2016/05/01/Introduction-to-Memory-Addressing/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Architecture/" rel="tag"># Architecture</a>
+          
+            <a href="/tags/CPU/" rel="tag"># CPU</a>
+          
+            <a href="/tags/Memory/" rel="tag"># Memory</a>
+          
+            <a href="/tags/Addressing/" rel="tag"># Addressing</a>
+          
+            <a href="/tags/x86/" rel="tag"># x86</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2016/04/21/Introduction-to-Serialization/" rel="next" title="序列化与反序列化简介">
+                <i class="fa fa-chevron-left"></i> 序列化与反序列化简介
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2016/05/05/best-match-using-sort-and-uniq-to-do-set-operations/" rel="prev" title="最佳搭档：利用 sort 和 uniq 做集合运算">
+                最佳搭档：利用 sort 和 uniq 做集合运算 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#基本概念"><span class="nav-number">1.</span> <span class="nav-text">基本概念</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#物理内存和物理地址"><span class="nav-number">1.1.</span> <span class="nav-text">物理内存和物理地址</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#线性内存和线性地址"><span class="nav-number">1.2.</span> <span class="nav-text">线性内存和线性地址</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#逻辑内存（虚拟内存）和逻辑地址（虚拟地址）"><span class="nav-number">1.3.</span> <span class="nav-text">逻辑内存（虚拟内存）和逻辑地址（虚拟地址）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#宽度"><span class="nav-number">1.4.</span> <span class="nav-text">宽度</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CPU-的寻址能力浅说"><span class="nav-number">1.5.</span> <span class="nav-text">CPU 的寻址能力浅说</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#硬编码的寻址"><span class="nav-number">2.</span> <span class="nav-text">硬编码的寻址</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实模式与内存分段初步"><span class="nav-number">3.</span> <span class="nav-text">实模式与内存分段初步</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#保护模式和内存分段进阶"><span class="nav-number">4.</span> <span class="nav-text">保护模式和内存分段进阶</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#80386-的分段机制"><span class="nav-number">5.</span> <span class="nav-text">80386 的分段机制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#386-的寄存器"><span class="nav-number">5.1.</span> <span class="nav-text">386 的寄存器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#386-的描述符"><span class="nav-number">5.2.</span> <span class="nav-text">386 的描述符</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#386-的段表"><span class="nav-number">5.3.</span> <span class="nav-text">386 的段表</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存分页机制"><span class="nav-number">6.</span> <span class="nav-text">内存分页机制</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#硬件中的内存分页"><span class="nav-number">6.1.</span> <span class="nav-text">硬件中的内存分页</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#页帧映射和页表"><span class="nav-number">6.2.</span> <span class="nav-text">页帧映射和页表</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#二级页表"><span class="nav-number">6.3.</span> <span class="nav-text">二级页表</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#高速缓存"><span class="nav-number">6.3.1.</span> <span class="nav-text">高速缓存</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#一级页表项"><span class="nav-number">6.3.2.</span> <span class="nav-text">一级页表项</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#二级页表项"><span class="nav-number">6.3.3.</span> <span class="nav-text">二级页表项</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#寻址空间的计算"><span class="nav-number">6.4.</span> <span class="nav-text">寻址空间的计算</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实际寻址流程"><span class="nav-number">7.</span> <span class="nav-text">实际寻址流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#x86-与-IA32"><span class="nav-number">8.</span> <span class="nav-text">x86 与 IA32</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#后记"><span class="nav-number">9.</span> <span class="nav-text">后记</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+    
+      <script type="text/x-mathjax-config">
+  
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: "AMS"
+      }
+    }
+  });
+</script>
+
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+      for (i = 0; i < all.length; i += 1) {
+        all[i].SourceElement().parentNode.className += ' has-jax';
+      }
+  });
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $("code").map(function(){
+    match = /^\$(.*)\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\$\$(.*)\$\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\\begin/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+  });
+});
+</script>
+
+<script src="//cdn.jsdelivr.net/npm/mathjax@2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+<style>
+.MathJax_Display {
+  overflow: auto hidden;
+}
+</style>
+
+    
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>

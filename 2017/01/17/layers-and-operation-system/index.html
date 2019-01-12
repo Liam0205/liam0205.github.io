@@ -1,0 +1,2841 @@
+<!DOCTYPE html>
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion" lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.8.0">
+  <meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+
+
+  
+  
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+
+
+
+
+
+
+
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.6.2">
+
+<link rel="stylesheet" href="/css/main.css?v=6.7.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=6.7.0">
+
+
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=6.7.0">
+
+
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=6.7.0" color="#222">
+
+
+
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+
+
+
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Pisces',
+    version: '6.7.0',
+    sidebar: {"position":"left","display":"post","offset":12,"b2t":true,"scrollpercent":true,"onmobile":false},
+    fancybox: false,
+    fastclick: false,
+    lazyload: false,
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    }
+  };
+</script>
+
+
+  
+
+
+
+
+  <meta name="description" content="前作简单介绍了计算机硬件的发展历史和当前计算机硬件的基本结构。我们知道，作为软件开发者，我们几乎只需要知道计算机硬件由 CPU、内存和 I/O 设备组成就可以了，其他细节不一定要详细地了解。 本文我们将简单介绍计算机的层次化结构和操作系统；而后讨论 Linux 中的进程与线程。">
+<meta name="keywords" content="Linux,Architecture,Process,Thread,Operation System,Thread Safe">
+<meta property="og:type" content="article">
+<meta property="og:title" content="程序员的自我修养（二）：操作系统、进程与线程">
+<meta property="og:url" content="https://liam.page/2017/01/17/layers-and-operation-system/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="前作简单介绍了计算机硬件的发展历史和当前计算机硬件的基本结构。我们知道，作为软件开发者，我们几乎只需要知道计算机硬件由 CPU、内存和 I/O 设备组成就可以了，其他细节不一定要详细地了解。 本文我们将简单介绍计算机的层次化结构和操作系统；而后讨论 Linux 中的进程与线程。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https://liam.page/uploads/images/computer-architecture/05.png">
+<meta property="og:image" content="https://liam.page/uploads/images/computer-architecture/06.png">
+<meta property="og:updated_time" content="2019-01-12T07:05:32.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="程序员的自我修养（二）：操作系统、进程与线程">
+<meta name="twitter:description" content="前作简单介绍了计算机硬件的发展历史和当前计算机硬件的基本结构。我们知道，作为软件开发者，我们几乎只需要知道计算机硬件由 CPU、内存和 I/O 设备组成就可以了，其他细节不一定要详细地了解。 本文我们将简单介绍计算机的层次化结构和操作系统；而后讨论 Linux 中的进程与线程。">
+<meta name="twitter:image" content="https://liam.page/uploads/images/computer-architecture/05.png">
+
+
+
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+
+
+
+
+  <link rel="canonical" href="https://liam.page/2017/01/17/layers-and-operation-system/">
+
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>程序员的自我修养（二）：操作系统、进程与线程 | 始终</title>
+  
+
+
+
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-44836433-1');
+  </script>
+
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope="" itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  
+  
+    
+  
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope="" itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+    
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+    
+      
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+    
+    
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+  
+    <ul id="menu" class="menu">
+      
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">268</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">9</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">558</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+
+    
+    
+    
+      
+    
+
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+
+      
+      
+        <li class="menu-item menu-item-search">
+          
+            <a href="javascript:;" class="popup-trigger">
+          
+            
+              <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+  
+
+  
+
+  
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off" placeholder="搜索..." spellcheck="false" type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+
+    </div>
+  
+</nav>
+
+
+
+  
+
+
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+            
+
+          
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+
+  
+  
+  
+
+  
+
+  <article class="post post-type-normal" itemscope="" itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/01/17/layers-and-operation-system/">
+
+    <span hidden itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar-2.jpg">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope="" itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+
+    
+      <header class="post-header">
+
+        
+        
+          <h2 class="post-title" itemprop="name headline">程序员的自我修养（二）：操作系统、进程与线程
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+
+            
+            
+            
+
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2017 年 01 月 17 日 01:58:28" itemprop="dateCreated datePublished" datetime="2017-01-17T01:58:28+08:00">2017 年 01 月 17 日</time>
+            
+
+            
+              
+
+              
+                
+                <span class="post-meta-divider">|</span>
+                
+
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 01 月 12 日 15:05:32" itemprop="dateModified" datetime="2019-01-12T15:05:32+08:00">2019 年 01 月 12 日</time>
+              
+            
+          </span>
+
+          
+            <span class="post-category">
+            
+              <span class="post-meta-divider">|</span>
+            
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope="" itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            
+          
+
+          
+          
+
+          
+            <span class="post-meta-divider">|</span>
+            <span class="post-meta-item-icon">
+            <i class="fa fa-eye"></i>
+             阅读次数： 
+            <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+
+          
+            <div class="post-symbolscount">
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-file-word-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">本文字数：</span>
+                
+                <span title="本文字数">11k</span>
+              
+
+              
+                <span class="post-meta-divider">|</span>
+              
+
+              
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-clock-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">阅读时长 &asymp;</span>
+                
+                <span title="阅读时长">20 分钟</span>
+              
+            </div>
+          
+
+          
+
+        </div>
+      </header>
+    
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p><a href="/2016/08/30/review-of-hardware-development/">前作</a>简单介绍了计算机硬件的发展历史和当前计算机硬件的基本结构。我们知道，作为软件开发者，我们几乎只需要知道计算机硬件由 CPU、内存和 I/O 设备组成就可以了，其他细节不一定要详细地了解。</p>
+<p>本文我们将简单介绍计算机的层次化结构和操作系统；而后讨论 Linux 中的进程与线程。</p>
+<a id="more"></a>
+<h2 id="层次化的好处都有啥？"><a href="#层次化的好处都有啥？" class="headerlink" title="层次化的好处都有啥？"></a>层次化的好处都有啥？</h2><blockquote>
+<p>层次化的好处都有啥？谁说对了就给他！<br>——Liam Huang</p>
+</blockquote>
+<p>说起层次化结构，计算机领域内最负盛名的可能是 TCP/IP 协议栈了。TCP/IP 的设计者，将整个网络通信协议，进行了层次化的设计：下面的层次为上层提供接口和功能，上面的层次负责调用接口完成新的工作。下层的服务对上层来说是透明的，只需要保证层次之间的接口不变，就能实现或者增强各种功能（比如 VPN）。</p>
+<blockquote>
+<p>计算机科学领域的任何问题，都可以通过增加一个间接的中间层来解决。<br>Any problem in computer science could be solved by another layer of indirection.</p>
+</blockquote>
+<p>这句话的出处已经不可考，但是它非常有名，并且道出了整个计算机系统软件体系结构的要点。</p>
+<p>计算机系统软件的体系结构就遵循了层次化的体系结构，不仅如此，操作系统本身也遵循着这样的结构。计算机系统软件的体系结构大体如下图所示。</p>
+<p><img src="/uploads/images/computer-architecture/05.png" alt=""></p>
+<p>层次化结构之中，层次之间的通信规则被称为接口（interface）。在图中，方框框起来的是层次中的内容，虚线中间的就是接口。接口由下层定义，由上层调用；在这种框架下，上层通过调用下层提供的借口，使用下层提供的服务。正如上面所说，只要保证接口稳定不变，由于透明性，接口下方的每个层次都可以做修改甚至替换，这是兼容性的重要保障。</p>
+<p>从图中，我们可以看出操作系统对上提供系统调用（system call）接口，对下根据硬件规格（Hardware Specification）实现对硬件的操作（具体来说，是由操作系统中的各种驱动来完成）。这就是为什么我们说，操作系统基本上就完成了两件事情：对上层提供抽象接口、对下层硬件资源进行管理。</p>
+<h2 id="操作系统都干啥？"><a href="#操作系统都干啥？" class="headerlink" title="操作系统都干啥？"></a>操作系统都干啥？</h2><p>操作系统对上层提供的系统调用，我们这里按下不表，主要看看操作系统在管理硬件资源方面做了哪些努力。</p>
+<p>计算机硬件的能力是有限的。特别地，在计算机刚刚起步的阶段，计算机硬件通常是昂贵的。所以，为了充分发掘计算机的存储、运算能力，或者邪恶点说是榨干计算机的硬件资源，使得计算机在尽可能段的时间内处理更多的事情。</p>
+<p>交给计算机的任务，大致可以分为两类：I/O 密集型任务和 CPU 密集型任务。顾名思义，CPU 密集型任务，在执行过程中，需要大量的 CPU 资源。对于这种任务，我们可以大胆地将 CPU 资源交给它来调用——反正总是要占用 CPU 资源的。大体上，涉及到磁盘 I/O、网络存取的任务，就都是 I/O 密集型任务；此类任务往往不需要太多 CPU 资源，对于 CPU 来说，大多数时间被空耗在等待 I/O 完成上了。当人们认识到交给计算机的任务可以分为这两类的时候，人们就开始考虑如何做 CPU 的任务调度。在任务调度上，人们经历了<strong>多道程序</strong>、<strong>分时系统</strong>与<strong>多任务系统</strong>等阶段。</p>
+<p>在多任务系统中，操作系统接管了所有硬件资源并持有对硬件控制的最高权限。在操作系统中执行的程序，都以进程的方式运行在更低的权限中。所有的硬件资源，由操作系统根据进程的优先级以及进程的运行状况进行统一的调配。</p>
+<h2 id="进程和线程"><a href="#进程和线程" class="headerlink" title="进程和线程"></a>进程和线程</h2><p>这里提到，「在操作系统中执行的程序，都以进程的方式运行在更低的权限中」。事实上，<strong>操作系统是以进程为单位去分配空间和执行的</strong>。但是，进程和程序有什么不同呢？我们说</p>
+<ul>
+<li>程序是一组指令的集合，它静态存储于诸如磁盘之类的存储器里；</li>
+<li>当一个程序被操作系统执行时，它就会被载入内存空间，并在逻辑上产生一个独立的实例，这就是进程。</li>
+</ul>
+<p>这就好像是说，程序是一道菜谱，其中的指令，就是指挥你开火加盐的步骤；进程则是烹饪的过程，操作系统按照指令一丝不苟地烹饪，得到的结果就是我们的菜肴。</p>
+<p>随着 CPU 频率增长逐渐停滞，CPU 开始向多核的方向发展。为了让多个 CPU 核心同时为我们工作，并行地执行任务，就需要涉及线程的概念。线程的英文是 Thread，有时也称为轻量级进程 (Lightweight Process)，它是操作系统进行任务调度的最小单元。线程存活于进程之中；同一个进程中的线程，共享一个虚拟内存空间，以及其中的资源；线程之间各自持有自己的线程 ID、当前指令的指针（PC）、寄存器集合以及栈。</p>
+<p><img src="/uploads/images/computer-architecture/06.png" alt=""></p>
+<p>通常来说，使用多线程会带来一下一些优势：</p>
+<ul>
+<li>将等待 I/O 操作的时间，调度到其他线程执行，提高 CPU 利用率；</li>
+<li>将计算密集型的操作留给工作线程，预留线程保持与用户的交互；</li>
+<li>在多 CPU/多核计算机下，有效吃干计算能力；</li>
+<li>相比多进程的程序，更有效地进行数据共享（在同一个进程空间）。</li>
+</ul>
+<h2 id="Linux-中的进程与线程"><a href="#Linux-中的进程与线程" class="headerlink" title="Linux 中的进程与线程"></a>Linux 中的进程与线程</h2><p>在 Windows 中，有明确的 API：<code>CreateProcess</code> 和 <code>CreateThread</code> 来创建进程和线程。但是，在 Linux 中，不管是进程还是线程，都以任务（Task）视之。也就是说，在 Linux 中，实际上并不存在概念上严格的线程和进程的区别。不过，这并不是说在 Linux 里就无法实现多线程了。由于 Linux 支持在进程之间共享物理内存空间，因而在实际意义上，支持了多线程。</p>
+<p>为了说明 Linux 中进程与线程的概念，这里要引入三个 Linux 中的运行时库函数：<code>fork()</code>, <code>exec</code> 和 <code>clone()</code>。</p>
+<h3 id="fork-函数"><a href="#fork-函数" class="headerlink" title="fork() 函数"></a><code>fork()</code> 函数</h3><p><code>fork()</code> 是 Linux 中的一个运行时库函数。它会调用 <code>syscall_clone()</code>，也就是系统调用 <code>clone</code>，复制一个与当前进程一模一样的进程，并且新进程与原进程以写时复制（Copy on Write）的方式共享同一份内存空间。</p>
+<p>每当 <code>fork()</code> 函数被调用时，都会产生两次函数返回：</p>
+<ul>
+<li>在父进程中返回一次，返回值是子进程的 PID；</li>
+<li>在子进程中返回一次，返回值是 0。</li>
+</ul>
+<p>这使得我们可以分别控制父进程和子进程的执行过程。</p>
+<figure class="highlight c"><figcaption><span>fork_test.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInFather</span><span class="params">(<span class="keyword">int</span> working)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInChild</span><span class="params">(<span class="keyword">int</span> working)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">int</span> index = <span class="number">42</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">pid_t</span> pid = fork();</span><br><span class="line">    <span class="keyword">if</span> (pid &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        perror(<span class="string">"Fork error: "</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (pid == <span class="number">0</span>) &#123;</span><br><span class="line">        doSomethingInChild(index);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        doSomethingInFather(index);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> EXIT_SUCCESS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInFather</span><span class="params">(<span class="keyword">int</span> working)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"I'm the father, and I have %d apple(s).\n"</span>, working);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInChild</span><span class="params">(<span class="keyword">int</span> working)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"I'm the child, and I have %d orange(s).\n"</span>, working);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>它的执行结果是</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">I&apos;m the father, and I have 42 apple(s).</span><br><span class="line">I&apos;m the child, and I have 42 orange(s).</span><br></pre></td></tr></table></figure>
+<h3 id="exec-函数"><a href="#exec-函数" class="headerlink" title="exec 函数"></a><code>exec</code> 函数</h3><p>事实上，<code>exec</code> 是一系列函数，它至少包括：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">execl</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *path, <span class="keyword">const</span> <span class="keyword">char</span> *arg, ...)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">execlp</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *file, <span class="keyword">const</span> <span class="keyword">char</span> *arg, ...)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">execle</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *path, <span class="keyword">const</span> <span class="keyword">char</span> *arg, ..., <span class="keyword">char</span> * <span class="keyword">const</span> envp[])</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">execv</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *path, <span class="keyword">char</span> *<span class="keyword">const</span> argv[])</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">execvp</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *file, <span class="keyword">char</span> *<span class="keyword">const</span> argv[])</span></span>;</span><br></pre></td></tr></table></figure>
+<p>这些函数内部都会调用库函数 <code>int execve(const char *filename, char *const argv[],char *const envp[]);</code>，该函数会将当前进程空间清空，而后根据传入的参数装载指定的可执行文件（二进制或者脚本）来执行。</p>
+<figure class="highlight bash"><figcaption><span>say_yes.sh</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/usr/bin/env bash</span></span><br><span class="line"></span><br><span class="line"><span class="built_in">echo</span> <span class="string">"Yes, <span class="variable">$0</span> is running!"</span></span><br><span class="line"><span class="built_in">exit</span> 0</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><figcaption><span>execl_test.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInFather</span><span class="params">(<span class="keyword">int</span> working)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInChild</span><span class="params">(<span class="keyword">int</span> working)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">int</span> index = <span class="number">42</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">pid_t</span> pid = fork();</span><br><span class="line">    <span class="keyword">if</span> (pid &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        perror(<span class="string">"Fork error: "</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (pid &gt; <span class="number">0</span>)&#123;</span><br><span class="line">        doSomethingInFather(index);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        doSomethingInChild(index);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> EXIT_SUCCESS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInFather</span><span class="params">(<span class="keyword">int</span> working)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"I'm the father, and I have %d apple(s).\n"</span>, working);</span><br><span class="line">    sleep(<span class="number">2</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">doSomethingInChild</span><span class="params">(<span class="keyword">int</span> working)</span> </span>&#123;</span><br><span class="line">    execl(<span class="string">"/home/liam/test/say_yes.sh"</span>, <span class="literal">NULL</span>);</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Something that will never be printed.\n"</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行结果</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">I&apos;m the father, and I have 42 apple(s).</span><br><span class="line">Yes, /home/liam/test/say_yes.sh is running!</span><br></pre></td></tr></table></figure>
+<p>这里我们可以看出，在父进程中，「我有 42 个苹果」顺利被执行；同时在子进程中，我们使用了 <code>execl</code> 函数调用了外部可执行脚本，它成功地打印了预期的内容。值得注意的是，<code>printf(&quot;Something that will never be printed.\n&quot;);</code> 并没有执行。这是因为，在子进程执行到 <code>execl</code> 之后，进程空间中的内容就被清空了，<code>execl</code> 之后的指令永远不会有机会执行。</p>
+<p>可见：<strong>使用 <code>fork()</code> 函数可以创建子进程；使用 <code>fork()</code> 函数以及 <code>exec</code> 函数则可以在子进程里执行新的任务</strong>。</p>
+<h3 id="clone-函数"><a href="#clone-函数" class="headerlink" title="clone() 函数"></a><code>clone()</code> 函数</h3><p>这里介绍的 <code>clone()</code> 是一个库函数；与之同名的，还有系统调用 <code>clone</code>——我们在介绍 <code>fork()</code> 函数的时候已经见过它了。</p>
+<p><code>clone()</code> 函数的原型是</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">clone</span><span class="params">(<span class="keyword">int</span> (fn)(<span class="keyword">void</span> ), <span class="keyword">void</span> *child_stack, <span class="keyword">int</span> flags, <span class="keyword">void</span> *arg)</span></span>;</span><br></pre></td></tr></table></figure>
+<p><code>clone()</code> 函数会创建一个子进程，从指定位置开始执行，并有选择地继承父进程的资源。具体而言</p>
+<ul>
+<li><code>fn</code> 是一个函数指针，子进程将会从这里开始执行；</li>
+<li><code>child_stack</code> 是指向一片内存空间的指针，它会被子进程用作栈内存，并且需要在父进程里分配好空间；</li>
+<li><code>flags</code> 是标志位，它会改变 <code>clone</code> 函数创建的子进程对父进程资源继承之行为；</li>
+<li><code>arg</code> 是一个可变长的参数，这些参数会被传递给 <code>fn</code>，并且应当以显式的 <code>NULL</code> 指针作为结尾；</li>
+<li>当 <code>fn</code> 函数在新的进程中执行完毕（或者显式地调用 <code>exit()</code> 函数退出时），子进程被销毁。</li>
+</ul>
+<p>这里可用的标志位有很多，详细地可以去查阅 <code>clone()</code> 函数的手册。我们重点关注的是 <code>CLONE_VM</code> 这个标志位。当它被传给 <code>clone()</code> 函数的时候，新进程和老进程共享同一内存空间：新进程和老进程对内存的写入操作，在另一个进程里是可见的；并且使用 <code>mmap()</code> 和 <code>munmap()</code> 操作也是互通的。</p>
+<p>我们来看一个示例。</p>
+<figure class="highlight c"><figcaption><span>clone_test.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;malloc.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sched.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">doSomething</span><span class="params">(<span class="keyword">void</span>*)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">void</span>* <span class="built_in">stack</span> = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="keyword">int</span> index = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">size_t</span> STACK_SIZE = <span class="number">10240</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">stack</span> = <span class="built_in">malloc</span>(STACK_SIZE);</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">NULL</span> == <span class="built_in">stack</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"Malloc stack for new process failed.\n"</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">-1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"In the calling thread: getpid[%d], getppid[%d].\n"</span>, getpid(), getppid());</span><br><span class="line">    <span class="keyword">int</span> tid = clone(&amp;doSomething, <span class="built_in">stack</span> + STACK_SIZE, CLONE_VM, (<span class="keyword">void</span>*) &amp;index, <span class="literal">NULL</span>);</span><br><span class="line">    sleep(<span class="number">1</span>);</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"Now, have a look at our index: %d.\n"</span>, index);</span><br><span class="line">    sleep(<span class="number">1.5</span>);</span><br><span class="line">    <span class="built_in">free</span>(<span class="built_in">stack</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> EXIT_SUCCESS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">doSomething</span><span class="params">(<span class="keyword">void</span>* p_idx)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"In the new thread: getpid[%d], getppid[%d].\n"</span>, getpid(), getppid());</span><br><span class="line">    ++(*(<span class="keyword">int</span>*)p_idx);</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"In the new thread, we've stepped the index var.\n"</span>);</span><br><span class="line">    sleep(<span class="number">2</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>它的输出是</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">In the calling thread: getpid[142059], getppid[119147].</span><br><span class="line">In the new thread: getpid[142060], getppid[142059].</span><br><span class="line">In the new thread, we&apos;ve stepped the index var.</span><br><span class="line">Now, have a look at our index: 1.</span><br></pre></td></tr></table></figure>
+<p>这个例子说明了几个问题</p>
+<ul>
+<li>传给 <code>clone()</code> 函数的新进程的栈地址，是栈顶的地址；这是因为栈总是从上向下扩张使用的。</li>
+<li>执行 <code>clone()</code> 之后，原进程会继续执行（而不会阻塞）；因此我们需要等待一些时间再释放分配给新进程作为栈使用的内存空间，否则会引发 core dumped。</li>
+<li>在新进程里对 <code>index</code> 变量的修改，在原进程里是可见的，这说明新进程实际上是一个线程。</li>
+<li>尽管实际上它是一个线程，但是仍然占据了一个进程号（PID），并且以原进程为父进程。</li>
+</ul>
+<p>你也可以试着在执行 <code>clone()</code> 函数的时候，将传入的标记设置为 <code>CLONE_SIGHAND|CLONE_VM|CLONE_THREAD</code>，再看看结果会怎样。</p>
+<hr>
+<p>这里，我们介绍了三个与多进程/多线程相关的库函数，并以 <code>clone()</code> 函数真正在进程中创建了一个线程。但是，在 Linux 里进行多线程的编程，我们通常会使用 <code>pthread</code> 库来创建新的线程。这里只给出最简单的例子，不做深入探讨。</p>
+<figure class="highlight c"><figcaption><span>pthread_test.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;pthread.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span>* <span class="title">doSomething</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"In the calling thread: getpid[%d], getppid[%d].\n"</span>, getpid(), getppid());</span><br><span class="line">    <span class="keyword">pthread_t</span> tid;</span><br><span class="line">    pthread_create(&amp;tid, <span class="literal">NULL</span>, doSomething, <span class="literal">NULL</span>);</span><br><span class="line">    sleep(<span class="number">1</span>);</span><br><span class="line">    <span class="keyword">return</span> EXIT_SUCCESS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span>* <span class="title">doSomething</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"In the new thread: getpid[%d], getppid[%d].\n"</span>, getpid(), getppid());</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>执行结果</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">In the calling thread: getpid[10000], getppid[119147].</span><br><span class="line">In the new thread: getpid[10000], getppid[119147].</span><br></pre></td></tr></table></figure>
+<h2 id="线程安全浅说"><a href="#线程安全浅说" class="headerlink" title="线程安全浅说"></a>线程安全浅说</h2><p>首先，我们回顾一下线程的特点：</p>
+<ul>
+<li>每个线程有自己独立的栈；</li>
+<li>同时多个线程共享进程空间中的数据。</li>
+</ul>
+<h3 id="竞争"><a href="#竞争" class="headerlink" title="竞争"></a>竞争</h3><p>如果每个线程对共享部分数据都是只读的，那么大概不会出现什么问题。但是，如果同时有多个线程尝试对同一份数据进行写入操作，那么最终的结果可能会是不可预期的。考虑这一经典的例子：</p>
+<ul>
+<li>共享数据 <code>int i = 0;</code>；</li>
+<li>线程 1 试图执行 <code>++i</code>；</li>
+<li>线程 2 试图执行 <code>--i</code>。</li>
+</ul>
+<p>首先考虑 <code>++i</code> 背后的意义（<code>--i</code> 类似）。在大多数体系结构上，<code>++i</code> 在编译出的汇编代码中，会被翻译为</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">X &lt;- i # 将 i 的值读入某个寄存器，比如 X 或者 Y</span><br><span class="line">X++    # 增加寄存器中的值</span><br><span class="line">i &lt;- X # 将寄存器中的值写入变量 i</span><br></pre></td></tr></table></figure>
+<p>由于这一句代码会被翻译成多条指令，那么必然存在这样的情况：线程 1 在执行三条指令的过程中被中断，系统调度线程 2 继续执行。这样，在两边线程执行完毕之后，变量 <code>i</code> 的值可能是 <code>0</code>, <code>1</code>, <code>-1</code>；而具体取值多少是不可预期的。这种<strong>因为多个线程竞争对同一变量进行操作导致不可预期后果的过程，称为线程不安全</strong>。</p>
+<h3 id="原子性"><a href="#原子性" class="headerlink" title="原子性"></a>原子性</h3><p>回顾刚才的分析，线程不安全的根本原因，是线程中多条指令连续执行的过程可能会被系统调度中断，而现场恢复之后共享变量的值可能已经被修改。因此，如果我们能保证指令的执行不被打断，那么自然就能保证线程安全了。这种特性被称作原子性。</p>
+<p>显然，单条指令是不可打断的。那么对应单条指令的代码，都是具有原子性的。例如 i386 架构中，有一个 <code>inc</code> 指令，可以直接增加内存某个区域的值。这样一来，自增操作就是原子的了。</p>
+<p>由单条指令提供的原子性，显然有非常大的局限性——这是因为单条指令能够达成的效果总是有限的。在实际生产中，我们会需要保证连续多条指令的原子性。这就需要引入同步和锁的概念。</p>
+<h3 id="同步与锁"><a href="#同步与锁" class="headerlink" title="同步与锁"></a>同步与锁</h3><p>在这里，同步是一种规则，而锁则是实现这种规则的具体方法。</p>
+<p>所谓同步，指的是多线程程序里，多个线程不得同时对某一共享变量进行访问。锁是实现同步的一种具体方案——准确地说，这是一种非常强的方案。锁有多种形式，最符合直觉的锁是所谓的<strong>互斥量（Mutex）</strong>。具体来说，线程在访问某个共享变量的时候，必须先获取锁；如果获取不到锁，那么就必须等待（或者进行其他操作，总之不许访问这个变量）；在结束对这个变量的访问之后，持有锁的线程应当释放。</p>
+<p>值得一提的是，所作为一种同步手段，是非常强的。但是，这种强，仅限于逻辑层面。在实际情况中，编译器优化、CPU 动态调度，都有可能打破锁对于同步的保护。这时候，这些优化就变成了过度优化。</p>
+<h3 id="过度优化对线程安全的破坏"><a href="#过度优化对线程安全的破坏" class="headerlink" title="过度优化对线程安全的破坏"></a>过度优化对线程安全的破坏</h3><p>这一小节我们会举 2 个例子，说明在某些情况下锁也是不靠谱的。</p>
+<h4 id="编译器优化"><a href="#编译器优化" class="headerlink" title="编译器优化"></a>编译器优化</h4><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> x = <span class="number">0</span>;</span><br><span class="line">Thread <span class="number">1</span>    Thread <span class="number">2</span></span><br><span class="line">lock();     lock();</span><br><span class="line">++x;        ++x;</span><br><span class="line">unlock();   unlock();</span><br></pre></td></tr></table></figure>
+<p>对于共享的变量 <code>x</code>，我们在线程 1 和线程 2 中并发地尝试访问它。为了保证线程安全，我们在对它的访问前后加上了锁。在逻辑上，这已经做到了线程安全，于是在执行完毕之后，<code>x</code> 的值应当必然是 2。但是，编译器优化可能会破坏逻辑上的线程安全：如果线程 1 在这之后会多次使用变量 <code>x</code>，那么编译器可能会将 <code>x</code> 自增后的值存放在寄存器中，暂不写回。于是，在线程 2 中尝试自增 <code>x</code> 的时候，获取到的 <code>x</code> 的值，可能是尚未从线程 1 的寄存器中更新值的 <code>x</code>。整个流程如下：</p>
+<ol start="0">
+<li>线程 1：获取锁</li>
+<li>线程 1：从 <code>x</code> 中读取数据，写入寄存器 <code>X</code></li>
+<li>线程 1：<code>X++</code></li>
+<li>线程 1：释放锁</li>
+<li>线程 2：获取锁</li>
+<li>线程 2：从 <code>x</code> 中读取数据，写入寄存器 <code>Y</code></li>
+<li>线程 2：<code>Y++</code></li>
+<li>线程 2：从寄存器 <code>Y</code> 中读取数据，写入 <code>x</code></li>
+<li>线程 2：释放锁</li>
+<li>线程 1：（很久之后）从寄存器 <code>X</code> 中读取数据，写入 <code>x</code></li>
+</ol>
+<p>显而易见，最终 <code>x</code> 的值，取决于寄存器中 <code>X</code> 的值；而在这个例子中，它是 <code>1</code>。</p>
+<p>对于这种情况，我们可以用 C 语言关键字 <code>volatile</code>。这个关键字能在两种情况下组织编译器优化：</p>
+<ul>
+<li>为了提高速度，将一个变量缓存到寄存器而不写回；</li>
+<li>调整操作该变量的指令的顺序。</li>
+</ul>
+<p>因此，在这个例子里，我们只需要使用 <code>volatile int x = 0</code>，就能保证 <code>x</code> 变量总是能得到即时的更新了。</p>
+<h4 id="CPU-动态调度"><a href="#CPU-动态调度" class="headerlink" title="CPU 动态调度"></a>CPU 动态调度</h4><p>程序在执行的过程中，出于效率的考量，两个（在当前线程中）没有依赖的指令可能会调换顺序执行。对于 CPU 来说，这已经是几十年的老技术了。我们来看这段 C++ 代码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">volatile</span> T* pInst = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="function">T* <span class="title">GetInstance</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">        lock();</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">            pInst = <span class="keyword">new</span> T;</span><br><span class="line">        &#125;</span><br><span class="line">        unlock();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> pInst;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在单例模式中，这是一段典型的 double-check 的代码。双层的 <code>if</code> 各有作用：</p>
+<ul>
+<li>外层 <code>if</code> 确保仅在 <code>pInst</code> 是空指针的情况下才去获取锁并尝试构造对象；</li>
+<li>内侧 <code>if</code> 则是为了防止这样一种可能，避免重复操作和内存泄露：在外层 <code>if</code> 检测是，<code>pInst</code> 尚为空，但是，待 <code>lock()</code> 执行完毕后，别的线程已经为 <code>pInst</code> 赋值。</li>
+</ul>
+<p>这段代码，乍一看是没有问题的；但仍需小心揣摩。我们看 <code>pInst = new T;</code> 这一行代码，它基本完成了三件事情</p>
+<ul>
+<li>为 <code>T</code> 类型的对象分配内存；</li>
+<li>在这片内存上执行 <code>T</code> 的构造函数；</li>
+<li>将这片内存的起始地址赋值给 <code>pInst</code>。</li>
+</ul>
+<p>由于构造函数的执行和指针的赋值是互不依赖的，所以 CPU 可能会交换这两个步骤的顺序。因此，在线程执行的过程中，可能存在这样一种情况：<strong><code>nullptr != pInst</code>，但是它指向的对象尚未构造成功</strong>。于是，如果在这一时刻，当前线程被中断，并且其它线程调用 <code>GetInstance</code> 函数，那么函数在外层 <code>if</code> 执行之后，会直接返回 <code>pInst</code> 的值。而此时 <code>pInst</code> 实际上指向的是一片尚未初始化的内存。如果线程代码对 <code>pInst</code> 进行访问，那么程序很有可能就会崩溃。</p>
+<p>为了解决这类 CPU 动态调度导致的问题，我们需要有在某些情况下阻止指令换序执行的能力。然而遗憾的是，由于动态调度是 CPU 的功能，所以在高级语言的层次，我们没有通用的解决办法——只能依赖具体的 CPU 架构，对代码进行调整。对于 i386 架构的 CPU 来说，它提供了一条指令 <code>mfence</code>（memory fence 的缩写），可以阻止这种换序执行。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> barrier() __asm__ volatile(<span class="meta-string">"mfence"</span>)</span></span><br><span class="line"><span class="keyword">volatile</span> T* pInst = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="function">T* <span class="title">GetInstance</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">        lock();</span><br><span class="line">        <span class="keyword">if</span> (<span class="literal">nullptr</span> == pInst) &#123;</span><br><span class="line">            T* temp = <span class="keyword">new</span> T;</span><br><span class="line">            barrier();</span><br><span class="line">            pInst   = temp;</span><br><span class="line">        &#125;</span><br><span class="line">        unlock();</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> pInst;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在这里，我们用 <code>barrier()</code> 保证了在 <code>pInst</code> 被赋值之前，相关内存区域已经正确地初始化了。</p>
+<hr>
+<p>可见，线程安全是个烫手山芋。为了写出线程安全的程序，程序员们都需要好好学习一个。</p>
+
+      
+    </div>
+
+    
+
+    
+    
+    
+
+    
+
+    
+      
+    
+    
+      <div>
+        <div style="padding: 10px 0; margin: 20px auto; width: 90%; text-align: center;">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="rewardButton" disable="enable" onclick="var qr = document.getElementById('QR'); if (qr.style.display === 'none') {qr.style.display='block';} else {qr.style.display='none'}">
+    <span>打赏</span>
+  </button>
+  <div id="QR" style="display: none;">
+
+    
+      <div id="wechat" style="display: inline-block">
+        <img id="wechat_qr" src="/images/reward/wechatpay.jpg" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+    
+
+    
+      <div id="alipay" style="display: inline-block">
+        <img id="alipay_qr" src="/images/reward/alipay.jpg" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+    
+
+    
+
+  </div>
+</div>
+
+      </div>
+    
+
+    
+      <div>
+        
+
+
+
+  
+
+
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    
+    <a href="https://liam.page/2017/01/17/layers-and-operation-system/" title="程序员的自我修养（二）：操作系统、进程与线程">https://liam.page/2017/01/17/layers-and-operation-system/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+    
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Linux/" rel="tag"># Linux</a>
+          
+            <a href="/tags/Architecture/" rel="tag"># Architecture</a>
+          
+            <a href="/tags/Process/" rel="tag"># Process</a>
+          
+            <a href="/tags/Thread/" rel="tag"># Thread</a>
+          
+            <a href="/tags/Operation-System/" rel="tag"># Operation System</a>
+          
+            <a href="/tags/Thread-Safe/" rel="tag"># Thread Safe</a>
+          
+        </div>
+      
+
+      
+      
+        <div class="post-widgets">
+        
+
+        
+
+        
+          
+          <div class="social_share">
+            
+            
+               <div id="needsharebutton-postbottom">
+                 <span class="btn">
+                    <i class="fa fa-share-alt" aria-hidden="true"></i>
+                 </span>
+               </div>
+            
+          </div>
+        
+        </div>
+      
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/2017/01/10/Times-New-Roman-and-LaTeX/" rel="next" title="Times New Roman 与 LaTeX">
+                <i class="fa fa-chevron-left"></i> Times New Roman 与 LaTeX
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/2017/01/17/fork-safe/" rel="prev" title="程序员的自我修养（三）：fork() 安全">
+                程序员的自我修养（三）：fork() 安全 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+
+  </div>
+
+
+          </div>
+          
+
+  
+    <div id="gitalk-container">
+    </div>
+    
+  
+
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+          <div class="site-author motion-element" itemprop="author" itemscope="" itemtype="http://schema.org/Person">
+            
+              <img class="site-author-image" itemprop="image" src="/images/avatar/avatar-2.jpg" alt="Liam Huang">
+            
+              <p class="site-author-name" itemprop="name">Liam Huang</p>
+              <p class="site-description motion-element" itemprop="description">不忘初心，方得始终。</p>
+          </div>
+
+          
+            <nav class="site-state motion-element">
+              
+                <div class="site-state-item site-state-posts">
+                
+                  <a href="/archives/">
+                
+                    <span class="site-state-item-count">268</span>
+                    <span class="site-state-item-name">日志</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-categories">
+                  <a href="/categories/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">9</span>
+                    <span class="site-state-item-name">分类</span>
+                  </a>
+                </div>
+              
+
+              
+                
+                
+                <div class="site-state-item site-state-tags">
+                  <a href="/tags/index.html">
+                    
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                      
+                    
+                    <span class="site-state-item-count">549</span>
+                    <span class="site-state-item-name">标签</span>
+                  </a>
+                </div>
+              
+            </nav>
+          
+
+          
+            <div class="feed-link motion-element">
+              <a href="/atom.xml" rel="alternate">
+                <i class="fa fa-rss"></i>
+                RSS
+              </a>
+            </div>
+          
+
+          
+
+          
+             <div class="cc-license motion-element" itemprop="license">
+              
+                
+              
+              
+              
+              <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+             </div>
+          
+
+          
+          
+            <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+              <div class="links-of-blogroll-title">
+                <i class="fa  fa-fw fa-link"></i>
+                友情链接
+              </div>
+              <ul class="links-of-blogroll-list">
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://chengjin.li" title="http://chengjin.li" rel="noopener" target="_blank">Chengjin</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://ionizing.science/" title="https://ionizing.science/" rel="noopener" target="_blank">ChenLinjie</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+                  </li>
+                
+                  <li class="links-of-blogroll-item">
+                    <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+                  </li>
+                
+              </ul>
+            </div>
+          
+
+          
+            
+          
+          
+
+        </div>
+      </div>
+
+      
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#层次化的好处都有啥？"><span class="nav-number">1.</span> <span class="nav-text">层次化的好处都有啥？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#操作系统都干啥？"><span class="nav-number">2.</span> <span class="nav-text">操作系统都干啥？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#进程和线程"><span class="nav-number">3.</span> <span class="nav-text">进程和线程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux-中的进程与线程"><span class="nav-number">4.</span> <span class="nav-text">Linux 中的进程与线程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#fork-函数"><span class="nav-number">4.1.</span> <span class="nav-text">fork() 函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#exec-函数"><span class="nav-number">4.2.</span> <span class="nav-text">exec 函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#clone-函数"><span class="nav-number">4.3.</span> <span class="nav-text">clone() 函数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程安全浅说"><span class="nav-number">5.</span> <span class="nav-text">线程安全浅说</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#竞争"><span class="nav-number">5.1.</span> <span class="nav-text">竞争</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#原子性"><span class="nav-number">5.2.</span> <span class="nav-text">原子性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#同步与锁"><span class="nav-number">5.3.</span> <span class="nav-text">同步与锁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#过度优化对线程安全的破坏"><span class="nav-number">5.4.</span> <span class="nav-text">过度优化对线程安全的破坏</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#编译器优化"><span class="nav-number">5.4.1.</span> <span class="nav-text">编译器优化</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#CPU-动态调度"><span class="nav-number">5.4.2.</span> <span class="nav-text">CPU 动态调度</span></a></li></ol></li></ol></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+      
+        <div class="back-to-top">
+          <i class="fa fa-arrow-up"></i>
+          
+            <span id="scrollpercent"><span>0</span>%</span>
+          
+        </div>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    
+    <span title="站点总字数">1.1m</span>
+  
+
+  
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    
+    <span title="站点阅读时长">32:37</span>
+  
+</div>
+
+
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.8.0</div>
+
+
+
+  <span class="post-meta-divider">|</span>
+
+
+
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Pisces</a> v6.7.0</div>
+
+
+
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+
+  
+
+  
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style="display:none">
+      <i class="fa fa-eye"></i>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+
+    
+
+    
+
+    
+
+    
+  </div>
+
+  
+
+<script>
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <script src="/lib/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+
+  
+
+
+  <script src="/js/src/utils.js?v=6.7.0"></script>
+
+  <script src="/js/src/motion.js?v=6.7.0"></script>
+
+
+
+  
+  
+
+
+  <script src="/js/src/affix.js?v=6.7.0"></script>
+
+  <script src="/js/src/schemes/pisces.js?v=6.7.0"></script>
+
+
+
+  
+  <script src="/js/src/scrollspy.js?v=6.7.0"></script>
+<script src="/js/src/post-details.js?v=6.7.0"></script>
+
+
+
+  
+
+
+  <script src="/js/src/bootstrap.js?v=6.7.0"></script>
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.min.js"></script>
+
+  
+  
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1.4.0/dist/gitalk.css">
+
+  
+  
+  <script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+   <script>
+        var gitalk = new Gitalk({
+          clientID: 'a3d846b3392f468b5746',
+          clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+          repo: 'liam0205.github.io',
+          owner: 'Liam0205',
+          admin: ['Liam0205'],
+          id: md5(location.pathname),
+          distractionFreeMode: 'true',
+          language: ''
+        })
+        gitalk.render('gitalk-container')
+       </script>
+
+
+  
+
+  <script>
+    // Popup Window;
+    var isfetched = false;
+    var isXml = true;
+    // Search DB path;
+    var search_path = "search.xml";
+    if (search_path.length === 0) {
+      search_path = "search.xml";
+    } else if (/json$/i.test(search_path)) {
+      isXml = false;
+    }
+    var path = "/" + search_path;
+    // monitor main search box;
+
+    var onPopupClose = function (e) {
+      $('.popup').hide();
+      $('#local-search-input').val('');
+      $('.search-result-list').remove();
+      $('#no-result').remove();
+      $(".local-search-pop-overlay").remove();
+      $('body').css('overflow', '');
+    }
+
+    function proceedsearch() {
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay"></div>')
+        .css('overflow', 'hidden');
+      $('.search-popup-overlay').click(onPopupClose);
+      $('.popup').toggle();
+      var $localSearchInput = $('#local-search-input');
+      $localSearchInput.attr("autocapitalize", "none");
+      $localSearchInput.attr("autocorrect", "off");
+      $localSearchInput.focus();
+    }
+
+    // search function;
+    var searchFunc = function(path, search_id, content_id) {
+      'use strict';
+
+      // start loading animation
+      $("body")
+        .append('<div class="search-popup-overlay local-search-pop-overlay">' +
+          '<div id="search-loading-icon">' +
+          '<i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>' +
+          '</div>' +
+          '</div>')
+        .css('overflow', 'hidden');
+      $("#search-loading-icon").css('margin', '20% auto 0 auto').css('text-align', 'center');
+
+      
+
+      $.ajax({
+        url: path,
+        dataType: isXml ? "xml" : "json",
+        async: true,
+        success: function(res) {
+          // get the contents from search data
+          isfetched = true;
+          $('.popup').detach().appendTo('.header-inner');
+          var datas = isXml ? $("entry", res).map(function() {
+            return {
+              title: $("title", this).text(),
+              content: $("content",this).text(),
+              url: $("url" , this).text()
+            };
+          }).get() : res;
+          var input = document.getElementById(search_id);
+          var resultContent = document.getElementById(content_id);
+          var inputEventFunction = function() {
+            var searchText = input.value.trim().toLowerCase();
+            var keywords = searchText.split(/[\s\-]+/);
+            if (keywords.length > 1) {
+              keywords.push(searchText);
+            }
+            var resultItems = [];
+            if (searchText.length > 0) {
+              // perform local searching
+              datas.forEach(function(data) {
+                var isMatch = false;
+                var hitCount = 0;
+                var searchTextCount = 0;
+                var title = data.title.trim();
+                var titleInLowerCase = title.toLowerCase();
+                var content = data.content.trim().replace(/<[^>]+>/g,"");
+                
+                var contentInLowerCase = content.toLowerCase();
+                var articleUrl = decodeURIComponent(data.url).replace(/\/{2,}/g, '/');
+                var indexOfTitle = [];
+                var indexOfContent = [];
+                // only match articles with not empty titles
+                if(title != '') {
+                  keywords.forEach(function(keyword) {
+                    function getIndexByWord(word, text, caseSensitive) {
+                      var wordLen = word.length;
+                      if (wordLen === 0) {
+                        return [];
+                      }
+                      var startPosition = 0, position = [], index = [];
+                      if (!caseSensitive) {
+                        text = text.toLowerCase();
+                        word = word.toLowerCase();
+                      }
+                      while ((position = text.indexOf(word, startPosition)) > -1) {
+                        index.push({position: position, word: word});
+                        startPosition = position + wordLen;
+                      }
+                      return index;
+                    }
+
+                    indexOfTitle = indexOfTitle.concat(getIndexByWord(keyword, titleInLowerCase, false));
+                    indexOfContent = indexOfContent.concat(getIndexByWord(keyword, contentInLowerCase, false));
+                  });
+                  if (indexOfTitle.length > 0 || indexOfContent.length > 0) {
+                    isMatch = true;
+                    hitCount = indexOfTitle.length + indexOfContent.length;
+                  }
+                }
+
+                // show search results
+
+                if (isMatch) {
+                  // sort index by position of keyword
+
+                  [indexOfTitle, indexOfContent].forEach(function (index) {
+                    index.sort(function (itemLeft, itemRight) {
+                      if (itemRight.position !== itemLeft.position) {
+                        return itemRight.position - itemLeft.position;
+                      } else {
+                        return itemLeft.word.length - itemRight.word.length;
+                      }
+                    });
+                  });
+
+                  // merge hits into slices
+
+                  function mergeIntoSlice(text, start, end, index) {
+                    var item = index[index.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    var hits = [];
+                    var searchTextCountInSlice = 0;
+                    while (position + word.length <= end && index.length != 0) {
+                      if (word === searchText) {
+                        searchTextCountInSlice++;
+                      }
+                      hits.push({position: position, length: word.length});
+                      var wordEnd = position + word.length;
+
+                      // move to next position of hit
+
+                      index.pop();
+                      while (index.length != 0) {
+                        item = index[index.length - 1];
+                        position = item.position;
+                        word = item.word;
+                        if (wordEnd > position) {
+                          index.pop();
+                        } else {
+                          break;
+                        }
+                      }
+                    }
+                    searchTextCount += searchTextCountInSlice;
+                    return {
+                      hits: hits,
+                      start: start,
+                      end: end,
+                      searchTextCount: searchTextCountInSlice
+                    };
+                  }
+
+                  var slicesOfTitle = [];
+                  if (indexOfTitle.length != 0) {
+                    slicesOfTitle.push(mergeIntoSlice(title, 0, title.length, indexOfTitle));
+                  }
+
+                  var slicesOfContent = [];
+                  while (indexOfContent.length != 0) {
+                    var item = indexOfContent[indexOfContent.length - 1];
+                    var position = item.position;
+                    var word = item.word;
+                    // cut out 100 characters
+                    var start = position - 20;
+                    var end = position + 80;
+                    if(start < 0){
+                      start = 0;
+                    }
+                    if (end < position + word.length) {
+                      end = position + word.length;
+                    }
+                    if(end > content.length){
+                      end = content.length;
+                    }
+                    slicesOfContent.push(mergeIntoSlice(content, start, end, indexOfContent));
+                  }
+
+                  // sort slices in content by search text's count and hits' count
+
+                  slicesOfContent.sort(function (sliceLeft, sliceRight) {
+                    if (sliceLeft.searchTextCount !== sliceRight.searchTextCount) {
+                      return sliceRight.searchTextCount - sliceLeft.searchTextCount;
+                    } else if (sliceLeft.hits.length !== sliceRight.hits.length) {
+                      return sliceRight.hits.length - sliceLeft.hits.length;
+                    } else {
+                      return sliceLeft.start - sliceRight.start;
+                    }
+                  });
+
+                  // select top N slices in content
+
+                  var upperBound = parseInt('1');
+                  if (upperBound >= 0) {
+                    slicesOfContent = slicesOfContent.slice(0, upperBound);
+                  }
+
+                  // highlight title and content
+
+                  function highlightKeyword(text, slice) {
+                    var result = '';
+                    var prevEnd = slice.start;
+                    slice.hits.forEach(function (hit) {
+                      result += text.substring(prevEnd, hit.position);
+                      var end = hit.position + hit.length;
+                      result += '<b class="search-keyword">' + text.substring(hit.position, end) + '</b>';
+                      prevEnd = end;
+                    });
+                    result += text.substring(prevEnd, slice.end);
+                    return result;
+                  }
+
+                  var resultItem = '';
+
+                  if (slicesOfTitle.length != 0) {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + highlightKeyword(title, slicesOfTitle[0]) + "</a>";
+                  } else {
+                    resultItem += "<li><a href='" + articleUrl + "' class='search-result-title'>" + title + "</a>";
+                  }
+
+                  slicesOfContent.forEach(function (slice) {
+                    resultItem += "<a href='" + articleUrl + "'>" +
+                      "<p class=\"search-result\">" + highlightKeyword(content, slice) +
+                      "...</p>" + "</a>";
+                  });
+
+                  resultItem += "</li>";
+                  resultItems.push({
+                    item: resultItem,
+                    searchTextCount: searchTextCount,
+                    hitCount: hitCount,
+                    id: resultItems.length
+                  });
+                }
+              })
+            };
+            if (keywords.length === 1 && keywords[0] === "") {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-search fa-5x"></i></div>'
+            } else if (resultItems.length === 0) {
+              resultContent.innerHTML = '<div id="no-result"><i class="fa fa-frown-o fa-5x"></i></div>'
+            } else {
+              resultItems.sort(function (resultLeft, resultRight) {
+                if (resultLeft.searchTextCount !== resultRight.searchTextCount) {
+                  return resultRight.searchTextCount - resultLeft.searchTextCount;
+                } else if (resultLeft.hitCount !== resultRight.hitCount) {
+                  return resultRight.hitCount - resultLeft.hitCount;
+                } else {
+                  return resultRight.id - resultLeft.id;
+                }
+              });
+              var searchResultList = '<ul class=\"search-result-list\">';
+              resultItems.forEach(function (result) {
+                searchResultList += result.item;
+              })
+              searchResultList += "</ul>";
+              resultContent.innerHTML = searchResultList;
+            }
+          }
+
+          if ('auto' === 'auto') {
+            input.addEventListener('input', inputEventFunction);
+          } else {
+            $('.search-icon').click(inputEventFunction);
+            input.addEventListener('keypress', function (event) {
+              if (event.keyCode === 13) {
+                inputEventFunction();
+              }
+            });
+          }
+
+          // remove loading animation
+          $(".local-search-pop-overlay").remove();
+          $('body').css('overflow', '');
+
+          proceedsearch();
+        }
+      });
+    }
+
+    // handle and trigger popup window;
+    $('.popup-trigger').click(function(e) {
+      e.stopPropagation();
+      if (isfetched === false) {
+        searchFunc(path, 'local-search-input', 'local-search-result');
+      } else {
+        proceedsearch();
+      };
+    });
+
+    $('.popup-btn-close').click(onPopupClose);
+    $('.popup').click(function(e){
+      e.stopPropagation();
+    });
+    $(document).on('keyup', function (event) {
+      var shouldDismissSearchPopup = event.which === 27 &&
+        $('.search-popup').is(':visible');
+      if (shouldDismissSearchPopup) {
+        onPopupClose();
+      }
+    });
+  </script>
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+  
+  
+
+  
+  
+
+  
+
+
+  
+  
+  
+  <script src="/lib/needsharebutton/needsharebutton.js"></script>
+  <script>
+    
+      pbOptions = {};
+      
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,GooglePlus,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+    
+    
+  </script>
+
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+<script type="text/javascript">
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+        document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+        clearTimeout(titleTime);
+    } else {
+        document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+        titleTime = setTimeout(function () {
+            document.title = originalTitle;
+        }, 2000);
+    }
+});
+</script>
+
+
+</body>
+</html>
