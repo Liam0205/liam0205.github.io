@@ -3,7 +3,7 @@
   <entry>
     <title><![CDATA[C++ 中虚函数的声明与定义]]></title>
     <url>%2F2019%2F01%2F13%2Fvirtual-member-function-declaration-and-definition-in-Cxx%2F</url>
-    <content type="text"><![CDATA[多态（Polymorphism）是面向对象程序设计最重要的特性之一。C++ 通过结合虚函数和指针（引用）来实现多态。作为 C++ 用户，你当然知道如何将虚函数和指针（引用）结合起来以实现多态。但在这些概念之间，可能还存在些许模糊地带。例如说，你有思考过下面这个问题吗？ 纯虚函数能有实现吗？ 此篇讨论 C++ 中虚函数的声明与定义。 直接回答问题能！纯虚函数可以有定义，并且有时我们必须给出纯虚函数的定义。不过有一点需要注意：和其它成员函数不同，纯虚函数的定义必须实现在类定义之外。（见下例） 12345678910111213141516171819struct Abstract &#123; virtual void f() = 0; // pure virtual ~Abstract() &#123; // f(); // undefined behavior Abstract::f(); // OK: non-virtual call &#125;&#125;;// definition of the pure virtual functionvoid Abstract::f() &#123; std::cout &lt;&lt; "A::f()\n"; &#125;struct Concrete : Abstract &#123; void f() override &#123; Abstract::f(); // OK: calls pure virtual function &#125; ~Concrete() &#123; f(); // OK: calls Concrete::f() &#125;&#125;; 虚成员函数我们首先来看看关于虚成员函数生命和定义的一些规则。根据 C++ 标准，虚成员函数应在类定义中生命，且必须有定义（实现）。注意，在类定义外实现虚成员函数时，不能再加 virtual 关键字。 12345678910111213struct Foo &#123; virtual void foo() &#123; // declare and define at the same time, inside the class definition. std::cout &lt;&lt; "Foo::foo()" &lt;&lt; std::endl; &#125;&#125;;struct Bar &#123; virtual void bar();&#125;;void Bar::bar() &#123; std::cout &lt;&lt; "Bar::bar()" &lt;&lt; std::endl;&#125; 不过，C++ 标准没有要求必须在编译期对这条规则进行诊断。也就是说，如果没有给出虚成员函数的实现，编译器可能不会报错。不过，链接器可能会提示引用了未定义的符号这样的错误。 纯虚成员函数纯虚函数使类成为「抽象类」。具体来说，我们不能创建抽象类类型的对象，也不能将其作为函数的参数类型、返回类型，也不能作为显式类型转换的目标类型。 因此，我们永远不会有机会调用抽象类中的徐成员函数。另一方面，纯虚函数必然会在派生类中被复写。因此，在大多数情况下，纯虚函数的实现是没什么用处的。也因此，我们可以将一个成员函数声明为纯虚的，但是不给它的定义。 也就是说，对于纯虚函数，我们可以： 在类定义中声明纯虚函数，并且不给实现； 在类定义中声明纯虚函数，并且在类定义之外给出实现。 不过，这里有两处例外： 对于纯虚析构函数，必须提供实现。 派生类中的成员函数可以调用抽象类中的纯虚函数，但必须加上抽象类的限定符（Base::some_pure_virtual_function()）。 再者两种情况下，提供纯虚函数的定义是有意义的——也必须提供。]]></content>
+    <content type="text"><![CDATA[多态（Polymorphism）是面向对象程序设计最重要的特性之一。C++ 通过结合虚函数和指针（引用）来实现多态。作为 C++ 用户，你当然知道如何将虚函数和指针（引用）结合起来以实现多态。但在这些概念之间，可能还存在些许模糊地带。例如说，你有思考过下面这个问题吗？ 纯虚函数能有实现吗？ 此篇讨论 C++ 中虚函数的声明与定义。 直接回答问题能！纯虚函数可以有定义，并且有时我们必须给出纯虚函数的定义。不过有一点需要注意：和其它成员函数不同，纯虚函数的定义必须实现在类定义之外。（见下例） 12345678910111213141516171819struct Abstract &#123; virtual void f() = 0; // pure virtual ~Abstract() &#123; // f(); // undefined behavior Abstract::f(); // OK: non-virtual call &#125;&#125;;// definition of the pure virtual functionvoid Abstract::f() &#123; std::cout &lt;&lt; "A::f()\n"; &#125;struct Concrete : Abstract &#123; void f() override &#123; Abstract::f(); // OK: calls pure virtual function &#125; ~Concrete() &#123; f(); // OK: calls Concrete::f() &#125;&#125;; 虚成员函数我们首先来看看关于虚成员函数生命和定义的一些规则。根据 C++ 标准，虚成员函数应在类定义中生命，且必须有定义（实现）。注意，在类定义外实现虚成员函数时，不能再加 virtual 关键字。 12345678910111213struct Foo &#123; virtual void foo() &#123; // declare and define at the same time, inside the class definition. std::cout &lt;&lt; "Foo::foo()" &lt;&lt; std::endl; &#125;&#125;;struct Bar &#123; virtual void bar();&#125;;void Bar::bar() &#123; std::cout &lt;&lt; "Bar::bar()" &lt;&lt; std::endl;&#125; 不过，C++ 标准没有要求必须在编译期对这条规则进行诊断。也就是说，如果没有给出虚成员函数的实现，编译器可能不会报错。不过，链接器可能会提示引用了未定义的符号这样的错误。 纯虚成员函数纯虚函数使类成为「抽象类」。具体来说，我们不能创建抽象类类型的对象，也不能将其作为函数的参数类型、返回类型，也不能作为显式类型转换的目标类型。 因此，我们永远不会有机会调用抽象类中的徐成员函数。另一方面，纯虚函数必然会在派生类中被复写。因此，在大多数情况下，纯虚函数的实现是没什么用处的。也因此，我们可以将一个成员函数声明为纯虚的，但是不给它的定义。 也就是说，对于纯虚函数，我们可以： 在类定义中声明纯虚函数，并且不给实现； 在类定义中声明纯虚函数，并且在类定义之外给出实现。 不过，这里有两处例外： 对于纯虚析构函数，必须提供实现。 派生类中的成员函数可以调用抽象类中的纯虚函数，但必须加上抽象类的限定符（Base::some_pure_virtual_function()）。 在这两种情况下，提供纯虚函数的定义是有意义的——也必须提供。]]></content>
       <categories>
         <category>Algorithm and Computer Science</category>
       </categories>
@@ -32,8 +32,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Windows 7</tag>
         <tag>Windows</tag>
+        <tag>Windows 7</tag>
         <tag>BAT</tag>
       </tags>
   </entry>
@@ -168,8 +168,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Background</tag>
         <tag>Windows 7</tag>
+        <tag>Background</tag>
         <tag>Login</tag>
       </tags>
   </entry>
@@ -263,8 +263,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Search Engine</tag>
         <tag>Domain Name</tag>
+        <tag>Search Engine</tag>
       </tags>
   </entry>
   <entry>
@@ -435,8 +435,8 @@
       </categories>
       <tags>
         <tag>Input</tag>
-        <tag>TeX</tag>
         <tag>Engine</tag>
+        <tag>TeX</tag>
         <tag>Catcode</tag>
       </tags>
   </entry>
@@ -610,8 +610,8 @@
       </categories>
       <tags>
         <tag>Input</tag>
-        <tag>TeX</tag>
         <tag>Engine</tag>
+        <tag>TeX</tag>
         <tag>Expansion</tag>
         <tag>Execution</tag>
         <tag>Visual</tag>
@@ -877,8 +877,8 @@
       </categories>
       <tags>
         <tag>Hexo</tag>
-        <tag>Search Engine</tag>
         <tag>JavaScript</tag>
+        <tag>Search Engine</tag>
         <tag>jQuery</tag>
         <tag>CSS</tag>
       </tags>
@@ -1092,8 +1092,8 @@
         <tag>Python</tag>
         <tag>Yield</tag>
         <tag>Coroutine</tag>
-        <tag>Iterator</tag>
         <tag>Generator</tag>
+        <tag>Iterator</tag>
       </tags>
   </entry>
   <entry>
@@ -1142,9 +1142,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Vertical</tag>
         <tag>VIM</tag>
         <tag>Split</tag>
+        <tag>Vertical</tag>
         <tag>Horizon</tag>
       </tags>
   </entry>
@@ -1169,8 +1169,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C++11</tag>
         <tag>Cpp</tag>
+        <tag>C++11</tag>
         <tag>Multithread</tag>
       </tags>
   </entry>
@@ -1296,9 +1296,9 @@
       </categories>
       <tags>
         <tag>Python</tag>
+        <tag>Search Engine</tag>
         <tag>PageRank</tag>
         <tag>Ranking</tag>
-        <tag>Search Engine</tag>
       </tags>
   </entry>
   <entry>
@@ -1893,9 +1893,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Python</tag>
-        <tag>Number</tag>
         <tag>Chinese</tag>
+        <tag>Number</tag>
+        <tag>Python</tag>
         <tag>Arabic</tag>
       </tags>
   </entry>
@@ -2162,8 +2162,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Python</tag>
         <tag>List</tag>
+        <tag>Python</tag>
         <tag>List Comprehensions</tag>
       </tags>
   </entry>
@@ -2442,9 +2442,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>Update</tag>
         <tag>Ubuntu</tag>
         <tag>Server</tag>
-        <tag>Update</tag>
         <tag>apt-get</tag>
         <tag>Upgrade</tag>
       </tags>
@@ -2457,10 +2457,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Update</tag>
         <tag>Fake</tag>
         <tag>tlpretest</tag>
         <tag>TeX Live</tag>
+        <tag>Update</tag>
         <tag>Packages</tag>
       </tags>
   </entry>
@@ -2635,9 +2635,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>MacTeX</tag>
-        <tag>Template</tag>
         <tag>Chinese</tag>
+        <tag>Template</tag>
+        <tag>MacTeX</tag>
       </tags>
   </entry>
   <entry>
@@ -2716,10 +2716,10 @@
         <tag>History</tag>
         <tag>Europe</tag>
         <tag>Christianity</tag>
+        <tag>Romantic</tag>
         <tag>God</tag>
         <tag>Reason</tag>
         <tag>Science</tag>
-        <tag>Romantic</tag>
       </tags>
   </entry>
   <entry>
@@ -2810,8 +2810,8 @@
       </categories>
       <tags>
         <tag>PDF</tag>
-        <tag>Bookmarks</tag>
         <tag>CJK</tag>
+        <tag>Bookmarks</tag>
         <tag>Error Codes</tag>
       </tags>
   </entry>
@@ -3083,8 +3083,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Images</tag>
         <tag>Graphicx</tag>
+        <tag>Images</tag>
         <tag>Format</tag>
       </tags>
   </entry>
@@ -3146,8 +3146,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>PyHardWay</tag>
         <tag>Translation</tag>
+        <tag>PyHardWay</tag>
       </tags>
   </entry>
   <entry>
@@ -3198,8 +3198,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Translation</tag>
         <tag>Tutorial</tag>
+        <tag>Translation</tag>
       </tags>
   </entry>
   <entry>
@@ -3365,17 +3365,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】画一条自动延伸到行尾的线]]></title>
-    <url>%2F2013%2F08%2F25%2FLaTeX-RuleTillEnd%2F</url>
-    <content type="text"><![CDATA[LaTeX 向来是不擅长处理动态问题的，而我们的需求显然需要定义一个动态的长度。为了解决这个矛盾，我们可以退而求其次，选择用很短的一小节 rule 拼接在一起填充满整一行，而不是定义一个动态的长度。 示例代码在这里. 理解思路之后，读者还可以定义出许多其他的「动态」，愿诸君都能勤思考。]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>Rule</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[全国大学生数学竞赛论文模板]]></title>
     <url>%2F2013%2F08%2F25%2FLaTeX-xcumcmart%2F</url>
     <content type="text"><![CDATA[本模板根据「2013高教社杯全国大学生数学建模竞赛论文格式规范」中的相关规定制作。供参加全国大学生数学建模竞赛的同学们使用。Liam Huang 制作该模板的目的在于推进竞赛论文格式规范化，推广 LaTeX。 下载：这里 本模板将整篇论文视作「文章」（article），而不是「书」（book）。实现时，以 ctexart 为基类。与 ctexart.cls 的使用基本相同，但必须保存为 UTF8 编码并使用 XeLaTeX 或 pdfLaTeX 编译。具体请参考本文源文件。 为了实现比较好的兼容性，模板仅达到了 2013 高教社杯全国大学生数学建模竞赛论文格式规范 中对竞赛论文的基本要求，而不包括额外的功能，也没有引入其他的宏包，请使用时根据需要自行添加。 模板发行包包括如下文件： declaration.tex —— 承诺书及编号页（必须。如有变动，请修改该文件） readme.pdf —— 本文件 readme.tex —— 本文件源文件 xcumcmart.cls —— 模板文件 模板的最新版本可以在 http://liam0205.me/2013/08/25/LaTeX-xcumcmart/ 下载。有关于模板的任何问题，比如 Bug 提交、功能建议、赞助、宣传推广等，均可与 Liam Huang 联系。 感谢 http://www.shumo.com/ 早先以 CCT 方式制作的竞赛论文模板。 任何个人或团体可以无限制的自由使用本模板。 本模板目前尚未得到全国大学生数学建模竞赛组委会的认可，模板作者对使用该模板所引起的后果不负任何责任。]]></content>
@@ -3384,6 +3373,17 @@
       </categories>
       <tags>
         <tag>XCUMCMART</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[【LaTeX Tips】画一条自动延伸到行尾的线]]></title>
+    <url>%2F2013%2F08%2F25%2FLaTeX-RuleTillEnd%2F</url>
+    <content type="text"><![CDATA[LaTeX 向来是不擅长处理动态问题的，而我们的需求显然需要定义一个动态的长度。为了解决这个矛盾，我们可以退而求其次，选择用很短的一小节 rule 拼接在一起填充满整一行，而不是定义一个动态的长度。 示例代码在这里. 理解思路之后，读者还可以定义出许多其他的「动态」，愿诸君都能勤思考。]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>Rule</tag>
       </tags>
   </entry>
   <entry>
