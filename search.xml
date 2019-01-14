@@ -471,7 +471,7 @@
   <entry>
     <title><![CDATA[在 macOS 上配置 VSCode 与 Skim 的 LaTeX 正反跳转]]></title>
     <url>%2F2018%2F04%2F24%2FWorking-with-VSCode-on-macOS-configuration-LaTeX-workshop-and-Skim%2F</url>
-    <content type="text"><![CDATA[VSCode 是微软主导开发的新一代编辑器。自其开发之初，就与 Sublime Text 以及 GitHub 主导开发的 Atom 对标。几年前，VSCode 中的 LaTeX 支持还很不完善，考虑到我个人对 LaTeX 的强需求，当时没有从 Sublime Text 切换到 VSCode 上。时至今日，VSCode 发展得已经很不错。前些日子，东升在他的新主页上发布了一篇博文，讲解如何在当前的 VSCode 上配置 LaTeX IDE。看过之后，我就心动了，立即配置好来使用。 不过，由于东升不在 macOS 下工作，他的博文中没有提到如何让 VSCode 在 macOS 上与诸如 Skim 的外部 PDF 浏览器配合工作——特别是 LaTeX 的正反跳转。检索互联网之后，也没有完整可用的方法。甚至 LaTeX workshop 官方的说法也是不支持，需要用户自己想办法绕过。故此有这篇文章。 正向搜索正向搜索指的是从 .tex 源文件向编译生成的 PDF 文件的跳转。这部分我们主要需要寻找到合适的方式，在命令行状态打开 Skim 应用。 根据 Skim 官网的介绍，Skim 提供了名为 displayline 的脚本，用于和 TeX 正反同步协同工作。其脚本位于 1/Applications/Skim.app/Contents/SharedSupport/displayline 具体用法则是 1/Applications/Skim.app/Contents/SharedSupport/displayline %line &quot;%pdffile&quot; &quot;%texfile&quot; 此处 %line 表示 .tex 文件的行号，%pdffile 表示编译生成的 PDF 文件的完整路径，%texfile 则是对应的 .tex 源文件。考虑到我们对反向搜索也有需求，按照官方文档，我们还需要加上 -r 参数。 因此，在 VSCode 的配置里，我们需要给出这样的 JSON 配置。 12345678910"latex-workshop.view.pdf.viewer": "external","latex-workshop.view.pdf.external.synctex": &#123; "command": "/Applications/Skim.app/Contents/SharedSupport/displayline", "args": [ "-r", "%LINE%", "%PDF%", "%TEX%" ]&#125;, LaTeX workshop 插件的配置中，除了 latex-workshop.view.pdf.external.synctex，还有一项也和打开外部 PDF 浏览器有关。它是 latex-workshop.view.pdf.external.command，表示简单地打开 PDF 文件，而忽略正向搜索功能。Skim 提供的命令行脚本默认不支持这样的操作，我们需要根据 displayline 脚本自行修改。 displayline 脚本调用了 Apple Script 来实现与 Skim.app 的交互，此处我们照葫芦画瓢，模拟一个即可。我们可以将如下脚本保存为 displayfile 并以 chmod u+x displayfile 使其变为可执行脚本，而后将其放在环境变量 PATH 包含的目录中。 你可以在终端（Terminal.app）中执行 echo ${PATH} 来查看你的环境变量。通常，命令会返回以冒号 : 分隔的若干个目录。你可以从中选择一个合适的目录，或者干脆只是你喜欢的目录，保存这个文件。 1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950#!/bin/bash# displayfile (Skim)## Usage: displayfile [-r] [-g] PDFFILE## Modified from "displayline" to only revert the file, not jump to a given line#if [ $# == 0 -o "$1" == "-h" -o "$1" == "-help" ]; then echo "Usage: displayfile [-r] [-g] PDFFILEOptions:-r, -revert Revert the file from disk if it was open-g, -background Do not bring Skim to the foreground" exit 0fi# get argumentsrevert=falseactivate=truewhile [ "$&#123;1:0:1&#125;" == "-" ]; do if [ "$1" == "-r" -o "$1" == "-revert" ]; then revert=true elif [ "$1" == "-g" -o "$1" == "-background" ]; then activate=false fi shiftdonefile="$1"#shopt -s extglob#[ $# -gt 2 ] &amp;&amp; source="$3" || source="$&#123;file%.@(pdf|dvi|xdv)&#125;.tex"# expand relative paths[ "$&#123;file:0:1&#125;" == "/" ] || file="$&#123;PWD&#125;/$&#123;file&#125;"# pass file arguments as NULL-separated string to osascript# pass through cat to get them as raw bytes to preserve non-ASCII characters/usr/bin/osascript \ -e "set theFile to POSIX file \"$file\"" \ -e "set thePath to POSIX path of (theFile as alias)" \ -e "tell application \"Skim\"" \ -e " if $activate then activate" \ -e " if $revert then" \ -e " try" \ -e " set theDocs to get documents whose path is thePath" \ -e " if (count of theDocs) &gt; 0 then revert theDocs" \ -e " end try" \ -e " end if" \ -e " open theFile" \ -e "end tell" 至此，我们需要更新 VSCode 的配置。 1234567"latex-workshop.view.pdf.external.command": &#123; "command": "displayfile", "args": [ "-r", "%PDF%" ]&#125;, 反向搜索再反向搜索中，我们需要让 Skim 能够打开 VSCode，并将文件名和相应的行号正确地传给 VSCode。根据 Skim 官网的介绍，它只会从 /usr/bin 和 /usr/local/bin 中检索可执行程序。为此，我们需要将 VSCode 的可执行程序软链到这两个目录中的一个当中。 1ln -sf /Applications/Visual\ Studio\ Code.app/Contents/MacOS/Electron /usr/local/bin/vscode 至此，我们在命令行中执行 vscode -g &quot;%file&quot;:%line 即可打开 %file 文件并定位到第 %line 行。于是，我们只需要在 Skim 的同步配置中将预设改为「自定义」，并将命令和参数分别设置如下： Command: vscode Arguments: -g &quot;%file&quot;:%line 如此即完成了配置。]]></content>
+    <content type="text"><![CDATA[VSCode 是微软主导开发的新一代编辑器。自其开发之初，就与 Sublime Text 以及 GitHub 主导开发的 Atom 对标。几年前，VSCode 中的 LaTeX 支持还很不完善，考虑到我个人对 LaTeX 的强需求，当时没有从 Sublime Text 切换到 VSCode 上。时至今日，VSCode 发展得已经很不错。前些日子，东升在他的新主页上发布了一篇博文，讲解如何在当前的 VSCode 上配置 LaTeX IDE。看过之后，我就心动了，立即配置好来使用。 不过，由于东升不在 macOS 下工作，他的博文中没有提到如何让 VSCode 在 macOS 上与诸如 Skim 的外部 PDF 浏览器配合工作——特别是 LaTeX 的正反跳转。检索互联网之后，也没有完整可用的方法。甚至 LaTeX workshop 官方的说法也是不支持，需要用户自己想办法绕过。故此有这篇文章。 正向搜索正向搜索指的是从 .tex 源文件向编译生成的 PDF 文件的跳转。这部分我们主要需要寻找到合适的方式，在命令行状态打开 Skim 应用。 根据 Skim 官网的介绍，Skim 提供了名为 displayline 的脚本，用于和 TeX 正反同步协同工作。其脚本位于 1/Applications/Skim.app/Contents/SharedSupport/displayline 具体用法则是 1/Applications/Skim.app/Contents/SharedSupport/displayline %line "%pdffile" "%texfile" 此处 %line 表示 .tex 文件的行号，%pdffile 表示编译生成的 PDF 文件的完整路径，%texfile 则是对应的 .tex 源文件。考虑到我们对反向搜索也有需求，按照官方文档，我们还需要加上 -r 参数。 因此，在 VSCode 的配置里，我们需要给出这样的 JSON 配置。 12345678910"latex-workshop.view.pdf.viewer": "external","latex-workshop.view.pdf.external.synctex": &#123; "command": "/Applications/Skim.app/Contents/SharedSupport/displayline", "args": [ "-r", "%LINE%", "%PDF%", "%TEX%" ]&#125;, LaTeX workshop 插件的配置中，除了 latex-workshop.view.pdf.external.synctex，还有一项也和打开外部 PDF 浏览器有关。它是 latex-workshop.view.pdf.external.command，表示简单地打开 PDF 文件，而忽略正向搜索功能。Skim 提供的命令行脚本默认不支持这样的操作，我们需要根据 displayline 脚本自行修改。 displayline 脚本调用了 Apple Script 来实现与 Skim.app 的交互，此处我们照葫芦画瓢，模拟一个即可。我们可以将如下脚本保存为 displayfile 并以 chmod u+x displayfile 使其变为可执行脚本，而后将其放在环境变量 PATH 包含的目录中。 你可以在终端（Terminal.app）中执行 echo ${PATH} 来查看你的环境变量。通常，命令会返回以冒号 : 分隔的若干个目录。你可以从中选择一个合适的目录，或者干脆只是你喜欢的目录，保存这个文件。 1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950#!/bin/bash# displayfile (Skim)## Usage: displayfile [-r] [-g] PDFFILE## Modified from "displayline" to only revert the file, not jump to a given line#if [ $# == 0 -o "$1" == "-h" -o "$1" == "-help" ]; then echo "Usage: displayfile [-r] [-g] PDFFILEOptions:-r, -revert Revert the file from disk if it was open-g, -background Do not bring Skim to the foreground" exit 0fi# get argumentsrevert=falseactivate=truewhile [ "$&#123;1:0:1&#125;" == "-" ]; do if [ "$1" == "-r" -o "$1" == "-revert" ]; then revert=true elif [ "$1" == "-g" -o "$1" == "-background" ]; then activate=false fi shiftdonefile="$1"#shopt -s extglob#[ $# -gt 2 ] &amp;&amp; source="$3" || source="$&#123;file%.@(pdf|dvi|xdv)&#125;.tex"# expand relative paths[ "$&#123;file:0:1&#125;" == "/" ] || file="$&#123;PWD&#125;/$&#123;file&#125;"# pass file arguments as NULL-separated string to osascript# pass through cat to get them as raw bytes to preserve non-ASCII characters/usr/bin/osascript \ -e "set theFile to POSIX file \"$file\"" \ -e "set thePath to POSIX path of (theFile as alias)" \ -e "tell application \"Skim\"" \ -e " if $activate then activate" \ -e " if $revert then" \ -e " try" \ -e " set theDocs to get documents whose path is thePath" \ -e " if (count of theDocs) &gt; 0 then revert theDocs" \ -e " end try" \ -e " end if" \ -e " open theFile" \ -e "end tell" 至此，我们需要更新 VSCode 的配置。 1234567"latex-workshop.view.pdf.external.command": &#123; "command": "displayfile", "args": [ "-r", "%PDF%" ]&#125;, 反向搜索再反向搜索中，我们需要让 Skim 能够打开 VSCode，并将文件名和相应的行号正确地传给 VSCode。根据 Skim 官网的介绍，它只会从 /usr/bin 和 /usr/local/bin 中检索可执行程序。为此，我们需要将 VSCode 的可执行程序软链到这两个目录中的一个当中。 1ln -sf /Applications/Visual\ Studio\ Code.app/Contents/MacOS/Electron /usr/local/bin/vscode 至此，我们在命令行中执行 vscode -g &quot;%file&quot;:%line 即可打开 %file 文件并定位到第 %line 行。于是，我们只需要在 Skim 的同步配置中将预设改为「自定义」，并将命令和参数分别设置如下： Command: vscode Arguments: -g &quot;%file&quot;:%line 如此即完成了配置。]]></content>
       <categories>
         <category>LaTeX</category>
       </categories>
@@ -650,8 +650,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C</tag>
         <tag>C++</tag>
+        <tag>C</tag>
         <tag>volatile</tag>
       </tags>
   </entry>
@@ -704,8 +704,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Floats</tag>
         <tag>Caption</tag>
+        <tag>Floats</tag>
         <tag>Subcaption</tag>
       </tags>
   </entry>
@@ -718,8 +718,8 @@
       </categories>
       <tags>
         <tag>Macro</tag>
-        <tag>C</tag>
         <tag>C++</tag>
+        <tag>C</tag>
         <tag>offsetof</tag>
       </tags>
   </entry>
@@ -769,8 +769,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>String</tag>
         <tag>Cpp</tag>
+        <tag>String</tag>
         <tag>Starts With</tag>
         <tag>Ends With</tag>
       </tags>
@@ -850,8 +850,8 @@
       </categories>
       <tags>
         <tag>Section</tag>
-        <tag>Bibliography</tag>
         <tag>Numbering</tag>
+        <tag>Bibliography</tag>
       </tags>
   </entry>
   <entry>
@@ -876,8 +876,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Search Engine</tag>
         <tag>Hexo</tag>
+        <tag>Search Engine</tag>
         <tag>JavaScript</tag>
         <tag>jQuery</tag>
         <tag>CSS</tag>
@@ -1092,8 +1092,8 @@
         <tag>Python</tag>
         <tag>Yield</tag>
         <tag>Coroutine</tag>
-        <tag>Iterator</tag>
         <tag>Generator</tag>
+        <tag>Iterator</tag>
       </tags>
   </entry>
   <entry>
@@ -1219,8 +1219,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Floats</tag>
         <tag>Algorithm</tag>
+        <tag>Floats</tag>
         <tag>Positioning</tag>
       </tags>
   </entry>
@@ -1232,8 +1232,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>HTTPS</tag>
         <tag>Share</tag>
+        <tag>HTTPS</tag>
         <tag>Plugin</tag>
       </tags>
   </entry>
@@ -1424,8 +1424,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C</tag>
         <tag>Cpp</tag>
+        <tag>C</tag>
         <tag>Pointer</tag>
       </tags>
   </entry>
@@ -1487,15 +1487,15 @@
   <entry>
     <title><![CDATA[为阿拉伯数字和小写字母实现类似 \mathbb 的效果]]></title>
     <url>%2F2017%2F01%2F08%2Farabic-numbers-or-lowercase-letters-in-blackboard-bold-doublestroke-font%2F</url>
-    <content type="text"><![CDATA[在 LaTeX 中，我们可以用 \mathbb{R} 输出表示实数集合的字母 $\mathbb{R}$。这一命令来自 amsfonts 宏包。那么如果我们希望输出类似效果的阿拉伯数字或者小写字母，应该怎么办呢？ amsfonts 中的 \mathbb 命令翻看 amsfonts 说明书（texdoc amsfonts），我们可以在其中第 3.3 节找到这样的描述： The amsfonts package defines a “math alphabet” command \mathbb for printing letters of the blackboard bold alphabet that resides in the msbm font. This alphabet is restricted to uppercase only (no lowercase, no numerals). The suggested method for defining a \R command to print a blackboard bold $\mathbb R$ is as follows:12\usepackage&#123;amsfonts&#125;\newcommand&#123;\R&#125;&#123;\mathbb&#123;R&#125;&#125; 首先，我们知道了 \mathbb 样式字体的正式名称：blackboard bold，即黑板粗体。其次，我们知道了，定义在 amsfonts 宏包中的 \mathbb 命令只支持大写字母，不支持小写字母或者阿拉伯数字。 因此，如果你在 LaTeX 中输入 \mathbb{1}，虽然不会有任何报错提示，但是输出的字符是错误的（如下）。 bbm 字体既然 AMS 系的宏包不支持，那么我们就只能另辟蹊径了。实际上，我们只需要找到含有正确小写字母和阿拉伯数字的黑板粗体字体就可以了。索性，在 TeX Live 中有 bbm 系列字体，它提供了更完整的黑板粗体字符。不过，对于阿拉伯数字的支持，也只有数字 1 和 2。使用起来很简单 1234567\documentclass&#123;article&#125;\usepackage&#123;bbm&#125;\begin&#123;document&#125;\[ \mathbbm&#123;1234567890&#125;\mathbbm&#123;abcdefghijklmnopqrstuvwxyz&#125;\]\end&#123;document&#125;]]></content>
+    <content type="text"><![CDATA[在 LaTeX 中，我们可以用 \mathbb{R} 输出表示实数集合的字母 $\mathbb{R}$。这一命令来自 amsfonts 宏包。那么如果我们希望输出类似效果的阿拉伯数字或者小写字母，应该怎么办呢？ amsfonts 中的 \mathbb 命令翻看 amsfonts 说明书（texdoc amsfonts），我们可以在其中第 3.3 节找到这样的描述： The amsfonts package defines a “math alphabet” command \mathbb for printing letters of the blackboard bold alphabet that resides in the msbm font. This alphabet is restricted to uppercase only (no lowercase, no numerals). The suggested method for defining a \R command to print a blackboard bold $\mathbb R$ is as follows: 12\usepackage&#123;amsfonts&#125;\newcommand&#123;\R&#125;&#123;\mathbb&#123;R&#125;&#125; 首先，我们知道了 \mathbb 样式字体的正式名称：blackboard bold，即黑板粗体。其次，我们知道了，定义在 amsfonts 宏包中的 \mathbb 命令只支持大写字母，不支持小写字母或者阿拉伯数字。 因此，如果你在 LaTeX 中输入 \mathbb{1}，虽然不会有任何报错提示，但是输出的字符是错误的（如下）。 bbm 字体既然 AMS 系的宏包不支持，那么我们就只能另辟蹊径了。实际上，我们只需要找到含有正确小写字母和阿拉伯数字的黑板粗体字体就可以了。索性，在 TeX Live 中有 bbm 系列字体，它提供了更完整的黑板粗体字符。不过，对于阿拉伯数字的支持，也只有数字 1 和 2。使用起来很简单 1234567\documentclass&#123;article&#125;\usepackage&#123;bbm&#125;\begin&#123;document&#125;\[ \mathbbm&#123;1234567890&#125;\mathbbm&#123;abcdefghijklmnopqrstuvwxyz&#125;\]\end&#123;document&#125;]]></content>
       <categories>
         <category>LaTeX</category>
       </categories>
       <tags>
+        <tag>Font</tag>
         <tag>mathbb</tag>
         <tag>Blackboard Bold</tag>
         <tag>Doublestroke</tag>
-        <tag>Font</tag>
       </tags>
   </entry>
   <entry>
@@ -1663,9 +1663,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>String</tag>
         <tag>Shell</tag>
         <tag>Variable</tag>
+        <tag>String</tag>
       </tags>
   </entry>
   <entry>
@@ -1783,14 +1783,14 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>random</tag>
         <tag>Cheatsheet</tag>
+        <tag>random</tag>
       </tags>
   </entry>
   <entry>
     <title><![CDATA[保存和恢复 Tmux 会话]]></title>
     <url>%2F2016%2F09%2F10%2Ftmux-plugin-resurrect%2F</url>
-    <content type="text"><![CDATA[Tmux 是一个强大的终端复用软件，我们可以轻易地为它列举出一堆好处。 支持多标签； 支持窗口内部进行面板的划分； 支持多个终端同时 attach 同一个 Tmux 会话。 如果要为 Tmux 说一个缺点，那可能就是 Tmux 会话无法在系统重启之后比较容易地恢复。这个问题在常年开机的服务器上，可能问题不明显，但是在我们自己的计算机上，或者服务器因为某些原因需要重启，那之前的 Tmux 会话就都丢失了。 为了解决这个问题，我们需要用到 Tmux 的插件系统，并安装名为 tmux-resurrect 的插件。 Tmux Plugin Manager和大多数支持插件的软件（系统）一样，Tmux 也有一个插件管理系统，名字就叫做 Tmux Plugin Manager。首先，我们需要安装并学习如何使用这个管理器。 下载和安装Tmux Plugin Manager 的程式码托管在 GitHub 上，它的专案地址是：https://github.com/tmux-plugins/tpm。首先，我们需要将 Tmux Plugin Manager 的程式码克隆到本地。 1git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm 而后，我们需要在 Tmux 的配置文件底部加上这么几行： 1234567891011# List of pluginsset -g @plugin &apos;tmux-plugins/tpm&apos;set -g @plugin &apos;tmux-plugins/tmux-sensible&apos;# Other examples:# set -g @plugin &apos;github_username/plugin_name&apos;# set -g @plugin &apos;git@github.com/user/plugin&apos;# set -g @plugin &apos;git@bitbucket.com/user/plugin&apos;# Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)run &apos;~/.tmux/plugins/tpm/tpm&apos; 注意，最后的 run &#39;~/.tmux/plugins/tpm/tpm&#39; 一定要放在整个 ~/.tmux.conf 的最后一行。 如果你尚未启动 Tmux，那么现在就可以执行 tmux new -s foobar 打开一个新的窗口了。如果你已经启动了 Tmux，那么需要在 Tmux 环境里重新加载配置文件： 1tmux source ~/.tmux.conf 初始化注意到，在默认的配置中，我们已经添加了两个插件：tpm 和 tmux-sensible。这里 tpm 是 Tmux Plugin Manager 本身，自不必说；tmux-sensible 则是插件管理器官方推荐的必装插件——当然你可以选择不装，不过我们这里就不标新立异了。 然而，tpm 本身是已经通过 git clone 命令下载到本地了，tmux-sensible 却没有。所以，我们这里需要通过 prefix shift-i 来安装它。prefix shift-i 中，i 是 install 的缩写。执行它会根据配置文件中的插件列表，安装所有插件。 如果你的环境里命令执行正常，那么 Tmux 会提示： 1234567Already installed &quot;tpm&quot;Installing &quot;tmux-sensible&quot; &quot;tmux-sensible&quot; download successTMUX environment reloaded.Done, press ESCAPE to continue. 这样，插件管理器就算是初始化成功了。 安装、升级和反安装插件在 Tmux Plugin Manager 中安装、升级和反安装插件都很简单，他们的 Tmux 快捷键分别是： 123prefix shift-i # installprefix shift-u # updateprefix alt-u # uninstall plugins not on the plugin list tmux-resurrect和 Tmux Plugin Manager 一样，tmux-resurrect 的程式码也托管在 GitHub 上，专案地址是：https://github.com/tmux-plugins/tmux-resurrect。 安装有了插件管理器，安装插件就变得很简单了。 首先，我们需要修改 ~/.tmux.conf 文件，在插件列表中加上： 1set -g @plugin &apos;tmux-plugins/tmux-resurrect&apos; 这样，在执行 prefix shift-i 的时候，Tmux Plugin Manager 就会到 GitHub 上的相应位置寻找相应专案并下载安装。 配置同样是打开配置文件，插件配置中加上： 123456# tmux-resurrectset -g @resurrect-save-bash-history &apos;on&apos;set -g @resurrect-capture-pane-contents &apos;on&apos;set -g @resurrect-strategy-vim &apos;session&apos;# set -g @resurrect-save &apos;S&apos;# set -g @resurrect-restore &apos;R&apos; 这样，tmux-resurrect 就会保存键入的命令历史、Tmux 的面板布局还有 Vim 的状态了。 保存和加载至此，tmux-resurrect 已经配置好，可以保存和加载 Tmux 会话的状态了，快捷键是： 12prefix Ctrl-s # save tmux session to local fileprefix Ctrl-r # reload tmux session from local file 这样，只要养成定期 prefix Ctrl-s 的好习惯，我们就不怕 Tmux 会话状态丢失了！]]></content>
+    <content type="text"><![CDATA[Tmux 是一个强大的终端复用软件，我们可以轻易地为它列举出一堆好处。 支持多标签； 支持窗口内部进行面板的划分； 支持多个终端同时 attach 同一个 Tmux 会话。 如果要为 Tmux 说一个缺点，那可能就是 Tmux 会话无法在系统重启之后比较容易地恢复。这个问题在常年开机的服务器上，可能问题不明显，但是在我们自己的计算机上，或者服务器因为某些原因需要重启，那之前的 Tmux 会话就都丢失了。 为了解决这个问题，我们需要用到 Tmux 的插件系统，并安装名为 tmux-resurrect 的插件。 Tmux Plugin Manager和大多数支持插件的软件（系统）一样，Tmux 也有一个插件管理系统，名字就叫做 Tmux Plugin Manager。首先，我们需要安装并学习如何使用这个管理器。 下载和安装Tmux Plugin Manager 的程式码托管在 GitHub 上，它的专案地址是：https://github.com/tmux-plugins/tpm。首先，我们需要将 Tmux Plugin Manager 的程式码克隆到本地。 1git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm 而后，我们需要在 Tmux 的配置文件底部加上这么几行： 1234567891011# List of pluginsset -g @plugin &apos;tmux-plugins/tpm&apos;set -g @plugin &apos;tmux-plugins/tmux-sensible&apos;# Other examples:# set -g @plugin &apos;github_username/plugin_name&apos;# set -g @plugin &apos;git@github.com/user/plugin&apos;# set -g @plugin &apos;git@bitbucket.com/user/plugin&apos;# Initialize TMUX plugin manager (keep this line at the very bottom of tmux.conf)run &apos;~/.tmux/plugins/tpm/tpm&apos; 注意，最后的 run &#39;~/.tmux/plugins/tpm/tpm&#39; 一定要放在整个 ~/.tmux.conf 的最后一行。 如果你尚未启动 Tmux，那么现在就可以执行 tmux new -s foobar 打开一个新的窗口了。如果你已经启动了 Tmux，那么需要在 Tmux 环境里重新加载配置文件： 1tmux source ~/.tmux.conf 初始化注意到，在默认的配置中，我们已经添加了两个插件：tpm 和 tmux-sensible。这里 tpm 是 Tmux Plugin Manager 本身，自不必说；tmux-sensible 则是插件管理器官方推荐的必装插件——当然你可以选择不装，不过我们这里就不标新立异了。 然而，tpm 本身是已经通过 git clone 命令下载到本地了，tmux-sensible 却没有。所以，我们这里需要通过 prefix shift-i 来安装它。prefix shift-i 中，i 是 install 的缩写。执行它会根据配置文件中的插件列表，安装所有插件。 如果你的环境里命令执行正常，那么 Tmux 会提示： 1234567Already installed &quot;tpm&quot;Installing &quot;tmux-sensible&quot; &quot;tmux-sensible&quot; download successTMUX environment reloaded.Done, press ESCAPE to continue. 这样，插件管理器就算是初始化成功了。 安装、升级和反安装插件在 Tmux Plugin Manager 中安装、升级和反安装插件都很简单，他们的 Tmux 快捷键分别是： 123prefix shift-i # installprefix shift-u # updateprefix alt-u # uninstall plugins not on the plugin list tmux-resurrect和 Tmux Plugin Manager 一样，tmux-resurrect 的程式码也托管在 GitHub 上，专案地址是：https://github.com/tmux-plugins/tmux-resurrect。 安装有了插件管理器，安装插件就变得很简单了。 首先，我们需要修改 ~/.tmux.conf 文件，在插件列表中加上： 1set -g @plugin &apos;tmux-plugins/tmux-resurrect&apos; 这样，在执行 prefix shift-i 的时候，Tmux Plugin Manager 就会到 GitHub 上的相应位置寻找相应专案并下载安装。 配置同样是打开配置文件，插件配置中加上： 123456# tmux-resurrectset -g @resurrect-save-bash-history 'on'set -g @resurrect-capture-pane-contents 'on'set -g @resurrect-strategy-vim 'session'# set -g @resurrect-save 'S'# set -g @resurrect-restore 'R' 这样，tmux-resurrect 就会保存键入的命令历史、Tmux 的面板布局还有 Vim 的状态了。 保存和加载至此，tmux-resurrect 已经配置好，可以保存和加载 Tmux 会话的状态了，快捷键是： 12prefix Ctrl-s # save tmux session to local fileprefix Ctrl-r # reload tmux session from local file 这样，只要养成定期 prefix Ctrl-s 的好习惯，我们就不怕 Tmux 会话状态丢失了！]]></content>
       <categories>
         <category>Computer Skills</category>
       </categories>
@@ -1894,8 +1894,8 @@
       </categories>
       <tags>
         <tag>Chinese</tag>
-        <tag>Number</tag>
         <tag>Python</tag>
+        <tag>Number</tag>
         <tag>Arabic</tag>
       </tags>
   </entry>
@@ -1932,9 +1932,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Search Engine</tag>
         <tag>LambdaMART</tag>
         <tag>NDCG</tag>
+        <tag>Search Engine</tag>
         <tag>Machine Learning</tag>
         <tag>Learning to Rank</tag>
         <tag>MART</tag>
@@ -1961,8 +1961,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Crontab</tag>
         <tag>Find</tag>
+        <tag>Crontab</tag>
       </tags>
   </entry>
   <entry>
@@ -1994,7 +1994,7 @@
   <entry>
     <title><![CDATA[初识 Docker]]></title>
     <url>%2F2016%2F05%2F29%2Fsay-hi-to-docker%2F</url>
-    <content type="text"><![CDATA[本文部分译自 Benjamin Cane 的博文。 Docker 是目前风靡全球的虚拟化技术。然而在两年前，Docker 还仅仅是设计者脑海中的概念而已。 本篇将介绍 Docker 的一些基本情况，以及基本操作。顺带着，我们将能见识到 Docker 一些有趣的特性。 容器技术与虚拟机同样作为操作系统虚拟化的方法，容器并不如虚拟机那样出名。它们有相似之处，但也有一些差别。 由于 Hypervisor 向虚拟机提供了虚拟化的硬件，虚拟机可以包含一整个操作系统、系统软件包，以及一些应用程序。因此，在一个宿主机上，可以运行许多独立的客户机。运行在同一宿主机上的虚拟机，提供完整的操作系统环境，共享宿主机上的同一套物理资源。 与之对应，容器技术使得单一的宿主机能够运行多种操作系统环境。在这一点上，容器技术和虚拟机很相似。只不过，容器技术提供的虚拟环境，并不是完整的操作系统。一般来说，容器技术只包含了必要的系统软件包以及应用程序，而不包含整个操作系统或是虚拟化的硬件。因此，容器技术比传统的虚拟机技术占用资源少。容器技术将同一宿主机上的进程相互隔离，互不影响。事实上，与其拿来与虚拟机相较，不如说容器技术与 BSD Jails 以及 chroot 更相似。 Docker 究竟做了什么？Docker 其实是个很难定位的技术，我们很难说清 Docker 究竟算不算是容器技术，但它的一些特性又让人无法否认这一点。这似乎有点不可知论的意思了。 Docker 支持 Solaris Zones 和 BSD Jails 这两种容器技术，提供了管理、打包以及部署容器的手段。虚拟机多多少少有类似的功能；但在过往的容器技术里，则几乎看不到——即使有，也很不好用。 容器技术本身不是 Docker 的重点。相反，管理、打包和部署容器的能力，才是 Docker 的杀手锏。 安装 DockerDocker 通常没有默认安装在系统中，所以我们首先要装好它。 在 Ubuntu 里，我们可以用 apt-get install docker.io 来简单地安装它。在 yum 系的 Linux 中，也是类似。在 OS X 里，则可以用 Homebrew 来安装。这里我们以 Ubuntu 为例： 12345678910111213141516# apt-get install docker.ioReading package lists... DoneBuilding dependency treeReading state information... DoneThe following extra packages will be installed: aufs-tools cgroup-lite git git-man liberror-perlSuggested packages: btrfs-tools debootstrap lxc rinse git-daemon-run git-daemon-sysvinit git-doc git-el git-email git-gui gitk gitweb git-arch git-bzr git-cvs git-mediawiki git-svnThe following NEW packages will be installed: aufs-tools cgroup-lite docker.io git git-man liberror-perl0 upgraded, 6 newly installed, 0 to remove and 0 not upgraded.Need to get 7,553 kB of archives.After this operation, 46.6 MB of additional disk space will be used.Do you want to continue? [Y/n] y 在终端里执行 docker ps 可以查看当前运行着的容器。 12# docker psCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES 顾名思义。docker ps 和 *nix 系统中的 ps 命令具有类似的功能。docker ps 会打印所有可用的 Docker 容器以及它们当前的状态。因为我们什么也没做，所以命令显示当前没有运行着的容器。 部署打包好的 nginx Docker 容器Docker 可以像 yum 以及 apt-get 那样部署软件包，这一特性十分讨喜。这次，我们用 docker run 命令，实际部署 nginx 服务器看看。 123456789101112131415# docker run -d nginxUnable to find image &apos;nginx&apos; locallyPulling repository nginx5c82215b03d1: Download completee2a4fb18da48: Download complete58016a5acc80: Download complete657abfa43d82: Download completedcb2fe003d16: Download completec79a417d7c6f: Download completeabb90243122c: Download completed6137c9e2964: Download complete85e566ddc7ef: Download complete69f100eb42b5: Download completecd720b803060: Download complete7cc81e9a118a: Download complete 接受 docker run 命令后，Docker 会寻找置顶的 Docker 镜像并运行。默认情况下，Docker 容器会在前台执行。也就是说，你的 shell 会与 Docker 控制台及容器中正在运行的进程绑定。加上 -d (detach) 选项，Docker 容器就会在后台执行了。 再次执行 docker ps命令，我们就能看到 nginx 容器正在了。 123# docker psCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMESf6d31ab01fc9 nginx:latest nginx -g &apos;daemon off 4 seconds ago Up 3 seconds 443/tcp, 80/tcp desperate_lalande 不难看出，容器 desperate_lalande 正在运行，它由 nginx:latest 镜像构建而来。 Docker 镜像镜像是 Docker 的核心特征之一。与虚拟机镜像类似，Docker 的镜像是一个打包存档的容器。与此同时，Docker 并未就此止步——Docker 还能通过 Docker 仓库发布这些镜像。Docker 仓库扮演的角色，类似于软件包仓库，因此，Docker 可以像 yum 那样工作。让我们回顾一下 docker run 的输出。 12# docker run -d nginxUnable to find image &apos;nginx&apos; locally 首先，Docker 表示在本地没有找到 nginx 镜像。这是因为，执行 docker run 时，我们希望 Docker 启动名为 nginx 的容器；而启动容器，需要找到对应的镜像。Docker 首先会在本地寻找相应名称的镜像；若是找不到，则会联网在远程 Docker 仓库寻找。 由于 Docker 是刚安装的，自然不存在名为 nginx 的镜像。于是，Docker 将会连接远程仓库下载它。 12345678910111213Pulling repository nginx5c82215b03d1: Download completee2a4fb18da48: Download complete58016a5acc80: Download complete657abfa43d82: Download completedcb2fe003d16: Download completec79a417d7c6f: Download completeabb90243122c: Download completed6137c9e2964: Download complete85e566ddc7ef: Download complete69f100eb42b5: Download completecd720b803060: Download complete7cc81e9a118a: Download complete 接下来，Docker 打印了这些信息。默认情况下，Docker 会连接 Docker 公司维护的 Docker Hub仓库。 与 GitHub 相同，在 Docker Hub 上创建公开仓库是免费的，创建私有仓库则是收费的。你也可以部署你自己的 Docker 仓库——只需要运行 docker run registry 就好了。不过，本文不会讨论这一块内容。 停止并移除容器在我们创建自己的 Docker 容器之前，让我们先清理一下 Docker 环境。首先，我们要停止运行着的容器，然后移除它。 与 docker run 对应，docker kill &lt;container-name&gt; 会停止正在运行的容器。 12# docker kill desperate_lalandedesperate_lalande 再次执行 docker ps 可以发现，容器已经不再运行了。 12# docker psCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES docker kill 关闭了容器；虽然它不再运行，但仍然存在于 Docker 系统中。docker ps 默认只显示正在运行的容器，docker ps -a 则会显示所有容器（包括未运行的）。 123# docker ps -aCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMESf6d31ab01fc9 5c82215b03d1 nginx -g &apos;daemon off 4 weeks ago Exited (-1) About a minute ago desperate_lalande 我们可以用 docker rm 来完全地移除容器。 12# docker rm desperate_lalandedesperate_lalande 不过，虽然容器被移走了，但是 Docker 系统中仍有缓存的 nginx 镜像。因此，若然此时执行 docker run -d nginx，Docker 会直接调用本地的镜像启动容器，而无需联网下载。 docker image 会列出所有本地可用的镜像。 123# docker imagesREPOSITORY TAG IMAGE ID CREATED VIRTUAL SIZEnginx latest 9fab4090484a 5 days ago 132.8 MB]]></content>
+    <content type="text"><![CDATA[本文部分译自 Benjamin Cane 的博文。 Docker 是目前风靡全球的虚拟化技术。然而在两年前，Docker 还仅仅是设计者脑海中的概念而已。 本篇将介绍 Docker 的一些基本情况，以及基本操作。顺带着，我们将能见识到 Docker 一些有趣的特性。 容器技术与虚拟机同样作为操作系统虚拟化的方法，容器并不如虚拟机那样出名。它们有相似之处，但也有一些差别。 由于 Hypervisor 向虚拟机提供了虚拟化的硬件，虚拟机可以包含一整个操作系统、系统软件包，以及一些应用程序。因此，在一个宿主机上，可以运行许多独立的客户机。运行在同一宿主机上的虚拟机，提供完整的操作系统环境，共享宿主机上的同一套物理资源。 与之对应，容器技术使得单一的宿主机能够运行多种操作系统环境。在这一点上，容器技术和虚拟机很相似。只不过，容器技术提供的虚拟环境，并不是完整的操作系统。一般来说，容器技术只包含了必要的系统软件包以及应用程序，而不包含整个操作系统或是虚拟化的硬件。因此，容器技术比传统的虚拟机技术占用资源少。容器技术将同一宿主机上的进程相互隔离，互不影响。事实上，与其拿来与虚拟机相较，不如说容器技术与 BSD Jails 以及 chroot 更相似。 Docker 究竟做了什么？Docker 其实是个很难定位的技术，我们很难说清 Docker 究竟算不算是容器技术，但它的一些特性又让人无法否认这一点。这似乎有点不可知论的意思了。 Docker 支持 Solaris Zones 和 BSD Jails 这两种容器技术，提供了管理、打包以及部署容器的手段。虚拟机多多少少有类似的功能；但在过往的容器技术里，则几乎看不到——即使有，也很不好用。 容器技术本身不是 Docker 的重点。相反，管理、打包和部署容器的能力，才是 Docker 的杀手锏。 安装 DockerDocker 通常没有默认安装在系统中，所以我们首先要装好它。 在 Ubuntu 里，我们可以用 apt-get install docker.io 来简单地安装它。在 yum 系的 Linux 中，也是类似。在 OS X 里，则可以用 Homebrew 来安装。这里我们以 Ubuntu 为例： 12345678910111213141516# apt-get install docker.ioReading package lists... DoneBuilding dependency treeReading state information... DoneThe following extra packages will be installed: aufs-tools cgroup-lite git git-man liberror-perlSuggested packages: btrfs-tools debootstrap lxc rinse git-daemon-run git-daemon-sysvinit git-doc git-el git-email git-gui gitk gitweb git-arch git-bzr git-cvs git-mediawiki git-svnThe following NEW packages will be installed: aufs-tools cgroup-lite docker.io git git-man liberror-perl0 upgraded, 6 newly installed, 0 to remove and 0 not upgraded.Need to get 7,553 kB of archives.After this operation, 46.6 MB of additional disk space will be used.Do you want to continue? [Y/n] y 在终端里执行 docker ps 可以查看当前运行着的容器。 12# docker psCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES 顾名思义。docker ps 和 *nix 系统中的 ps 命令具有类似的功能。docker ps 会打印所有可用的 Docker 容器以及它们当前的状态。因为我们什么也没做，所以命令显示当前没有运行着的容器。 部署打包好的 nginx Docker 容器Docker 可以像 yum 以及 apt-get 那样部署软件包，这一特性十分讨喜。这次，我们用 docker run 命令，实际部署 nginx 服务器看看。 123456789101112131415# docker run -d nginxUnable to find image 'nginx' locallyPulling repository nginx5c82215b03d1: Download completee2a4fb18da48: Download complete58016a5acc80: Download complete657abfa43d82: Download completedcb2fe003d16: Download completec79a417d7c6f: Download completeabb90243122c: Download completed6137c9e2964: Download complete85e566ddc7ef: Download complete69f100eb42b5: Download completecd720b803060: Download complete7cc81e9a118a: Download complete 接受 docker run 命令后，Docker 会寻找置顶的 Docker 镜像并运行。默认情况下，Docker 容器会在前台执行。也就是说，你的 shell 会与 Docker 控制台及容器中正在运行的进程绑定。加上 -d (detach) 选项，Docker 容器就会在后台执行了。 再次执行 docker ps命令，我们就能看到 nginx 容器正在了。 123# docker psCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMESf6d31ab01fc9 nginx:latest nginx -g 'daemon off 4 seconds ago Up 3 seconds 443/tcp, 80/tcp desperate_lalande 不难看出，容器 desperate_lalande 正在运行，它由 nginx:latest 镜像构建而来。 Docker 镜像镜像是 Docker 的核心特征之一。与虚拟机镜像类似，Docker 的镜像是一个打包存档的容器。与此同时，Docker 并未就此止步——Docker 还能通过 Docker 仓库发布这些镜像。Docker 仓库扮演的角色，类似于软件包仓库，因此，Docker 可以像 yum 那样工作。让我们回顾一下 docker run 的输出。 12# docker run -d nginxUnable to find image 'nginx' locally 首先，Docker 表示在本地没有找到 nginx 镜像。这是因为，执行 docker run 时，我们希望 Docker 启动名为 nginx 的容器；而启动容器，需要找到对应的镜像。Docker 首先会在本地寻找相应名称的镜像；若是找不到，则会联网在远程 Docker 仓库寻找。 由于 Docker 是刚安装的，自然不存在名为 nginx 的镜像。于是，Docker 将会连接远程仓库下载它。 12345678910111213Pulling repository nginx5c82215b03d1: Download completee2a4fb18da48: Download complete58016a5acc80: Download complete657abfa43d82: Download completedcb2fe003d16: Download completec79a417d7c6f: Download completeabb90243122c: Download completed6137c9e2964: Download complete85e566ddc7ef: Download complete69f100eb42b5: Download completecd720b803060: Download complete7cc81e9a118a: Download complete 接下来，Docker 打印了这些信息。默认情况下，Docker 会连接 Docker 公司维护的 Docker Hub仓库。 与 GitHub 相同，在 Docker Hub 上创建公开仓库是免费的，创建私有仓库则是收费的。你也可以部署你自己的 Docker 仓库——只需要运行 docker run registry 就好了。不过，本文不会讨论这一块内容。 停止并移除容器在我们创建自己的 Docker 容器之前，让我们先清理一下 Docker 环境。首先，我们要停止运行着的容器，然后移除它。 与 docker run 对应，docker kill &lt;container-name&gt; 会停止正在运行的容器。 12# docker kill desperate_lalandedesperate_lalande 再次执行 docker ps 可以发现，容器已经不再运行了。 12# docker psCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMES docker kill 关闭了容器；虽然它不再运行，但仍然存在于 Docker 系统中。docker ps 默认只显示正在运行的容器，docker ps -a 则会显示所有容器（包括未运行的）。 123# docker ps -aCONTAINER ID IMAGE COMMAND CREATED STATUS PORTS NAMESf6d31ab01fc9 5c82215b03d1 nginx -g 'daemon off 4 weeks ago Exited (-1) About a minute ago desperate_lalande 我们可以用 docker rm 来完全地移除容器。 12# docker rm desperate_lalandedesperate_lalande 不过，虽然容器被移走了，但是 Docker 系统中仍有缓存的 nginx 镜像。因此，若然此时执行 docker run -d nginx，Docker 会直接调用本地的镜像启动容器，而无需联网下载。 docker image 会列出所有本地可用的镜像。 123# docker imagesREPOSITORY TAG IMAGE ID CREATED VIRTUAL SIZEnginx latest 9fab4090484a 5 days ago 132.8 MB]]></content>
       <categories>
         <category>Algorithm and Computer Science</category>
       </categories>
@@ -2012,9 +2012,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Dynamic Programming</tag>
         <tag>Max Subsequence Sum</tag>
         <tag>Max Subarray Sum</tag>
-        <tag>Dynamic Programming</tag>
         <tag>State Machine</tag>
       </tags>
   </entry>
@@ -2041,11 +2041,11 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Dynamic Programming</tag>
         <tag>Max Subsequence Sum</tag>
         <tag>Max Subarray Sum</tag>
         <tag>Circular List</tag>
         <tag>Kadane Algorithm</tag>
-        <tag>Dynamic Programming</tag>
       </tags>
   </entry>
   <entry>
@@ -2250,9 +2250,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C++</tag>
-        <tag>Sublime Text</tag>
         <tag>OS X</tag>
+        <tag>Sublime Text</tag>
+        <tag>C++</tag>
         <tag>C++11</tag>
       </tags>
   </entry>
@@ -2416,8 +2416,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Font</tag>
         <tag>MacTeX</tag>
+        <tag>Font</tag>
         <tag>XeLaTeX</tag>
         <tag>System</tag>
       </tags>
@@ -2572,8 +2572,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Font</tag>
         <tag>Hexo</tag>
+        <tag>Font</tag>
         <tag>Fallback</tag>
       </tags>
   </entry>
@@ -2635,8 +2635,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Chinese</tag>
         <tag>Template</tag>
+        <tag>Chinese</tag>
         <tag>MacTeX</tag>
       </tags>
   </entry>
@@ -2649,8 +2649,8 @@
       </categories>
       <tags>
         <tag>Section</tag>
-        <tag>Numbering</tag>
         <tag>Sectioning</tag>
+        <tag>Numbering</tag>
         <tag>Table of Contents</tag>
       </tags>
   </entry>
@@ -2662,8 +2662,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>WeChat</tag>
         <tag>Kindle</tag>
+        <tag>WeChat</tag>
       </tags>
   </entry>
   <entry>
@@ -2795,10 +2795,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>AMS</tag>
         <tag>Proof</tag>
         <tag>Environment</tag>
         <tag>Macros</tag>
+        <tag>AMS</tag>
       </tags>
   </entry>
   <entry>
@@ -2823,9 +2823,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
+        <tag>CJK</tag>
         <tag>MacTeX</tag>
         <tag>OS X</tag>
-        <tag>CJK</tag>
       </tags>
   </entry>
   <entry>
@@ -3146,8 +3146,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Translation</tag>
         <tag>PyHardWay</tag>
+        <tag>Translation</tag>
       </tags>
   </entry>
   <entry>
@@ -3198,8 +3198,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Tutorial</tag>
         <tag>Translation</tag>
+        <tag>Tutorial</tag>
       </tags>
   </entry>
   <entry>
@@ -3211,17 +3211,6 @@
       </categories>
       <tags>
         <tag>Text Completion</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
-    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>LaTeX speech</tag>
       </tags>
   </entry>
   <entry>
@@ -3248,6 +3237,17 @@
       <tags>
         <tag>Tool</tag>
         <tag>Website</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
+    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>LaTeX speech</tag>
       </tags>
   </entry>
   <entry>
@@ -3365,17 +3365,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】画一条自动延伸到行尾的线]]></title>
-    <url>%2F2013%2F08%2F25%2FLaTeX-RuleTillEnd%2F</url>
-    <content type="text"><![CDATA[LaTeX 向来是不擅长处理动态问题的，而我们的需求显然需要定义一个动态的长度。为了解决这个矛盾，我们可以退而求其次，选择用很短的一小节 rule 拼接在一起填充满整一行，而不是定义一个动态的长度。 示例代码在这里. 理解思路之后，读者还可以定义出许多其他的「动态」，愿诸君都能勤思考。]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>Rule</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[全国大学生数学竞赛论文模板]]></title>
     <url>%2F2013%2F08%2F25%2FLaTeX-xcumcmart%2F</url>
     <content type="text"><![CDATA[本模板根据「2013高教社杯全国大学生数学建模竞赛论文格式规范」中的相关规定制作。供参加全国大学生数学建模竞赛的同学们使用。Liam Huang 制作该模板的目的在于推进竞赛论文格式规范化，推广 LaTeX。 下载：这里 本模板将整篇论文视作「文章」（article），而不是「书」（book）。实现时，以 ctexart 为基类。与 ctexart.cls 的使用基本相同，但必须保存为 UTF8 编码并使用 XeLaTeX 或 pdfLaTeX 编译。具体请参考本文源文件。 为了实现比较好的兼容性，模板仅达到了 2013 高教社杯全国大学生数学建模竞赛论文格式规范 中对竞赛论文的基本要求，而不包括额外的功能，也没有引入其他的宏包，请使用时根据需要自行添加。 模板发行包包括如下文件： declaration.tex —— 承诺书及编号页（必须。如有变动，请修改该文件） readme.pdf —— 本文件 readme.tex —— 本文件源文件 xcumcmart.cls —— 模板文件 模板的最新版本可以在 http://liam0205.me/2013/08/25/LaTeX-xcumcmart/ 下载。有关于模板的任何问题，比如 Bug 提交、功能建议、赞助、宣传推广等，均可与 Liam Huang 联系。 感谢 http://www.shumo.com/ 早先以 CCT 方式制作的竞赛论文模板。 任何个人或团体可以无限制的自由使用本模板。 本模板目前尚未得到全国大学生数学建模竞赛组委会的认可，模板作者对使用该模板所引起的后果不负任何责任。]]></content>
@@ -3384,6 +3373,17 @@
       </categories>
       <tags>
         <tag>XCUMCMART</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[【LaTeX Tips】画一条自动延伸到行尾的线]]></title>
+    <url>%2F2013%2F08%2F25%2FLaTeX-RuleTillEnd%2F</url>
+    <content type="text"><![CDATA[LaTeX 向来是不擅长处理动态问题的，而我们的需求显然需要定义一个动态的长度。为了解决这个矛盾，我们可以退而求其次，选择用很短的一小节 rule 拼接在一起填充满整一行，而不是定义一个动态的长度。 示例代码在这里. 理解思路之后，读者还可以定义出许多其他的「动态」，愿诸君都能勤思考。]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>Rule</tag>
       </tags>
   </entry>
   <entry>
