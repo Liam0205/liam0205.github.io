@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[在 LaTeX 中实现缩印效果]]></title>
+    <url>%2F2019%2F01%2F25%2Freduced-print-in-LaTeX%2F</url>
+    <content type="text"><![CDATA[近日大概重拾了一点对 LaTeX 的兴趣，遇见这样一个问题：如何在 LaTeX 中实现缩印效果（即，将两页或更多页排版在一页纸上），并且实现水印效果的页码？ 缩印以朴素的办法实现缩印效果并不困难。例如，可以先以 LaTeX 正常输出文档，再以 pdfpages 宏包将生成的文档载入进来排版。不过，这样的做法扩展性太差，并且需要至少编译两份文档——一份是原始文档，一份是缩印框架文档。 更有技巧的办法，需要深入到 TeX 构建页面输出的过程中去。基本上来说，我们需要让 TeX 按往常一样去构建页面，但是在 TeX 准备将页面输出（shipout）时我们需要插入一个钩子。这个钩子做两件事情： 打断输出过程； 将整个页面内容保存在一个盒子中备用。 我们将保存在盒子里的页面称为逻辑页面（logic pages）。而后，当保存的页面足够多时，或没有更多页面需要保存时，将这些盒子的内容成比例缩小并列印在页面上。我们将最终输出的页面称之为物理页面。 pgfpages 就是这样做的。它是 PGF 宏集的一部分，因而使用 texdoc pgf 可以看到它的文档（Section 89）。 首先我们从一个简单的例子开始，其效果见这里。 demo-2on1-landscape.tex12345678\documentclass&#123;article&#125;\usepackage&#123;pgfpages&#125;\pgfpagesuselayout&#123;2 on 1&#125;[a4paper, landscape, border shrink = 5mm]\begin&#123;document&#125;This text is shown on the left.\clearpageThis text is shown on the right.\end&#123;document&#125; 这里，\pgfpagesuselayout 命令是实现缩印效果的核心命令。参数 2 on 1 的含义不言自明。其后的可选参数：a4paper 表示物理页的尺寸是标准 A4 纸；landscape 表示要将物理页横过来——毕竟是二合一缩印，这很合理；border shink = 5mm 表示被缩印的逻辑页会被继续缩小，并在每个逻辑页的上下左右四周保留宽度为 5mm 的边框。 类似地，你也可以缩印 beamer 幻灯片。不过，由于 beamer 幻灯片的逻辑页本就是横着的，所以此处不需要在加 landscape 参数了。 相应的，4 on 1 需要加，6 on 1 和 8 on 1 不需要加，以及 16 on 1 又需要加。——32 on 1 是不存在的…… demo-2on1.tex1234567891011\documentclass&#123;beamer&#125;\usepackage&#123;pgfpages&#125;\pgfpagesuselayout&#123;2 on 1&#125;[a4paper, border shrink=5mm]\begin&#123;document&#125;\begin&#123;frame&#125;This text is shown at the top.\end&#123;frame&#125;\begin&#123;frame&#125;This text is shown at the bottom.\end&#123;frame&#125;\end&#123;document&#125; 页码在当前问题中，TeX 默认的页码机制实际上是作用在各个逻辑页上的。但显然，我们可能会想要为物理页编上页码。这里有两个问题需要解决： 物理页的页码如何确定？ 缩印排版，有效内容字体很小且密集，如何保证物理页页码可见且不影响有效内容的阅读？ 对于第一个问题，有两种思路。 一是读取逻辑页页码 page 计数器，然后按 x on 1 的比例做除法，得出物理页的页码。不过，这种方式是有前提的。具体来说，它要求 TeX 的逻辑页页码功能不在缩印的情况下失效，并且它要求 TeX 能正确计算整数除法（向上取整）。总得来说，这是一种快而脏的解法，不推荐。 如果十年以后，你以快而脏的方式做什么事的时候，能想象我在你的肩后看着，然后对自己说：「Dijkstra 不会希望这样的。」那么对我来说，这就和永生一样了。—— Edsger Wybe Dijkstra 另一种思路则更加直接。既然页码本质是由计数器实现的，这一计数器随页面输出而自增，而 pgfpages 影响的正是 TeX 页面输出的逻辑，那么 pgfpages 内必然有什么地方可以下钩子来自增该计数器。 123456789\newcommand\pgfshipoutphysicalpage&#123;% \ifnum\pgf@logicalpages&gt;0\relax% \pgfpages@buildshipoutbox% \pgfpages@shipoutshipoutbox% \pgfpages@performcopying% \global\pgfphysicalpageemptytrue% \global\pgf@holdingphysicalpagefalse% \fi%&#125; 通过翻阅 pgfpages.sty 的源码，我们不难发现有以上代码和物理页输出有关。可以说，PGF 宏集的代码风格相当好，一眼就能看明白代码在做什么。显然，\pgfpages@shipoutshipoutbox 是在输出物理页，而它之前的 \pgfpages@buildshipoutbox 就是将逻辑页构建成物理页的过程了。因此，我们需要在 \pgfpages@buildshipoutbox 当中下钩子；此时我们又要用到老朋友 etoolbox 当中的 \patchcmd 了。 1234567891011% require packages: pgfpages, etoolbox\newcounter&#123;physicalpage&#125;\makeatletter\patchcmd&#123;\pgfpages@buildshipoutbox&#125;&#123;% \pgfsys@beginpicture&#125;&#123;% \pgfsys@beginpicture \stepcounter&#123;physicalpage&#125;%&#125;&#123;&#125;&#123;&#125;\makeatother 第二个问题可能有多种解决思路。我偏好于在页面中央以水印的形式加一个大大的页码。四年多以前，我利用 TikZ 实现了水印功能。TikZ 也是 PGF 宏集的一部分，用在这里正好。于是，我们的代码变为 1234567891011121314151617181920212223% require packages: pgfpages, etoolbox, xcolor, tikz\newcommand&#123;\boxedcontent&#125;[5]&#123;\parbox[b][\paperheight]&#123;\paperwidth&#125;&#123;% \vfill% \centering% \tikz[remember picture, overlay]% \node [rotate = #1, scale = #2] at (#3)% &#123;\textcolor&#123;#4&#125;&#123;#5&#125;&#125;; \vfill&#125;&#125;\newcounter&#123;physicalpage&#125;\makeatletter\patchcmd&#123;\pgfpages@buildshipoutbox&#125;&#123;% \pgfsys@beginpicture&#125;&#123;% \pgfsys@beginpicture \stepcounter&#123;physicalpage&#125;% \setbox0\vbox&#123;\makebox[0pt][c]&#123;\boxedcontent&#123;0&#125;&#123;30&#125;&#123;current page.center&#125;&#123;gray!80!cyan!30&#125;&#123;\arabic&#123;physicalpage&#125;&#125;&#125;&#125;% \pgfsys@beginscope \pgflowlevel&#123;\pgftransformshift&#123;\pgfpoint&#123;0\pgfphysicalwidth&#125;&#123;0\pgfphysicalheight&#125;&#125;&#125;% \pgfsys@hbox0% \pgfsys@endscope&#125;&#123;&#125;&#123;&#125;\makeatother 实际效果将以上代码综合起来，我做了一个简单的 demo。 demo-reduced-print.tex1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950\documentclass[12pt]&#123;article&#125;\usepackage&#123;mwe&#125;\pagestyle&#123;empty&#125;\usepackage&#123;multicol&#125;\setlength&#123;\columnseprule&#125;&#123;0.4pt&#125;\usepackage&#123;geometry&#125;\geometry&#123;a4paper, scale = 1, includeall, margin = 0pt, marginparwidth = 0pt, marginparsep = 0pt, headheight = 0pt, headsep = 0pt, footskip = 0pt&#125;\usepackage&#123;pgfpages&#125;\pgfpagesuselayout&#123;4 on 1&#125;[a4paper, border shrink = 1.5mm]\usepackage&#123;tikz&#125;\usepackage&#123;xcolor&#125;\usepackage&#123;eso-pic&#125;\usepackage&#123;etoolbox&#125;\newcommand&#123;\boxedcontent&#125;[5]&#123;\parbox[b][\paperheight]&#123;\paperwidth&#125;&#123;% \vfill% \centering% \tikz[remember picture, overlay]% \node [rotate = #1, scale = #2] at (#3)% &#123;\textcolor&#123;#4&#125;&#123;#5&#125;&#125;; \vfill&#125;&#125;\newcommand&#123;\watermark&#125;[3]&#123;\AddToShipoutPictureBG&#123;% \boxedcontent&#123;#1&#125;&#123;#2&#125;&#123;current page.center&#125;&#123;gray!80!cyan!30&#125;&#123;#3&#125;&#125;&#125;\newcounter&#123;physicalpage&#125;\makeatletter\patchcmd&#123;\pgfpages@buildshipoutbox&#125;&#123;% \pgfsys@beginpicture&#125;&#123;% \pgfsys@beginpicture \stepcounter&#123;physicalpage&#125;% \setbox0\vbox&#123;\makebox[0pt][c]&#123;\boxedcontent&#123;0&#125;&#123;30&#125;&#123;current page.center&#125;&#123;gray!80!cyan!30&#125;&#123;\arabic&#123;physicalpage&#125;&#125;&#125;&#125;% \pgfsys@beginscope \pgflowlevel&#123;\pgftransformshift&#123;\pgfpoint&#123;0\pgfphysicalwidth&#125;&#123;0\pgfphysicalheight&#125;&#125;&#125;% \pgfsys@hbox0% \pgfsys@endscope&#125;&#123;&#125;&#123;&#125;\makeatother\begin&#123;document&#125;\begin&#123;multicols&#125;&#123;3&#125; \lipsum[1-79]\end&#123;multicols&#125;\end&#123;document&#125;]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>PGF</tag>
+        <tag>Reduce Print</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[解决升级 Mojave 后 g++ 找不到头文件的问题]]></title>
     <url>%2F2019%2F01%2F18%2Ffix-missing-headers-fatal-errors-after-upgraded-to-Mojave%2F</url>
     <content type="text"><![CDATA[Mac 升级 Mojave (10.14) 之后，尝试编译以前编译通过的 C++ 项目，g++-6 提示找不到各种头文件。例如有如下报错。 1234./third_party/catch.hpp:69:33: fatal error: TargetConditionals.h: No such file or directory # include &lt;TargetConditionals.h&gt; ^compilation terminated. 经查，这是因为 macOS 在升级过程中，移除了过时的开发者工具。（不得不说这种无声移除的设计非常傻屄）解决的办法也很简单，重新安装 Command Line Tools 及其头文件包即可。 12xcode-select --installopen /Library/Developer/CommandLineTools/Packages/macOS_SDK_headers_for_macOS_10.14.pkg 参考：https://forums.developer.apple.com/thread/104296]]></content>
@@ -155,8 +167,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>System</tag>
         <tag>Format</tag>
+        <tag>System</tag>
         <tag>Engine</tag>
         <tag>Distribution</tag>
         <tag>Compiler</tag>
@@ -302,8 +314,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Search Engine</tag>
         <tag>Domain Name</tag>
+        <tag>Search Engine</tag>
       </tags>
   </entry>
   <entry>
@@ -474,8 +486,8 @@
       </categories>
       <tags>
         <tag>Input</tag>
-        <tag>TeX</tag>
         <tag>Engine</tag>
+        <tag>TeX</tag>
         <tag>Catcode</tag>
       </tags>
   </entry>
@@ -649,8 +661,8 @@
       </categories>
       <tags>
         <tag>Input</tag>
-        <tag>TeX</tag>
         <tag>Engine</tag>
+        <tag>TeX</tag>
         <tag>Expansion</tag>
         <tag>Execution</tag>
         <tag>Visual</tag>
@@ -702,9 +714,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>iCloud</tag>
         <tag>Apple</tag>
         <tag>Apple ID</tag>
+        <tag>iCloud</tag>
         <tag>PayPal</tag>
         <tag>Credit Card</tag>
       </tags>
@@ -756,8 +768,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C++</tag>
         <tag>Macro</tag>
+        <tag>C++</tag>
         <tag>C</tag>
         <tag>offsetof</tag>
       </tags>
@@ -916,8 +928,8 @@
       </categories>
       <tags>
         <tag>Hexo</tag>
-        <tag>Search Engine</tag>
         <tag>JavaScript</tag>
+        <tag>Search Engine</tag>
         <tag>jQuery</tag>
         <tag>CSS</tag>
       </tags>
@@ -968,9 +980,9 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Encoding</tag>
         <tag>C</tag>
         <tag>Windows</tag>
+        <tag>Encoding</tag>
         <tag>Mojibake</tag>
         <tag>Notepad</tag>
       </tags>
@@ -1131,8 +1143,8 @@
         <tag>Python</tag>
         <tag>Yield</tag>
         <tag>Coroutine</tag>
-        <tag>Generator</tag>
         <tag>Iterator</tag>
+        <tag>Generator</tag>
       </tags>
   </entry>
   <entry>
@@ -1181,9 +1193,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Vertical</tag>
         <tag>VIM</tag>
         <tag>Split</tag>
+        <tag>Vertical</tag>
         <tag>Horizon</tag>
       </tags>
   </entry>
@@ -1320,10 +1332,10 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Matplotlib</tag>
         <tag>World Bank</tag>
         <tag>wbdata</tag>
         <tag>Pandas</tag>
+        <tag>Matplotlib</tag>
       </tags>
   </entry>
   <entry>
@@ -1335,9 +1347,9 @@
       </categories>
       <tags>
         <tag>Python</tag>
+        <tag>Search Engine</tag>
         <tag>PageRank</tag>
         <tag>Ranking</tag>
-        <tag>Search Engine</tag>
       </tags>
   </entry>
   <entry>
@@ -1413,8 +1425,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Floats</tag>
         <tag>Vertical</tag>
+        <tag>Floats</tag>
       </tags>
   </entry>
   <entry>
@@ -1687,8 +1699,8 @@
       </categories>
       <tags>
         <tag>Shell</tag>
-        <tag>Script</tag>
         <tag>Argument</tag>
+        <tag>Script</tag>
         <tag>Option</tag>
         <tag>Flag</tag>
         <tag>getopts</tag>
@@ -1822,8 +1834,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>random</tag>
         <tag>Cheatsheet</tag>
+        <tag>random</tag>
       </tags>
   </entry>
   <entry>
@@ -1932,10 +1944,10 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Python</tag>
-        <tag>Chinese</tag>
-        <tag>Arabic</tag>
         <tag>Number</tag>
+        <tag>Chinese</tag>
+        <tag>Python</tag>
+        <tag>Arabic</tag>
       </tags>
   </entry>
   <entry>
@@ -1946,8 +1958,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>iPhone</tag>
         <tag>iCloud</tag>
+        <tag>iPhone</tag>
         <tag>DNS</tag>
       </tags>
   </entry>
@@ -1974,8 +1986,8 @@
         <tag>LambdaMART</tag>
         <tag>NDCG</tag>
         <tag>Search Engine</tag>
-        <tag>Learning to Rank</tag>
         <tag>Machine Learning</tag>
+        <tag>Learning to Rank</tag>
         <tag>MART</tag>
         <tag>GBDT</tag>
       </tags>
@@ -2201,8 +2213,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Python</tag>
         <tag>List</tag>
+        <tag>Python</tag>
         <tag>List Comprehensions</tag>
       </tags>
   </entry>
@@ -2230,9 +2242,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C++</tag>
         <tag>Combination</tag>
         <tag>Binomial</tag>
+        <tag>C++</tag>
       </tags>
   </entry>
   <entry>
@@ -2290,8 +2302,8 @@
       </categories>
       <tags>
         <tag>OS X</tag>
-        <tag>Sublime Text</tag>
         <tag>C++</tag>
+        <tag>Sublime Text</tag>
         <tag>C++11</tag>
       </tags>
   </entry>
@@ -2339,8 +2351,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Numbering</tag>
         <tag>Theorem</tag>
+        <tag>Numbering</tag>
         <tag>Restate</tag>
       </tags>
   </entry>
@@ -2481,9 +2493,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Update</tag>
         <tag>Ubuntu</tag>
         <tag>Server</tag>
+        <tag>Update</tag>
         <tag>apt-get</tag>
         <tag>Upgrade</tag>
       </tags>
@@ -2496,10 +2508,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
+        <tag>Update</tag>
         <tag>Fake</tag>
         <tag>tlpretest</tag>
         <tag>TeX Live</tag>
-        <tag>Update</tag>
         <tag>Packages</tag>
       </tags>
   </entry>
@@ -2534,8 +2546,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Bug</tag>
         <tag>Hyperref</tag>
+        <tag>Bug</tag>
         <tag>Psdextra</tag>
       </tags>
   </entry>
@@ -2559,8 +2571,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Equation</tag>
         <tag>Font</tag>
+        <tag>Equation</tag>
         <tag>Upright</tag>
       </tags>
   </entry>
@@ -2674,9 +2686,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>MacTeX</tag>
         <tag>Template</tag>
         <tag>Chinese</tag>
+        <tag>MacTeX</tag>
       </tags>
   </entry>
   <entry>
@@ -3122,8 +3134,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Images</tag>
         <tag>Graphicx</tag>
+        <tag>Images</tag>
         <tag>Format</tag>
       </tags>
   </entry>
@@ -3135,8 +3147,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Listings</tag>
         <tag>Highlight</tag>
+        <tag>Listings</tag>
         <tag>Delimiter</tag>
       </tags>
   </entry>
@@ -3185,8 +3197,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Translation</tag>
         <tag>PyHardWay</tag>
+        <tag>Translation</tag>
       </tags>
   </entry>
   <entry>
@@ -3237,8 +3249,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Tutorial</tag>
         <tag>Translation</tag>
+        <tag>Tutorial</tag>
       </tags>
   </entry>
   <entry>
@@ -3312,9 +3324,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Template</tag>
         <tag>CCT</tag>
         <tag>SYSENGI</tag>
+        <tag>Template</tag>
       </tags>
   </entry>
   <entry>
@@ -3349,8 +3361,8 @@
         <category>GRE</category>
       </categories>
       <tags>
-        <tag>Argument</tag>
         <tag>AW</tag>
+        <tag>Argument</tag>
       </tags>
   </entry>
   <entry>
@@ -3386,8 +3398,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Number</tag>
         <tag>Roman</tag>
+        <tag>Number</tag>
       </tags>
   </entry>
   <entry>
@@ -3398,9 +3410,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
+        <tag>Footnote</tag>
         <tag>Section</tag>
         <tag>Chapter</tag>
-        <tag>Footnote</tag>
       </tags>
   </entry>
   <entry>
