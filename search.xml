@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[在 C++ 中移除序列中连续重复的特定值]]></title>
+    <url>%2F2019%2F01%2F27%2Fremove-consecutive-duplicates-in-Cxx%2F</url>
+    <content type="text"><![CDATA[最近在写 YTL 中的字符串相关辅助函数。实现到 split 函数时，希望能够实现类似 Python 当中的 str.split 方法的功能。 If sep is not specified or is None, a different splitting algorithm is applied: runs of consecutive whitespace are regarded as a single separator, and the result will contain no empty strings at the start or end if the string has leading or trailing whitespace.——https://docs.python.org/3/library/stdtypes.html#str.split 也就是说，在最基本的 split 的基础上，要添加两个功能： 删除输入字符串首尾的空白； 将字符串中的连续分隔符当成一个分隔符看待。 前一个功能很好实现。将空白符保存在 const char* trim_chars = &quot; \t\n\r\v\f&quot; 当中，然后使用 std::string::find_first_not_of 以及 std::string::find_last_not_of 即可找到有效内容的起止位置，最后再 std::string::erase 一下就好了。 后一个功能也不复杂。但要写得优雅——最好是能利用上标准库的设施——就不那么容易了。 std::unique 的基本用法std::unique 是定义在 algorithm 头文件内的容器算法。它有两种基本形式： 1234template&lt; class ForwardIt &gt;ForwardIt unique( ForwardIt first, ForwardIt last );template&lt; class ForwardIt, class BinaryPredicate &gt;ForwardIt unique( ForwardIt first, ForwardIt last, BinaryPredicate p ); 其中，第一种形式是第二种形式的特例，它等价于 BinaryPredicate p 为连续两元素相等性判断时的第二种形式： 12345678template&lt; class ForwardIt, class BinaryPredicate = std::function&lt;bool(const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp;, const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp;)&gt;ForwardIt unique( ForwardIt first, ForwardIt last, BinaryPredicate p = [](const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp; lhs, const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp; rhs) &#123; return lhs == rhs; &#125;); 这也就是说，第一种形式的 std::unique 会找到每个连续重复的区间，而后保留这些区间的首个元素，最后返回新序列逻辑上的尾后迭代器。例如，aabbccaa 经过 std::unique 处理之后得到： 12abca???? ↑ 这里用箭头标出的位置，即是 std::unique 的返回值所指向的位置。需要注意的是，经过 std::unique 处理之后，容器的实际大小没有发生改变，甚至逻辑尾后迭代器到容器实际尾后迭代器之间的左闭右开区间内的迭代器仍然是可解引用的（dereferenceable）。但这部分区间内的元素的值是不确定的。因此，在使用 std::unqiue 之后，往往会调用容器的 erase 函数成员，删除逻辑尾后迭代器开始的所有元素。例如： 12345// #include &lt;string&gt;// #include &lt;algorithm&gt;std::string source("aabbccaa");source.erase(std::unique(source.begin(), source.end()), source.end());std::cout &lt;&lt; source &lt;&lt; std::endl; // expect result: abca 只对特定内容进行 std::unique 操作回到最开始的问题。我们需要的功能，是针对分隔符 sep 进行操作，将连续出现的 sep 压缩成一个。std::unique 的默认行为则不然，它会将所有连续出现的元素都压缩成一个——不光是 sep。为此，我们需要实现自己的 BinaryPredicate。首先，由于我们要指定具体需要被 std::unique 压缩的元素，我们必然要将其作为函数参数传入函数。于是我们有以下实现： 12345// #include &lt;functional&gt;template &lt;typename T&gt;bool AreConsecutiveElements(const T&amp; target, const T&amp; lhs, const T&amp; rhs) &#123; return (lhs == rhs) and (lhs == target);&#125; std::unique 要求一个二元谓词（BinaryPredicate），但此处我们实现的是三元谓词。于是，好在 target 总是应当预先给出的，所以我们可以利用 std::bind 将 target 绑定在 AreConsecutiveElements 的第一个参数上，产生一个二元谓词。 123456789// #include &lt;functional&gt;// using namespace std::placeholders;// #include &lt;string&gt;// #include &lt;algorithm&gt;const char target = 'b'auto binp = std::bind(AreConsecutiveElements, target, _1, _2);std::string source("aabbccaa");source.erase(std::unique(source.begin(), source.end(), binp), source.end());std::cout &lt;&lt; source &lt;&lt; std::endl; // expect result: aabccaa 这里，我们将 &#39;b&#39; 作为压缩目标，并将其与 AreConsecutiveElements 绑定在一起，产生一个新的二元谓词。最终输出期待的结果。 附：std::unique 的一个可能实现1234567891011121314template&lt;class ForwardIt, class BinaryPredicate&gt;ForwardIt unique(ForwardIt first, ForwardIt last, BinaryPredicate p) &#123; if (first == last) &#123; return last; &#125; ForwardIt result = first; while (++first != last) &#123; if (!p(*result, *first) &amp;&amp; ++result != first) &#123; *result = std::move(*first); &#125; &#125; return ++result;&#125;]]></content>
+      <categories>
+        <category>Algorithm and Computer Science</category>
+      </categories>
+      <tags>
+        <tag>C++</tag>
+        <tag>Consecutive</tag>
+        <tag>Duplicate</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[在 LaTeX 中实现缩印效果]]></title>
     <url>%2F2019%2F01%2F25%2Freduced-print-in-LaTeX%2F</url>
     <content type="text"><![CDATA[近日大概重拾了一点对 LaTeX 的兴趣，遇见这样一个问题：如何在 LaTeX 中实现缩印效果（即，将两页或更多页排版在一页纸上），并且实现水印效果的页码？ 缩印以朴素的办法实现缩印效果并不困难。例如，可以先以 LaTeX 正常输出文档，再以 pdfpages 宏包将生成的文档载入进来排版。不过，这样的做法扩展性太差，并且需要至少编译两份文档——一份是原始文档，一份是缩印框架文档。 更有技巧的办法，需要深入到 TeX 构建页面输出的过程中去。基本上来说，我们需要让 TeX 按往常一样去构建页面，但是在 TeX 准备将页面输出（shipout）时我们需要插入一个钩子。这个钩子做两件事情： 打断输出过程； 将整个页面内容保存在一个盒子中备用。 我们将保存在盒子里的页面称为逻辑页面（logic pages）。而后，当保存的页面足够多时，或没有更多页面需要保存时，将这些盒子的内容成比例缩小并列印在页面上。我们将最终输出的页面称之为物理页面。 pgfpages 就是这样做的。它是 PGF 宏集的一部分，因而使用 texdoc pgf 可以看到它的文档（Section 89）。 首先我们从一个简单的例子开始，其效果见这里。 demo-2on1-landscape.tex12345678\documentclass&#123;article&#125;\usepackage&#123;pgfpages&#125;\pgfpagesuselayout&#123;2 on 1&#125;[a4paper, landscape, border shrink = 5mm]\begin&#123;document&#125;This text is shown on the left.\clearpageThis text is shown on the right.\end&#123;document&#125; 这里，\pgfpagesuselayout 命令是实现缩印效果的核心命令。参数 2 on 1 的含义不言自明。其后的可选参数：a4paper 表示物理页的尺寸是标准 A4 纸；landscape 表示要将物理页横过来——毕竟是二合一缩印，这很合理；border shink = 5mm 表示被缩印的逻辑页会被继续缩小，并在每个逻辑页的上下左右四周保留宽度为 5mm 的边框。 类似地，你也可以缩印 beamer 幻灯片。不过，由于 beamer 幻灯片的逻辑页本就是横着的，所以此处不需要在加 landscape 参数了。 相应的，4 on 1 需要加，6 on 1 和 8 on 1 不需要加，以及 16 on 1 又需要加。——32 on 1 是不存在的…… demo-2on1.tex1234567891011\documentclass&#123;beamer&#125;\usepackage&#123;pgfpages&#125;\pgfpagesuselayout&#123;2 on 1&#125;[a4paper, border shrink=5mm]\begin&#123;document&#125;\begin&#123;frame&#125;This text is shown at the top.\end&#123;frame&#125;\begin&#123;frame&#125;This text is shown at the bottom.\end&#123;frame&#125;\end&#123;document&#125; 页码在当前问题中，TeX 默认的页码机制实际上是作用在各个逻辑页上的。但显然，我们可能会想要为物理页编上页码。这里有两个问题需要解决： 物理页的页码如何确定？ 缩印排版，有效内容字体很小且密集，如何保证物理页页码可见且不影响有效内容的阅读？ 对于第一个问题，有两种思路。 一是读取逻辑页页码 page 计数器，然后按 x on 1 的比例做除法，得出物理页的页码。不过，这种方式是有前提的。具体来说，它要求 TeX 的逻辑页页码功能不在缩印的情况下失效，并且它要求 TeX 能正确计算整数除法（向上取整）。总得来说，这是一种快而脏的解法，不推荐。 如果十年以后，你以快而脏的方式做什么事的时候，能想象我在你的肩后看着，然后对自己说：「Dijkstra 不会希望这样的。」那么对我来说，这就和永生一样了。—— Edsger Wybe Dijkstra 另一种思路则更加直接。既然页码本质是由计数器实现的，这一计数器随页面输出而自增，而 pgfpages 影响的正是 TeX 页面输出的逻辑，那么 pgfpages 内必然有什么地方可以下钩子来自增该计数器。 123456789\newcommand\pgfshipoutphysicalpage&#123;% \ifnum\pgf@logicalpages&gt;0\relax% \pgfpages@buildshipoutbox% \pgfpages@shipoutshipoutbox% \pgfpages@performcopying% \global\pgfphysicalpageemptytrue% \global\pgf@holdingphysicalpagefalse% \fi%&#125; 通过翻阅 pgfpages.sty 的源码，我们不难发现有以上代码和物理页输出有关。可以说，PGF 宏集的代码风格相当好，一眼就能看明白代码在做什么。显然，\pgfpages@shipoutshipoutbox 是在输出物理页，而它之前的 \pgfpages@buildshipoutbox 就是将逻辑页构建成物理页的过程了。因此，我们需要在 \pgfpages@buildshipoutbox 当中下钩子；此时我们又要用到老朋友 etoolbox 当中的 \patchcmd 了。 1234567891011% require packages: pgfpages, etoolbox\newcounter&#123;physicalpage&#125;\makeatletter\patchcmd&#123;\pgfpages@buildshipoutbox&#125;&#123;% \pgfsys@beginpicture&#125;&#123;% \pgfsys@beginpicture \stepcounter&#123;physicalpage&#125;%&#125;&#123;&#125;&#123;&#125;\makeatother 第二个问题可能有多种解决思路。我偏好于在页面中央以水印的形式加一个大大的页码。四年多以前，我利用 TikZ 实现了水印功能。TikZ 也是 PGF 宏集的一部分，用在这里正好。于是，我们的代码变为 1234567891011121314151617181920212223% require packages: pgfpages, etoolbox, xcolor, tikz\newcommand&#123;\boxedcontent&#125;[5]&#123;\parbox[b][\paperheight]&#123;\paperwidth&#125;&#123;% \vfill% \centering% \tikz[remember picture, overlay]% \node [rotate = #1, scale = #2] at (#3)% &#123;\textcolor&#123;#4&#125;&#123;#5&#125;&#125;; \vfill&#125;&#125;\newcounter&#123;physicalpage&#125;\makeatletter\patchcmd&#123;\pgfpages@buildshipoutbox&#125;&#123;% \pgfsys@beginpicture&#125;&#123;% \pgfsys@beginpicture \stepcounter&#123;physicalpage&#125;% \setbox0\vbox&#123;\makebox[0pt][c]&#123;\boxedcontent&#123;0&#125;&#123;30&#125;&#123;current page.center&#125;&#123;gray!80!cyan!30&#125;&#123;\arabic&#123;physicalpage&#125;&#125;&#125;&#125;% \pgfsys@beginscope \pgflowlevel&#123;\pgftransformshift&#123;\pgfpoint&#123;0\pgfphysicalwidth&#125;&#123;0\pgfphysicalheight&#125;&#125;&#125;% \pgfsys@hbox0% \pgfsys@endscope&#125;&#123;&#125;&#123;&#125;\makeatother 实际效果将以上代码综合起来，我做了一个简单的 demo。 demo-reduced-print.tex1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950\documentclass[12pt]&#123;article&#125;\usepackage&#123;mwe&#125;\pagestyle&#123;empty&#125;\usepackage&#123;multicol&#125;\setlength&#123;\columnseprule&#125;&#123;0.4pt&#125;\usepackage&#123;geometry&#125;\geometry&#123;a4paper, scale = 1, includeall, margin = 0pt, marginparwidth = 0pt, marginparsep = 0pt, headheight = 0pt, headsep = 0pt, footskip = 0pt&#125;\usepackage&#123;pgfpages&#125;\pgfpagesuselayout&#123;4 on 1&#125;[a4paper, border shrink = 1.5mm]\usepackage&#123;tikz&#125;\usepackage&#123;xcolor&#125;\usepackage&#123;eso-pic&#125;\usepackage&#123;etoolbox&#125;\newcommand&#123;\boxedcontent&#125;[5]&#123;\parbox[b][\paperheight]&#123;\paperwidth&#125;&#123;% \vfill% \centering% \tikz[remember picture, overlay]% \node [rotate = #1, scale = #2] at (#3)% &#123;\textcolor&#123;#4&#125;&#123;#5&#125;&#125;; \vfill&#125;&#125;\newcommand&#123;\watermark&#125;[3]&#123;\AddToShipoutPictureBG&#123;% \boxedcontent&#123;#1&#125;&#123;#2&#125;&#123;current page.center&#125;&#123;gray!80!cyan!30&#125;&#123;#3&#125;&#125;&#125;\newcounter&#123;physicalpage&#125;\makeatletter\patchcmd&#123;\pgfpages@buildshipoutbox&#125;&#123;% \pgfsys@beginpicture&#125;&#123;% \pgfsys@beginpicture \stepcounter&#123;physicalpage&#125;% \setbox0\vbox&#123;\makebox[0pt][c]&#123;\boxedcontent&#123;0&#125;&#123;30&#125;&#123;current page.center&#125;&#123;gray!80!cyan!30&#125;&#123;\arabic&#123;physicalpage&#125;&#125;&#125;&#125;% \pgfsys@beginscope \pgflowlevel&#123;\pgftransformshift&#123;\pgfpoint&#123;0\pgfphysicalwidth&#125;&#123;0\pgfphysicalheight&#125;&#125;&#125;% \pgfsys@hbox0% \pgfsys@endscope&#125;&#123;&#125;&#123;&#125;\makeatother\begin&#123;document&#125;\begin&#123;multicols&#125;&#123;3&#125; \lipsum[1-79]\end&#123;multicols&#125;\end&#123;document&#125;]]></content>
@@ -1516,8 +1529,8 @@
       </categories>
       <tags>
         <tag>Linux</tag>
-        <tag>Architecture</tag>
         <tag>Process</tag>
+        <tag>Architecture</tag>
         <tag>Thread</tag>
         <tag>Operation System</tag>
         <tag>Thread Safe</tag>
@@ -2133,9 +2146,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Architecture</tag>
         <tag>CPU</tag>
         <tag>Memory</tag>
+        <tag>Architecture</tag>
         <tag>Addressing</tag>
         <tag>x86</tag>
       </tags>
@@ -2352,8 +2365,8 @@
       </categories>
       <tags>
         <tag>Theorem</tag>
-        <tag>Restate</tag>
         <tag>Numbering</tag>
+        <tag>Restate</tag>
       </tags>
   </entry>
   <entry>
@@ -2468,8 +2481,8 @@
       </categories>
       <tags>
         <tag>MacTeX</tag>
-        <tag>XeLaTeX</tag>
         <tag>Font</tag>
+        <tag>XeLaTeX</tag>
         <tag>System</tag>
       </tags>
   </entry>
@@ -2546,8 +2559,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Bug</tag>
         <tag>Hyperref</tag>
+        <tag>Bug</tag>
         <tag>Psdextra</tag>
       </tags>
   </entry>
@@ -2686,8 +2699,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Template</tag>
         <tag>Chinese</tag>
+        <tag>Template</tag>
         <tag>MacTeX</tag>
       </tags>
   </entry>
@@ -2700,8 +2713,8 @@
       </categories>
       <tags>
         <tag>Section</tag>
-        <tag>Numbering</tag>
         <tag>Sectioning</tag>
+        <tag>Numbering</tag>
         <tag>Table of Contents</tag>
       </tags>
   </entry>
@@ -2713,8 +2726,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Kindle</tag>
         <tag>WeChat</tag>
+        <tag>Kindle</tag>
       </tags>
   </entry>
   <entry>
@@ -2860,8 +2873,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>PDF</tag>
         <tag>CJK</tag>
+        <tag>PDF</tag>
         <tag>Bookmarks</tag>
         <tag>Error Codes</tag>
       </tags>
@@ -3015,8 +3028,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Kindle</tag>
         <tag>PDF</tag>
+        <tag>Kindle</tag>
         <tag>Koreader</tag>
       </tags>
   </entry>
@@ -3134,8 +3147,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Graphicx</tag>
         <tag>Images</tag>
+        <tag>Graphicx</tag>
         <tag>Format</tag>
       </tags>
   </entry>
@@ -3197,8 +3210,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Translation</tag>
         <tag>PyHardWay</tag>
+        <tag>Translation</tag>
       </tags>
   </entry>
   <entry>
@@ -3249,8 +3262,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Tutorial</tag>
         <tag>Translation</tag>
+        <tag>Tutorial</tag>
       </tags>
   </entry>
   <entry>
