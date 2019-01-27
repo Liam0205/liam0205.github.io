@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[LaTeX 插图时对文件扩展名的处理]]></title>
+    <url>%2F2019%2F01%2F27%2Fkeep-single-dot-in-image-filename-for-LaTeX%2F</url>
+    <content type="text"><![CDATA[这是一篇简单的记录，缘起与有人在 XeLaTeX 中插入 .png 格式的图片，但提示 no boundingbox。这与我的认知不同：这一错误通常只在 LaTeX 方式编译时才会出现，而且加上 bmpsize 宏包结合 xDVIPDFMx 驱动就能解决。但这次问题出现在 XeLaTeX 下，我感到很奇怪，也引起了我的兴趣。 MWE最小工作示例如下： test.tex123456% compile with XeLaTeX\documentclass&#123;article&#125;\usepackage&#123;graphicx&#125;\begin&#123;document&#125; \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)\end&#123;document&#125; 报错如下： 12345678910! LaTeX Error: Cannot determine size of graphic in foo.bar.png (no BoundingBox).See the LaTeX manual or LaTeX Companion for explanation.Type H &lt;return&gt; for immediate help. ...l.5 \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)? 分析如前所述，这就很奇怪了。我第一反应是图片本身有什么问题。但多方检查都没发现有什么问题。考虑到同样的代码在 pdfLaTeX 下编译理应也能通过并顺利输出，故执行命令 pdflatex test.tex，并观察现象。 123456789! LaTeX Error: Unknown graphics extension: .bar.png.See the LaTeX manual or LaTeX Companion for explanation.Type H &lt;return&gt; for immediate help. ...l.5 \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)? 出乎意料，本该顺利通过的代码，在 pdfLaTeX 下也报错了。不过，这次报错的问题和使用 XeLaTeX 时还不太一样。pdfLaTeX 提示说不认识名为 .bar.png 的图片扩展名。 这给了我新的提示。显然 pdfLaTeX 在处理图片时，以第一个 . 作为分割，之后的部分都是扩展名；而后根据图片文件的扩展名去处理。推测 XeLaTeX 也会做类似的操作，只是细节上有所不同，XeLaTeX 没有在遇见 .bar.png 这个扩展名的第一时间报错，而是延迟到了计算边界框尺寸时发现没有匹配该扩展名（.bar.png）时才报错。如果确实如此，那么在 graphicx.sty 当中应该有所体现。追溯到 graphicx.sty 依赖的 graphics.sty 当中： 123456\def\Ginclude@graphics#1&#123;% \begingroup \let\input@path\Ginput@path \filename@parse&#123;#1&#125;% \ifx\filename@ext\relax% ... 显然，\filename@parse 是在解析图片文件的文件名。这是一个定义在 LaTeX2e 中的底层命令，根据其文档，它会将解析结果保存在 \filename@area, \filename@base, \filename@ext 三个宏当中。在 \filename@parse 的定义中，解析扩展名是通过利用 TeX 的宏定义式的技巧来实现的： 1\def\filename@simple#1.#2 在调用 \filename@simple 时，会将遇到的第一个 . 之前的内容当做 #1 而把 . 之后的内容当做 #2。这个 #2 最后被保存在了 \filename@ext 当中，作为文件扩展名。 解决办法了解了问题的根源，解决起来就容易了。 最简单的绕过办法，是保持图片文件的文件名当中只有一个句点，用于区分文件名及其扩展名。这样 TeX 就不会被误导了。例如，将 MWE 中的文件名从 foo.bar.png 改为 foo_bar.png，再尝试于 LaTeX 当中插入。 如果不想修改文件名，那么可以利用 TeX 的分组，将真实的文件名包裹在一对分组花括号当中。也就是写成形如这样的代码 {foo.bar}.png。这样，在 \filename@simple 处理参数的过程中，由于 foo.bar 被放在一个分组当中，整个被当成是一个 token，因而不会被打散，也因而能解析到正确的扩展名 png。]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>Graphicx</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[在 C++ 中移除序列中连续重复的特定值]]></title>
     <url>%2F2019%2F01%2F27%2Fremove-consecutive-duplicates-in-Cxx%2F</url>
     <content type="text"><![CDATA[最近在写 YTL 中的字符串相关辅助函数。实现到 split 函数时，希望能够实现类似 Python 当中的 str.split 方法的功能。 If sep is not specified or is None, a different splitting algorithm is applied: runs of consecutive whitespace are regarded as a single separator, and the result will contain no empty strings at the start or end if the string has leading or trailing whitespace.——https://docs.python.org/3/library/stdtypes.html#str.split 也就是说，在最基本的 split 的基础上，要添加两个功能： 删除输入字符串首尾的空白； 将字符串中的连续分隔符当成一个分隔符看待。 前一个功能很好实现。将空白符保存在 const char* trim_chars = &quot; \t\n\r\v\f&quot; 当中，然后使用 std::string::find_first_not_of 以及 std::string::find_last_not_of 即可找到有效内容的起止位置，最后再 std::string::erase 一下就好了。 后一个功能也不复杂。但要写得优雅——最好是能利用上标准库的设施——就不那么容易了。 std::unique 的基本用法std::unique 是定义在 algorithm 头文件内的容器算法。它有两种基本形式： 1234template&lt; class ForwardIt &gt;ForwardIt unique( ForwardIt first, ForwardIt last );template&lt; class ForwardIt, class BinaryPredicate &gt;ForwardIt unique( ForwardIt first, ForwardIt last, BinaryPredicate p ); 其中，第一种形式是第二种形式的特例，它等价于 BinaryPredicate p 为连续两元素相等性判断时的第二种形式： 12345678template&lt; class ForwardIt, class BinaryPredicate = std::function&lt;bool(const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp;, const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp;)&gt;ForwardIt unique( ForwardIt first, ForwardIt last, BinaryPredicate p = [](const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp; lhs, const typename std::iterator_traits&lt;ForwardIt&gt;::value_type&amp; rhs) &#123; return lhs == rhs; &#125;); 这也就是说，第一种形式的 std::unique 会找到每个连续重复的区间，而后保留这些区间的首个元素，最后返回新序列逻辑上的尾后迭代器。例如，aabbccaa 经过 std::unique 处理之后得到： 12abca???? ↑ 这里用箭头标出的位置，即是 std::unique 的返回值所指向的位置。需要注意的是，经过 std::unique 处理之后，容器的实际大小没有发生改变，甚至逻辑尾后迭代器到容器实际尾后迭代器之间的左闭右开区间内的迭代器仍然是可解引用的（dereferenceable）。但这部分区间内的元素的值是不确定的。因此，在使用 std::unqiue 之后，往往会调用容器的 erase 函数成员，删除逻辑尾后迭代器开始的所有元素。例如： 12345// #include &lt;string&gt;// #include &lt;algorithm&gt;std::string source("aabbccaa");source.erase(std::unique(source.begin(), source.end()), source.end());std::cout &lt;&lt; source &lt;&lt; std::endl; // expect result: abca 只对特定内容进行 std::unique 操作回到最开始的问题。我们需要的功能，是针对分隔符 sep 进行操作，将连续出现的 sep 压缩成一个。std::unique 的默认行为则不然，它会将所有连续出现的元素都压缩成一个——不光是 sep。为此，我们需要实现自己的 BinaryPredicate。首先，由于我们要指定具体需要被 std::unique 压缩的元素，我们必然要将其作为函数参数传入函数。于是我们有以下实现： 12345// #include &lt;functional&gt;template &lt;typename T&gt;bool AreConsecutiveElements(const T&amp; target, const T&amp; lhs, const T&amp; rhs) &#123; return (lhs == rhs) and (lhs == target);&#125; std::unique 要求一个二元谓词（BinaryPredicate），但此处我们实现的是三元谓词。于是，好在 target 总是应当预先给出的，所以我们可以利用 std::bind 将 target 绑定在 AreConsecutiveElements 的第一个参数上，产生一个二元谓词。 123456789// #include &lt;functional&gt;// using namespace std::placeholders;// #include &lt;string&gt;// #include &lt;algorithm&gt;const char target = 'b'auto binp = std::bind(AreConsecutiveElements, target, _1, _2);std::string source("aabbccaa");source.erase(std::unique(source.begin(), source.end(), binp), source.end());std::cout &lt;&lt; source &lt;&lt; std::endl; // expect result: aabccaa 这里，我们将 &#39;b&#39; 作为压缩目标，并将其与 AreConsecutiveElements 绑定在一起，产生一个新的二元谓词。最终输出期待的结果。 附：std::unique 的一个可能实现1234567891011121314template&lt;class ForwardIt, class BinaryPredicate&gt;ForwardIt unique(ForwardIt first, ForwardIt last, BinaryPredicate p) &#123; if (first == last) &#123; return last; &#125; ForwardIt result = first; while (++first != last) &#123; if (!p(*result, *first) &amp;&amp; ++result != first) &#123; *result = std::move(*first); &#125; &#125; return ++result;&#125;]]></content>
@@ -1259,8 +1270,8 @@
       </categories>
       <tags>
         <tag>C++</tag>
-        <tag>Multithread</tag>
         <tag>Concurrency</tag>
+        <tag>Multithread</tag>
       </tags>
   </entry>
   <entry>
@@ -1438,8 +1449,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Floats</tag>
         <tag>Vertical</tag>
+        <tag>Floats</tag>
       </tags>
   </entry>
   <entry>
@@ -1529,8 +1540,8 @@
       </categories>
       <tags>
         <tag>Linux</tag>
-        <tag>Process</tag>
         <tag>Architecture</tag>
+        <tag>Process</tag>
         <tag>Thread</tag>
         <tag>Operation System</tag>
         <tag>Thread Safe</tag>
@@ -1957,9 +1968,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Python</tag>
         <tag>Chinese</tag>
         <tag>Number</tag>
-        <tag>Python</tag>
         <tag>Arabic</tag>
       </tags>
   </entry>
@@ -1996,9 +2007,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Search Engine</tag>
         <tag>LambdaMART</tag>
         <tag>NDCG</tag>
-        <tag>Search Engine</tag>
         <tag>Machine Learning</tag>
         <tag>Learning to Rank</tag>
         <tag>MART</tag>
@@ -2146,9 +2157,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Architecture</tag>
         <tag>CPU</tag>
         <tag>Memory</tag>
-        <tag>Architecture</tag>
         <tag>Addressing</tag>
         <tag>x86</tag>
       </tags>
@@ -2226,8 +2237,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>List</tag>
         <tag>Python</tag>
+        <tag>List</tag>
         <tag>List Comprehensions</tag>
       </tags>
   </entry>
@@ -2255,9 +2266,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C++</tag>
         <tag>Combination</tag>
         <tag>Binomial</tag>
+        <tag>C++</tag>
       </tags>
   </entry>
   <entry>
@@ -2315,8 +2326,8 @@
       </categories>
       <tags>
         <tag>OS X</tag>
-        <tag>Sublime Text</tag>
         <tag>C++</tag>
+        <tag>Sublime Text</tag>
         <tag>C++11</tag>
       </tags>
   </entry>
@@ -2559,8 +2570,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Hyperref</tag>
         <tag>Bug</tag>
+        <tag>Hyperref</tag>
         <tag>Psdextra</tag>
       </tags>
   </entry>
@@ -2699,9 +2710,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Chinese</tag>
-        <tag>Template</tag>
         <tag>MacTeX</tag>
+        <tag>Template</tag>
+        <tag>Chinese</tag>
       </tags>
   </entry>
   <entry>
@@ -2726,8 +2737,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>WeChat</tag>
         <tag>Kindle</tag>
+        <tag>WeChat</tag>
       </tags>
   </entry>
   <entry>
@@ -2780,10 +2791,10 @@
         <tag>History</tag>
         <tag>Europe</tag>
         <tag>Christianity</tag>
-        <tag>Romantic</tag>
         <tag>God</tag>
         <tag>Reason</tag>
         <tag>Science</tag>
+        <tag>Romantic</tag>
       </tags>
   </entry>
   <entry>
@@ -3028,8 +3039,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>PDF</tag>
         <tag>Kindle</tag>
+        <tag>PDF</tag>
         <tag>Koreader</tag>
       </tags>
   </entry>
@@ -3160,8 +3171,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Highlight</tag>
         <tag>Listings</tag>
+        <tag>Highlight</tag>
         <tag>Delimiter</tag>
       </tags>
   </entry>
@@ -3210,8 +3221,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>PyHardWay</tag>
         <tag>Translation</tag>
+        <tag>PyHardWay</tag>
       </tags>
   </entry>
   <entry>
@@ -3262,8 +3273,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Translation</tag>
         <tag>Tutorial</tag>
+        <tag>Translation</tag>
       </tags>
   </entry>
   <entry>
@@ -3278,18 +3289,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】LaTeX 相关工具网站]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-websites%2F</url>
-    <content type="text"><![CDATA[查询符号代码http://detexify.kirelabs.org/classify.html 允许你用鼠标绘制符号的样子，然后为你查询对应的代码和所需的宏包。 手写公式识别为 LaTeX 公式代码MyScript 有多个功能，其中之一就是能将手写的公式识别为 LaTeX 代码。测试表明识别公式效率一般，准确度尚可，对于复杂矩阵几乎无力识别。 在线 LaTeX 编译math.sinica 是台湾中央研究院的支持中文的在线编译，支持中文。 输入 LaTeX 产生数学公式图片http://www.codecogs.com/latex/eqneditor.php 以及 http://www.sciweavers.org/free-online-latex-equation-editor]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>Tool</tag>
-        <tag>Website</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[【LaTeX Tips】LaTeX 公式上下花括号的交错]]></title>
     <url>%2F2013%2F10%2F18%2FLaTeX-brace-overlap%2F</url>
     <content type="text"><![CDATA[我们知道，LaTeX 数学模式下，为式子的上下添加花括号可以用 \overbrace 和 underbrace 这两个命令。他们可以互相嵌套，但是不能交错使用。这一特性有时候会给我们带来麻烦。 为了排版如上图所示的效果，我们需要用 \rlap 重叠，同时用 \phantom 占位，见下面的代码。 1234567\documentclass&#123;article&#125;\usepackage&#123;amsmath&#125;\begin&#123;document&#125;\[ \rlap&#123;$\overbrace&#123;\phantom&#123;a \to b&#125;&#125;$&#125; a \to \underbrace&#123;b \to c&#125;\]\end&#123;document&#125;]]></content>
@@ -3301,6 +3300,18 @@
         <tag>Underbrace</tag>
         <tag>Rlap</tag>
         <tag>Phantom</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[【LaTeX Tips】LaTeX 相关工具网站]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-websites%2F</url>
+    <content type="text"><![CDATA[查询符号代码http://detexify.kirelabs.org/classify.html 允许你用鼠标绘制符号的样子，然后为你查询对应的代码和所需的宏包。 手写公式识别为 LaTeX 公式代码MyScript 有多个功能，其中之一就是能将手写的公式识别为 LaTeX 代码。测试表明识别公式效率一般，准确度尚可，对于复杂矩阵几乎无力识别。 在线 LaTeX 编译math.sinica 是台湾中央研究院的支持中文的在线编译，支持中文。 输入 LaTeX 产生数学公式图片http://www.codecogs.com/latex/eqneditor.php 以及 http://www.sciweavers.org/free-online-latex-equation-editor]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>Tool</tag>
+        <tag>Website</tag>
       </tags>
   </entry>
   <entry>

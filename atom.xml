@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2019-01-27T07:07:07.735Z</updated>
+  <updated>2019-01-27T12:03:51.458Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,28 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>LaTeX 插图时对文件扩展名的处理</title>
+    <link href="https://liam.page/2019/01/27/keep-single-dot-in-image-filename-for-LaTeX/"/>
+    <id>https://liam.page/2019/01/27/keep-single-dot-in-image-filename-for-LaTeX/</id>
+    <published>2019-01-27T11:04:27.000Z</published>
+    <updated>2019-01-27T12:03:51.458Z</updated>
+    
+    <content type="html"><![CDATA[<p>这是一篇简单的记录，缘起与有人在 XeLaTeX 中插入 <code>.png</code> 格式的图片，但提示 <code>no boundingbox</code>。这与我的认知不同：这一错误通常只在 LaTeX 方式编译时才会出现，而且加上 <code>bmpsize</code> 宏包结合 <code>xDVIPDFMx</code> 驱动就能解决。但这次问题出现在 <code>XeLaTeX</code> 下，我感到很奇怪，也引起了我的兴趣。</p><a id="more"></a><h2 id="MWE"><a href="#MWE" class="headerlink" title="MWE"></a>MWE</h2><p>最小工作示例如下：</p><figure class="highlight tex"><figcaption><span>test.tex</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">% compile with XeLaTeX</span></span><br><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;article&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;graphicx&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line">  <span class="tag">\<span class="name">includegraphics</span><span class="string">&#123;foo.bar.png&#125;</span></span>   <span class="comment">% reports error (no boundingbox)</span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure><p>报错如下：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">! LaTeX Error: Cannot determine size of graphic in foo.bar.png (no BoundingBox)</span><br><span class="line">.</span><br><span class="line"></span><br><span class="line">See the LaTeX manual or LaTeX Companion for explanation.</span><br><span class="line">Type  H &lt;return&gt;  for immediate help.</span><br><span class="line"> ...</span><br><span class="line"></span><br><span class="line">l.5   \includegraphics&#123;foo.bar.png&#125;</span><br><span class="line">                                      % reports error (no boundingbox)</span><br><span class="line">?</span><br></pre></td></tr></table></figure><h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><p>如前所述，这就很奇怪了。我第一反应是图片本身有什么问题。但多方检查都没发现有什么问题。考虑到同样的代码在 pdfLaTeX 下编译理应也能通过并顺利输出，故执行命令 <code>pdflatex test.tex</code>，并观察现象。</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">! LaTeX Error: Unknown graphics extension: .bar.png.</span><br><span class="line"></span><br><span class="line">See the LaTeX manual or LaTeX Companion for explanation.</span><br><span class="line">Type  H &lt;return&gt;  for immediate help.</span><br><span class="line"> ...</span><br><span class="line"></span><br><span class="line">l.5   \includegraphics&#123;foo.bar.png&#125;</span><br><span class="line">                                      % reports error (no boundingbox)</span><br><span class="line">?</span><br></pre></td></tr></table></figure><p>出乎意料，本该顺利通过的代码，在 pdfLaTeX 下也报错了。不过，这次报错的问题和使用 XeLaTeX 时还不太一样。pdfLaTeX 提示说不认识名为 <code>.bar.png</code> 的图片扩展名。</p><p>这给了我新的提示。显然 pdfLaTeX 在处理图片时，以第一个 <code>.</code> 作为分割，之后的部分都是扩展名；而后根据图片文件的扩展名去处理。推测 XeLaTeX 也会做类似的操作，只是细节上有所不同，XeLaTeX 没有在遇见 <code>.bar.png</code> 这个扩展名的第一时间报错，而是延迟到了计算边界框尺寸时发现没有匹配该扩展名（<code>.bar.png</code>）时才报错。如果确实如此，那么在 <code>graphicx.sty</code> 当中应该有所体现。追溯到 <code>graphicx.sty</code> 依赖的 <code>graphics.sty</code> 当中：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">Ginclude</span></span>@graphics#1&#123;<span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">begingroup</span></span></span><br><span class="line">  <span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">input</span></span>@path<span class="tag">\<span class="name">Ginput</span></span>@path</span><br><span class="line">  <span class="tag">\<span class="name">filename</span></span>@parse&#123;#1&#125;<span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">ifx</span></span><span class="tag">\<span class="name">filename</span></span>@ext<span class="tag">\<span class="name">relax</span></span></span><br><span class="line"><span class="comment">% ...</span></span><br></pre></td></tr></table></figure><p>显然，<code>\filename@parse</code> 是在解析图片文件的文件名。这是一个定义在 LaTeX2e 中的底层命令，根据其文档，它会将解析结果保存在 <code>\filename@area</code>, <code>\filename@base</code>, <code>\filename@ext</code> 三个宏当中。在 <code>\filename@parse</code> 的定义中，解析扩展名是通过利用 TeX 的宏定义式的技巧来实现的：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">filename</span></span>@simple#1.#2</span><br></pre></td></tr></table></figure><p>在调用 <code>\filename@simple</code> 时，会将遇到的第一个 <code>.</code> 之前的内容当做 <code>#1</code> 而把 <code>.</code> 之后的内容当做 <code>#2</code>。这个 <code>#2</code> 最后被保存在了 <code>\filename@ext</code> 当中，作为文件扩展名。</p><h2 id="解决办法"><a href="#解决办法" class="headerlink" title="解决办法"></a>解决办法</h2><p>了解了问题的根源，解决起来就容易了。</p><p>最简单的绕过办法，是保持图片文件的文件名当中只有一个句点，用于区分文件名及其扩展名。这样 TeX 就不会被误导了。例如，将 MWE 中的文件名从 <code>foo.bar.png</code> 改为 <code>foo_bar.png</code>，再尝试于 LaTeX 当中插入。</p><p>如果不想修改文件名，那么可以利用 TeX 的分组，将真实的文件名包裹在一对分组花括号当中。也就是写成形如这样的代码 <code>{foo.bar}.png</code>。这样，在 <code>\filename@simple</code> 处理参数的过程中，由于 <code>foo.bar</code> 被放在一个分组当中，整个被当成是一个 token，因而不会被打散，也因而能解析到正确的扩展名 <code>png</code>。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;这是一篇简单的记录，缘起与有人在 XeLaTeX 中插入 &lt;code&gt;.png&lt;/code&gt; 格式的图片，但提示 &lt;code&gt;no boundingbox&lt;/code&gt;。这与我的认知不同：这一错误通常只在 LaTeX 方式编译时才会出现，而且加上 &lt;code&gt;bmpsize&lt;/code&gt; 宏包结合 &lt;code&gt;xDVIPDFMx&lt;/code&gt; 驱动就能解决。但这次问题出现在 &lt;code&gt;XeLaTeX&lt;/code&gt; 下，我感到很奇怪，也引起了我的兴趣。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="LaTeX" scheme="https://liam.page/categories/LaTeX/"/>
+    
+    
+      <category term="Graphicx" scheme="https://liam.page/tags/Graphicx/"/>
+    
+  </entry>
   
   <entry>
     <title>在 C++ 中移除序列中连续重复的特定值</title>
@@ -538,32 +560,6 @@
       <category term="Windows 7" scheme="https://liam.page/tags/Windows-7/"/>
     
       <category term="Login" scheme="https://liam.page/tags/Login/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>彻底关闭 ThinkPad 的触控板</title>
-    <link href="https://liam.page/2018/11/20/turn-off-touchpad-of-ThinkPad/"/>
-    <id>https://liam.page/2018/11/20/turn-off-touchpad-of-ThinkPad/</id>
-    <published>2018-11-20T13:34:35.000Z</published>
-    <updated>2019-01-25T03:17:15.851Z</updated>
-    
-    <content type="html"><![CDATA[<p>这是一篇简单的记录。</p><p>新电脑是 ThinkPad。众所周知，TP 的小红点（TrackPoint）很好用。相应的，TP 的触控板就不怎么好用了。特别地，TP 的触控板在打字的时候，经常会误触导致光标漂移。</p><p>因此，我需要关闭触控板。</p><a id="more"></a><p>网上爬文，大多数结果都告诉要安装 UltraNav 的驱动。从联想官网上下载安装驱动后，TP 提示说找不到相关设备。看起来是驱动与硬件不匹配导致的。遂删除驱动。</p><p>最后想到，BIOS 能控制各种输入输出设备。遂在重启时进入 BIOS 设置（Enter 键），找到触控板（TouchPad）设置，将其设置为 disabled。完成！</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Reboot</span><br><span class="line">Hold &apos;Enter&apos;</span><br><span class="line">BIOS -&gt; config -&gt; keyboard/mouse -&gt; TouchPad (disabled)</span><br></pre></td></tr></table></figure>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;这是一篇简单的记录。&lt;/p&gt;
-&lt;p&gt;新电脑是 ThinkPad。众所周知，TP 的小红点（TrackPoint）很好用。相应的，TP 的触控板就不怎么好用了。特别地，TP 的触控板在打字的时候，经常会误触导致光标漂移。&lt;/p&gt;
-&lt;p&gt;因此，我需要关闭触控板。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="ThinkPad" scheme="https://liam.page/tags/ThinkPad/"/>
-    
-      <category term="TouchPad" scheme="https://liam.page/tags/TouchPad/"/>
     
   </entry>
   
