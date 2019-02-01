@@ -3,7 +3,7 @@
   <entry>
     <title><![CDATA[LaTeX 插图时对文件扩展名的处理]]></title>
     <url>%2F2019%2F01%2F27%2Fkeep-single-dot-in-image-filename-for-LaTeX%2F</url>
-    <content type="text"><![CDATA[这是一篇简单的记录，缘起与有人在 XeLaTeX 中插入 .png 格式的图片，但提示 no boundingbox。这与我的认知不同：这一错误通常只在 LaTeX 方式编译时才会出现，而且加上 bmpsize 宏包结合 xDVIPDFMx 驱动就能解决。但这次问题出现在 XeLaTeX 下，我感到很奇怪，也引起了我的兴趣。 MWE最小工作示例如下： test.tex123456% compile with XeLaTeX\documentclass&#123;article&#125;\usepackage&#123;graphicx&#125;\begin&#123;document&#125; \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)\end&#123;document&#125; 报错如下： 12345678910! LaTeX Error: Cannot determine size of graphic in foo.bar.png (no BoundingBox).See the LaTeX manual or LaTeX Companion for explanation.Type H &lt;return&gt; for immediate help. ...l.5 \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)? 分析如前所述，这就很奇怪了。我第一反应是图片本身有什么问题。但多方检查都没发现有什么问题。考虑到同样的代码在 pdfLaTeX 下编译理应也能通过并顺利输出，故执行命令 pdflatex test.tex，并观察现象。 123456789! LaTeX Error: Unknown graphics extension: .bar.png.See the LaTeX manual or LaTeX Companion for explanation.Type H &lt;return&gt; for immediate help. ...l.5 \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)? 出乎意料，本该顺利通过的代码，在 pdfLaTeX 下也报错了。不过，这次报错的问题和使用 XeLaTeX 时还不太一样。pdfLaTeX 提示说不认识名为 .bar.png 的图片扩展名。 这给了我新的提示。显然 pdfLaTeX 在处理图片时，以第一个 . 作为分割，之后的部分都是扩展名；而后根据图片文件的扩展名去处理。推测 XeLaTeX 也会做类似的操作，只是细节上有所不同，XeLaTeX 没有在遇见 .bar.png 这个扩展名的第一时间报错，而是延迟到了计算边界框尺寸时发现没有匹配该扩展名（.bar.png）时才报错。如果确实如此，那么在 graphicx.sty 当中应该有所体现。追溯到 graphicx.sty 依赖的 graphics.sty 当中： 123456\def\Ginclude@graphics#1&#123;% \begingroup \let\input@path\Ginput@path \filename@parse&#123;#1&#125;% \ifx\filename@ext\relax% ... 显然，\filename@parse 是在解析图片文件的文件名。这是一个定义在 LaTeX2e 中的底层命令，根据其文档，它会将解析结果保存在 \filename@area, \filename@base, \filename@ext 三个宏当中。在 \filename@parse 的定义中，解析扩展名是通过利用 TeX 的宏定义式的技巧来实现的： 1\def\filename@simple#1.#2 在调用 \filename@simple 时，会将遇到的第一个 . 之前的内容当做 #1 而把 . 之后的内容当做 #2。这个 #2 最后被保存在了 \filename@ext 当中，作为文件扩展名。 解决办法了解了问题的根源，解决起来就容易了。 最简单的绕过办法，是保持图片文件的文件名当中只有一个句点，用于区分文件名及其扩展名。这样 TeX 就不会被误导了。例如，将 MWE 中的文件名从 foo.bar.png 改为 foo_bar.png，再尝试于 LaTeX 当中插入。 如果不想修改文件名，那么可以利用 TeX 的分组，将真实的文件名包裹在一对分组花括号当中。也就是写成形如这样的代码 {foo.bar}.png。这样，在 \filename@simple 处理参数的过程中，由于 foo.bar 被放在一个分组当中，整个被当成是一个 token，因而不会被打散，也因而能解析到正确的扩展名 png。]]></content>
+    <content type="text"><![CDATA[这是一篇简单的记录，缘起与有人在 XeLaTeX 中插入 .png 格式的图片，但提示 no boundingbox。这与我的认知不同：这一错误通常只在 LaTeX 方式编译时才会出现，而且加上 bmpsize 宏包结合 DVIPDFMx 驱动就能解决。但这次问题出现在 XeLaTeX 下，我感到很奇怪，也引起了我的兴趣。 MWE最小工作示例如下： test.tex123456% compile with XeLaTeX\documentclass&#123;article&#125;\usepackage&#123;graphicx&#125;\begin&#123;document&#125; \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)\end&#123;document&#125; 报错如下： 12345678910! LaTeX Error: Cannot determine size of graphic in foo.bar.png (no BoundingBox).See the LaTeX manual or LaTeX Companion for explanation.Type H &lt;return&gt; for immediate help. ...l.5 \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)? 分析如前所述，这就很奇怪了。我第一反应是图片本身有什么问题。但多方检查都没发现有什么问题。考虑到同样的代码在 pdfLaTeX 下编译理应也能通过并顺利输出，故执行命令 pdflatex test.tex，并观察现象。 123456789! LaTeX Error: Unknown graphics extension: .bar.png.See the LaTeX manual or LaTeX Companion for explanation.Type H &lt;return&gt; for immediate help. ...l.5 \includegraphics&#123;foo.bar.png&#125; % reports error (no boundingbox)? 出乎意料，本该顺利通过的代码，在 pdfLaTeX 下也报错了。不过，这次报错的问题和使用 XeLaTeX 时还不太一样。pdfLaTeX 提示说不认识名为 .bar.png 的图片扩展名。 这给了我新的提示。显然 pdfLaTeX 在处理图片时，以第一个 . 作为分割，之后的部分都是扩展名；而后根据图片文件的扩展名去处理。推测 XeLaTeX 也会做类似的操作，只是细节上有所不同，XeLaTeX 没有在遇见 .bar.png 这个扩展名的第一时间报错，而是延迟到了计算边界框尺寸时发现没有匹配该扩展名（.bar.png）时才报错。如果确实如此，那么在 graphicx.sty 当中应该有所体现。追溯到 graphicx.sty 依赖的 graphics.sty 当中： 123456\def\Ginclude@graphics#1&#123;% \begingroup \let\input@path\Ginput@path \filename@parse&#123;#1&#125;% \ifx\filename@ext\relax% ... 显然，\filename@parse 是在解析图片文件的文件名。这是一个定义在 LaTeX2e 中的底层命令，根据其文档，它会将解析结果保存在 \filename@area, \filename@base, \filename@ext 三个宏当中。在 \filename@parse 的定义中，解析扩展名是通过利用 TeX 的宏定义式的技巧来实现的： 1\def\filename@simple#1.#2 在调用 \filename@simple 时，会将遇到的第一个 . 之前的内容当做 #1 而把 . 之后的内容当做 #2。这个 #2 最后被保存在了 \filename@ext 当中，作为文件扩展名。 解决办法了解了问题的根源，解决起来就容易了。 最简单的绕过办法，是保持图片文件的文件名当中只有一个句点，用于区分文件名及其扩展名。这样 TeX 就不会被误导了。例如，将 MWE 中的文件名从 foo.bar.png 改为 foo_bar.png，再尝试于 LaTeX 当中插入。 如果不想修改文件名，那么可以利用 TeX 的分组，将真实的文件名包裹在一对分组花括号当中。也就是写成形如这样的代码 {foo.bar}.png。这样，在 \filename@simple 处理参数的过程中，由于 foo.bar 被放在一个分组当中，整个被当成是一个 token，因而不会被打散，也因而能解析到正确的扩展名 png。]]></content>
       <categories>
         <category>LaTeX</category>
       </categories>
@@ -191,8 +191,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Format</tag>
         <tag>System</tag>
+        <tag>Format</tag>
         <tag>Engine</tag>
         <tag>Distribution</tag>
         <tag>Compiler</tag>
@@ -338,8 +338,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Domain Name</tag>
         <tag>Search Engine</tag>
+        <tag>Domain Name</tag>
       </tags>
   </entry>
   <entry>
@@ -510,8 +510,8 @@
       </categories>
       <tags>
         <tag>Input</tag>
-        <tag>Engine</tag>
         <tag>TeX</tag>
+        <tag>Engine</tag>
         <tag>Catcode</tag>
       </tags>
   </entry>
@@ -685,8 +685,8 @@
       </categories>
       <tags>
         <tag>Input</tag>
-        <tag>Engine</tag>
         <tag>TeX</tag>
+        <tag>Engine</tag>
         <tag>Expansion</tag>
         <tag>Execution</tag>
         <tag>Visual</tag>
@@ -1004,9 +1004,9 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Encoding</tag>
-        <tag>Windows</tag>
         <tag>C</tag>
+        <tag>Windows</tag>
+        <tag>Encoding</tag>
         <tag>Mojibake</tag>
         <tag>Notepad</tag>
       </tags>
@@ -1217,9 +1217,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>Vertical</tag>
         <tag>VIM</tag>
         <tag>Split</tag>
-        <tag>Vertical</tag>
         <tag>Horizon</tag>
       </tags>
   </entry>
@@ -1356,10 +1356,10 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Matplotlib</tag>
         <tag>World Bank</tag>
         <tag>wbdata</tag>
         <tag>Pandas</tag>
+        <tag>Matplotlib</tag>
       </tags>
   </entry>
   <entry>
@@ -1371,9 +1371,9 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Search Engine</tag>
         <tag>PageRank</tag>
         <tag>Ranking</tag>
+        <tag>Search Engine</tag>
       </tags>
   </entry>
   <entry>
@@ -1540,8 +1540,8 @@
       </categories>
       <tags>
         <tag>Linux</tag>
-        <tag>Process</tag>
         <tag>Architecture</tag>
+        <tag>Process</tag>
         <tag>Thread</tag>
         <tag>Operation System</tag>
         <tag>Thread Safe</tag>
@@ -1722,8 +1722,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Argument</tag>
         <tag>Shell</tag>
+        <tag>Argument</tag>
         <tag>Script</tag>
         <tag>Option</tag>
         <tag>Flag</tag>
@@ -1941,8 +1941,8 @@
       </categories>
       <tags>
         <tag>Grammar</tag>
-        <tag>Verb</tag>
         <tag>Tense</tag>
+        <tag>Verb</tag>
         <tag>Flow Chart</tag>
       </tags>
   </entry>
@@ -2007,9 +2007,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Search Engine</tag>
         <tag>LambdaMART</tag>
         <tag>NDCG</tag>
-        <tag>Search Engine</tag>
         <tag>Machine Learning</tag>
         <tag>Learning to Rank</tag>
         <tag>MART</tag>
@@ -2157,9 +2157,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Architecture</tag>
         <tag>CPU</tag>
         <tag>Memory</tag>
-        <tag>Architecture</tag>
         <tag>Addressing</tag>
         <tag>x86</tag>
       </tags>
@@ -2266,9 +2266,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>C++</tag>
         <tag>Combination</tag>
         <tag>Binomial</tag>
-        <tag>C++</tag>
       </tags>
   </entry>
   <entry>
@@ -2302,8 +2302,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Hyperref</tag>
         <tag>Caption</tag>
+        <tag>Hyperref</tag>
       </tags>
   </entry>
   <entry>
@@ -2325,9 +2325,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Sublime Text</tag>
         <tag>OS X</tag>
         <tag>C++</tag>
-        <tag>Sublime Text</tag>
         <tag>C++11</tag>
       </tags>
   </entry>
@@ -2491,8 +2491,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>MacTeX</tag>
         <tag>Font</tag>
+        <tag>MacTeX</tag>
         <tag>XeLaTeX</tag>
         <tag>System</tag>
       </tags>
@@ -2517,9 +2517,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>Update</tag>
         <tag>Ubuntu</tag>
         <tag>Server</tag>
-        <tag>Update</tag>
         <tag>apt-get</tag>
         <tag>Upgrade</tag>
       </tags>
@@ -2532,10 +2532,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Update</tag>
         <tag>Fake</tag>
         <tag>tlpretest</tag>
         <tag>TeX Live</tag>
+        <tag>Update</tag>
         <tag>Packages</tag>
       </tags>
   </entry>
@@ -2570,8 +2570,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Bug</tag>
         <tag>Hyperref</tag>
+        <tag>Bug</tag>
         <tag>Psdextra</tag>
       </tags>
   </entry>
@@ -2623,8 +2623,8 @@
       </categories>
       <tags>
         <tag>Grammar</tag>
-        <tag>Verb</tag>
         <tag>Tense</tag>
+        <tag>Verb</tag>
       </tags>
   </entry>
   <entry>
@@ -2737,8 +2737,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Kindle</tag>
         <tag>WeChat</tag>
+        <tag>Kindle</tag>
       </tags>
   </entry>
   <entry>
@@ -2791,10 +2791,10 @@
         <tag>History</tag>
         <tag>Europe</tag>
         <tag>Christianity</tag>
+        <tag>Romantic</tag>
         <tag>God</tag>
         <tag>Reason</tag>
         <tag>Science</tag>
-        <tag>Romantic</tag>
       </tags>
   </entry>
   <entry>
@@ -2884,8 +2884,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>CJK</tag>
         <tag>PDF</tag>
+        <tag>CJK</tag>
         <tag>Bookmarks</tag>
         <tag>Error Codes</tag>
       </tags>
@@ -2898,9 +2898,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>CJK</tag>
         <tag>MacTeX</tag>
         <tag>OS X</tag>
+        <tag>CJK</tag>
       </tags>
   </entry>
   <entry>
@@ -3158,8 +3158,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Images</tag>
         <tag>Graphicx</tag>
+        <tag>Images</tag>
         <tag>Format</tag>
       </tags>
   </entry>
@@ -3171,8 +3171,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Listings</tag>
         <tag>Highlight</tag>
+        <tag>Listings</tag>
         <tag>Delimiter</tag>
       </tags>
   </entry>
@@ -3289,15 +3289,17 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】LaTeX 相关工具网站]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-websites%2F</url>
-    <content type="text"><![CDATA[查询符号代码http://detexify.kirelabs.org/classify.html 允许你用鼠标绘制符号的样子，然后为你查询对应的代码和所需的宏包。 手写公式识别为 LaTeX 公式代码MyScript 有多个功能，其中之一就是能将手写的公式识别为 LaTeX 代码。测试表明识别公式效率一般，准确度尚可，对于复杂矩阵几乎无力识别。 在线 LaTeX 编译math.sinica 是台湾中央研究院的支持中文的在线编译，支持中文。 输入 LaTeX 产生数学公式图片http://www.codecogs.com/latex/eqneditor.php 以及 http://www.sciweavers.org/free-online-latex-equation-editor]]></content>
+    <title><![CDATA[【LaTeX Tips】LaTeX 公式上下花括号的交错]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-brace-overlap%2F</url>
+    <content type="text"><![CDATA[我们知道，LaTeX 数学模式下，为式子的上下添加花括号可以用 \overbrace 和 underbrace 这两个命令。他们可以互相嵌套，但是不能交错使用。这一特性有时候会给我们带来麻烦。 为了排版如上图所示的效果，我们需要用 \rlap 重叠，同时用 \phantom 占位，见下面的代码。 1234567\documentclass&#123;article&#125;\usepackage&#123;amsmath&#125;\begin&#123;document&#125;\[ \rlap&#123;$\overbrace&#123;\phantom&#123;a \to b&#125;&#125;$&#125; a \to \underbrace&#123;b \to c&#125;\]\end&#123;document&#125;]]></content>
       <categories>
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Tool</tag>
-        <tag>Website</tag>
+        <tag>Overbrace</tag>
+        <tag>Underbrace</tag>
+        <tag>Rlap</tag>
+        <tag>Phantom</tag>
       </tags>
   </entry>
   <entry>
@@ -3312,17 +3314,15 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】LaTeX 公式上下花括号的交错]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-brace-overlap%2F</url>
-    <content type="text"><![CDATA[我们知道，LaTeX 数学模式下，为式子的上下添加花括号可以用 \overbrace 和 underbrace 这两个命令。他们可以互相嵌套，但是不能交错使用。这一特性有时候会给我们带来麻烦。 为了排版如上图所示的效果，我们需要用 \rlap 重叠，同时用 \phantom 占位，见下面的代码。 1234567\documentclass&#123;article&#125;\usepackage&#123;amsmath&#125;\begin&#123;document&#125;\[ \rlap&#123;$\overbrace&#123;\phantom&#123;a \to b&#125;&#125;$&#125; a \to \underbrace&#123;b \to c&#125;\]\end&#123;document&#125;]]></content>
+    <title><![CDATA[【LaTeX Tips】LaTeX 相关工具网站]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-websites%2F</url>
+    <content type="text"><![CDATA[查询符号代码http://detexify.kirelabs.org/classify.html 允许你用鼠标绘制符号的样子，然后为你查询对应的代码和所需的宏包。 手写公式识别为 LaTeX 公式代码MyScript 有多个功能，其中之一就是能将手写的公式识别为 LaTeX 代码。测试表明识别公式效率一般，准确度尚可，对于复杂矩阵几乎无力识别。 在线 LaTeX 编译math.sinica 是台湾中央研究院的支持中文的在线编译，支持中文。 输入 LaTeX 产生数学公式图片http://www.codecogs.com/latex/eqneditor.php 以及 http://www.sciweavers.org/free-online-latex-equation-editor]]></content>
       <categories>
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Overbrace</tag>
-        <tag>Underbrace</tag>
-        <tag>Rlap</tag>
-        <tag>Phantom</tag>
+        <tag>Tool</tag>
+        <tag>Website</tag>
       </tags>
   </entry>
   <entry>
