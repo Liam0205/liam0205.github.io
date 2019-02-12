@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2019-02-01T10:59:10.689Z</updated>
+  <updated>2019-02-12T08:03:12.832Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,37 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>为 XeLaTeX 所调用时 xDVIPDFMx 的默认参数</title>
+    <link href="https://liam.page/2019/02/12/default-flags-for-xDVIPDFMx/"/>
+    <id>https://liam.page/2019/02/12/default-flags-for-xDVIPDFMx/</id>
+    <published>2019-02-12T07:37:34.000Z</published>
+    <updated>2019-02-12T08:03:12.832Z</updated>
+    
+    <content type="html"><![CDATA[<p>去年，有人在群里<a href="https://t.me/chinesetex/3441" target="_blank" rel="noopener">提及</a>：</p><blockquote><p>在 macOS 上，同样是使用 STFangSong 字体，使用 LaTeXmk 编译出来的文档在 Windows 上查看会<a href="/uploads/pdf/latexmk-mac.pdf">乱码</a>，但使用 XeLaTeX 直接编译则<a href="/uploads/pdf/xelatex-mac.pdf">正常</a>。MWE 是：<br><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexbook&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">fangsong</span></span></span><br><span class="line">中文</span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure></p></blockquote><blockquote><p>具体的编译命令分别是：<br><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">latexmk -<span class="built_in">cd</span> -f -xelatex -interaction=nonstopmode -synctex=1 --output-directory=output foo.tex</span><br><span class="line">xelatex -interaction=nonstopmode -synctex=1 --output-directory=output foo.tex</span><br></pre></td></tr></table></figure></p></blockquote><p>这个问题直至近期查看了 XeLaTeX 的源码才得到了完整答案。</p><a id="more"></a><h2 id="字体嵌入"><a href="#字体嵌入" class="headerlink" title="字体嵌入"></a>字体嵌入</h2><p>根据 Ao Zhang 的检查，<a href="/uploads/pdf/latexmk-mac.pdf"><code>latexmk-mac.pdf</code></a> 当中没有如 <a href="/uploads/pdf/xelatex-mac.pdf"><code>xelatex-mac.pdf</code></a> 那样嵌入字体。</p><p><img src="/uploads/images/LaTeX/no-font-embedding.jpg" alt=""></p><p>由于找不到相应字体，Windows 上查看文档时，就乱码了。</p><h2 id="驱动-xDVIPDFMx"><a href="#驱动-xDVIPDFMx" class="headerlink" title="驱动 xDVIPDFMx"></a>驱动 <code>xDVIPDFMx</code></h2><p>XeLaTeX 输出的文件格式是扩展 DVI（eXtended DVI, <code>.xdv</code>）。不过，XeLaTeX 在执行到最后时会调用驱动，将 <code>.xdv</code> 文件转为 <code>.pdf</code> 格式，并将 <code>.xdv</code> 文件删除。默认的驱动是 <code>xDVIPDFMx</code>，它与 <code>DVIPDFMx</code> 系出同源。</p><p>使用 LaTeXmk 编译的文档没有嵌入字体，显然与 <code>xDVIPDFMx</code> 有关。经检查，LaTeXmk 考虑到多次编译时，只有最后一次编译需要真正输出 PDF 文件，故而在调用 XeLaTeX 时加上了 <code>-no-pdf</code> 选项，同时在最后一次调用 XeLaTeX 之后去调用 <code>xDVIPDFMx</code>。大致可以理解为 LaTeXmk 会按如下方式执行命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">xelatex -no-pdf [other-options] foo.tex</span><br><span class="line">bibtex foo</span><br><span class="line">makeindex foo</span><br><span class="line">xelatex -no-pdf [other-options] foo.tex</span><br><span class="line">xelatex -no-pdf [other-options] foo.tex</span><br><span class="line">xdvipdfmx foo</span><br></pre></td></tr></table></figure><p>问题出在最后调用 <code>xDVIPDFMx</code> 的时候。若要嵌入字体，应当加上 <code>-E</code> 选项。但是默认情况下，LaTeXmk 没加上这一选项。所以，默认情况下，由 LaTeXmk 编译出来的 PDF 文档不会嵌入字体。具体到我们的例子中，<a href="/uploads/pdf/latexmk-mac.pdf"><code>latexmk-mac.pdf</code></a> 在 Windows 上显示为乱码。</p><h2 id="XeLaTeX-调用-xDVIPDFMx-时的默认参数"><a href="#XeLaTeX-调用-xDVIPDFMx-时的默认参数" class="headerlink" title="XeLaTeX 调用 xDVIPDFMx 时的默认参数"></a>XeLaTeX 调用 <code>xDVIPDFMx</code> 时的默认参数</h2><p>至此，「在 macOS 上使用 LaTeXmk 编译的文档在 Windows 上乱码」这一问题已经可以解释。但是问题的另一半，即「为什么在 macOS 上使用 XeLaTeX 编译的文档在 Windows 上不会乱码」这一问题还没回答。显然，这仍与 <code>xDVIPDFMx</code> 的调用参数有关。</p><p>经查，XeLaTeX 在指定输出驱动为 <code>xDVIPDFMx</code> 时的 C 代码为：</p><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> <span class="keyword">char</span> *outputdriver = <span class="string">"xdvipdfmx -q -E"</span>; <span class="comment">/* default to portable xdvipdfmx driver */</span></span><br></pre></td></tr></table></figure><p>可见，调用时添加了 <code>-q</code> 和 <code>-E</code> 两个参数。其中 <code>-q</code> 表示静默模式，即 <code>xDVIPDFMx</code> 不会输出任何回显信息；<code>-E</code> 表示忽略字体版权标记而总是将字体嵌入输出文件。</p><p>如此一来，问题的另一半也得到了合理解释。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;去年，有人在群里&lt;a href=&quot;https://t.me/chinesetex/3441&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;提及&lt;/a&gt;：&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;在 macOS 上，同样是使用 STFangSong 字体，使用 LaTeXmk 编译出来的文档在 Windows 上查看会&lt;a href=&quot;/uploads/pdf/latexmk-mac.pdf&quot;&gt;乱码&lt;/a&gt;，但使用 XeLaTeX 直接编译则&lt;a href=&quot;/uploads/pdf/xelatex-mac.pdf&quot;&gt;正常&lt;/a&gt;。MWE 是：&lt;br&gt;&lt;figure class=&quot;highlight tex&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;tag&quot;&gt;\&lt;span class=&quot;name&quot;&gt;documentclass&lt;/span&gt;&lt;span class=&quot;string&quot;&gt;&amp;#123;ctexbook&amp;#125;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;tag&quot;&gt;\&lt;span class=&quot;name&quot;&gt;begin&lt;/span&gt;&lt;span class=&quot;string&quot;&gt;&amp;#123;document&amp;#125;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;tag&quot;&gt;\&lt;span class=&quot;name&quot;&gt;fangsong&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;中文&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;tag&quot;&gt;\&lt;span class=&quot;name&quot;&gt;end&lt;/span&gt;&lt;span class=&quot;string&quot;&gt;&amp;#123;document&amp;#125;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;p&gt;具体的编译命令分别是：&lt;br&gt;&lt;figure class=&quot;highlight bash&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;2&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;latexmk -&lt;span class=&quot;built_in&quot;&gt;cd&lt;/span&gt; -f -xelatex -interaction=nonstopmode -synctex=1 --output-directory=output foo.tex&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;xelatex -interaction=nonstopmode -synctex=1 --output-directory=output foo.tex&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;这个问题直至近期查看了 XeLaTeX 的源码才得到了完整答案。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="LaTeX" scheme="https://liam.page/categories/LaTeX/"/>
+    
+    
+      <category term="Drivers" scheme="https://liam.page/tags/Drivers/"/>
+    
+      <category term="xDVIPDFMx" scheme="https://liam.page/tags/xDVIPDFMx/"/>
+    
+  </entry>
   
   <entry>
     <title>LaTeX 插图时对文件扩展名的处理</title>
@@ -445,9 +476,9 @@
       <category term="LaTeX" scheme="https://liam.page/categories/LaTeX/"/>
     
     
-      <category term="Format" scheme="https://liam.page/tags/Format/"/>
-    
       <category term="System" scheme="https://liam.page/tags/System/"/>
+    
+      <category term="Format" scheme="https://liam.page/tags/Format/"/>
     
       <category term="Engine" scheme="https://liam.page/tags/Engine/"/>
     
@@ -533,33 +564,6 @@
       <category term="Screenshot" scheme="https://liam.page/tags/Screenshot/"/>
     
       <category term="PsExec" scheme="https://liam.page/tags/PsExec/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>更换 Windows 7 锁屏界面的背景</title>
-    <link href="https://liam.page/2018/11/21/replace-the-background-of-login-page/"/>
-    <id>https://liam.page/2018/11/21/replace-the-background-of-login-page/</id>
-    <published>2018-11-21T05:42:27.000Z</published>
-    <updated>2019-01-25T03:17:15.856Z</updated>
-    
-    <content type="html"><![CDATA[<p>Windows 7 在登录时默认的背景图片是一片蓝色。作为一个程序员，我会倾向于认为，这片蓝色是一张图片资源。因此，它是可以被更换的。</p><p>这篇介绍如何更换 Windows 7 锁屏界面的背景。</p><a id="more"></a><h2 id="允许自定义"><a href="#允许自定义" class="headerlink" title="允许自定义"></a>允许自定义</h2><p>经过一番搜索，我并没能找到那一片蓝的资源图。不过，爬文过程中，我发现 OEM 厂往往会将锁屏界面替换为 OME 自定义的图片。而这个开关需要在注册表中打开。具体来说：</p><blockquote><p>开始菜单 -&gt; 搜索 -&gt; Regedit.exe -&gt; 导航至 <code>HKEY_LOCAL_MACHINE/SOFTWARE/Microsoft/Windows/CurrentVersion/Authentication/LogonUI/Background</code> -&gt; 修改 <code>OEMBackground</code> 的值为 1。</p></blockquote><h2 id="设置-OEM-锁屏背景图片资源"><a href="#设置-OEM-锁屏背景图片资源" class="headerlink" title="设置 OEM 锁屏背景图片资源"></a>设置 OEM 锁屏背景图片资源</h2><p>新建目录 <code>C:\Windows\System32\oobe\info\backgrounds</code>，而后将资源图片保存为 <code>.jpg</code> 格式，并重命名为 <code>backgroundDefault.jpg</code>。特别地，要注意它的体积不能超过 <code>256KiB</code>。</p><h2 id="锁屏查看效果"><a href="#锁屏查看效果" class="headerlink" title="锁屏查看效果"></a>锁屏查看效果</h2><p><img src="/uploads/images/computer-skills/login_photo.jpg" alt=""></p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;Windows 7 在登录时默认的背景图片是一片蓝色。作为一个程序员，我会倾向于认为，这片蓝色是一张图片资源。因此，它是可以被更换的。&lt;/p&gt;
-&lt;p&gt;这篇介绍如何更换 Windows 7 锁屏界面的背景。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="Background" scheme="https://liam.page/tags/Background/"/>
-    
-      <category term="Windows 7" scheme="https://liam.page/tags/Windows-7/"/>
-    
-      <category term="Login" scheme="https://liam.page/tags/Login/"/>
     
   </entry>
   
