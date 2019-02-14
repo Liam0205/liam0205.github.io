@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[寻找不小于给定整数的最小的 2 的幂方]]></title>
+    <url>%2F2019%2F02%2F14%2Ffind-smallest-power-of-2-that-is-not-less-than-a-given-integer%2F</url>
+    <content type="text"><![CDATA[这是一篇简单的记录。 最近在写 YTL 的过程中遇到这样一个子问题：需要定义一个函数 uint32_t func(uint32_t num)，返回不小于 num 的最小的 2 的幂方。例如 123451 == func(1);2 == func(2);4 == func(3);4 == func(4);// …… 一开始我想了个用位运算的奇技淫巧，自我感觉还不错： 1234567uint32_t func(uint32_t num) &#123; uint32_t res = 1; while (res &lt;= num) &#123; res &lt;&lt;= 1; &#125; return res;&#125; 后来一想，「不要在编译期面前装屄」，于是发现老实用 std::log2 来计算的话，效率要高出五倍多： 1234// #include &lt;cmath&gt;uint32_t func(uint32_t num) &#123; return 1 &lt;&lt; static_cast&lt;int&gt;(std::ceil(std::log2(num)));&#125; 再一想，std::ceil 本来就快，std::log2 有快速解法。那么如果把 1 &lt;&lt; foo 换成 std::pow(2.0, foo) 会怎样呢？结果发现，大概是由于 std::pow 是为浮点数运算设计的，所以没为 2 的幂方做优化，所以效率还不如位运算： 1234// #include &lt;cmath&gt;uint32_t func(uint32_t num) &#123; return std::pow(2.0, std::ceil(std::log2(num)));&#125; 以上。]]></content>
+      <categories>
+        <category>Algorithm and Computer Science</category>
+      </categories>
+      <tags>
+        <tag>C++</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[为 XeLaTeX 所调用时 xDVIPDFMx 的默认参数]]></title>
     <url>%2F2019%2F02%2F12%2Fdefault-flags-for-xDVIPDFMx%2F</url>
     <content type="text"><![CDATA[去年，有人在群里提及： 在 macOS 上，同样是使用 STFangSong 字体，使用 LaTeXmk 编译出来的文档在 Windows 上查看会乱码，但使用 XeLaTeX 直接编译则正常。MWE 是：12345\documentclass&#123;ctexbook&#125;\begin&#123;document&#125;\fangsong中文\end&#123;document&#125; 具体的编译命令分别是：12latexmk -cd -f -xelatex -interaction=nonstopmode -synctex=1 --output-directory=output foo.texxelatex -interaction=nonstopmode -synctex=1 --output-directory=output foo.tex 这个问题直至近期查看了 XeLaTeX 的源码才得到了完整答案。 字体嵌入根据 Ao Zhang 的检查，latexmk-mac.pdf 当中没有如 xelatex-mac.pdf 那样嵌入字体。 由于找不到相应字体，Windows 上查看文档时，就乱码了。 驱动 xDVIPDFMxXeLaTeX 输出的文件格式是扩展 DVI（eXtended DVI, .xdv）。不过，XeLaTeX 在执行到最后时会调用驱动，将 .xdv 文件转为 .pdf 格式，并将 .xdv 文件删除。默认的驱动是 xDVIPDFMx，它与 DVIPDFMx 系出同源。 使用 LaTeXmk 编译的文档没有嵌入字体，显然与 xDVIPDFMx 有关。经检查，LaTeXmk 考虑到多次编译时，只有最后一次编译需要真正输出 PDF 文件，故而在调用 XeLaTeX 时加上了 -no-pdf 选项，同时在最后一次调用 XeLaTeX 之后去调用 xDVIPDFMx。大致可以理解为 LaTeXmk 会按如下方式执行命令： 123456xelatex -no-pdf [other-options] foo.texbibtex foomakeindex fooxelatex -no-pdf [other-options] foo.texxelatex -no-pdf [other-options] foo.texxdvipdfmx foo 问题出在最后调用 xDVIPDFMx 的时候。若要嵌入字体，应当加上 -E 选项。但是默认情况下，LaTeXmk 没加上这一选项。所以，默认情况下，由 LaTeXmk 编译出来的 PDF 文档不会嵌入字体。具体到我们的例子中，latexmk-mac.pdf 在 Windows 上显示为乱码。 XeLaTeX 调用 xDVIPDFMx 时的默认参数至此，「在 macOS 上使用 LaTeXmk 编译的文档在 Windows 上乱码」这一问题已经可以解释。但是问题的另一半，即「为什么在 macOS 上使用 XeLaTeX 编译的文档在 Windows 上不会乱码」这一问题还没回答。显然，这仍与 xDVIPDFMx 的调用参数有关。 经查，XeLaTeX 在指定输出驱动为 xDVIPDFMx 时的 C 代码为： 1const char *outputdriver = "xdvipdfmx -q -E"; /* default to portable xdvipdfmx driver */ 可见，调用时添加了 -q 和 -E 两个参数。其中 -q 表示静默模式，即 xDVIPDFMx 不会输出任何回显信息；-E 表示忽略字体版权标记而总是将字体嵌入输出文件。 如此一来，问题的另一半也得到了合理解释。]]></content>
@@ -203,11 +214,11 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>System</tag>
         <tag>Format</tag>
         <tag>Engine</tag>
         <tag>Distribution</tag>
         <tag>Compiler</tag>
+        <tag>System</tag>
         <tag>Suite</tag>
       </tags>
   </entry>
@@ -725,8 +736,8 @@
       </categories>
       <tags>
         <tag>C++</tag>
-        <tag>Class</tag>
         <tag>Virtual</tag>
+        <tag>Class</tag>
       </tags>
   </entry>
   <entry>
@@ -737,8 +748,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C++</tag>
         <tag>C</tag>
+        <tag>C++</tag>
         <tag>volatile</tag>
       </tags>
   </entry>
@@ -750,9 +761,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>iCloud</tag>
         <tag>Apple</tag>
         <tag>Apple ID</tag>
+        <tag>iCloud</tag>
         <tag>PayPal</tag>
         <tag>Credit Card</tag>
       </tags>
@@ -791,8 +802,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Caption</tag>
         <tag>Floats</tag>
+        <tag>Caption</tag>
         <tag>Subcaption</tag>
       </tags>
   </entry>
@@ -805,8 +816,8 @@
       </categories>
       <tags>
         <tag>Macro</tag>
-        <tag>C++</tag>
         <tag>C</tag>
+        <tag>C++</tag>
         <tag>offsetof</tag>
       </tags>
   </entry>
@@ -856,8 +867,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Cpp</tag>
         <tag>String</tag>
+        <tag>Cpp</tag>
         <tag>Starts With</tag>
         <tag>Ends With</tag>
       </tags>
@@ -937,8 +948,8 @@
       </categories>
       <tags>
         <tag>Section</tag>
-        <tag>Numbering</tag>
         <tag>Bibliography</tag>
+        <tag>Numbering</tag>
       </tags>
   </entry>
   <entry>
@@ -963,8 +974,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Hexo</tag>
         <tag>Search Engine</tag>
+        <tag>Hexo</tag>
         <tag>JavaScript</tag>
         <tag>jQuery</tag>
         <tag>CSS</tag>
@@ -1056,9 +1067,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Split</tag>
         <tag>C++</tag>
         <tag>String</tag>
-        <tag>Split</tag>
       </tags>
   </entry>
   <entry>
@@ -1282,8 +1293,8 @@
       </categories>
       <tags>
         <tag>C++</tag>
-        <tag>Concurrency</tag>
         <tag>Multithread</tag>
+        <tag>Concurrency</tag>
       </tags>
   </entry>
   <entry>
@@ -1319,8 +1330,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Share</tag>
         <tag>HTTPS</tag>
+        <tag>Share</tag>
         <tag>Plugin</tag>
       </tags>
   </entry>
@@ -1511,8 +1522,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Cpp</tag>
         <tag>C</tag>
+        <tag>Cpp</tag>
         <tag>Pointer</tag>
       </tags>
   </entry>
@@ -1552,8 +1563,8 @@
       </categories>
       <tags>
         <tag>Linux</tag>
-        <tag>Architecture</tag>
         <tag>Process</tag>
+        <tag>Architecture</tag>
         <tag>Thread</tag>
         <tag>Operation System</tag>
         <tag>Thread Safe</tag>
@@ -1870,8 +1881,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Cheatsheet</tag>
         <tag>random</tag>
+        <tag>Cheatsheet</tag>
       </tags>
   </entry>
   <entry>
@@ -1994,8 +2005,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>iPhone</tag>
         <tag>iCloud</tag>
+        <tag>iPhone</tag>
         <tag>DNS</tag>
       </tags>
   </entry>
@@ -2074,8 +2085,8 @@
       </categories>
       <tags>
         <tag>Macro</tag>
-        <tag>Pseudocode</tag>
         <tag>Algorithm</tag>
+        <tag>Pseudocode</tag>
       </tags>
   </entry>
   <entry>
@@ -2099,9 +2110,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Dynamic Programming</tag>
         <tag>Max Subsequence Sum</tag>
         <tag>Max Subarray Sum</tag>
-        <tag>Dynamic Programming</tag>
         <tag>State Machine</tag>
       </tags>
   </entry>
@@ -2128,11 +2139,11 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Dynamic Programming</tag>
         <tag>Max Subsequence Sum</tag>
         <tag>Max Subarray Sum</tag>
         <tag>Circular List</tag>
         <tag>Kadane Algorithm</tag>
-        <tag>Dynamic Programming</tag>
       </tags>
   </entry>
   <entry>
@@ -2169,11 +2180,11 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Architecture</tag>
         <tag>CPU</tag>
         <tag>Memory</tag>
-        <tag>Addressing</tag>
+        <tag>Architecture</tag>
         <tag>x86</tag>
+        <tag>Addressing</tag>
       </tags>
   </entry>
   <entry>
@@ -2337,9 +2348,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Sublime Text</tag>
-        <tag>OS X</tag>
         <tag>C++</tag>
+        <tag>OS X</tag>
+        <tag>Sublime Text</tag>
         <tag>C++11</tag>
       </tags>
   </entry>
@@ -2503,10 +2514,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>MacTeX</tag>
         <tag>Font</tag>
-        <tag>XeLaTeX</tag>
+        <tag>MacTeX</tag>
         <tag>System</tag>
+        <tag>XeLaTeX</tag>
       </tags>
   </entry>
   <entry>
@@ -2529,9 +2540,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Update</tag>
         <tag>Ubuntu</tag>
         <tag>Server</tag>
+        <tag>Update</tag>
         <tag>apt-get</tag>
         <tag>Upgrade</tag>
       </tags>
@@ -2544,10 +2555,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
+        <tag>Update</tag>
         <tag>Fake</tag>
         <tag>tlpretest</tag>
         <tag>TeX Live</tag>
-        <tag>Update</tag>
         <tag>Packages</tag>
       </tags>
   </entry>
@@ -2607,8 +2618,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Equation</tag>
         <tag>Font</tag>
+        <tag>Equation</tag>
         <tag>Upright</tag>
       </tags>
   </entry>
@@ -2722,8 +2733,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Template</tag>
         <tag>Chinese</tag>
+        <tag>Template</tag>
         <tag>MacTeX</tag>
       </tags>
   </entry>
@@ -2736,8 +2747,8 @@
       </categories>
       <tags>
         <tag>Section</tag>
-        <tag>Sectioning</tag>
         <tag>Numbering</tag>
+        <tag>Sectioning</tag>
         <tag>Table of Contents</tag>
       </tags>
   </entry>
@@ -2749,8 +2760,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>WeChat</tag>
         <tag>Kindle</tag>
+        <tag>WeChat</tag>
       </tags>
   </entry>
   <entry>
@@ -2803,10 +2814,10 @@
         <tag>History</tag>
         <tag>Europe</tag>
         <tag>Christianity</tag>
+        <tag>Romantic</tag>
         <tag>God</tag>
         <tag>Reason</tag>
         <tag>Science</tag>
-        <tag>Romantic</tag>
       </tags>
   </entry>
   <entry>
@@ -2911,8 +2922,8 @@
       </categories>
       <tags>
         <tag>MacTeX</tag>
-        <tag>OS X</tag>
         <tag>CJK</tag>
+        <tag>OS X</tag>
       </tags>
   </entry>
   <entry>
@@ -3170,8 +3181,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Images</tag>
         <tag>Graphicx</tag>
+        <tag>Images</tag>
         <tag>Format</tag>
       </tags>
   </entry>
@@ -3233,8 +3244,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>PyHardWay</tag>
         <tag>Translation</tag>
+        <tag>PyHardWay</tag>
       </tags>
   </entry>
   <entry>
@@ -3285,8 +3296,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Translation</tag>
         <tag>Tutorial</tag>
+        <tag>Translation</tag>
       </tags>
   </entry>
   <entry>
@@ -3298,6 +3309,17 @@
       </categories>
       <tags>
         <tag>Text Completion</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
+    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>LaTeX speech</tag>
       </tags>
   </entry>
   <entry>
@@ -3327,17 +3349,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
-    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>LaTeX speech</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[【LaTeX Tips】关于行距的研究]]></title>
     <url>%2F2013%2F10%2F17%2FLaTeX-Linespace%2F</url>
     <content type="text"><![CDATA[baseline 是什么TeX 中的每个字符都放在一个 box 里。每个 box 有 base （参考点）、width（宽度）、height（高度）、depth（深度），其中 height + depth = totalheigth （总高）。 若干字符的 box 组成一个词的 box ，同样这个 box 也有这样几个参数。TeX 断行之后，会把这一行的所有盒子的 base 连接起来，以保证改行的内容在一个基准线上，连接成的线段就是 baseline. 如图所示： LaTeX 的行距机制每一行都有一条 baseline, 同一段落中相邻两行之间的 baseline 的间距称为行距 (linespace). 一般来说，最终决定两条 baseline 之间的 linespace 距离的，是 LaTeX 的宏 \baselineskip 之中。也就是说，这个长度值，将会是一般情况下的两条 baseline 之间的距离，也就是我们最终的行距。 显然行距应当随着字号的大小变化；若不然，则对于给定的行距数值，较大字号的内容部分显得拥挤不堪。LaTeX 中的字号存储在内部宏 \f@size 之中，而内部宏 \f@baselineskip 则记录了行距中和字号相关的部分。这个宏当中，它的单位和字号的单位一样，都是 pt ( 1pt = 1/72.27 inch ). LaTeX 的默认情况下，\f@baselineskip 的值是当前 \f@size 的 1.2 倍——例如，当 \f@size 为 10pt 时，\f@baselineskip 的值为 12pt. 为了统一对不同字号的内容进行行距的调整，引入了因子的概念，这是一个数值（而不是长度），储存在 \f@linespread 这个宏里面。这是一个与字号无关的值，在 article 文档类中它默认是 1, 在 ctexart 中默认是 1.3. 通常我们修改行距，都是修改这个因子，而不动前段叙述的基础行距。因此就有必要将因子存储在一个外部宏（没有 @ 的宏）之中，它是 \baselinestretch. 于是我们可以大致地认为，\f@linespread 和 \baselinestretch 是一回事。 因此，根据 \baselineskip = \f@baselineskip * \baselinestretch, 在 article 中默认行距是字号的 1.2 倍，而在 ctexart 中默认行距是字号的 1.56 倍。此外，提一下，Word 中的「单倍行距」/「双倍行距」等名词，指的是因子的数值为 1 或者 2 的时候的行距；相反 setspace 宏包的 「单倍」、「一倍半」、「双倍」则是指行距相对于字号的倍数。 如何修改行距\f@linespread 的值一旦给定，会一直作用到文档末尾或者被新的值覆盖；\f@baselineskip 的情况类似。因为 TeX 排版的过程是对一整段文字进行计算，在每个可能的断行点计算总劣度最小的断行模式，然后进行排版。所以每一段段内的行距，由最后被设置的（覆盖了前面的）\f@baselineskip 和 \f@linespread 决定。 修改行距，也就是修改因子，可以直接修改 \baselinestretch 的值（\renewcommand），或者使用 \linespread{}\selectfont 来修改。然而为了保持与 LaTeX2e 的一致性，推荐使用后一种方法。 \linespread{&lt;因子&gt;}\selectfont setspace 宏包提供的 \setstretch 命令似乎做得更多一些：会同时修改数学公式、浮动体等的间距，使之与正文间距适应。 \setstretch{&lt;因子&gt;} \linespread 和 \fontsize{}{} 这类命令，必须在其后添加 \selectfont 才会生效。\setstretch 大致相当于 \linespread \selectfont, 使用之后直接生效。]]></content>
@@ -3360,9 +3371,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Template</tag>
         <tag>CCT</tag>
         <tag>SYSENGI</tag>
+        <tag>Template</tag>
       </tags>
   </entry>
   <entry>
@@ -3538,8 +3549,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>SDU</tag>
         <tag>Template</tag>
+        <tag>SDU</tag>
       </tags>
   </entry>
   <entry>
