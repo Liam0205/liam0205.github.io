@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2019-02-19T03:07:48.170Z</updated>
+  <updated>2019-02-19T08:25:36.059Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,31 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>像递归一样的函数模板调用</title>
+    <link href="https://liam.page/2019/02/19/recursive-like-function-template-calling/"/>
+    <id>https://liam.page/2019/02/19/recursive-like-function-template-calling/</id>
+    <published>2019-02-19T08:02:59.000Z</published>
+    <updated>2019-02-19T08:25:36.059Z</updated>
+    
+    <content type="html"><![CDATA[<p>遇到一个蛮奇葩的问题：在 C++ 中如何不用循环和递归，打印从 1 至 N 的自然数？</p><p>想了想，用模板元编程可以解决——让编译器在编译期把该打印的东西都展开就好了。</p><a id="more"></a><p>直接上代码好了……</p><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">int</span> N&gt;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">counting</span><span class="params">(<span class="built_in">std</span>::ostream&amp; os)</span> </span>&#123;</span><br><span class="line">  counting&lt;N - <span class="number">1</span>&gt;(os);  <span class="comment">// *</span></span><br><span class="line">  os &lt;&lt; N &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;&gt;</span><br><span class="line"><span class="keyword">void</span> counting&lt;<span class="number">1</span>&gt;(<span class="built_in">std</span>::ostream&amp; os) &#123;</span><br><span class="line">  os &lt;&lt; <span class="number">1</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> <span class="keyword">int</span> N = <span class="number">10</span>;</span><br><span class="line">  counting&lt;N&gt;(<span class="built_in">std</span>::<span class="built_in">cout</span>);</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>这里，(*) 处有类似递归的调用。但由于 <code>counting</code> 是函数模板，所以 <code>counting&lt;N&gt;</code> 调用的 <code>counting&lt;N - 1&gt;</code> 并非自身，因此不是递归。</p><p>编译器在实例化 <code>counting&lt;N&gt;</code> 的时候，由于它调用了 <code>counting&lt;N - 1&gt;</code>，所以在编译期会递归地实例化下去——直到遇见全特化的 <code>counting&lt;1&gt;</code> 为止。这段代码利用了编译器在编译期的递归替代运行期的递归，巧妙地绕过了原始问题的限制。</p><blockquote><p>类似的手段也可以运用在类模板上。在 YTL 的 <code>traits</code> 库当中就有这样的运用。</p></blockquote><p>不过要注意，既然是递归，就有可能爆栈。编译器递归实例化的深度是有限制的。<code>clang 3.4</code> 的默认限制是 256 层而 <code>gcc 8.2</code> 的默认限制是 900 层。超过这一限制会引发编译器 Fatal error 而编译失败。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;遇到一个蛮奇葩的问题：在 C++ 中如何不用循环和递归，打印从 1 至 N 的自然数？&lt;/p&gt;
+&lt;p&gt;想了想，用模板元编程可以解决——让编译器在编译期把该打印的东西都展开就好了。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Algorithm and Computer Science" scheme="https://liam.page/categories/Algorithm-and-Computer-Science/"/>
+    
+    
+      <category term="Template" scheme="https://liam.page/tags/Template/"/>
+    
+      <category term="C++" scheme="https://liam.page/tags/C/"/>
+    
+  </entry>
   
   <entry>
     <title>寻找不小于给定整数的最小的 2 的幂方</title>
@@ -505,13 +530,13 @@
     
       <category term="Format" scheme="https://liam.page/tags/Format/"/>
     
-      <category term="System" scheme="https://liam.page/tags/System/"/>
-    
       <category term="Engine" scheme="https://liam.page/tags/Engine/"/>
     
       <category term="Distribution" scheme="https://liam.page/tags/Distribution/"/>
     
       <category term="Compiler" scheme="https://liam.page/tags/Compiler/"/>
+    
+      <category term="System" scheme="https://liam.page/tags/System/"/>
     
       <category term="Suite" scheme="https://liam.page/tags/Suite/"/>
     
@@ -539,33 +564,6 @@
     
     
       <category term="Binary Search" scheme="https://liam.page/tags/Binary-Search/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>Windows 上的 GIF 动画录像机和浏览器</title>
-    <link href="https://liam.page/2018/11/23/GIF-aminate-recoder-and-viewer-on-Windows/"/>
-    <id>https://liam.page/2018/11/23/GIF-aminate-recoder-and-viewer-on-Windows/</id>
-    <published>2018-11-23T03:16:36.000Z</published>
-    <updated>2019-01-25T03:17:15.879Z</updated>
-    
-    <content type="html"><![CDATA[<p>继续配置电脑的旅程。</p><p>此篇推荐两个小工具。它们的大小都不足 1MiB，但是都非常好用。一个是 GIF 录屏工具，一个是 GIF 查看器。</p><a id="more"></a><h2 id="LICECap"><a href="#LICECap" class="headerlink" title="LICECap"></a>LICECap</h2><p>LICECap 是一款小巧的 GIF 录屏工具，其安装包大小只有 282KiB。它的下载地址是：<a href="https://licecap.en.softonic.com/?ex=BB-682.0" target="_blank" rel="noopener">https://licecap.en.softonic.com/?ex=BB-682.0</a>。</p><h2 id="GIF-Viewer"><a href="#GIF-Viewer" class="headerlink" title="GIF Viewer"></a>GIF Viewer</h2><p>从 Windows Vista 开始，系统自带的图片查看器不支持查看 GIF 动画。因此在 Windows 上打开 GIF 动画，系统会自动打开臃肿的 Internet Explorer。这实在不能忍。</p><p>在国外论坛上找到了名为 GIF Viewer 的小工具。它的安装包大小只有 134KiB，下载地址是：<a href="https://sourceforge.net/projects/gifviewer/" target="_blank" rel="noopener">https://sourceforge.net/projects/gifviewer/</a>。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;继续配置电脑的旅程。&lt;/p&gt;
-&lt;p&gt;此篇推荐两个小工具。它们的大小都不足 1MiB，但是都非常好用。一个是 GIF 录屏工具，一个是 GIF 查看器。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="GIF" scheme="https://liam.page/tags/GIF/"/>
-    
-      <category term="Recoder" scheme="https://liam.page/tags/Recoder/"/>
-    
-      <category term="Viewer" scheme="https://liam.page/tags/Viewer/"/>
     
   </entry>
   
