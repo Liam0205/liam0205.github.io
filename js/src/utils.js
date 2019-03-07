@@ -30,6 +30,7 @@ NexT.utils = NexT.$u = {
       });
 
     $('.fancybox').fancybox({
+      loop: true,
       helpers: {
         overlay: {
           locked: false
@@ -265,7 +266,7 @@ NexT.utils = NexT.$u = {
   },
 
   getContentVisibilityHeight: function() {
-    var docHeight = $('#content').height();
+    var docHeight = $('.container').height();
     var winHeight = $(window).height();
     var contentVisibilityHeight = docHeight > winHeight ? docHeight - winHeight : $(document).height() - winHeight;
     return contentVisibilityHeight;
@@ -290,6 +291,10 @@ NexT.utils = NexT.$u = {
 };
 
 $(document).ready(function() {
+
+  function wrapTable() {
+    $('table').not('figure table').wrap('<div class="table-container"></div>');
+  }
 
   /**
    * Init Sidebar & TOC inner dimensions on all pages and for all schemes.
@@ -327,4 +332,5 @@ $(document).ready(function() {
     updateSidebarHeight(document.body.clientHeight - NexT.utils.getSidebarSchemePadding());
   }
   initSidebarDimension();
+  wrapTable();
 });
