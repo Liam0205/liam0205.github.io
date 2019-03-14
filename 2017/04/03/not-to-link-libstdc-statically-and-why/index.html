@@ -116,7 +116,7 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-01-25T03:17:14.071Z">
+<meta property="og:updated_time" content="2019-03-14T07:46:20.328Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="为什么不能在动态库里静态链接？">
 <meta name="twitter:description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
@@ -561,7 +561,7 @@ function yuukiReaddata(key) {
                 
                   <span class="post-meta-item-text">更新于</span>
                 
-                <time title="修改时间：2019 年 01 月 25 日 11:17:14" itemprop="dateModified" datetime="2019-01-25T11:17:14+08:00">2019 年 01 月 25 日</time>
+                <time title="修改时间：2019 年 03 月 14 日 15:46:20" itemprop="dateModified" datetime="2019-03-14T15:46:20+08:00">2019 年 03 月 14 日</time>
               
             
           </span>
@@ -746,11 +746,11 @@ function yuukiReaddata(key) {
 <p>如果想要将这些依赖的动态库对应的符号，都静态链接到可执行文件中的话，则需要在链接的时候加上 <code>-static</code> 参数。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">4425</span><br><span class="line">$ ldd hello</span><br><span class="line">        not a dynamic executable</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span></span><br><span class="line">                 U __tls_get_addr</span><br></pre></td></tr></table></figure>
 <p>我们看到，相对不加 <code>-static</code> 参数的版本，新的 <code>hello</code> 多出了四千多个符号；并且，以 <code>ldd</code> 查看 <code>hello</code> 依赖的动态库，命令提示 <code>hello</code> 没有依赖其他的动态库；最后，我们发现，<code>hello</code> 的所有符号中，仅有 <code>__tls_get_addr</code> 是未定义的。</p>
-<p><code>tls</code> 是 Thread Local Storage 的缩写，<code>__tls_get_addr()</code> 接收一个参数（数据结构 <code>tls_index</code> 的起始地址），返回一个 Thread Local Variable 的在当前段的偏移量和长度。这个函数是转为动态链接器设计的，在静态链接时这个符号对应的函数无意义（参见 <code>ELF/SymbolTable.cpp</code>）。</p>
+<p><code>tls</code> 是 Thread Local Storage 的缩写，<code>__tls_get_addr()</code> 接收一个参数（数据结构 <code>tls_index</code> 的起始地址），返回一个 Thread Local Variable 的在当前段的偏移量和长度。这个函数是专为动态链接器设计的，在静态链接时这个符号对应的函数无意义（参见 <code>ELF/SymbolTable.cpp</code>）。</p>
 <p>因此，我们说，对于静态链接版本的 <code>hello</code> 来说，它已经包含了运行所需的所有符号。</p>
 <p>若是想要静态链接 <code>libstdc++</code>，其他的部分依然保留动态链接，则可以使用 <code>g++</code> 的参数 <code>-static-libstdc++</code>。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static-libstdc++</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffcd5fd000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002b6ccb401000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">3022</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span> | grep -v GLIBC | grep -v GCC</span><br></pre></td></tr></table></figure>
-<p>可以看到，使用 <code>-static-libstdc++</code> 之后，<code>hello</code> 不再依赖 <code>libstdc++.so</code> 了。同时，其中包含的符号想比动态链接 <code>libstdc++</code> 的版本要多出不少，而相对完全静态链接的版本又少了不少；介于二者之间。此外，我们也验证了，<code>hello</code> 中包含的未定义的符号，除开 <code>GLIBC</code> 和 <code>GCC</code> 相关的符号之外，就没有了。</p>
+<p>可以看到，使用 <code>-static-libstdc++</code> 之后，<code>hello</code> 不再依赖 <code>libstdc++.so</code> 了。同时，其中包含的符号相比动态链接 <code>libstdc++</code> 的版本要多出不少，而相对完全静态链接的版本又少了不少；介于二者之间。此外，我们也验证了，<code>hello</code> 中包含的未定义的符号，除开 <code>GLIBC</code> 和 <code>GCC</code> 相关的符号之外，就没有了。</p>
 
       
     </div>
