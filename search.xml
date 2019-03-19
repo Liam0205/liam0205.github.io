@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[于 CentOS 7 上编译安装 Python 3.7.2]]></title>
+    <url>%2F2019%2F03%2F19%2Fcompile-and-install-Python-3-7-2-on-CentOS-7%2F</url>
+    <content type="text"><![CDATA[又到了愉悦地配置系统的时间……今日的任务是在 CentOS 7 上安装最新版本的 Python 3.7.2。 由于前些日子，蛤力橙表示 Anaconda 是 some what 邪恶的，所以这次不打算偷懒用 Anaconda 了，而是选择从源码编译安装。这里记录一些踩过的坑。 安装完成后 yum 等脚本挂掉原因：yum 等脚本依赖 Python2 而非 Python3。这次跨大版本升级，会破坏 yum 等脚本 shebang 头部的指令。 解决办法：使 yum 等脚本显式依赖 Python2。 具体：修改 /usr/bin 下 yum 相关脚本的 shebang 头，将 python 修改为 python2。 123456789$ cd /usr/bin$ ls -al yum*-rwxr-xr-x. 1 root root 801 11月 15 2016 yum-rwxr-xr-x. 1 root root 9429 11月 6 2016 yum-builddep-rwxr-xr-x. 1 root root 8582 11月 6 2016 yum-config-manager-rwxr-xr-x. 1 root root 7609 11月 6 2016 yum-debug-dump-rwxr-xr-x. 1 root root 7903 11月 6 2016 yum-debug-restore-rwxr-xr-x. 1 root root 10999 11月 6 2016 yumdownloader-rwxr-xr-x. 1 root root 11031 11月 6 2016 yum-groups-manager 安装过程中缺胳膊少腿原因：Python 依赖其他第三方库，而这些库在系统内没有安装，或者安装的位置不在 Python 安装脚本默认搜索的范围内。 解决办法：使用 yum 一口气安装就好了。 具体：执行下列 yum 命令。 1$ yum install -y ncurses-libs zlib-devel mysql-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel 安装完成后 pip 提示没有可用的 SSL，以至于无法访问 https 协议的源原因：Python 编译时没有将 SSL 编译进去。 解决办法：安装符合要求的 OpenSSL 版本，并在 ./configure 时添加 --with-ssl 参数。 具体：执行下列命令。 1234567$ cd /path/to/downloads$ wget https://www.openssl.org/source/openssl-1.1.1b.tar.gz$ tar zvxf openssl-1.1.1b.tar.gz$ cd openssl-1.1.1b$ ./config -fPIC --prefix=/usr/ --openssldir=/usr/openssl enable-shared shared zlib$ make -j24$ make install 注意：必须安装 1.0.2 以上版本的 OpenSSL，故而 yum 源当中的 1.0.1 版本不可用。 依赖 SSL 之后提示 UUID 编译失败原因：Python 的 UUID 相关扩展的代码有 bug；无法正确载入 uuid.h 头文件或者载入了两个版本的头文件。 解决办法：修改相应头文件。 具体：在 Python 源码根目录，编辑 ./Modules/_uuidmodule.c 文件，修改头部 #include 部分的代码如下： 12345678#define PY_SSIZE_T_CLEAN#include "Python.h"#ifdef HAVE_UUID_UUID_H#include &lt;uuid/uuid.h&gt;#else#include &lt;uuid.h&gt;#endif 总结总结一下编译安装 Python 3.7.2 时用到的命令。 123456789101112131415161718192021222324252627yum install -y ncurses-libs zlib-devel mysql-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel uuid-devel libuuid-develcd /path/to/downloadswget https://www.openssl.org/source/openssl-1.1.1b.tar.gztar zvxf openssl-1.1.1b.tar.gzcd openssl-1.1.1b./config -fPIC --prefix=/usr/ --openssldir=/usr/openssl enable-shared shared zlibmake -j24make installcd /path/to/downloadswget https://www.python.org/ftp/python/3.7.2/Python-3.7.2.tgztar zvxf Python-3.7.2.tgzcd Python-3.7.2sed -i "6s/endif/else/" ./Modules/_uuidmodule.csed -i "7d" ./Modules/_uuidmodule.c./configure --prefix=/usr/local/python3.7.2 --enable-optimizations --enable-shared --enable-profiling --with-sslmake -j24make installcd /usr/binfor fname in $(ls /usr/local/python3.7.2/bin/); do ln -sf /usr/local/python3.7.2/bin/$&#123;fname&#125; ./$&#123;fname&#125;; doneln -sf pydoc3 pydocln -sf python3 pythonln -sf python3-config python-configln -sf pip3 pip]]></content>
+      <categories>
+        <category>Computer Skills</category>
+      </categories>
+      <tags>
+        <tag>Python</tag>
+        <tag>OpenSSL</tag>
+        <tag>UUID</tag>
+        <tag>yum</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[到底什么是「内容与样式分离」]]></title>
     <url>%2F2019%2F03%2F18%2Fseparation-of-content-and-presentation%2F</url>
     <content type="text"><![CDATA[写这篇文章的原因有两个。 时至今日仍然有很多人在按「这一行要缩进两个字符、加粗」的方式来使用 LaTeX； 市面上关于 LaTeX 的资料大都宣称「LaTeX 是内容与样式分离的」，却不对此做进一步解释，含混而过。 我认为有必要对此稍作解释（或者是重新解释），形成一篇短文，填上这一空白。 介绍内容与样式分离在英文环境中，更多地被称作：内容与表现分离（separation of content and presentation）。这里的「表现」指的是内容呈现出来的状态，即英文：「the state of being presented」。这一原则的本意是一篇文档的实际内容和逻辑结构与这篇文档呈现给读者看到的样式是相互独立的。举个栗子。em 是 emphasis 的缩写。于是 HTML 语法中的 &lt;em&gt; 标签和 LaTeX 语法中的 \emph{} 命令，都是用来强调文档中的一部分内容使用的。通常，被强调的内容的样式是「倾斜体」。但请注意，「被强调的内容」与「倾斜体」之间的关系，既不充分也不必要。这也就是说，被强调的内容既可以是倾斜体，也可以不是倾斜体——例如可以用增加下划线或者用更高的字重（即用粗体）；另一方面，倾斜体也不一定是被强调的内容——排版诗歌时，一般就会用到倾斜体。 由此也可见得，「内容与样式分离」这一原则并非只属于 LaTeX。它是一种通用的原则，并非 LaTeX 家专属。 思维流基于这些对「内容与样式分离」的理解，我们可以看看在内容与样式分离这一原则之下，写作时的思维流应该是怎样的。思维流是我自创的概念；在我的理解中 $$ \text{思维流} = \text{思考方式} + \text{思考的内容}. $$ 这里我们以下面的内容为例，看一看思维流是怎样的。 定理 1 (勾股定理). 设直角三角形的三条边长分别是 $a$, $b$ 和 $c$，其中 $c$ 是斜边边长，则有 $a^2 + b^2 = c^2$ 成立. 内容与样式不分离对于内容与样式不分离的思维流，书写这段文字的时候大概是这样的： 加粗 定理 空格 数字 1 左括号 ( 勾股定理 右括号 ) 句点 . 空格 结束加粗 倾斜体 设直角三角形的三条边长分别是 $a$, $b$ 和 $c$，其中 $c$ 是斜边边长，则有 $a^2 + b^2 = c^2$ 成立. 结束倾斜 翻译成 LaTeX 代码大概会是这样： 1\textbf&#123;定理 1 (勾股定理).&#125; \textsl&#123;设直角三角形的三条边长分别是 $a$, $b$ 和 $c$，其中 $c$ 是斜边边长，则有 $a^2 + b^2 = c^2$ 成立.&#125; 不遵守内容与样式分离的原则时，作者的思维是非结构化的。作者思考的是「这一小块内容应该是加粗还是倾斜，是多大字号」这些问题。然后，作者在书写内容时，不得不边写边调整格式。 内容与样式分离对于内容与样式分离的思维流，书写这段文字的时候大概是这样： 这是一个 定理 它的编号是 1 它的名字是 勾股定理 它的内容是 设直角三角形的三条边长分别是 $a$, $b$ 和 $c$，其中 $c$ 是斜边边长，则有 $a^2 + b^2 = c^2$ 成立. 把它们分别放在恰当的标记中（在 LaTeX 中是定理环境） 翻译成 LaTeX 代码大概会是这样： 123\begin&#123;theorem&#125;[勾股定理]设直角三角形的三条边长分别是 $a$, $b$ 和 $c$，其中 $c$ 是斜边边长，则有 $a^2 + b^2 = c^2$ 成立.\end&#123;theorem&#125; 在内容与样式分离的原则下，作者的思维流是结构化的。具体来说，作者会思考：「这一小块内容起到了什么作用，属于什么结构」，然后相应地标记（在 LaTeX 中是命令或者控制序列）这些内容。例如，在这个例子中，作者用 theorem 环境把定理的各个方面标记起来。这种情况下，作者无需边写边调整格式，只需在撰写文档开始前或者结束后，统一定义各个标记的具体样式即可。 一个问答很多人使用 LaTeX 时往往会有这种疑惑：不是说 LaTeX 是内容与样式分离的吗？为什么为用 LaTeX 写文章的时候，还要不停去调整格式？ 对此，我的回答如下： LaTeX 是按照「内容与样式分离」的原则设计的没错，但是具体能不能遵循这一原则，还要看具体使用的人。事实上，从 Office 2003 开始，Microsoft Word 也引入了样式的功能，可以在这一原则下写作。这一点与 LaTeX 是一样的。但是有多少人会「正确地使用 Word」呢？ 如果写作的过程中会需要你不停调整格式，说明你没有完全遵循内容与样式分离的思维流。你需要做的事情是切换思维流： 遇到一段内容，比如 foo bar baz，你打算将其加粗并将字体放大。比如使用 \textbf{\LARGE foo bar baz}； 你需要做的是停下，然后去思考这一段内容究竟起到什么作用？属于什么结构？比如，你发现它是练习题的名字，接下来还会有练习题的内容。 那么你需要在导言区定义一个命令或者环境，用于标记练习题。比如定义一个带有一个参数的环境 MyExercise。此时你可以不去设计这个环境的具体格式，只需要有一个框架即可。 然后，你应该在恰当的位置使用该环境。 最后，当你文章写完之后，如果还有尚未确定样式的命令或环境，再去慢慢设计就好了。 12345678910% ...\newenvironment&#123;MyExercise&#125;[1]&#123;#1\par&#125;&#123;\par&#125;% ...\begin&#123;document&#125;% ...\begin&#123;MyExercise&#125;&#123;foo bar baz&#125;% ...\end&#123;MyExercise&#125;% ...\end&#123;document&#125;]]></content>
@@ -274,10 +288,10 @@
       </categories>
       <tags>
         <tag>Format</tag>
+        <tag>System</tag>
         <tag>Engine</tag>
         <tag>Distribution</tag>
         <tag>Compiler</tag>
-        <tag>System</tag>
         <tag>Suite</tag>
       </tags>
   </entry>
@@ -534,11 +548,11 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>WeChat</tag>
         <tag>QRCode</tag>
         <tag>HTML</tag>
         <tag>JavaScript</tag>
         <tag>Alipay</tag>
-        <tag>WeChat</tag>
         <tag>QQ</tag>
       </tags>
   </entry>
@@ -861,8 +875,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Floats</tag>
         <tag>Caption</tag>
+        <tag>Floats</tag>
         <tag>Subcaption</tag>
       </tags>
   </entry>
@@ -1007,8 +1021,8 @@
       </categories>
       <tags>
         <tag>Section</tag>
-        <tag>Bibliography</tag>
         <tag>Numbering</tag>
+        <tag>Bibliography</tag>
       </tags>
   </entry>
   <entry>
@@ -1033,9 +1047,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>Hexo</tag>
         <tag>Search Engine</tag>
         <tag>JavaScript</tag>
-        <tag>Hexo</tag>
         <tag>jQuery</tag>
         <tag>CSS</tag>
       </tags>
@@ -1300,8 +1314,8 @@
       </categories>
       <tags>
         <tag>Vertical</tag>
-        <tag>Split</tag>
         <tag>VIM</tag>
+        <tag>Split</tag>
         <tag>Horizon</tag>
       </tags>
   </entry>
@@ -1389,8 +1403,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>HTTPS</tag>
         <tag>Share</tag>
+        <tag>HTTPS</tag>
         <tag>Plugin</tag>
       </tags>
   </entry>
@@ -1531,8 +1545,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Floats</tag>
         <tag>Vertical</tag>
+        <tag>Floats</tag>
       </tags>
   </entry>
   <entry>
@@ -1622,8 +1636,8 @@
       </categories>
       <tags>
         <tag>Linux</tag>
-        <tag>Process</tag>
         <tag>Architecture</tag>
+        <tag>Process</tag>
         <tag>Thread</tag>
         <tag>Operation System</tag>
         <tag>Thread Safe</tag>
@@ -1940,8 +1954,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Cheatsheet</tag>
         <tag>random</tag>
+        <tag>Cheatsheet</tag>
       </tags>
   </entry>
   <entry>
@@ -2051,8 +2065,8 @@
       </categories>
       <tags>
         <tag>Chinese</tag>
-        <tag>Python</tag>
         <tag>Number</tag>
+        <tag>Python</tag>
         <tag>Arabic</tag>
       </tags>
   </entry>
@@ -2169,9 +2183,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Dynamic Programming</tag>
         <tag>Max Subsequence Sum</tag>
         <tag>Max Subarray Sum</tag>
+        <tag>Dynamic Programming</tag>
         <tag>State Machine</tag>
       </tags>
   </entry>
@@ -2198,11 +2212,11 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Dynamic Programming</tag>
         <tag>Max Subsequence Sum</tag>
         <tag>Max Subarray Sum</tag>
         <tag>Circular List</tag>
         <tag>Kadane Algorithm</tag>
+        <tag>Dynamic Programming</tag>
       </tags>
   </entry>
   <entry>
@@ -2239,9 +2253,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Architecture</tag>
         <tag>CPU</tag>
         <tag>Memory</tag>
-        <tag>Architecture</tag>
         <tag>Addressing</tag>
         <tag>x86</tag>
       </tags>
@@ -2575,8 +2589,8 @@
       <tags>
         <tag>MacTeX</tag>
         <tag>Font</tag>
-        <tag>System</tag>
         <tag>XeLaTeX</tag>
+        <tag>System</tag>
       </tags>
   </entry>
   <entry>
@@ -2599,9 +2613,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Update</tag>
         <tag>Ubuntu</tag>
         <tag>Server</tag>
+        <tag>Update</tag>
         <tag>apt-get</tag>
         <tag>Upgrade</tag>
       </tags>
@@ -2614,10 +2628,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
+        <tag>Update</tag>
         <tag>Fake</tag>
         <tag>tlpretest</tag>
         <tag>TeX Live</tag>
-        <tag>Update</tag>
         <tag>Packages</tag>
       </tags>
   </entry>
@@ -2652,8 +2666,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Bug</tag>
         <tag>Hyperref</tag>
+        <tag>Bug</tag>
         <tag>Psdextra</tag>
       </tags>
   </entry>
@@ -2792,8 +2806,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Chinese</tag>
         <tag>Template</tag>
+        <tag>Chinese</tag>
         <tag>MacTeX</tag>
       </tags>
   </entry>
@@ -2806,8 +2820,8 @@
       </categories>
       <tags>
         <tag>Section</tag>
-        <tag>Numbering</tag>
         <tag>Sectioning</tag>
+        <tag>Numbering</tag>
         <tag>Table of Contents</tag>
       </tags>
   </entry>
@@ -3240,8 +3254,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Images</tag>
         <tag>Graphicx</tag>
+        <tag>Images</tag>
         <tag>Format</tag>
       </tags>
   </entry>
@@ -3303,8 +3317,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>PyHardWay</tag>
         <tag>Translation</tag>
+        <tag>PyHardWay</tag>
       </tags>
   </entry>
   <entry>
@@ -3355,8 +3369,8 @@
       </categories>
       <tags>
         <tag>Python</tag>
-        <tag>Translation</tag>
         <tag>Tutorial</tag>
+        <tag>Translation</tag>
       </tags>
   </entry>
   <entry>
