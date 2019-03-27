@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[在 SumatraPDF 反向搜索时重用 VSCode 窗口]]></title>
+    <url>%2F2019%2F03%2F27%2Freuse-active-window-for-inverse-search-SumatraPDF-and-LaTeXworkshop-on-VSCode%2F</url>
+    <content type="text"><![CDATA[这是一篇简单的记录。 最近升级 VSCode 之后发现 SumatraPDF 的反向搜索出了些问题。具体来说，反向搜索能够定位到 VSCode 里的代码位置，但是每次反向搜索都会打开新的 VSCode 窗口。烦不胜烦。 遂上网检索，找到 VSCode 的命令行参数文档。原来，默认情况下，使用命令行打开 VSCode 会打开新的窗口。为了重用上一个活动窗口，需要在命令行参数上加上 -r 或者完整版本 --reuse-window。 于是，LaTeXworkshop 的配置变成了这样： 12345678910111213"latex-workshop.view.pdf.external.synctex": &#123; "command": "C:\\Program Files (x86)\\SumatraPDF\\SumatraPDF.exe", "args": [ "-forward-search", "%TEX%", "%LINE%", "-reuse-instance", "-inverse-search", "\"C:\\Users\\huangchencheng\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe\" \"C:\\Users\\huangchencheng\\AppData\\Local\\Programs\\Microsoft VS Code\\resources\\app\\out\\cli.js\" -r -g \"%f:%l\"", "%PDF%" ]&#125;,]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>VSCode</tag>
+        <tag>SumatraPDF</tag>
+        <tag>Inverse Search</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[谈谈因子分解机模型（FM）]]></title>
     <url>%2F2019%2F03%2F25%2FFactorization-Machine%2F</url>
     <content type="text"><![CDATA[先前我们讨论过逻辑回归。作为线性模型，它最大的优势是简单，于是可以以很高的效率去学习和预测，因而在很多领域都被广泛应用。但「成也萧何败萧何」，由于 LR 只能捕捉关于特征的线性信息，而无法捕捉非线性信息——特别是交叉特征信息，人们对 LR 进行了各种升级改造。 此篇介绍因子分解机模型（Factorization Machine）。 背景首先我们介绍一下在实际工程中模型的使用背景。 特征稀疏性在诸如 CTR 预估、推荐或搜索 ranking 的场景中，特征是非常稀疏的。特征的稀疏性往往来自分类特征的 one-hot 编码。举例来说，我们有以下数据集。数据集中的「点击」是 label，而性别、地区、频道则是特征。 点击 性别 地区 频道 1 男 天津 相声 0 女 甘肃 体育 1 女 云南 电视剧 不难发现，在这个场景下，性别、地区、频道都是分类特征。其中性别有 2 个取值；地区按省级行政单位划分全中国有 30 余个取值；频道则可能更多，可能有上百个取值。由于类别特征的不同取址之间，在数值上是不可比较和不可计算的——例如我们没法说「天津与甘肃哪个更大」，或者去计算「云南 * 3 是多少」——因此我们通常会对这些分类特征进行 one-hot 编码。 点击 性别 = 男 性别 = 女 地区 = 天津 地区 = 甘肃 地区 = 云南 频道 = 相声 频道 = 体育 频道 = 电视剧 1 1 0 1 0 0 1 0 0 0 0 1 0 1 0 0 1 0 1 0 1 0 0 1 0 0 1 这里仅列出了 8 维特征。但实际上，如前所述，实际上由性别、地区、频道 one-hot 编码之后，特征维度会升高到 100+ 维。但对于每一条样本，这 100+ 维特征中，大多数的取值都是 0。具体来说，由于它们来自三个原始的分类特征，因此这 100+ 维特征中只有 3 维取值为 1，其余都是 0。 由此可见其稀疏性。 交叉特征用户是否会点击某个 item，往往与不同特征的组合高度相关。例如，地处天津的用户点击相声类 item 的概率可能显著高于全国用户的平均水平。因此，若一条样本的 地区 = 天津 和 频道 = 相声 同时出现，则其 CTR 应该相对较高。 对于这些特征，对产品形态和策略较熟悉的工程师，可以根据这些先验知识，进行人工的特征组合，作为新的组合特征交付给模型使用。使用 LR 作为 CTR 预估模型/ranking 模型时，往往会需要工程师进行大量的特征工程操作，以便提升模型的预测性能。 不过，当分类特征增多，特别是取值多的分类特征越来越多，进行人工特征交叉的工作量会越来越大。此外，全凭经验的特征工程，可能无法完全捕捉到特征中蕴含的规律，从而降低模型预测性能的天花板。这是这类做法的主要缺陷之一。 问题如此一来，我们就会希望设计一些模型，使得它们 能够处理大规模的稀疏数据，并保有足够好的泛化性能（generalization performance）； 同时，我们还要求这些模型能够自动地学习到特征交叉带来的信息。 模型演进的背后讲清楚了背景情况和总结了问题之后，我们就能分析模型演进背后的原理了。 线性模型这里说的线性模型指的是线性回归和逻辑回归模型。假设模型的输入是特征向量 $\vec x$，则它们的预测函数分别是： 线性回归：$\hat y = f(\vec x) = w_0 + \sum_{i = 1}^{n}w_ix_i$； 逻辑回归：$\hat y = f(\vec x) = \sigma(\vec w\vec x) = \frac{1}{1 + \exp{\{w_0 + \sum_{i = 1}^{n}w_ix_i\}}}$。 线性模型的优势是简单可解释易扩展易并行。因此，逻辑回归模型是 CTR 预估领域早期最成功的模型。并且时至今日，仍有工业级的系统仍然采用逻辑回归模型。 不过，如前所述，由于线性模型无法捕获交叉特征带来的信息，因此其预测效果依赖大量的人工特征工程。随着特征量和样本量的增加，人工特征工程的成本越来越高，考虑让模型自动学习特征组合是必然的模型演进方向。 二阶多项式核 SVM既然单纯的线性模型无法捕获交叉特征。那么，最简单直接的做法就是为两两的特征组合分配一个权重参数。这些新的权重参数和原始特征对应的参数一样，交给模型去在训练阶段学习。如此一来就形成了如下的预测函数： $$\hat y = f(\vec x) = w_0 + \sum_{i = 1}^{n}w_ix_i + \sum_{0 &lt; i &lt; j &lt;= n}w_{i, j}x_ix_j.$$ 这实际上就是核函数选择为二阶多项式核的 SVM 模型。 这样设计的模型看起来能够学习到特征两两交叉带来的信息了。但这只是理论上的改进，别忘了我们从工程背景中抽象出来的问题中的第一条要求： 能够处理大规模的稀疏数据，并保有足够好的泛化性能（generalization performance）。 由于 $w_{i, j}$ 的取值完全取决于 $x_i$ 和 $x_j$ 的乘积，在数据稀疏的场景下，可能存在训练集中 $x_ix_j$ 始终为零的情况。这样一来，模型就无法有效地更新权重 $w_{i, j}$ 了；更进一步，在预测阶段，模型遇到 $x_ix_j$ 不为零的情况可能就很难有效地泛化。 因子分解机模型既然二阶多项式核 SVM 泛化性能不足的原因是「$w_{i, j}$ 的取值完全取决于 $x_i$ 和 $x_j$ 的乘积」，那么最直接的办法就是突破这一限制了。 FM 模型的解决办法是为每个维度的特征（$x_i$）学习一个表征向量（$v_i$，其实可以理解为是特征 ID 的 embedding 向量）。而后将 $x_i$ 和 $x_j$ 的乘积的权重设定为各自表征向量的点积。也就是有如下形式的预测函数： $$\hat y = f(\vec x) = w_0 + \sum_{i = 1}^{n}w_ix_i + \sum_{0 &lt; i &lt; j &lt;= n}\langle \vec v_i, \vec v_j\rangle x_ix_j.$$ 显然，FM 模型也具有二阶多项式核 SVM 的优点：能够学习到特征两两交叉带来的信息。那么现在的问题是，为什么相对二阶多项式核 SVM 做出的改进能够提高模型的泛化性能？ 如果你熟悉现在深度学习中各种对 item 的 embedding 操作，那么这个问题就不难理解了。FM 模型的表征向量相比深度学习中各种 embedding 其实是一回事——只是少了若干层 MLP，而是直接对交叉特征的组合进行建模。 我们回到上一小节举的例子：训练集中 $x_ix_j$ 始终为零。在二阶多项式核 SVM 中，由于参数权重 $w_{i, j}$ 得不到更新，模型无法学到 $x_i$ 和 $x_j$ 交叉带来的信息。但是在 FM 中，$x_i$ 和 $x_j$ 的参数并不完全由 $x_i$ 和 $x_j$ 的乘积决定。具体来说，每一维特征的表征向量由该维特征与其它所有维度特征的交叉共同决定。于是，只要存在某个 $k$ 使得 $x_i$ 和 $x_k$ 的乘积不总是为零，那么第 $i$ 维特征的表征向量 $\vec v_i$ 就能够学到有效的信息——同理对 $\vec v_j$ 也有同样的结论。于是乎，哪怕在训练集中，$x_ix_j$ 始终为零，其参数 $\langle \vec v_i, \vec v_j\rangle$ 也是经过了学习更新的，因此能够表现出很好的泛化性能。 也许有人会说，如果不存在这样的 $k$ 使得 $x_i$ 和 $x_k$ 的乘积不总是为零，会怎么样呢？好吧，这就意味着这一维特征的取值永远是零——那它还有什么意义？从特征列表中删掉它就好啦！ 效率问题在文章开篇，我们提到「LR 可以以很高的效率去学习和预测，因而在很多领域都被广泛应用」。那么 FM 模型如何呢？如果 FM 模型训练和预测都死慢死慢地，那么工程师迭代模型的效率会非常低，上线后 serving 的开销也会很大。这样一来，等待 FM 模型的最终结果必然是被抛弃…… 考虑到 FM 模型会对特征进行二阶组合，在有 $n$ 个原始特征时，交叉特征就会有 $\frac{n ^ 2 - n}{2}$ 个。因此，如果不做任何优化，FM 模型的复杂度会是 $O(n^2)$，具体来说是 $O(kn^2)$（其中 $k$ 是表征向量的长度）。在特征规模非常大的场景中，这是不可接受的。 那么问题来了，是否有办法将复杂度降低到 $O(kn)$ 呢？答案是可以的，我们来看针对特征交叉项的一系列变换。 $$\begin{aligned} \sum_{0 &lt; i &lt; j &lt;= n}\langle \vec v_i, \vec v_j\rangle x_ix_j &amp;{} = \sum_{i = 1}^{n - 1}\sum_{j = i + 1}^{n} \langle \vec v_i, \vec v_j\rangle x_ix_j \\ &amp;{} = \frac{1}{2}\sum_{i = 1}^{n}\sum_{j = 1}^{n}\langle \vec v_i, \vec v_j\rangle x_ix_j - \frac{1}{2}\sum_{i = 1}^{n}\langle \vec v_i, \vec v_i\rangle x_ix_i \\ &amp;{} = \frac{1}{2}\biggl(\sum_{i = 1}^{n}\sum_{j = 1}^{n}\sum_{d = 1}^{k}\vec v_{i, d}\vec v_{j, d}x_ix_j - \sum_{i = 1}^{n}\sum_{d = 1}^{k}\vec v_{i, d}^2x_i^2\biggr) \\ &amp;{} = \frac{1}{2}\sum_{d = 1}^{k}\biggl(\sum_{i = 1}^{n}\sum_{j = 1}^{n}\vec v_{i, d}\vec v_{j, d}x_ix_j - \sum_{i = 1}^{n}\vec v_{i, d}^2x_i^2\biggr) \\ &amp;{} = \frac{1}{2}\sum_{d = 1}^{k}\biggl(\Bigl(\sum_{i = 1}^{n}\vec v_{i, d}x_i\Bigr)\Bigl(\sum_{j = 1}^{n}\vec v_{j, d}x_j\Bigr) - \sum_{i = 1}^{n}\vec v_{i, d}^2x_i^2\biggr) \\ &amp;{} = \frac{1}{2}\sum_{d = 1}^{k}\biggl(\Bigl(\sum_{i = 1}^{n}\vec v_{i, d}x_i\Bigr)^2 - \sum_{i = 1}^{n}\vec v_{i, d}^2x_i^2\biggr). \end{aligned}$$ 等式第一行是一个平凡的变换，很容易理解。 等式第二行修改了求和符号的范围。原本的求和符号中有 $\frac{n ^ 2 - n}{2}$ 项；变换之后第一项中的求和符号有 $n^2$ 项，第二项中的求和符号有 $n$ 项。因此两式恰好相等。 等式第三行是对向量内积的展开，很容易理解。 等式第四行是运用了加法的结合律，将 $\sum_{d = 1}^{k}$ 抽到外面，这步容易理解。 等式第五行是连续两次逆向使用了乘法对加法的分配率（提取公因子），这一步可能稍微难理解一些。简便起见，我们将 $\vec v_{i, d}x_i$ 记作 $a_i$；将 $\vec v_{j, d}x_j$ 记作 $a_j$。则变换前的公式记作 $\sum_{i = 1}^{n}\sum_{j = 1}^{n}a_ia_j$。将它展开是： $$ \begin{aligned} \sum_{i = 1}^{n}\sum_{j = 1}^{n}a_ia_j = {}&amp; a_1a_1 + a_1a_2 + \cdots + a_1a_n + \\ {}&amp; a_2a_1 + a_2a_2 + \cdots + a_2a_n + \\ {}&amp; \cdots + \\ {}&amp; a_na_1 + a_na_2 + \cdots + a_na_n \\ = {}&amp; a_1\bigl(a_1 + a_2 + \cdots + a_n\bigr) + \\ {}&amp; a_2\bigl(a_1 + a_2 + \cdots + a_n\bigr) + \\ {}&amp; \cdots + \\ {}&amp; a_n\bigl(a_1 + a_2 + \cdots + a_n\bigr) \\ = {}&amp; a_1\Bigl(\sum_{j = 1}^{n}a_j\Bigr) + a_2\Bigl(\sum_{j = 1}^{n}a_j\Bigr) + \cdots + a_n\Bigl(\sum_{j = 1}^{n}a_j\Bigr) \\ = {}&amp; \sum_{i = 1}^{n}a_i\sum_{j = 1}^{n}a_j \\ = {}&amp; \Bigl(\sum_{i = 1}^{n}\vec v_{i, d}x_i\Bigr)\Bigl(\sum_{j = 1}^{n}\vec v_{j, d}x_j\Bigr). \end{aligned} $$ 等式第六行也很明显。第五行的结果中的两个求和项仅仅是下标不同，实际上完全是一回事，因此直接平方就好了。 如此一来，FM 的预测公式变成了下面这样 $$ \begin{aligned} \hat y &amp;{} = f(\vec x) \\ &amp;{} = w_0 + \sum_{i = 1}^{n}w_ix_i + \frac{1}{2}\sum_{d = 1}^{k}\biggl(\Bigl(\sum_{i = 1}^{n}\vec v_{i, d}x_i\Bigr)^2 - \sum_{i = 1}^{n}\vec v_{i, d}^2x_i^2\biggr). \end{aligned} $$ 显然，它的复杂度是 $O(kn)$。考虑到特征的稀疏性，尽管 $n$ 可能很大，但很多 $x_i$ 都是零。因此其实际复杂度应该是 $O(k\bar n)$——其中 $\bar n$ 表示样本不为零的特征维度数量的平均值。 总结总结一下。FM 模型不仅在模型本身能够满足下列两个特性，还保证了训练和预测的效率为 $O(k\bar n)$，因而是非常优秀的模型、被广泛运用： 能够处理大规模的稀疏数据，并保有足够好的泛化性能（generalization performance）； 同时，能够自动地学习到特征交叉带来的信息。]]></content>
@@ -1355,8 +1368,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>C++11</tag>
         <tag>Cpp</tag>
+        <tag>C++11</tag>
         <tag>Multithread</tag>
       </tags>
   </entry>
@@ -1381,8 +1394,8 @@
       </categories>
       <tags>
         <tag>C++</tag>
-        <tag>Concurrency</tag>
         <tag>Multithread</tag>
+        <tag>Concurrency</tag>
       </tags>
   </entry>
   <entry>
@@ -1405,8 +1418,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Algorithm</tag>
         <tag>Floats</tag>
+        <tag>Algorithm</tag>
         <tag>Positioning</tag>
       </tags>
   </entry>
@@ -1849,9 +1862,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>String</tag>
         <tag>Shell</tag>
         <tag>Variable</tag>
-        <tag>String</tag>
       </tags>
   </entry>
   <entry>
@@ -2079,8 +2092,8 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
-        <tag>Number</tag>
         <tag>Chinese</tag>
+        <tag>Number</tag>
         <tag>Python</tag>
         <tag>Arabic</tag>
       </tags>
@@ -2118,9 +2131,9 @@
         <category>Algorithm and Computer Science</category>
       </categories>
       <tags>
+        <tag>Search Engine</tag>
         <tag>LambdaMART</tag>
         <tag>NDCG</tag>
-        <tag>Search Engine</tag>
         <tag>Machine Learning</tag>
         <tag>Learning to Rank</tag>
         <tag>MART</tag>
@@ -2147,8 +2160,8 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
-        <tag>Find</tag>
         <tag>Crontab</tag>
+        <tag>Find</tag>
       </tags>
   </entry>
   <entry>
@@ -2602,8 +2615,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>MacTeX</tag>
         <tag>Font</tag>
+        <tag>MacTeX</tag>
         <tag>XeLaTeX</tag>
         <tag>System</tag>
       </tags>
@@ -2821,8 +2834,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Template</tag>
         <tag>Chinese</tag>
+        <tag>Template</tag>
         <tag>MacTeX</tag>
       </tags>
   </entry>
@@ -2902,10 +2915,10 @@
         <tag>History</tag>
         <tag>Europe</tag>
         <tag>Christianity</tag>
+        <tag>Romantic</tag>
         <tag>God</tag>
         <tag>Reason</tag>
         <tag>Science</tag>
-        <tag>Romantic</tag>
       </tags>
   </entry>
   <entry>
@@ -2996,8 +3009,8 @@
       </categories>
       <tags>
         <tag>PDF</tag>
-        <tag>CJK</tag>
         <tag>Bookmarks</tag>
+        <tag>CJK</tag>
         <tag>Error Codes</tag>
       </tags>
   </entry>
@@ -3269,8 +3282,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Graphicx</tag>
         <tag>Images</tag>
+        <tag>Graphicx</tag>
         <tag>Format</tag>
       </tags>
   </entry>
@@ -3400,6 +3413,17 @@
       </tags>
   </entry>
   <entry>
+    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
+    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>LaTeX speech</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[【LaTeX Tips】LaTeX 公式上下花括号的交错]]></title>
     <url>%2F2013%2F10%2F18%2FLaTeX-brace-overlap%2F</url>
     <content type="text"><![CDATA[我们知道，LaTeX 数学模式下，为式子的上下添加花括号可以用 \overbrace 和 underbrace 这两个命令。他们可以互相嵌套，但是不能交错使用。这一特性有时候会给我们带来麻烦。 为了排版如上图所示的效果，我们需要用 \rlap 重叠，同时用 \phantom 占位，见下面的代码。 1234567\documentclass&#123;article&#125;\usepackage&#123;amsmath&#125;\begin&#123;document&#125;\[ \rlap&#123;$\overbrace&#123;\phantom&#123;a \to b&#125;&#125;$&#125; a \to \underbrace&#123;b \to c&#125;\]\end&#123;document&#125;]]></content>
@@ -3411,17 +3435,6 @@
         <tag>Underbrace</tag>
         <tag>Rlap</tag>
         <tag>Phantom</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
-    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>LaTeX speech</tag>
       </tags>
   </entry>
   <entry>
@@ -3459,9 +3472,9 @@
         <category>LaTeX</category>
       </categories>
       <tags>
+        <tag>Template</tag>
         <tag>CCT</tag>
         <tag>SYSENGI</tag>
-        <tag>Template</tag>
       </tags>
   </entry>
   <entry>
@@ -3637,8 +3650,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Template</tag>
         <tag>SDU</tag>
+        <tag>Template</tag>
       </tags>
   </entry>
   <entry>
