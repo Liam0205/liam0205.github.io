@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+
+
+
+
+
+<html class="theme-next gemini use-motion" lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="generator" content="Hexo 3.9.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=7.3.0">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=7.3.0">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=7.3.0">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=7.3.0" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css?v=7.3.0">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+  <link rel="stylesheet" href="/lib/needsharebutton/needsharebutton.css">
+
+
+<script id="hexo.configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '7.3.0',
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    copycode: {"enable":true,"show_result":false,"style":null},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    algolia: {
+      applicationID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    search: {
+      root: '/',
+      path: 'search.xml'
+    },
+    tabs: true,
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="FTRL 是 Follow The Regularized Leader 的缩写，它是 Google 在 2010 -- 2013 年三年时间内，从理论研究到实际工程化实现的在线优化算法框架。FTRL 在处理带 $L_1$ 正则化的逻辑回归类模型时，效果非常出色：能够得到性能较好的稀疏解。 中文网络上，已有一些关于 FTRL 的介绍。比较详细和出名的是新浪微博的冯扬撰写的「在线最优化求解」。但在我">
+<meta name="keywords" content="Logistic Regression,FTRL,Online Optimization">
+<meta property="og:type" content="article">
+<meta property="og:title" content="FTRL 不太简短之介绍">
+<meta property="og:url" content="https://liam.page/2019/08/08/a-not-so-simple-introduction-to-FTRL/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="FTRL 是 Follow The Regularized Leader 的缩写，它是 Google 在 2010 -- 2013 年三年时间内，从理论研究到实际工程化实现的在线优化算法框架。FTRL 在处理带 $L_1$ 正则化的逻辑回归类模型时，效果非常出色：能够得到性能较好的稀疏解。 中文网络上，已有一些关于 FTRL 的介绍。比较详细和出名的是新浪微博的冯扬撰写的「在线最优化求解」。但在我">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-08-14T02:08:09.208Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="FTRL 不太简短之介绍">
+<meta name="twitter:description" content="FTRL 是 Follow The Regularized Leader 的缩写，它是 Google 在 2010 -- 2013 年三年时间内，从理论研究到实际工程化实现的在线优化算法框架。FTRL 在处理带 $L_1$ 正则化的逻辑回归类模型时，效果非常出色：能够得到性能较好的稀疏解。 中文网络上，已有一些关于 FTRL 的介绍。比较详细和出名的是新浪微博的冯扬撰写的「在线最优化求解」。但在我">
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+  <link rel="canonical" href="https://liam.page/2019/08/08/a-not-so-simple-introduction-to-FTRL/">
+
+
+<script id="page.configurations">
+  CONFIG.page = {
+    sidebar: "",
+  };
+</script>
+
+  <title>FTRL 不太简短之介绍 | 始终</title>
+  
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    var host = window.location.hostname;
+    if (host !== "localhost" || !true) {
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-44836433-1');
+    }
+  </script>
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .motion-element,
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-title { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+
+  <div class="container sidebar-position-left page-post-detail">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-wrapper">
+  <div class="site-meta">
+
+    <div class="custom-logo-site-title">
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+
+<nav class="site-nav">
+    <ul id="menu" class="menu">
+        
+        
+        
+          
+          <li class="menu-item menu-item-home">
+      
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-archives">
+      
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">297</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-categories">
+      
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">11</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-tags">
+      
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">607</span></a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-系列">
+      
+    
+      
+    
+
+    <a href="/series" rel="section"><i class="menu-item-icon fa fa-fw fa-book"></i> <br>系列</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-札记-&-留言板">
+      
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-英文">
+      
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+        
+        
+        
+          
+          <li class="menu-item menu-item-about">
+      
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-search">
+          <a href="javascript:;" class="popup-trigger">
+          
+            <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+        </li>
+      
+    </ul>
+    <div class="site-search">
+      
+  <div class="popup search-popup local-search-popup">
+  <div class="local-search-header clearfix">
+    <span class="search-icon">
+      <i class="fa fa-search"></i>
+    </span>
+    <span class="popup-btn-close">
+      <i class="fa fa-times-circle"></i>
+    </span>
+    <div class="local-search-input-wrapper">
+      <input autocomplete="off"
+             placeholder="搜索..." spellcheck="false"
+             type="text" id="local-search-input">
+    </div>
+  </div>
+  <div id="local-search-result"></div>
+</div>
+
+
+    </div>
+</nav>
+
+</div>
+    </header>
+
+    
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+            
+
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  <article class="post post-type-normal" itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2019/08/08/a-not-so-simple-introduction-to-FTRL/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+
+        
+          <h2 class="post-title" itemprop="name headline">FTRL 不太简短之介绍
+
+              
+            
+          </h2>
+        
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">发表于</span>
+              
+
+              
+                
+              
+
+              <time title="创建时间：2019 年 08 月 08 日 20:01:23" itemprop="dateCreated datePublished" datetime="2019-08-08T20:01:23+08:00">2019 年 08 月 08 日</time>
+            </span>
+          
+            
+
+            
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                
+                  <span class="post-meta-item-text">更新于</span>
+                
+                <time title="修改时间：2019 年 08 月 14 日 10:08:09" itemprop="dateModified" datetime="2019-08-14T10:08:09+08:00">2019 年 08 月 14 日</time>
+              </span>
+            
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">分类于</span>
+              
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon"
+              >
+                <i class="fa fa-eye"></i>
+                 阅读次数： 
+                <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+              </span>
+            </span>
+          <br>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">本文字数：</span>
+              
+              <span title="本文字数">6.3k</span>
+            </span>
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              
+              <span title="阅读时长">11 分钟</span>
+            </span>
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>FTRL 是 Follow The Regularized Leader 的缩写，它是 Google 在 2010 -- 2013 年三年时间内，从理论研究到实际工程化实现的在线优化算法框架。FTRL 在处理带 <code>$L_1$</code> 正则化的<a href="/2018/10/10/logistic-regression/">逻辑回归</a>类模型时，效果非常出色：能够得到性能较好的稀疏解。</p>
+<p>中文网络上，已有一些关于 FTRL 的介绍。比较详细和出名的是新浪微博的冯扬撰写的「在线最优化求解」。但在我看来，已有的关于 FTRL 的介绍，都或多或少有些值得调整和改进的地方。这促成了这篇文章。这篇文章大致会按照这样的路径来阐述：</p>
+<ul>
+<li>我们想要解决什么问题？</li>
+<li>FTRL 的前辈们是怎么尝试解决问题的？前辈们之间是什么关系？又留下了哪些尚未解决的问题？</li>
+<li>FTRL 是如何解决这些遗留问题的？</li>
+<li>回过头看 FTRL，为什么它是有效的？</li>
+<li>FTRL 的工程实现有哪些值得谈一谈的问题？</li>
+</ul>
+<a id="more"></a>
+<h2 id="我们面临的问题"><a href="#我们面临的问题" class="headerlink" title="我们面临的问题"></a>我们面临的问题</h2><p>传统的运用机器学习解决实际问题的步骤如下：</p>
+<ul>
+<li>数据融合，获取数据样本的标签。</li>
+<li>特征工程及其 ETL，获取每个样本的特征。</li>
+<li>样本处理，处理正负样本比例、无效或作弊样本等问题，输出用于训练、验证、测试的样本集。</li>
+<li>构建模型，根据业务特点和数据特点，选取恰当的模型；比如 LR、FM、GBDT、DNN 等。</li>
+<li>训练模型，在训练集上训练模型，在验证集上调参。</li>
+<li>模型评估，在测试机上评估模型。</li>
+<li>在线预测，将有效模型上线，进行在线预测。</li>
+</ul>
+<p>这样的流程能够解决很多问题，但存在至少两方面的瓶颈：</p>
+<ol>
+<li>整套流程在样本维度是「批量」的，在特征高维数据大量的情况下，这导致模型更新周期较长。在工程能力强的团队手上，模型的更新周期最好能做到小时级别；在工程能力差的团队手上，这个周期可能是天级甚至是周级别的。</li>
+<li>模型的复杂度和线上预测性能之间难以权衡：模型复杂度低，线上预测效果差；模型复杂度高，线上预测效果好，但需要的存储、时间资源也随之升高，无法保证 RT 和 QPS。</li>
+</ol>
+<p>为了解决这里的问题 (1)，在线学习（Online Learning）逐渐兴起；为了解决问题 (2)，人们从各种正则、剪枝开始，尝试用各种手段，在保证模型精度的前提下，尽可能获得稀疏的模型。</p>
+<h3 id="在线学习的兴起"><a href="#在线学习的兴起" class="headerlink" title="在线学习的兴起"></a>在线学习的兴起</h3><p>我曾经在多个场合谈到，机器学习模型的三要素是：</p>
+<ul>
+<li>模型结构；</li>
+<li>优化目标；</li>
+<li>求解方法。</li>
+</ul>
+<p>在这里，模型结构通常会需要根据实际问题的特点进行调整。例如，对于具有稠密特征样本的分类问题，GBDT 类的树模型往往效果良好。又例如，对于具有高维稀疏特征的大规模样本，<a href="/2018/10/10/logistic-regression/">逻辑回归</a>和<a href="https://liam.page/2019/03/25/Factorization-Machine/">因子分解机</a>（及其<a href="https://liam.page/2019/06/28/variants-of-FM/">变体</a>）就会是不错的选择。</p>
+<p>优化目标往往会以目标函数这一数学形式来表达。目标函数中的损失函数，则是用来描述「模型对经验数据拟合程度好坏」的方法。目标函数（或损失函数）的选择，通常也是和实际问题的特点相关的。例如对于回归问题和分类问题，通常就会选择不同的损失函数。</p>
+<blockquote>
+<p>对于样本集合 <code>$\mathcal{D}$</code> 中编号为 <code>$i$</code> 的样本 <code>$\{\vec x_i, y_i\}$</code> 来说，在确定好模型结构 <code>$h(\cdot; \vec\omega)$</code> 的基础上，损失函数记为<br><code>$$\ell\bigl(h(\vec x_i; \vec\omega), y_i\bigr).$$</code></p>
+</blockquote>
+<p>求解方法则是解决如何在有限的时间内，求得一个既简单（模型复杂度低，不易过拟合）性能又好（对经验数据拟合程度较高）的模型。在模型结构确定的基础上，机器学习模型的学习，往往会化归为带参数目标函数的最优化求解问题。如何解决这些最优化问题，或者说，采用何种求解方法，往往要根据问题特点、模型结构、目标函数等等各种因素的不同，综合考虑。</p>
+<h4 id="批量"><a href="#批量" class="headerlink" title="批量"></a>批量</h4><p>在机器学习兴起的早期，由于数据规模较小，计算性能较低与求解复杂度较高的矛盾尚不明显，人们很自然地选择与直觉相符合的批量求解方式来优化模型。具体来说，人们通常会随机给定模型参数 <code>$\vec\omega$</code> 的初值 <code>$\vec\omega_0$</code>，通过迭代，不断更新来调整 <code>$\vec\omega$</code> 的取值，使得目标函数在样本集合 <code>$\mathcal{D}$</code> 上的加和取得或接近最小值：</p>
+<p><code>$$
+\begin{aligned}
+  L(\vec\omega\mid \mathcal{D}) &amp;{} = \sum_{\{\vec x_i, y_i\} \in \mathcal{D}}\ell\bigl(h(\vec x_i; \vec\omega), y_i\bigr) \\
+  \vec\omega^{*} &amp;{} = \mathop{\arg\,\min}_{\vec\omega} L(\vec\omega\mid \mathcal{D})
+\end{aligned}
+$$</code></p>
+<p>对于这种解法，典型的方式是梯度下降（Gradient Descend）和牛顿法、拟牛顿法等。以梯度下降法为例，其 <code>$t$</code> 轮迭代的更新如下所示：</p>
+<p><code>$$
+\vec\omega^{(t + 1)} \gets \vec\omega^{(t)} - \eta^{(t)}\cdot\nabla_{\vec\omega^{(t)}}L(\vec\omega^{(t)}\mid \mathcal{D}).
+$$</code></p>
+<p>在这种做法当中，每一次迭代，都需要扫描整个样本集合 <code>$\mathcal{D}$</code> 以计算全局损失 <code>$L$</code>，而后才能更新参数 <code>$\vec\omega$</code>。对于数据规模较小的情况，这样做的好处是能够准确计算每一次迭代时的梯度，避免「跑偏」。但对于随着数据规模的增大，每一次计算全局梯度的代价变得过高，完成训练的时间就会变得很长。为了解决这个问题，人们引入了随机（小批量）的解法。</p>
+<h4 id="随机小批量"><a href="#随机小批量" class="headerlink" title="随机小批量"></a>随机小批量</h4><p>我在<a href="/2019/06/18/OCD-needs-stochastic-gradient-descent/">强迫症患者也需要随机梯度下降</a>一文中介绍了随机（小批量）梯度下降（Stochastic Gradient Descend）的方法和它的好处。按照本文的记号约定，随机梯度下降第 <code>$t$</code> 轮迭代的更新如下所示：</p>
+<p><code>$$
+\vec\omega^{(t + 1)} \gets \vec\omega^{(t)} - \eta^{(t)}\cdot\nabla_{\vec\omega^{(t)}}L(\vec\omega^{(t)}\mid \mathcal{D}^{(t)}).
+$$</code></p>
+<p>这里描述的是随机小批量梯度下降。其中 <code>$\mathcal{D}^{(t)}$</code> 是当前轮次的迭代从全部样本集 <code>$\mathcal{D}$</code> 中随机选取的子集。当子集 <code>$\mathcal{D}^{(t)}$</code> 当中只有 1 个元素时，算法退化为纯粹的随机梯度下降。</p>
+<p>在这种做法当中，每一次迭代，无需扫描整个样本集合 <code>$\mathcal{D}$</code> 以计算全局损失 <code>$L$</code>。取而代之的是，计算一个随机选取的小集合 <code>$\mathcal{D}^{(t)}$</code> 中的局部损失，即可更新参数 <code>$\vec\omega$</code>。对于数据规模较大的情况，这样的做法节省了每次迭代的计算量，虽然代价是需要迭代更多轮次，但是总体来说极大地降低了整体的训练时间；与此同时，如<a href="/2019/06/18/OCD-needs-stochastic-gradient-descent/">强迫症患者也需要随机梯度下降</a>一文中介绍的那样，随机梯度下降还能带来其它一些好处。</p>
+<h4 id="在线学习"><a href="#在线学习" class="headerlink" title="在线学习"></a>在线学习</h4><p>随机（小批量）的优化方法解决了一部分问题，但做到极限，模型的更新周期也只能缩短到小时级。因此，在线学习逐渐走上了舞台。</p>
+<p>和前辈们相比，在线学习最大的特点（或者说需求）有两个：</p>
+<ul>
+<li>每次只处理少数几个样本，甚至每次只处理一个样本；</li>
+<li>处理过的样本对于优化过程来说会被「丢弃」，再也看不到了，因此在线学习需要一种「不吃后悔药」的优化方法。</li>
+</ul>
+<p>回过头来看随机（小批量）梯度下降，我们发现它恰好能满足在线学习的这两方面需求。对于第一个需求来说，这是显然的。对于第二个需求来说，在线接收的样本某种意义上就可以理解为是一种随机，只要这些随机送到优化器的样本的梯度在统计期望上与总体样本是一致的（而这是在线学习的基本假设），那就适用随机（小批量）梯度下降。</p>
+<p>事情看起来很美妙，只需要把随机（小批量）梯度下降整合进在线学习的工程框架当中就可以了。但是事情没有那么美妙，因为这依然无法解决我们面临的第二个问题——对模型稀疏性的追求。</p>
+<h3 id="对模型稀疏性的追求"><a href="#对模型稀疏性的追求" class="headerlink" title="对模型稀疏性的追求"></a>对模型稀疏性的追求</h3><h4 id="模型稀疏的好处"><a href="#模型稀疏的好处" class="headerlink" title="模型稀疏的好处"></a>模型稀疏的好处</h4><p>模型稀疏的好处有几个方面。</p>
+<p>一是能解决之前提到的「模型复杂度低，线上预测效果差；模型复杂度高，线上预测效果好，但需要的存储、时间资源也随之升高，无法保证 RT 和 QPS」之问题。这是比较显然的。在与测试，稀疏的模型会大大减少预测时的内存和复杂度。以 LR 为例，若已知输入向量的维度是 <code>$d$</code> 而 LR 中不为 0 的参数的数量是 <code>$w$</code>，若 <code>$d \gg w$</code>，那么绝大多数特征甚至不需要去采集。这样一来，从特征采集到预测运算整个步骤都能省下很多内存和计算复杂度。</p>
+<p>二是模型的稀疏与 <code>$L_1$</code> 正则化不谋而合（见<a href="/2017/03/30/L1-and-L2-regularizer/">谈谈 L1 与 L2-正则项</a>一文），这意味着运用 <code>$L_1$</code> 正则化一方面可以使得模型变得稀疏，另一方面还能够降低模型过拟合的风险。</p>
+<p>三是稀疏性较好的模型，相对来说可解释性更好。这对于我们来说，特别是在实际应用当中，是很有好处的。以那个经典的例子来解释，假设你现在需要训练一个模型，解释人的某些特征和罹患某种疾病之间的关系。如果模型稀疏，那么意味着，罹患某种疾病只与少数一些特征有关。这种模型，对于医生来说，是很友好的。因为当医生拿到一个人的指标数据（特征），他就能根据模型，很容易地告诉来访的就医者说：「你的 XX 指标比较高，而 YY 指标比较低，这是罹患 ZZ 疾病的高危因素。因此你需要在日常生活中注意某些方面，同时定期进行身体检查。」</p>
+<h4 id="在批量梯度下降中，追求模型稀疏性"><a href="#在批量梯度下降中，追求模型稀疏性" class="headerlink" title="在批量梯度下降中，追求模型稀疏性"></a>在批量梯度下降中，追求模型稀疏性</h4><p>我们从最基本的批量梯度下降开始，逐步探寻如何解得一个稀疏的模型。</p>
+<p>如<a href="/2017/03/30/L1-and-L2-regularizer/">谈谈 L1 与 L2-正则项</a>一文所说的那样，我们只需将 <code>$L_1$</code> 范数引入模型求解过程中的目标函数，即可获得相对稀疏的模型。注意，由于我们的终极目标是「稀疏」，这意味着要有尽可能多的权重项为 0。这样看起来，使用 <code>$L_0$</code> 范数可能更好（向量 <code>$\vec x$</code> 的 <code>$L_0$</code> 范数 <code>$\lVert \vec x\rVert_0$</code> 是向量 <code>$\vec x$</code> 各维度中不为 0 的维度的数量）。但由于 <code>$L_0$</code> 范数是非凸的，在求解优化上比较困难，故而采用 <code>$L_0$</code> 范数的最紧凸放松，即 <code>$L_1$</code> 范数作为替代。</p>
+<p>这样一来，模型优化时需要最小化的目标函数变更为如下形式：</p>
+<p><code>$$
+\text{Obj}(\vec\omega\mid \mathcal{D}) = L(\vec\omega\mid \mathcal{D}) + \lambda_1\frac{\lVert \vec\omega\rVert_1}{n}, \quad\lambda_1 &gt; 0.
+$$</code></p>
+<p>这里，等式右边的第一项表示模型在训练集 <code>$\mathcal{D}$</code> 上经验损失，第二项则表示模型的 <code>$L_1$</code> 正则项。其中 <code>$\lVert \vec\omega\rVert_1$</code> 表示向量 <code>$\vec\omega$</code> 的 <code>$L_1$</code> 范数，<code>$n$</code> 表示向量 <code>$\vec\omega$</code> 的维度。</p>
+<p>那么为什么加入 <code>$L_1$</code> 正则项，有助于产出稀疏解呢？</p>
+<p>我们假设对于某个 <code>$i \in \{1, 2, \ldots, n\}$</code> 来说，<code>$w_i = 0$</code>。然后，在接下来的迭代中，<code>$w_i$</code> 被更新为 <code>$w_i \gets 0 - \eta\frac{\partial \text{Obj}}{\partial w_i}$</code> 而其它参数保持不变。这意味着，对于 <code>$L_1$</code> 正则项来说，在这一轮迭代中增加了 <code>$\Delta\Omega = \eta\frac{\lambda_1}{n}\Bigl\lvert \frac{\partial \text{Obj}}{\partial w_i}\Bigr\rvert$</code>；对于损失函数来说，在这一轮迭代中大约下降了 <code>$\Delta L = \eta\Bigl\lvert \frac{\partial \text{Obj}}{\partial w_i}\Bigr\rvert\Bigl\lvert \frac{\partial L}{\partial w_i}\Bigr\rvert$</code>。而如果 <code>$\Delta L &lt; \Delta\Omega$</code>，即 <code>$\Bigl\lvert \frac{\partial \text{Obj}}{\partial w_i}\Bigr\rvert &lt; \frac{\lambda_1}{n}$</code>，那么目标函数整体是变大了（而不是变小了）。因此，对于这种情况，优化器会拒绝更新 <code>$\omega_i$</code>，也就是拒绝将 <code>$\omega_i$</code> 更新为非 0 值。由此就得到了相对稀疏的模型。</p>
+<h4 id="L-1-正则在-SGD-中"><a href="#L-1-正则在-SGD-中" class="headerlink" title="$L_1$ 正则在 SGD 中"></a><code>$L_1$</code> 正则在 SGD 中</h4><p>注意，在批量梯度下降中，<code>$L_1$</code> 正则项能有效的原因在于下式的成立：</p>
+<p><code>$$\biggl\lvert \frac{\partial \text{Obj}}{\partial w_i}\biggr\rvert &lt; \frac{\lambda_1}{n}.$$</code></p>
+<p>但是，SGD 的假设（随机梯度的期望等于全局梯度）并不能保证在全局梯度满足上式的情况下，随机梯度每次均能满足上式。这意味着，在 SGD 的场景中，使用 <code>$L_1$</code> 正则化有助于提升模型的稀疏性，但并不能很好地保证有在批量梯度下降中的那种稀疏化效果。</p>
+<p>那么问题就来了：按之前的说法，在线学习中，我们必然要依赖类似 SGD 的算法；但 <code>$L_1$</code> 正则化并不能在 SGD 中确保模型是足够稀疏的。于是，<strong>我们迫切需要找到一种能够满足在线学习的需要，同时又能保证模型稀疏性的优化方法</strong>。</p>
+<h2 id="FTRL-的前辈们"><a href="#FTRL-的前辈们" class="headerlink" title="FTRL 的前辈们"></a>FTRL 的前辈们</h2><p>前面提到，加入 <code>$L_1$</code> 正则项，是获得稀疏模型的主要手段；但由于 SGD 的原因，<code>$L_1$</code> 正则项又很难发挥作用。因此，我们需要新的手段——或者在 <code>$L_1$</code> 正则化的基础上改进，或者有全新的手段——来解决模型稀疏化的问题。完全创新总是比较困难的。事实上，目前也没有发现完全独立于 <code>$L_1$</code> 范数同时又十分有效的稀疏化方法。因此，人们的目光还是更多地会聚焦在，如何基于 <code>$L_1$</code> 正则项进行改进之上。</p>
+<p>一个粗暴有简单的想法是：基于 <code>$L_1$</code> 正则项，对模型参数进行截断。具体是这样做的，以 <code>$k$</code> 轮迭代为一组：</p>
+<ul>
+<li>按带 <code>$L_1$</code> 正则项的 SGD 的方法训练 <code>$k - 1$</code> 轮</li>
+<li>在第 <code>$k$</code> 轮迭代中，先按通常的 SGD 进行更新，得到 <code>$\vec\omega^{(k - 0.5)}$</code>，然后对所有参数进行考察，以超参数 <code>$\theta$</code> 进行截断置零：</li>
+</ul>
+<p><code>$$w_i^{(k)} \gets \begin{cases}
+0 &amp; \text{if $\Bigl\lvert\omega_{i}^{(k - 0.5)}\Bigr\rvert &lt; \theta$,} \\
+\omega_{i}^{(k - 0.5)} &amp; \text{otherwise.}
+\end{cases}$$</code></p>
+<p>显然，这种做法太过粗暴，存在很多问题；但它是所有类似方法的祖师爷。接下来，我们看看 FTRL 的其他前辈们是怎么做的。</p>
+
+    </div>
+
+    
+    
+    
+      <div>
+        <div id="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="reward-button" disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+    
+      
+      
+        
+        
+          
+        
+        <div style="display: inline-block">
+          <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付"/>
+          <p>微信支付</p>
+        </div>
+      
+    
+      
+      
+        
+        
+          
+        
+        <div style="display: inline-block">
+          <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝"/>
+          <p>支付宝</p>
+        </div>
+      
+    
+      
+      
+    
+      
+      
+    
+
+    
+      <div id="paypal" style="display: inline-block">
+        <!-- <img id="paypal_qr" src="/" alt="Liam Huang PayPal"/> -->
+        <img id="paypal_form">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+          <input type="hidden" name="cmd" value="_donations" />
+          <input type="hidden" name="business" value="3EKTTVF2FF5EQ" />
+          <input type="hidden" name="item_name" value="If you like my blog, please consider to buy a cup of coffee for me. Thanks!" />
+          <input type="hidden" name="currency_code" value="USD" />
+          <input type="image" src="/images/reward/paypal-btn_donateCC_LG.gif" border="0" name="submit" />
+          </form>
+        </img>
+        <p>PayPal</p>
+      </div>
+    
+
+  </div>
+</div>
+
+      </div>
+      <div>
+        
+
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2019/08/08/a-not-so-simple-introduction-to-FTRL/" title="FTRL 不太简短之介绍">https://liam.page/2019/08/08/a-not-so-simple-introduction-to-FTRL/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+
+      </div>
+
+    <footer class="post-footer">
+          
+        
+        <div class="post-tags">
+            <a href="/tags/Logistic-Regression/" rel="tag"># Logistic Regression</a>
+          
+            <a href="/tags/FTRL/" rel="tag"># FTRL</a>
+          
+            <a href="/tags/Online-Optimization/" rel="tag"># Online Optimization</a>
+          
+        </div>
+        <div class="post-widgets">
+        
+
+        
+
+        
+          <div class="social-share">
+            
+            
+              <div id="needsharebutton-postbottom">
+                <span class="btn">
+                  <i class="fa fa-share-alt" aria-hidden="true"></i>
+                </span>
+              </div>
+            
+          </div>
+        
+        </div>
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+              <a href="/2019/08/06/ignnore-white-space-differences-when-using-vimdiff/" rel="next" title="使用 vimdiff 时忽略白空格的修改">
+                <i class="fa fa-chevron-left"></i> 使用 vimdiff 时忽略白空格的修改
+              </a>
+            
+          </div>
+
+          <span class="post-nav-divider"></span>
+
+          <div class="post-nav-prev post-nav-item">
+          </div>
+        </div>
+    </footer>
+  </div>
+  
+  
+  
+  </article>
+
+  </div>
+
+
+          </div>
+          
+    
+    <div class="comments" id="gitalk-container"></div>
+  
+
+
+        </div>
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap">
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-overview">
+
+          <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image"
+      src="/images/avatar/avatar.webp"
+      alt="Liam Huang">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description motion-element" itemprop="description">不忘初心，方得始终。</div>
+</div>
+  <nav class="site-state motion-element">
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">297</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">595</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+  <div class="feed-link motion-element">
+    <a href="/atom.xml" rel="alternate">
+      <i class="fa fa-rss"></i>RSS
+    </a>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    
+  
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element links-of-blogroll-inline">
+    <div class="links-of-blogroll-title">
+      <i class="fa  fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://xixiaoyao.github.io/" title="https://xixiaoyao.github.io/" rel="noopener" target="_blank">Xiyao</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.jellythink.com/" title="http://www.jellythink.com/" rel="noopener" target="_blank">JellyThink</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+      
+    </ul>
+  </div>
+
+        </div>
+      </div>
+      <!--noindex-->
+        <div class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+
+            
+            
+            
+            
+
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#我们面临的问题"><span class="nav-number">1.</span> <span class="nav-text">我们面临的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#在线学习的兴起"><span class="nav-number">1.1.</span> <span class="nav-text">在线学习的兴起</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#批量"><span class="nav-number">1.1.1.</span> <span class="nav-text">批量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#随机小批量"><span class="nav-number">1.1.2.</span> <span class="nav-text">随机小批量</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#在线学习"><span class="nav-number">1.1.3.</span> <span class="nav-text">在线学习</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#对模型稀疏性的追求"><span class="nav-number">1.2.</span> <span class="nav-text">对模型稀疏性的追求</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#模型稀疏的好处"><span class="nav-number">1.2.1.</span> <span class="nav-text">模型稀疏的好处</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#在批量梯度下降中，追求模型稀疏性"><span class="nav-number">1.2.2.</span> <span class="nav-text">在批量梯度下降中，追求模型稀疏性</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#L-1-正则在-SGD-中"><span class="nav-number">1.2.3.</span> <span class="nav-text">$L_1$ 正则在 SGD 中</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#FTRL-的前辈们"><span class="nav-number">2.</span> <span class="nav-text">FTRL 的前辈们</span></a></li></ol></div>
+            
+
+          </div>
+        </div>
+      <!--/noindex-->
+      
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.1m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">34:31</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.3.0</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-eye"></i>
+    </span>
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style='display:none'>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/src/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+      <div class="back-to-top">
+        <i class="fa fa-arrow-up"></i>
+      </div>
+
+    
+  
+<script src="/lib/needsharebutton/needsharebutton.js"></script>
+<script>
+    pbOptions = {};
+      pbOptions.iconStyle = "default";
+    
+      pbOptions.boxForm = "horizontal";
+    
+      pbOptions.position = "topCenter";
+    
+      pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+    
+    new needShareButton('#needsharebutton-postbottom', pbOptions);
+</script>
+
+
+  </div>
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  <script src="/js/utils.js?v=7.3.0"></script>
+  <script src="/js/motion.js?v=7.3.0"></script>
+
+  
+  <script src="/js/affix.js?v=7.3.0"></script>
+  <script src="/js/schemes/pisces.js?v=7.3.0"></script>
+
+
+
+  
+  <script src="/js/scrollspy.js?v=7.3.0"></script>
+<script src="/js/post-details.js?v=7.3.0"></script>
+
+
+
+  <script src="/js/next-boot.js?v=7.3.0"></script>
+
+  
+
+  
+
+  
+
+
+  
+
+
+
+
+
+  
+    
+      <script type="text/x-mathjax-config">
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: 'AMS'
+      }
+    }
+  });
+
+  MathJax.Hub.Register.StartupHook('TeX Jax Ready', function() {
+    MathJax.InputJax.TeX.prefilterHooks.Add(function(data) {
+      if (data.display) {
+        var next = data.script.nextSibling;
+        while (next && next.nodeName.toLowerCase() === '#text') {
+          next = next.nextSibling;
+        }
+        if (next && next.nodeName.toLowerCase() === 'br') {
+          next.parentNode.removeChild(next);
+        }
+      }
+    });
+  });
+
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for (i = 0; i < all.length; i += 1) {
+      element = document.getElementById(all[i].inputID + '-Frame').parentNode;
+      if (element.nodeName.toLowerCase() == 'li') {
+        element = element.parentNode;
+      }
+      element.classList.add('has-jax');
+    }
+  });
+</script>
+
+<script type="text/javascript">
+$(document).ready(function(){
+  $("code").map(function(){
+    match = /^\$(.*)\$$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\$\$/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+    match = /^\\begin/.exec($(this).html());
+    if (match) {
+      $(this).replaceWith("<span class=hpl_mathjax_inline>" + $(this).html() + "</span>");
+      MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
+    }
+  });
+});
+</script>
+
+<script src="//cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+
+    
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  <script src="/js/local-search.js?v=7.3.0"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    
+<script src="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js"></script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+<script src="//cdn.jsdelivr.net/npm/js-md5@0.7.3/src/md5.min.js"></script>
+
+<script>
+  var gitalk = new Gitalk({
+    clientID: 'a3d846b3392f468b5746',
+    clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+    repo: 'liam0205.github.io',
+    owner: 'Liam0205',
+    admin: ['Liam0205'],
+    id: md5(location.pathname),
+      language: 'zh-CN',
+    
+    distractionFreeMode: 'true'
+  });
+  gitalk.render('gitalk-container');
+</script>
+
+
+</body>
+</html>
