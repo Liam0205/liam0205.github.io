@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[找到两个有序数组的中位数]]></title>
+    <url>%2F2019%2F08%2F22%2Ffind-median-of-two-sorted-arrays%2F</url>
+    <content type="text"><![CDATA[这是 LeetCode 的第 4 题，@linjie 问到我说，这题网上的解答看完都迷迷糊糊的，希望我能写篇博客重新讲一下。于是有此篇。 题目现有不同时为空的非降序排列的数组 A 和 B，其长度分别是 m 和 n。不失一般性，假设 m &lt;= n。记 A 和 B 的中位数为 x。要求写代码实现，在 $\Theta(\log(m + n))$ 的时间复杂度内找到 x。 分析见到时间复杂度要求中有 $\log$，就肯定要想到二分搜索。 二分搜索的本质是在一个有序 array 中，寻找一个满足某种跟顺序相关的条件的元素的方法。这个「跟元素顺序相关的条件」，在最初的版本里是「等于某个数值」，扩展版本可以是「第一个不小于给定数值的值」之类的（参考前作）。为了利用二分搜索，我们必须要想办法： 变两个序列的问题为 1 个序列的问题； 找到某个「跟元素顺序相关的条件」。 首先考虑 (1)。 设 i 是 A 中的下标，而 j 是 B 中的下标：A[i] 是 A 中第一个大于等于中位数 x 的元素；同时 B[j] 是 B 中第一个大于等于中位数 x 的元素。当 A 中元素全部小于 x 时，i = m；同理，当 B 中元素全部小于 x 时，j = n。 这意味着，A 中小于 x 的元素数量为 i，B 中小于 x 的元素数量为 j；A 中大于等于 x 的元素数量为 m - i，B 中大于等于 x 的元素数量为 n - j。满足条件： 当 m + n 是偶数：i + j = (m - i) + (n - j)，此时 j = (m + n) / 2 - i。 当 m + n 是奇数：i + j = (m - i) + (n - j) - 1，此时 j = (m + n - 1) / 2 - i = (m + n) / 2 - i（考虑整数除法除不尽时向零取整）。 所以 j 有统一的表达式 (m + n) / 2 - i。这样一来，我们就建立了两个序列下标之间的对应关系，从而将两个序列的问题变为了 1 个序列的问题。 接着考虑 (2)。 考虑 x 是中位数，而 A[i] 和 B[j] 分别是 A 和 B 两个序列中第一个大于等于中位数 x 的元素。因此有： A[i - 1] &lt; x &lt;= A[i]； A[i - 1] &lt; x &lt;= B[j]； B[j - 1] &lt; x &lt;= A[i]； B[j - 1] &lt; x &lt;= B[j]。 其中 (1) 和 (4) 是 trivial 的。考虑 (2) 和 (3)，即得到目标「条件」：(i != 0 or A[i - 1] &lt; x &lt;= B[j]) and (i != m or B[j - 1] &lt; x &lt;= A[i])。 因此有伪代码： 12345678910for i in range(0, m + 1): bsearch to find i, s.t.: (i != 0 or A[i - 1] &lt; x &lt;= B[j]) and (i != m or B[j - 1] &lt; x &lt;= A[i])if (m + n) % 2 == 0: # carefully handle index out-of-bound return static_cast&lt;double&gt;(max(A[i - 1], B[j - 1]) + min(A[i], B[j])) / 2.0else: # carefully handle index out-of-bound return min(A[i], B[j]) 算法的时间复杂度是 $\Theta(\log(\min(m, n)))$，空间复杂度是 $\Theta(1)$。 C++ 实现给一个 C++ 版本的完整实现： 12345678910111213141516171819202122232425262728293031323334353637383940414243444546474849505152535455565758596061static const auto io_sync_off = []() &#123; std::ios::sync_with_stdio(false); std::cin.tie(nullptr); return nullptr;&#125; ();class Solution &#123; public: double findMedianSortedArrays(const std::vector&lt;int&gt;&amp; A, const std::vector&lt;int&gt;&amp; B) &#123; if (A.empty()) &#123; return findMedianInSortedArray(B); &#125; else if (B.empty()) &#123; return findMedianInSortedArray(A); &#125; else &#123; return bsearchWrapper(A, B); &#125; &#125; private: inline double findMedianInSortedArray(const std::vector&lt;int&gt;&amp; v) &#123; size_t len = v.size(); if (len % 2 == 0) &#123; return static_cast&lt;double&gt;(v[len / 2] + v[len / 2 - 1]) / 2.0; &#125; else &#123; return v[len / 2]; &#125; &#125; inline double bsearchWrapper(const std::vector&lt;int&gt;&amp; A, const std::vector&lt;int&gt;&amp; B) &#123; const size_t m = A.size(), n = B.size(); if (m &lt;= n) &#123; return bsearchHelper(A, B); &#125; else &#123; return bsearchHelper(B, A); &#125; &#125; inline double bsearchHelper(const std::vector&lt;int&gt;&amp; A, const std::vector&lt;int&gt;&amp; B) &#123; const size_t m = A.size(), n = B.size(); size_t left = 0, right = m + 1; size_t i, j; while (left &lt; right) &#123; i = left + (right - left) / 2; j = (m + n) / 2 - i; if (not(i == m or B[j - 1] &lt; A[i])) &#123; left = i + 1; &#125; else if (not(i == 0 or A[i - 1] &lt; B[j])) &#123; right = i; &#125; else &#123; break; &#125; &#125; if ((m + n) % 2 == 0) &#123; double mx = (i == m) ? B[j] : ((j == n) ? A[i] : std::min(A[i], B[j])); double mn = (i == 0) ? B[j - 1] : ((j == 0) ? A[i - 1] : std::max(A[i - 1], B[j - 1])); return (mn + mx) / 2.0; &#125; else &#123; return (i == m) ? B[j] : ((j == n) ? A[i] : std::min(A[i], B[j])); &#125; &#125;&#125;;]]></content>
+      <categories>
+        <category>Algorithm and Computer Science</category>
+      </categories>
+      <tags>
+        <tag>LeetCode</tag>
+        <tag>bsearch</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[使用 vimdiff 时忽略白空格的修改]]></title>
     <url>%2F2019%2F08%2F06%2Fignnore-white-space-differences-when-using-vimdiff%2F</url>
     <content type="text"><![CDATA[使用 vimdiff 能够方便地观察多个文件之间的异同。但有时我们会希望 VIM 忽略白空格的变化。比如，对于 Python 脚本，有时我们会修改缩进来对代码进行格式化；此时对比新旧文件之间的差异时，我们更多地是希望看看有没有手误修改了其他不应修改的部分，从而应当忽略白空格的变化。 这篇文章简单记录一下这个问题的解法。 这个问题其实不难解决，只需在 vimrc 中加入以下内容即可： 1set diffopt+=iwhite 不过，这样设定也会影响到 VIM 正常编辑时所处的模式。如果希望这一设定只限定在 vimdiff 模式，则可以这样修改： 123if &amp;diff set diffopt+=iwhiteendif 若是想要自由切换，则可以这样做： 12345678910if &amp;diff map gs :call IwhiteToggle()&lt;CR&gt; function! IwhiteToggle() if &amp;diffopt =~ 'iwhite' set diffopt-=iwhite else set diffopt+=iwhite endif endfunction endif 最后，若不想修改 vimrc 可以在命令行这样启动命令： 1vimdiff -c 'set diffopt+=iwhite']]></content>
@@ -81,8 +93,8 @@
       <tags>
         <tag>Ranking</tag>
         <tag>Factorization Machine</tag>
-        <tag>CTR</tag>
         <tag>Variants</tag>
+        <tag>CTR</tag>
       </tags>
   </entry>
   <entry>
@@ -148,8 +160,8 @@
         <tag>Logistic Regression</tag>
         <tag>Ranking</tag>
         <tag>Factorization Machine</tag>
-        <tag>SVM</tag>
         <tag>CTR</tag>
+        <tag>SVM</tag>
       </tags>
   </entry>
   <entry>
@@ -1415,8 +1427,8 @@
         <tag>Python</tag>
         <tag>Yield</tag>
         <tag>Coroutine</tag>
-        <tag>Generator</tag>
         <tag>Iterator</tag>
+        <tag>Generator</tag>
       </tags>
   </entry>
   <entry>
@@ -1986,9 +1998,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>String</tag>
         <tag>Shell</tag>
         <tag>Variable</tag>
-        <tag>String</tag>
       </tags>
   </entry>
   <entry>
@@ -2765,9 +2777,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>Update</tag>
         <tag>Ubuntu</tag>
         <tag>Server</tag>
-        <tag>Update</tag>
         <tag>apt-get</tag>
         <tag>Upgrade</tag>
       </tags>
@@ -2780,10 +2792,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Update</tag>
         <tag>Fake</tag>
         <tag>tlpretest</tag>
         <tag>TeX Live</tag>
+        <tag>Update</tag>
         <tag>Packages</tag>
       </tags>
   </entry>
@@ -2818,8 +2830,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Hyperref</tag>
         <tag>Bug</tag>
+        <tag>Hyperref</tag>
         <tag>Psdextra</tag>
       </tags>
   </entry>
@@ -2843,8 +2855,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Font</tag>
         <tag>Equation</tag>
+        <tag>Font</tag>
         <tag>Upright</tag>
       </tags>
   </entry>
@@ -3039,10 +3051,10 @@
         <tag>History</tag>
         <tag>Europe</tag>
         <tag>Christianity</tag>
+        <tag>Romantic</tag>
         <tag>God</tag>
         <tag>Reason</tag>
         <tag>Science</tag>
-        <tag>Romantic</tag>
       </tags>
   </entry>
   <entry>
@@ -3549,6 +3561,18 @@
       </tags>
   </entry>
   <entry>
+    <title><![CDATA[【LaTeX Tips】LaTeX 相关工具网站]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-websites%2F</url>
+    <content type="text"><![CDATA[查询符号代码http://detexify.kirelabs.org/classify.html 允许你用鼠标绘制符号的样子，然后为你查询对应的代码和所需的宏包。 手写公式识别为 LaTeX 公式代码MyScript 有多个功能，其中之一就是能将手写的公式识别为 LaTeX 代码。测试表明识别公式效率一般，准确度尚可，对于复杂矩阵几乎无力识别。 在线 LaTeX 编译math.sinica 是台湾中央研究院的支持中文的在线编译，支持中文。 输入 LaTeX 产生数学公式图片http://www.codecogs.com/latex/eqneditor.php 以及 http://www.sciweavers.org/free-online-latex-equation-editor]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>Tool</tag>
+        <tag>Website</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[【LaTeX Tips】LaTeX 公式上下花括号的交错]]></title>
     <url>%2F2013%2F10%2F18%2FLaTeX-brace-overlap%2F</url>
     <content type="text"><![CDATA[我们知道，LaTeX 数学模式下，为式子的上下添加花括号可以用 \overbrace 和 underbrace 这两个命令。他们可以互相嵌套，但是不能交错使用。这一特性有时候会给我们带来麻烦。 为了排版如上图所示的效果，我们需要用 \rlap 重叠，同时用 \phantom 占位，见下面的代码。 1234567\documentclass&#123;article&#125;\usepackage&#123;amsmath&#125;\begin&#123;document&#125;\[ \rlap&#123;$\overbrace&#123;\phantom&#123;a \to b&#125;&#125;$&#125; a \to \underbrace&#123;b \to c&#125;\]\end&#123;document&#125;]]></content>
@@ -3560,18 +3584,6 @@
         <tag>Underbrace</tag>
         <tag>Rlap</tag>
         <tag>Phantom</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title><![CDATA[【LaTeX Tips】LaTeX 相关工具网站]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-websites%2F</url>
-    <content type="text"><![CDATA[查询符号代码http://detexify.kirelabs.org/classify.html 允许你用鼠标绘制符号的样子，然后为你查询对应的代码和所需的宏包。 手写公式识别为 LaTeX 公式代码MyScript 有多个功能，其中之一就是能将手写的公式识别为 LaTeX 代码。测试表明识别公式效率一般，准确度尚可，对于复杂矩阵几乎无力识别。 在线 LaTeX 编译math.sinica 是台湾中央研究院的支持中文的在线编译，支持中文。 输入 LaTeX 产生数学公式图片http://www.codecogs.com/latex/eqneditor.php 以及 http://www.sciweavers.org/free-online-latex-equation-editor]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>Tool</tag>
-        <tag>Website</tag>
       </tags>
   </entry>
   <entry>
@@ -3700,17 +3712,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[全国大学生数学建模竞赛论文模板]]></title>
-    <url>%2F2013%2F08%2F25%2FLaTeX-xcumcmart%2F</url>
-    <content type="text"><![CDATA[本模板根据「2013高教社杯全国大学生数学建模竞赛论文格式规范」中的相关规定制作。供参加全国大学生数学建模竞赛的同学们使用。Liam Huang 制作该模板的目的在于推进竞赛论文格式规范化，推广 LaTeX。 下载：这里 本模板将整篇论文视作「文章」（article），而不是「书」（book）。实现时，以 ctexart 为基类。与 ctexart.cls 的使用基本相同，但必须保存为 UTF8 编码并使用 XeLaTeX 或 pdfLaTeX 编译。具体请参考本文源文件。 为了实现比较好的兼容性，模板仅达到了 2013 高教社杯全国大学生数学建模竞赛论文格式规范 中对竞赛论文的基本要求，而不包括额外的功能，也没有引入其他的宏包，请使用时根据需要自行添加。 模板发行包包括如下文件： declaration.tex —— 承诺书及编号页（必须。如有变动，请修改该文件） readme.pdf —— 本文件 readme.tex —— 本文件源文件 xcumcmart.cls —— 模板文件 模板的最新版本可以在 http://liam0205.me/2013/08/25/LaTeX-xcumcmart/ 下载。有关于模板的任何问题，比如 Bug 提交、功能建议、赞助、宣传推广等，均可与 Liam Huang 联系。 感谢 http://www.shumo.com/ 早先以 CCT 方式制作的竞赛论文模板。 任何个人或团体可以无限制的自由使用本模板。 本模板目前尚未得到全国大学生数学建模竞赛组委会的认可，模板作者对使用该模板所引起的后果不负任何责任。]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>XCUMCMART</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[【LaTeX Tips】画一条自动延伸到行尾的线]]></title>
     <url>%2F2013%2F08%2F25%2FLaTeX-RuleTillEnd%2F</url>
     <content type="text"><![CDATA[LaTeX 向来是不擅长处理动态问题的，而我们的需求显然需要定义一个动态的长度。为了解决这个矛盾，我们可以退而求其次，选择用很短的一小节 rule 拼接在一起填充满整一行，而不是定义一个动态的长度。 示例代码在这里. 理解思路之后，读者还可以定义出许多其他的「动态」，愿诸君都能勤思考。]]></content>
@@ -3719,6 +3720,17 @@
       </categories>
       <tags>
         <tag>Rule</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[全国大学生数学建模竞赛论文模板]]></title>
+    <url>%2F2013%2F08%2F25%2FLaTeX-xcumcmart%2F</url>
+    <content type="text"><![CDATA[本模板根据「2013高教社杯全国大学生数学建模竞赛论文格式规范」中的相关规定制作。供参加全国大学生数学建模竞赛的同学们使用。Liam Huang 制作该模板的目的在于推进竞赛论文格式规范化，推广 LaTeX。 下载：这里 本模板将整篇论文视作「文章」（article），而不是「书」（book）。实现时，以 ctexart 为基类。与 ctexart.cls 的使用基本相同，但必须保存为 UTF8 编码并使用 XeLaTeX 或 pdfLaTeX 编译。具体请参考本文源文件。 为了实现比较好的兼容性，模板仅达到了 2013 高教社杯全国大学生数学建模竞赛论文格式规范 中对竞赛论文的基本要求，而不包括额外的功能，也没有引入其他的宏包，请使用时根据需要自行添加。 模板发行包包括如下文件： declaration.tex —— 承诺书及编号页（必须。如有变动，请修改该文件） readme.pdf —— 本文件 readme.tex —— 本文件源文件 xcumcmart.cls —— 模板文件 模板的最新版本可以在 http://liam0205.me/2013/08/25/LaTeX-xcumcmart/ 下载。有关于模板的任何问题，比如 Bug 提交、功能建议、赞助、宣传推广等，均可与 Liam Huang 联系。 感谢 http://www.shumo.com/ 早先以 CCT 方式制作的竞赛论文模板。 任何个人或团体可以无限制的自由使用本模板。 本模板目前尚未得到全国大学生数学建模竞赛组委会的认可，模板作者对使用该模板所引起的后果不负任何责任。]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>XCUMCMART</tag>
       </tags>
   </entry>
   <entry>
