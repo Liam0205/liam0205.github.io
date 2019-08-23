@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2019-08-22T05:17:26.774Z</updated>
+  <updated>2019-08-23T06:58:02.360Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,30 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>在 Linux 上挂载/卸载磁盘</title>
+    <link href="https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/"/>
+    <id>https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/</id>
+    <published>2019-08-23T06:30:19.000Z</published>
+    <updated>2019-08-23T06:58:02.360Z</updated>
+    
+    <content type="html"><![CDATA[<p>昨天正在训练线上模型的机器被人误操作，不得不重做系统。万幸模型相关的训练状态保存在另一块磁盘上，没有受到影响。要想恢复训练状态相关数据，就必须把磁盘挂载好。因为这个操作不常用，一时居然都没想起来怎么做。因此这里「烂笔头」记录下来。</p><a id="more"></a><h2 id="查看机器上的磁盘"><a href="#查看机器上的磁盘" class="headerlink" title="查看机器上的磁盘"></a>查看机器上的磁盘</h2><p><code>fdisk</code> 是 Linux 上用来操作磁盘分区表的工具。使用 <code>fdisk -l</code> 命令，可以列出系统识别的所有磁盘及其分区。</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">Disk /dev/sda: 599.1 GB, 599051206656 bytes, 1170021888 sectors</span><br><span class="line">Units = sectors of 1 * 512 = 512 bytes</span><br><span class="line">Sector size (logical/physical): 512 bytes / 4096 bytes</span><br><span class="line">I/O size (minimum/optimal): 262144 bytes / 262144 bytes</span><br><span class="line">Disk label type: # masked</span><br><span class="line">Disk identifier: # masked</span><br><span class="line"></span><br><span class="line">   Device Boot      Start         End      Blocks   Id  System</span><br><span class="line">/dev/sda1            2048   204802047   102400000   83  Linux</span><br><span class="line">/dev/sda2       204802048   213190655     4194304   82  Linux swap / Solaris</span><br><span class="line">/dev/sda3   *   213190656  1170020351   478414848   83  Linux</span><br><span class="line"></span><br><span class="line">Disk /dev/sdb: 6118.5 GB, 6118546079744 bytes, 11950285312 sectors</span><br><span class="line">Units = sectors of 1 * 512 = 512 bytes</span><br><span class="line">Sector size (logical/physical): 512 bytes / 4096 bytes</span><br><span class="line">I/O size (minimum/optimal): 262144 bytes / 262144 bytes</span><br></pre></td></tr></table></figure><p><code>/dev</code> 目录下的 <code>sd?</code> 即是物理磁盘。例如 <code>sda</code> 是系统读到的第一块磁盘，<code>sdb</code> 则是第二块磁盘。在较老的 kernel 中，由于没有 ATA 支持，因此物理磁盘可能是 <code>/dev/hd?</code>（IDE）或者是 <code>/dev/sd?</code>（SCSI）。</p><p><code>/dev/sda?</code> 则是 <code>sda</code> 这块物理磁盘上的分区。<code>/dev/sda1</code> 是该磁盘上的第一块分区。</p><p>这里 <code>/dev/sdb</code> 这块磁盘尚未被正确挂载，而正是它保存了所需的数据。</p><h2 id="创建挂载点"><a href="#创建挂载点" class="headerlink" title="创建挂载点"></a>创建挂载点</h2><p>在挂载磁盘之前，首先要为它创建一个挂载点。挂载点说白了是一个目录，在执行 <code>mount</code> 命令挂载前，它必须是已经存在的目录。挂载成功后，访问该目录即可访问相应磁盘的内容。若挂载前挂载点中存在内容，则挂载后这些内容暂不可见，当卸载后这些内容又会变得可见。</p><p>比如我想将磁盘挂载于 <code>/mnt/data</code> 就要创建这样一个空目录。</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /mnt/data</span><br></pre></td></tr></table></figure><h2 id="确定磁盘文件系统类型"><a href="#确定磁盘文件系统类型" class="headerlink" title="确定磁盘文件系统类型"></a>确定磁盘文件系统类型</h2><p>在挂载磁盘之前，还需要确定磁盘（分区）的文件系统类型。若不然，挂载时选错文件系统类型可能造成一系列奇怪的现象。为此，我们需要执行 <code>parted -l</code> 命令。</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span> parted -l</span><br><span class="line">Model: # masked</span><br><span class="line">Disk /dev/sda: 599GB</span><br><span class="line">Sector size (logical/physical): 512B/4096B</span><br><span class="line">Partition Table: msdos</span><br><span class="line">Disk Flags:</span><br><span class="line"></span><br><span class="line">Number  Start   End    Size    Type     File system     Flags</span><br><span class="line"> 1      1049kB  105GB  105GB   primary  xfs</span><br><span class="line"> 2      105GB   109GB  4295MB  primary  linux-swap(v1)</span><br><span class="line"> 3      109GB   599GB  490GB   primary  xfs             boot</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Model: # masked</span><br><span class="line">Disk /dev/sdb: 6119GB</span><br><span class="line">Sector size (logical/physical): 512B/4096B</span><br><span class="line">Partition Table: loop</span><br><span class="line">Disk Flags:</span><br><span class="line"></span><br><span class="line">Number  Start  End     Size    File system  Flags</span><br><span class="line"> 1      0.00B  6119GB  6119GB  ext4</span><br></pre></td></tr></table></figure><p>由此可见，目标磁盘 <code>/dev/sdb</code> 的文件系统类型是 <code>ext4</code>。</p><h2 id="挂载磁盘"><a href="#挂载磁盘" class="headerlink" title="挂载磁盘"></a>挂载磁盘</h2><p>此时，我们就能挂载磁盘了。</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mount -t ext4 /dev/sdb /mnt/data</span><br></pre></td></tr></table></figure><p>这里 <code>-t ext4</code> 表示目标磁盘（分区）的文件系统类型是 <code>ext4</code>，<code>/dev/sdb</code> 是待挂载的磁盘（分区），<code>/mnt/data</code> 是目标挂载点。</p><h2 id="卸载磁盘"><a href="#卸载磁盘" class="headerlink" title="卸载磁盘"></a>卸载磁盘</h2><p>与 <code>mount</code> 相对的命令是 <code>umount</code>。注意是 <code>umount</code> 而不是 <code>unmount</code>——没有那个 <code>n</code>。</p><p>卸载时，给 <code>umount</code> 的参数可以是挂载点，也可以是磁盘（分区）的名字。在这里，以下两种操作等价：</p><figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">umount /dev/sdb</span><br><span class="line">umount /mnt/data</span><br></pre></td></tr></table></figure><p>若是希望挂载的磁盘正在被其他进程读写，则 Linux 会提示 <code>device is busy</code>。此时，可以执行 <code>umount -l</code> 命令，让 Linux 在无其他进程读写目标磁盘时，再行卸载。或者，也可以用 <code>ps</code> 命令查看使用该磁盘的进程有哪些，然后妥当处理后再卸载。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;昨天正在训练线上模型的机器被人误操作，不得不重做系统。万幸模型相关的训练状态保存在另一块磁盘上，没有受到影响。要想恢复训练状态相关数据，就必须把磁盘挂载好。因为这个操作不常用，一时居然都没想起来怎么做。因此这里「烂笔头」记录下来。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
+    
+    
+      <category term="Linux" scheme="https://liam.page/tags/Linux/"/>
+    
+      <category term="Disk" scheme="https://liam.page/tags/Disk/"/>
+    
+  </entry>
   
   <entry>
     <title>找到两个有序数组的中位数</title>
@@ -537,33 +561,6 @@
     
     
       <category term="Template" scheme="https://liam.page/tags/Template/"/>
-    
-      <category term="C++" scheme="https://liam.page/tags/C/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>寻找不小于给定整数的最小的 2 的幂方</title>
-    <link href="https://liam.page/2019/02/14/find-smallest-power-of-2-that-is-not-less-than-a-given-integer/"/>
-    <id>https://liam.page/2019/02/14/find-smallest-power-of-2-that-is-not-less-than-a-given-integer/</id>
-    <published>2019-02-14T02:36:18.000Z</published>
-    <updated>2019-05-16T06:47:53.642Z</updated>
-    
-    <content type="html"><![CDATA[<blockquote><p>这是一篇简单的记录。</p></blockquote><p>最近在写 YTL 的过程中遇到这样一个子问题：需要定义一个函数 <code>uint32_t func(uint32_t num)</code>，返回不小于 <code>num</code> 的最小的 2 的幂方。例如</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span> == func(<span class="number">1</span>);</span><br><span class="line"><span class="number">2</span> == func(<span class="number">2</span>);</span><br><span class="line"><span class="number">4</span> == func(<span class="number">3</span>);</span><br><span class="line"><span class="number">4</span> == func(<span class="number">4</span>);</span><br><span class="line"><span class="comment">// ……</span></span><br></pre></td></tr></table></figure><p>一开始我想了个用位运算的奇技淫巧，自我感觉还不错：</p><a id="more"></a><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">uint32_t</span> func(<span class="keyword">uint32_t</span> num) &#123;</span><br><span class="line">  <span class="keyword">uint32_t</span> res = <span class="number">1</span>;</span><br><span class="line">  <span class="keyword">while</span> (res &lt; num) &#123;</span><br><span class="line">    res &lt;&lt;= <span class="number">1</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>后来一想，「不要在编译器面前装屄」，于是发现老实用 <code>std::log2</code> 来计算的话，效率要高出五倍多：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;cmath&gt;</span></span><br><span class="line"><span class="keyword">uint32_t</span> func(<span class="keyword">uint32_t</span> num) &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="number">1</span> &lt;&lt; <span class="keyword">static_cast</span>&lt;<span class="keyword">int</span>&gt;(<span class="built_in">std</span>::<span class="built_in">ceil</span>(<span class="built_in">std</span>::log2(num)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>再一想，<code>std::ceil</code> 本来就快，<code>std::log2</code> 有快速解法。那么如果把 <code>1 &lt;&lt; foo</code> 换成 <code>std::pow(2.0, foo)</code> 会怎样呢？结果发现，大概是由于 <code>std::pow</code> 是为浮点数运算设计的，所以没为 2 的幂方做优化，所以效率还不如位运算：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;cmath&gt;</span></span><br><span class="line"><span class="keyword">uint32_t</span> func(<span class="keyword">uint32_t</span> num) &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">std</span>::<span class="built_in">pow</span>(<span class="number">2.0</span>, <span class="built_in">std</span>::<span class="built_in">ceil</span>(<span class="built_in">std</span>::log2(num)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>以上。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;blockquote&gt;
-&lt;p&gt;这是一篇简单的记录。&lt;/p&gt;
-&lt;/blockquote&gt;
-&lt;p&gt;最近在写 YTL 的过程中遇到这样一个子问题：需要定义一个函数 &lt;code&gt;uint32_t func(uint32_t num)&lt;/code&gt;，返回不小于 &lt;code&gt;num&lt;/code&gt; 的最小的 2 的幂方。例如&lt;/p&gt;
-&lt;figure class=&quot;highlight cpp&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;5&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;number&quot;&gt;1&lt;/span&gt; == func(&lt;span class=&quot;number&quot;&gt;1&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;number&quot;&gt;2&lt;/span&gt; == func(&lt;span class=&quot;number&quot;&gt;2&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;number&quot;&gt;4&lt;/span&gt; == func(&lt;span class=&quot;number&quot;&gt;3&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;number&quot;&gt;4&lt;/span&gt; == func(&lt;span class=&quot;number&quot;&gt;4&lt;/span&gt;);&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;comment&quot;&gt;// ……&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
-&lt;p&gt;一开始我想了个用位运算的奇技淫巧，自我感觉还不错：&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Algorithm and Computer Science" scheme="https://liam.page/categories/Algorithm-and-Computer-Science/"/>
-    
     
       <category term="C++" scheme="https://liam.page/tags/C/"/>
     
