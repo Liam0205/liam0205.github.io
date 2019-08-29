@@ -2680,7 +2680,7 @@
   <entry>
     <title><![CDATA[解决 MathJax 与 Markdown 的冲突]]></title>
     <url>%2F2015%2F09%2F09%2Ffix-conflict-between-mathjax-and-markdown%2F</url>
-    <content type="text"><![CDATA[MathJax 是一个 JavaScript 引擎，能够将 LaTeX 语法书写的公式在网页上显示出来，而且效果杠杠的。Markdown 是一种轻量级的标记语言。用 Markdown 书写的文章，可以用 Markdown 解释器处理成标准的 HTML 文档。因此 Markdown 很适合用来写网络日志。 作为数学系毕业的学生，写博客时不可避免地会涉及到一些数学公式。可惜不巧，用 Markdown 写博客的我，在使用 MathJax 的时候遇到了一点麻烦。 在 Markdown 中，下划线 _ 被保留，用作标记符号。比如 _Slant_ 会生成倾斜的 Slant。在 LaTeX 中，下划线 _ 被用作下标记号。比如 x_i 会生成 $x_i$。 由于 Markdown 在 MathJax 之前起作用，有时下标记号会被 Markdown 吃掉，变成 HTML 标记 &lt;i&gt; 而失去 LaTeX 的下标效果，造成数学公式显示不正常。比如 This is an example: $f_i = f_{i + 1}$ 里的两个下划线会被 Markdown 理解成倾斜的标记，这就不对了。 分析与思路问题的本质在于，下划线 _ 首先被 Markdown 处理，变成 HTML 标记 &lt;i&gt;。之后，MathJax 会认为相关代码是不合法的公式代码，不予处理。比如上述例子，在 MathJax 看来会变成这样：This is an example: $f&lt;i&gt;i = f&lt;i&gt;{i + 1}$——这是什么鬼（MathJax 内心独白）。因此，我们要做的，就是在 Markdown 处理文本的时候，将公式中的下划线保留起来；然后，再让 MathJax 去处理保留下来的下划线。 在 Markdown 中，我们可以用 backtip (`) 来做原样抄写（Verbatim）。也就是说，包含在两个 ` 中间的内容，会被 Markdown 原样保留下来。这正符合我们「保护下划线」的需求。于是，上述例子应该写成 This is an example: `$f_i = f_{i + 1}$`。 问题看似解决了，不过却又引发了下一个问题。被反引号包括的部分，被 Markdown 当做代码来处理，会加上 HTML 标签 &lt;code&gt;。这样一来，MathJax 在处理文档时，就会跳过这一部分——虽然下划线被保留了，但是整个公式都被忽略了。 一个妥协的办法，是用 JavaScript 处理所有的 &lt;code&gt; 标签：如果发现 &lt;code&gt; 标签内包含数学公式（以美元符号 \$ 开头结尾），那么就剥离标签，并调用 MathJax 处理。 下面我们来实现这一思路。 JavaScript 代码1234567891011121314151617181920&lt;script type="text/javascript"&gt;function yuuki_query_all_nodes_as_array(selector) &#123; return Array.prototype.slice.call(document.querySelectorAll(selector), 0);&#125;function replace_code_to_span(node) &#123; match = /^\$(.*)\$$/.exec(node.textContent); if (match) &#123; var parent = node.parentNode; var replacement = document.createElement('span'); replacement.class = "hpl_mathjax_inline" replacement.textContent = node.textContent; parent.replaceChild(replacement, node); &#125;&#125;document.addEventListener('DOMContentLoaded', function() &#123; yuuki_query_all_nodes_as_array("code").map(replace_code_to_span);&#125;);&lt;/script&gt; 这里，我们用正则表达式匹配了 &lt;code&gt; 标签内的美元符号，然后将 &lt;code&gt; 标签替换成 &lt;span class=hpl_mathjax_inline&gt; 标签，最后调用 MathJax.Hub.Queue 处理数学公式。 经过这样一番处理，This is an example: `$f_i = f_{i + 1}$` 就可以被正确处理为「This is an example: $f_i = f_{i + 1}$」了。]]></content>
+    <content type="text"><![CDATA[MathJax 是一个 JavaScript 引擎，能够将 LaTeX 语法书写的公式在网页上显示出来，而且效果杠杠的。Markdown 是一种轻量级的标记语言。用 Markdown 书写的文章，可以用 Markdown 解释器处理成标准的 HTML 文档。因此 Markdown 很适合用来写网络日志。 作为数学系毕业的学生，写博客时不可避免地会涉及到一些数学公式。可惜不巧，用 Markdown 写博客的我，在使用 MathJax 的时候遇到了一点麻烦。 在 Markdown 中，下划线 _ 被保留，用作标记符号。比如 _Slant_ 会生成倾斜的 Slant。在 LaTeX 中，下划线 _ 被用作下标记号。比如 x_i 会生成 $x_i$。 由于 Markdown 在 MathJax 之前起作用，有时下标记号会被 Markdown 吃掉，变成 HTML 标记 &lt;i&gt; 而失去 LaTeX 的下标效果，造成数学公式显示不正常。比如 This is an example: $f_i = f_{i + 1}$ 里的两个下划线会被 Markdown 理解成倾斜的标记，这就不对了。 分析与思路问题的本质在于，下划线 _ 首先被 Markdown 处理，变成 HTML 标记 &lt;i&gt;。之后，MathJax 会认为相关代码是不合法的公式代码，不予处理。比如上述例子，在 MathJax 看来会变成这样：This is an example: $f&lt;i&gt;i = f&lt;i&gt;{i + 1}$——这是什么鬼（MathJax 内心独白）。因此，我们要做的，就是在 Markdown 处理文本的时候，将公式中的下划线保留起来；然后，再让 MathJax 去处理保留下来的下划线。 在 Markdown 中，我们可以用 backtip (`) 来做原样抄写（Verbatim）。也就是说，包含在两个 ` 中间的内容，会被 Markdown 原样保留下来。这正符合我们「保护下划线」的需求。于是，上述例子应该写成 This is an example: `$f_i = f_{i + 1}$`。 问题看似解决了，不过却又引发了下一个问题。被反引号包括的部分，被 Markdown 当做代码来处理，会加上 HTML 标签 &lt;code&gt;。这样一来，MathJax 在处理文档时，就会跳过这一部分——虽然下划线被保留了，但是整个公式都被忽略了。 一个妥协的办法，是用 JavaScript 处理所有的 &lt;code&gt; 标签：如果发现 &lt;code&gt; 标签内包含数学公式（以美元符号 \$ 开头结尾），那么就剥离标签，并调用 MathJax 处理。 下面我们来实现这一思路。 JavaScript 代码1234567891011121314151617181920&lt;script type="text/javascript"&gt;function yuuki_query_all_nodes_as_array(selector) &#123; return Array.prototype.slice.call(document.querySelectorAll(selector), 0);&#125;function replace_code_to_span(node) &#123; match = /^\$(.*)\$$/.exec(node.textContent); if (match) &#123; var parent = node.parentNode; var replacement = document.createElement('span'); replacement.class = "hpl_mathjax_inline" replacement.textContent = node.textContent; parent.replaceChild(replacement, node); &#125;&#125;document.addEventListener('DOMContentLoaded', function() &#123; yuuki_query_all_nodes_as_array("code").map(replace_code_to_span);&#125;);&lt;/script&gt; 这里，我们用正则表达式匹配了 &lt;code&gt; 标签内的美元符号，然后将 &lt;code&gt; 标签替换成 &lt;span class=hpl_mathjax_inline&gt; 标签。 经过这样一番处理，This is an example: `$f_i = f_{i + 1}$` 就可以被正确处理为「This is an example: $f_i = f_{i + 1}$」了。]]></content>
       <categories>
         <category>Computer Skills</category>
       </categories>
@@ -3749,17 +3749,6 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】画一条自动延伸到行尾的线]]></title>
-    <url>%2F2013%2F08%2F25%2FLaTeX-RuleTillEnd%2F</url>
-    <content type="text"><![CDATA[LaTeX 向来是不擅长处理动态问题的，而我们的需求显然需要定义一个动态的长度。为了解决这个矛盾，我们可以退而求其次，选择用很短的一小节 rule 拼接在一起填充满整一行，而不是定义一个动态的长度。 示例代码在这里. 理解思路之后，读者还可以定义出许多其他的「动态」，愿诸君都能勤思考。]]></content>
-      <categories>
-        <category>LaTeX</category>
-      </categories>
-      <tags>
-        <tag>Rule</tag>
-      </tags>
-  </entry>
-  <entry>
     <title><![CDATA[全国大学生数学建模竞赛论文模板]]></title>
     <url>%2F2013%2F08%2F25%2FLaTeX-xcumcmart%2F</url>
     <content type="text"><![CDATA[本模板根据「2013高教社杯全国大学生数学建模竞赛论文格式规范」中的相关规定制作。供参加全国大学生数学建模竞赛的同学们使用。Liam Huang 制作该模板的目的在于推进竞赛论文格式规范化，推广 LaTeX。 下载：这里 本模板将整篇论文视作「文章」（article），而不是「书」（book）。实现时，以 ctexart 为基类。与 ctexart.cls 的使用基本相同，但必须保存为 UTF8 编码并使用 XeLaTeX 或 pdfLaTeX 编译。具体请参考本文源文件。 为了实现比较好的兼容性，模板仅达到了 2013 高教社杯全国大学生数学建模竞赛论文格式规范 中对竞赛论文的基本要求，而不包括额外的功能，也没有引入其他的宏包，请使用时根据需要自行添加。 模板发行包包括如下文件： declaration.tex —— 承诺书及编号页（必须。如有变动，请修改该文件） readme.pdf —— 本文件 readme.tex —— 本文件源文件 xcumcmart.cls —— 模板文件 模板的最新版本可以在 http://liam0205.me/2013/08/25/LaTeX-xcumcmart/ 下载。有关于模板的任何问题，比如 Bug 提交、功能建议、赞助、宣传推广等，均可与 Liam Huang 联系。 感谢 http://www.shumo.com/ 早先以 CCT 方式制作的竞赛论文模板。 任何个人或团体可以无限制的自由使用本模板。 本模板目前尚未得到全国大学生数学建模竞赛组委会的认可，模板作者对使用该模板所引起的后果不负任何责任。]]></content>
@@ -3768,6 +3757,17 @@
       </categories>
       <tags>
         <tag>XCUMCMART</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title><![CDATA[【LaTeX Tips】画一条自动延伸到行尾的线]]></title>
+    <url>%2F2013%2F08%2F25%2FLaTeX-RuleTillEnd%2F</url>
+    <content type="text"><![CDATA[LaTeX 向来是不擅长处理动态问题的，而我们的需求显然需要定义一个动态的长度。为了解决这个矛盾，我们可以退而求其次，选择用很短的一小节 rule 拼接在一起填充满整一行，而不是定义一个动态的长度。 示例代码在这里. 理解思路之后，读者还可以定义出许多其他的「动态」，愿诸君都能勤思考。]]></content>
+      <categories>
+        <category>LaTeX</category>
+      </categories>
+      <tags>
+        <tag>Rule</tag>
       </tags>
   </entry>
   <entry>
