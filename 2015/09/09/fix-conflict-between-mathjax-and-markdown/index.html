@@ -68,7 +68,7 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="MathJax 是一个 JavaScript 引擎，能够将 LaTeX 语法书写的公式在网页上显示出来，而且效果杠杠的。Markdown 是一种轻量级的标记语言。用 Markdown 书写的文章，可以用 Markdown 解释器处理成标准的 HTML 文档。因此 Markdown 很适合用来写网络日志。 作为数学系毕业的学生，写博客时不可避免地会涉及到一些数学公式。可惜不巧，用 Markdown">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-08-29T15:50:08.820Z">
+<meta property="og:updated_time" content="2019-08-29T16:11:50.076Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="解决 MathJax 与 Markdown 的冲突">
 <meta name="twitter:description" content="MathJax 是一个 JavaScript 引擎，能够将 LaTeX 语法书写的公式在网页上显示出来，而且效果杠杠的。Markdown 是一种轻量级的标记语言。用 Markdown 书写的文章，可以用 Markdown 解释器处理成标准的 HTML 文档。因此 Markdown 很适合用来写网络日志。 作为数学系毕业的学生，写博客时不可避免地会涉及到一些数学公式。可惜不巧，用 Markdown">
@@ -363,7 +363,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019 年 08 月 29 日 23:50:08" itemprop="dateModified" datetime="2019-08-29T23:50:08+08:00">2019 年 08 月 29 日</time>
+                <time title="修改时间：2019 年 08 月 30 日 00:11:50" itemprop="dateModified" datetime="2019-08-30T00:11:50+08:00">2019 年 08 月 30 日</time>
               </span>
             
           
@@ -398,7 +398,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>2.4k</span>
+              <span>3.1k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -408,7 +408,7 @@
               
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
               
-              <span>4 分钟</span>
+              <span>6 分钟</span>
             </span>
           
 
@@ -432,6 +432,8 @@
 <p>一个妥协的办法，是用 JavaScript 处理所有的 <code>&lt;code&gt;</code> 标签：如果发现 <code>&lt;code&gt;</code> 标签内包含数学公式（以美元符号 \$ 开头结尾），那么就剥离标签，并调用 MathJax 处理。</p>
 <p>下面我们来实现这一思路。</p>
 <h2 id="JavaScript-代码"><a href="#JavaScript-代码" class="headerlink" title="JavaScript 代码"></a>JavaScript 代码</h2><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">&lt;script type=<span class="string">"text/javascript"</span>&gt;</span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">yuuki_query_all_nodes_as_array</span>(<span class="params">selector</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">Array</span>.prototype.slice.call(<span class="built_in">document</span>.querySelectorAll(selector), <span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">replace_code_to_span</span>(<span class="params">node</span>) </span>&#123;</span><br><span class="line">  is_inline_math = <span class="regexp">/^\$(.*)\$$/</span>.exec(node.textContent);</span><br><span class="line">  is_display_math = <span class="regexp">/^\$\$(.*)\$\$$/m</span>s.exec(node.textContent) ||</span><br><span class="line">          /^\\begin\&#123;.+\&#125;(.*)\\end\&#123;.+\&#125;/ms.exec(node.textContent);</span><br><span class="line">  <span class="keyword">if</span> (is_inline_math || is_display_math) &#123;</span><br><span class="line">    <span class="keyword">var</span> parent = node.parentNode;</span><br><span class="line">    <span class="keyword">var</span> replacement = <span class="built_in">document</span>.createElement(<span class="string">'span'</span>);</span><br><span class="line">    <span class="keyword">if</span> (is_display_math) &#123;</span><br><span class="line">      replacement.class = <span class="string">"yuuki_mathjax_inline"</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      replacement.class = <span class="string">"yuuki_mathjax_display"</span></span><br><span class="line">    &#125;</span><br><span class="line">    replacement.textContent = node.textContent;</span><br><span class="line">    parent.replaceChild(replacement, node);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">document</span>.addEventListener(<span class="string">'DOMContentLoaded'</span>, <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  yuuki_query_all_nodes_as_array(<span class="string">"code"</span>).map(replace_code_to_span);</span><br><span class="line">&#125;);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+<p>或者更简洁的</p>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">&lt;script type=<span class="string">"text/javascript"</span>&gt;</span><br><span class="line"><span class="built_in">window</span>.addEventListener(<span class="string">'DOMContentLoaded'</span>, () =&gt; &#123;</span><br><span class="line">  <span class="built_in">document</span>.querySelectorAll(<span class="string">'code'</span>).forEach(<span class="function"><span class="params">code</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> text = code.innerHTML;</span><br><span class="line">    is_inline_math = <span class="regexp">/^\$(.*)\$$/</span>.exec(text);</span><br><span class="line">    is_display_math = <span class="regexp">/^\$\$(.*)\$\$$/m</span>s.exec(text) || <span class="regexp">/^\\begin\&#123;.+\&#125;(.*)\\end\&#123;.+\&#125;/m</span>s.exec(text);</span><br><span class="line">    <span class="keyword">if</span> (is_inline_math || is_display_math) &#123;</span><br><span class="line">      code.parentElement.classList.add(<span class="string">'has-jax'</span>);</span><br><span class="line">      <span class="keyword">if</span> (is_inline_math) &#123;</span><br><span class="line">        code.outerHTML = <span class="string">"&lt;span class=yuuki_mathjax_inline&gt;"</span> + text + <span class="string">"&lt;/span&gt;"</span>;</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        code.outerHTML = <span class="string">"&lt;span class=yuuki_mathjax_display&gt;"</span> + text + <span class="string">"&lt;/span&gt;"</span>;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
 <p>这里，我们用正则表达式匹配了 <code>&lt;code&gt;</code> 标签内的美元符号，然后将 <code>&lt;code&gt;</code> 标签替换成 <code>&lt;span class=hpl_mathjax_inline&gt;</code> 标签。</p>
 <p>经过这样一番处理，<code>This is an example: `$f_i = f_{i + 1}$`</code> 就可以被正确处理为「This is an example: <code>$f_i = f_{i + 1}$</code>」了。</p>
 
@@ -1991,7 +1993,7 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:46</span>
+    <span title="站点阅读时长">34:48</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2165,29 +2167,20 @@ document.addEventListener('visibilitychange', function () {
 </script>
 
 <script type="text/javascript">
-function yuuki_query_all_nodes_as_array(selector) {
-  return Array.prototype.slice.call(document.querySelectorAll(selector), 0);
-}
-
-function replace_code_to_span(node) {
-  is_inline_math = /^\$(.*)\$$/.exec(node.textContent);
-  is_display_math = /^\$\$(.*)\$\$$/ms.exec(node.textContent) ||
-          /^\\begin\{.+\}(.*)\\end\{.+\}/ms.exec(node.textContent);
-  if (is_inline_math || is_display_math) {
-    var parent = node.parentNode;
-    var replacement = document.createElement('span');
-    if (is_display_math) {
-      replacement.class = "yuuki_mathjax_inline"
-    } else {
-      replacement.class = "yuuki_mathjax_display"
+window.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('code').forEach(code => {
+    const text = code.innerHTML;
+    is_inline_math = /^\$(.*)\$$/.exec(text);
+    is_display_math = /^\$\$(.*)\$\$$/ms.exec(text) || /^\\begin\{.+\}(.*)\\end\{.+\}/ms.exec(text);
+    if (is_inline_math || is_display_math) {
+      code.parentElement.classList.add('has-jax');
+      if (is_inline_math) {
+        code.outerHTML = "<span class=yuuki_mathjax_inline>" + text + "</span>";
+      } else {
+        code.outerHTML = "<span class=yuuki_mathjax_display>" + text + "</span>";
+      }
     }
-    replacement.textContent = node.textContent;
-    parent.replaceChild(replacement, node);
-  }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  yuuki_query_all_nodes_as_array("code").map(replace_code_to_span);
+  });
 });
 </script>
 
