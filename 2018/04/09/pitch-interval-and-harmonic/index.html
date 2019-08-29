@@ -2244,14 +2244,19 @@ function yuuki_query_all_nodes_as_array(selector) {
 }
 
 function replace_code_to_span(node) {
-  match = /^\$(.*)\$$/.exec(node.textContent) || /^\$\$/.exec(node.textContent) || /^\\begin/.exec(node.textContent);
-  if (match) {
+  is_inline_math = /^\$(.*)\$$/.exec(node.textContent);
+  is_display_math = /^\$\$(.*)\$\$$/ms.exec(node.textContent) ||
+          /^\\begin\{.+\}(.*)\\end\{.+\}/ms.exec(node.textContent);
+  if (is_inline_math || is_display_math) {
     var parent = node.parentNode;
     var replacement = document.createElement('span');
-    replacement.class = "hpl_mathjax_inline"
+    if (is_display_math) {
+      replacement.class = "yuuki_mathjax_inline"
+    } else {
+      replacement.class = "yuuki_mathjax_display"
+    }
     replacement.textContent = node.textContent;
     parent.replaceChild(replacement, node);
-    // MathJax.Hub.Queue(["Typeset",MathJax.Hub,$(this).get(0)]);
   }
 }
 
