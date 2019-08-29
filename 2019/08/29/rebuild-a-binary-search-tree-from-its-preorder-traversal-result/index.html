@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+
+
+
+
+
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=7.3.0">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=7.3.0">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=7.3.0">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=7.3.0" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css?v=7.3.0">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '7.3.0',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    copycode: {"enable":true,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: false,
+    lazyload: false,
+    pangu: false,
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: 'search.xml',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    }
+  };
+</script>
+
+  <meta name="description" content="今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。">
+<meta name="keywords" content="BST,Preorder Traversal">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从前序遍历结果中重建二叉搜索树">
+<meta property="og:url" content="https://liam.page/2019/08/29/rebuild-a-binary-search-tree-from-its-preorder-traversal-result/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2019-08-29T08:28:39.333Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="从前序遍历结果中重建二叉搜索树">
+<meta name="twitter:description" content="今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。">
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+  <link rel="canonical" href="https://liam.page/2019/08/29/rebuild-a-binary-search-tree-from-its-preorder-traversal-result/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true,
+    isPage: false,
+    isArchive: false
+  };
+</script>
+
+  <title>从前序遍历结果中重建二叉搜索树 | 始终</title>
+  <meta name="generator" content="Hexo 3.9.0">
+  
+  <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+  <script>
+    var host = window.location.hostname;
+    if (host !== "localhost" || !true) {
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'UA-44836433-1');
+    }
+  </script>
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .logo,
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-CN">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <button aria-label="切换导航栏">
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+      <span class="btn-bar"></span>
+    </button>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+      
+      
+      
+        
+        <li class="menu-item menu-item-home">
+      
+    
+      
+    
+
+    <a href="/" rel="section"><i class="menu-item-icon fa fa-fw fa-home"></i> <br>首页</a>
+
+  </li>
+      
+      
+      
+        
+        <li class="menu-item menu-item-archives">
+      
+    
+      
+    
+
+    <a href="/archives/" rel="section"><i class="menu-item-icon fa fa-fw fa-archive"></i> <br>归档<span class="badge">300</span></a>
+
+  </li>
+      
+      
+      
+        
+        <li class="menu-item menu-item-categories">
+      
+    
+      
+    
+
+    <a href="/categories/" rel="section"><i class="menu-item-icon fa fa-fw fa-th"></i> <br>分类<span class="badge">11</span></a>
+
+  </li>
+      
+      
+      
+        
+        <li class="menu-item menu-item-tags">
+      
+    
+      
+    
+
+    <a href="/tags/" rel="section"><i class="menu-item-icon fa fa-fw fa-tags"></i> <br>标签<span class="badge">611</span></a>
+
+  </li>
+      
+      
+      
+        
+        <li class="menu-item menu-item-系列">
+      
+    
+      
+    
+
+    <a href="/series" rel="section"><i class="menu-item-icon fa fa-fw fa-book"></i> <br>系列</a>
+
+  </li>
+      
+      
+      
+        
+        <li class="menu-item menu-item-札记-&-留言板">
+      
+    
+      
+    
+
+    <a href="/notes/" rel="section"><i class="menu-item-icon fa fa-fw fa-sticky-note"></i> <br>札记 & 留言板</a>
+
+  </li>
+      
+      
+      
+        
+        <li class="menu-item menu-item-英文">
+      
+    
+      
+    
+
+    <a href="/en" rel="section"><i class="menu-item-icon fa fa-fw fa-link"></i> <br>英文</a>
+
+  </li>
+      
+      
+      
+        
+        <li class="menu-item menu-item-about">
+      
+    
+      
+    
+
+    <a href="/about/" rel="section"><i class="menu-item-icon fa fa-fw fa-user"></i> <br>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a href="javascript:;" class="popup-trigger">
+        
+          <i class="menu-item-icon fa fa-search fa-fw"></i> <br>搜索</a>
+      </li>
+    
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="none"
+           placeholder="搜索..." spellcheck="false"
+           type="text" id="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+            
+
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+      <article itemscope itemtype="http://schema.org/Article">
+  
+  
+  
+  <div class="post-block post">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2019/08/29/rebuild-a-binary-search-tree-from-its-preorder-traversal-result/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">从前序遍历结果中重建二叉搜索树
+
+          
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              
+                
+              
+
+              <time title="创建时间：2019 年 08 月 29 日 14:38:23 / 修改时间：16:28:39" itemprop="dateCreated datePublished" datetime="2019-08-29T14:38:23+08:00">2019 年 08 月 29 日</time>
+            </span>
+          
+            
+
+            
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing"><a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a></span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            <span class="post-meta-item" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="busuanzi-value" id="busuanzi_value_page_pv"></span>
+            </span>
+          
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">本文字数：</span>
+              
+              <span>4.3k</span>
+            </span>
+          
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              
+              <span>8 分钟</span>
+            </span>
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。</p>
+<a id="more"></a>
+<h2 id="回顾"><a href="#回顾" class="headerlink" title="回顾"></a>回顾</h2><p>首先回顾一下前序遍历和二叉搜索树的概念。</p>
+<h3 id="前序遍历"><a href="#前序遍历" class="headerlink" title="前序遍历"></a>前序遍历</h3><p>二叉树的前序遍历指得是：对于任意的结点及其左右子节点，在遍历结果中出现的顺序总是「父节点 -&gt; 左子节点 -&gt; 右子节点」；由于二叉树的自相似结构，这种描述唯一确定的遍历顺序即是前序遍历。</p>
+<h3 id="二叉搜索树"><a href="#二叉搜索树" class="headerlink" title="二叉搜索树"></a>二叉搜索树</h3><p>二叉搜索树是一种特殊的二叉树，它要求：对于任意的结点及其左右子结点作为根节点形成的左右子树，满足：左子树的所有结点的值小于父节点的值，右子树的所有结点的值大于父节点的值。</p>
+<blockquote>
+<p>显然，二叉搜索树的中序遍历是从小到大排序的。</p>
+</blockquote>
+<h2 id="分析"><a href="#分析" class="headerlink" title="分析"></a>分析</h2><h3 id="唯一性"><a href="#唯一性" class="headerlink" title="唯一性"></a>唯一性</h3><p>首先要考虑，一个无重复元素的二叉搜索树的前序遍历结果能否唯一确定一个二叉搜索树？答案是可以的，简要证明如下：</p>
+<ul>
+<li>已知二叉搜索树的前序遍历结果，即知晓二叉搜索树中所有元素；</li>
+<li>对二叉搜索树中所有元素进行从小到大排序，根据二叉搜索树的性质，即得到该二叉搜索树的中序遍历结果；</li>
+<li>已知二叉树的前序遍历结果和中序遍历结果，可以唯一地确定一个二叉树，即该二叉搜索树。</li>
+</ul>
+<p>由此可知，，一个无重复元素的二叉搜索树的前序遍历结果，确实能够唯一地确定一个二叉搜索树。</p>
+<h3 id="时间复杂度"><a href="#时间复杂度" class="headerlink" title="时间复杂度"></a>时间复杂度</h3><p>重建二叉搜索树必然要获知该二叉搜索树中的全部结果。因此，时间复杂度必然不小于 <code>$O(n)$</code>，由此我们得到一个下界。</p>
+<p>又从上述唯一性证明的过程中可知一种重建方法，分析该方法的复杂度可得到一个上界。现在我们简单分析一下该方法的时间复杂度。</p>
+<blockquote>
+<p>一种恢复二叉搜索树的方法：</p>
+<ol>
+<li>对结果进行从小到大排序，得到中序遍历结果。</li>
+<li>根据前序遍历结果和中序遍历结果，重建二叉树。</li>
+</ol>
+</blockquote>
+<p>该方法的时间复杂度是两步之和，其中第 (1) 步的时间复杂度为 <code>$O(n \log(n))$</code>；关键要求得第 (2) 步的时间复杂度。</p>
+<blockquote>
+<p>根据前序遍历结果和中序遍历结果，重建二叉树的方法：</p>
+<ol>
+<li>根据前序遍历结果，确定树根</li>
+<li>根据中序遍历结果，确定树根位置</li>
+<li>根据中序遍历结果，确定左子树（如果有）元素数量</li>
+<li>根据 (3) 的结果，在前序遍历结果中，确定左右子树（如果有）的树根位置</li>
+<li>如此分治递归</li>
+</ol>
+</blockquote>
+<p>若使用支持随机访问的数组存储前序、中序遍历结果，这里的 (1), (3), (4) 步的复杂度均是常数 <code>$O(1)$</code>。对于 (2)，若中序遍历是有序结果（二叉搜索树的情况），可用二分搜索确定树根位置，这一步的复杂度是 <code>$O(\log(n))$</code>，否则只能逐一遍历，复杂度是 <code>$O(n)$</code>。根据「主定理」，这种重建二叉树的方法的时间复杂度不超过 <code>$O(n\log(n))$</code>。</p>
+<p>由此可知，根据前序遍历结果重建二叉搜索树的方法，其时间复杂度下界是 <code>$O(n)$</code>，上界是 <code>O(n\log(n))</code>。</p>
+<h2 id="向-Theta-n-进发"><a href="#向-Theta-n-进发" class="headerlink" title="向 $\Theta(n))$ 进发"></a>向 <code>$\Theta(n))$</code> 进发</h2><p>回顾借助中序遍历结果重建二叉树的步骤，我们发现，中序遍历结果的核心作用是通过确定左子树（如果有）元素的数量，在前序遍历中确定左右子树的根节点。考虑到，在前序遍历中，左子树的根节点的位置是平凡的——如果存在左子树，左子树根节点就是整棵树根节点的在前序遍历中的下一个元素。所以关键是要想办法确定右子树（如果有）根节点的位置。</p>
+<p>好消息是，我们现在需要重建的二叉树是二叉搜索树。因此，树根的右孩子，就是前序遍历中第一个比根节点大的那个元素。这样一来，我们就能确定根节点的左右孩子的位置了，如此一来，只需要递归就能解决问题。</p>
+<p>于是，遗留的问题变成了：如何在常数时间内找到第一个比根节点大的元素的位置。</p>
+<p>讲道理，单就查找元素的问题而言，我们是做不到的。最快的二分的复杂度也有 <code>$\Theta(\log(n))$</code>，何况它还有额外要求。但是，我们已知：根节点到右孩子之间的所有元素，都是左子树的元素（假设其个数是 <code>$k$</code>）。如果我们有办法在寻找右孩子的过程中，把左子树构建出来，我们就能把寻找右孩子的复杂度 <code>$\Theta(k)$</code> 均摊到这 <code>$k$</code> 个左子树的元素上去，复杂度就变成了常数。要做到这一点，依赖于实现。</p>
+<h3 id="递归实现"><a href="#递归实现" class="headerlink" title="递归实现"></a>递归实现</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">TreeNode* <span class="title">rebuildBST</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">int</span>&gt;&amp; preorder,</span></span></span><br><span class="line"><span class="function"><span class="params">                                   <span class="keyword">const</span> <span class="keyword">int</span> bound = <span class="built_in">std</span>::numeric_limits&lt;<span class="keyword">int</span>&gt;::max())</span> </span>&#123;</span><br><span class="line">  <span class="keyword">static</span> <span class="keyword">size_t</span> i = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">if</span> (preorder.size() == i <span class="keyword">or</span> preorder[i] &gt; bound) &#123; <span class="keyword">return</span> <span class="literal">nullptr</span>; &#125;</span><br><span class="line">  <span class="keyword">auto</span> node = <span class="keyword">new</span> TreeNode(preorder[i]);</span><br><span class="line">  ++i;</span><br><span class="line">  node-&gt;left = rebuildBST(preorder, node-&gt;val);</span><br><span class="line">  node-&gt;right = rebuildBST(preorder, bound);</span><br><span class="line">  <span class="keyword">return</span> node;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里，所有递归调用都共享同一个下标 <code>i</code>，它从 <code>0</code> 开始自增到 <code>preorder.size()</code> 后，所有递归退出。在每次递归调用中，除开构建结点的开销，都只有常数项的操作：至多两次比较，一次变量自增。因此，复杂度是 <code>$\Theta(n)$</code>。</p>
+<h3 id="非递归实现"><a href="#非递归实现" class="headerlink" title="非递归实现"></a>非递归实现</h3><p>再多一点挑战：有没有办法用非递归的方式去实现这一算法呢？</p>
+<p>既然会问出来，那答案肯定是「有」。</p>
+<p>我们分析一下递归版本的代码。</p>
+<ul>
+<li>函数的默认参数 <code>std::numeric_limits&lt;int&gt;::max()</code> 实际上是为了简化代码实现，而引入的「哨兵」。</li>
+<li>变量 <code>i</code> 在所有递归调用中共享，从 <code>0</code> 开始自增到 <code>preorder.size()</code> 后，所有递归退出，实际上起到了循环的作用。</li>
+<li>每次递归调用中，<code>preorder</code> 是不变的，变化的只有 <code>bound</code>；它保证了在处理右子树之前，先处理完左子树的所有节点。</li>
+</ul>
+<p>因此，若要非递归地实现这一算法，我们需要：</p>
+<ul>
+<li>用某种方式，重新引入哨兵 <code>std::numeric_limits&lt;int&gt;::max()</code>；</li>
+<li>循环，从 <code>0 -&gt; preorder.size()</code>；</li>
+<li>提供一个栈，直接或间接地保存这里的 <code>bound</code>。</li>
+</ul>
+<p>于是有实现：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">TreeNode* <span class="title">bstFromPreorder</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">int</span>&gt;&amp; preorder)</span> </span>&#123;</span><br><span class="line">  TreeNode* dummy = <span class="keyword">new</span> TreeNode(<span class="built_in">std</span>::numeric_limits&lt;<span class="keyword">int</span>&gt;::max());</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">stack</span>&lt;TreeNode*&gt; s;</span><br><span class="line">  s.push(dummy);</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> x : preorder) &#123;</span><br><span class="line">    TreeNode* node = <span class="keyword">new</span> TreeNode(x);</span><br><span class="line">    TreeNode* wk = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">for</span> (; s.top()-&gt;val &lt; x; wk = s.top(), s.pop()) &#123; ; &#125;</span><br><span class="line">    <span class="keyword">if</span> (wk == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">      s.top()-&gt;left = node;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      wk-&gt;right = node;</span><br><span class="line">    &#125;</span><br><span class="line">    s.push(node);</span><br><span class="line">  &#125;</span><br><span class="line">  TreeNode* res = dummy-&gt;left;</span><br><span class="line">  dummy-&gt;left = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="keyword">delete</span> dummy;</span><br><span class="line">  <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里，<code>dummy</code> 起到了哨兵的作用；<code>for (:)</code> 是上述提到的循环；<code>for (;;)</code> 里每一次弹栈，都意味着遇到了右孩子，对应递归版本中的 <code>return nullptr;</code>。</p>
+<p>从非递归的版本中看时间复杂度是很明显的。<code>for (:)</code> 之外的内容只有常数复杂度，<code>for (:)</code> 循环之内的内容要重点分析 <code>for (;;)</code> 循环。<code>for (;;)</code> 循环每执行一次，都有一次 <code>s.pop()</code> 操作，它与 <code>s.push(node)</code> 一一对应。因此，有多少次 <code>s.push(node)</code> 就有多少次 <code>s.pop()</code>（不算 <code>s.push(dummy)</code>）。于是，均摊到每次 <code>for (:)</code> 循环中去，<code>for (;;)</code> 恰好只执行一次 <code>wk = s.top()</code> 和 <code>s.pop()</code>。于是 <code>for (:)</code> 之内的内容也只有常数复杂度。于是，这个实现的复杂度为 <code>$\Theta(n)$</code>。</p>
+<p>这里非递归的实现，是从递归实现中变形出来的。但实际上，非递归的实现，也有其自身的含义。</p>
+<p>首先看「栈」。由于是「前序遍历」，所以一个结点的祖辈结点一定在父辈节点之前。考虑到任何一个结点，都只和父亲节点直接建立联系，因此从前往后遍历 <code>preorder</code> 时，必然要用到栈结构，保存历代祖先。（笑死我）</p>
+<p>然后看弹栈的循环。这实际上透露的是一种自底向上的思路：如果我遇到了一个结点，它是某个结点的左孩子，那么一定是刚才入栈的结点；如果它是某个结点的右孩子，这意味着这个节点的左子树都已经处理完了，就要依次弹栈。通过这样的方式，我们能找到每一个「孩子」的「父亲」是谁。与之对应，递归版本的实现，则是一种自顶向下的思路：我现在有一个结点，它的左孩子在哪里，你给我找出来（递归调用），找到之后再继续找它的右孩子（递归调用）。</p>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>遇到这个问题，我们的分析从确定唯一性开始。运用二叉搜索树中序遍历元素有序的特点，我们借助「前序中序唯一确定二叉树」的定理，很快确定了唯一性。（这要感谢 <code>@linjie</code>）</p>
+<p>顺着唯一性出发，我们马上确定了一种重建二叉树的方法，从而确定了一个时间复杂度上界。</p>
+<p>在确定上界之后，我们会希望继续降低算法的时间复杂度。自然而然地，我们从已有的方法出发，寻找可能的改进点。由于我们手头只有前序遍历结果，自然地，我们就会去想中序遍历在已有算法中起到的作用是什么，并寻找其替代。</p>
+<p>如此，我们自顶向下地，很容易地找到了上述递归实现。在转递归为非递归的过成功中，我们又发现了自底向上的解法。这促使我们在将来的日子里，在符合常规思维的「自顶向下」中，多去找找「自底向上」的解法，可能会有奇效。</p>
+
+    </div>
+
+    
+    
+    
+        
+      
+        <div id="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button id="reward-button" disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+    
+      
+      
+        
+        
+          
+        
+        <div style="display: inline-block">
+          <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付"/>
+          <p>微信支付</p>
+        </div>
+      
+    
+      
+      
+        
+        
+          
+        
+        <div style="display: inline-block">
+          <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝"/>
+          <p>支付宝</p>
+        </div>
+      
+    
+      
+      
+    
+      
+      
+    
+
+    
+      <div id="paypal" style="display: inline-block">
+        <!-- <img id="paypal_qr" src="/" alt="Liam Huang PayPal"/> -->
+        <img id="paypal_form">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+          <input type="hidden" name="cmd" value="_donations" />
+          <input type="hidden" name="business" value="3EKTTVF2FF5EQ" />
+          <input type="hidden" name="item_name" value="If you like my blog, please consider to buy a cup of coffee for me. Thanks!" />
+          <input type="hidden" name="currency_code" value="USD" />
+          <input type="image" src="/images/reward/paypal-btn_donateCC_LG.gif" border="0" name="submit" />
+          </form>
+        </img>
+        <p>PayPal</p>
+      </div>
+    
+
+  </div>
+</div>
+
+      
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang</li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2019/08/29/rebuild-a-binary-search-tree-from-its-preorder-traversal-result/" title="从前序遍历结果中重建二叉搜索树">https://liam.page/2019/08/29/rebuild-a-binary-search-tree-from-its-preorder-traversal-result/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！</li>
+</ul>
+</div>
+
+      
+
+      <footer class="post-footer">
+          
+            
+          
+          <div class="post-tags">
+            
+              <a href="/tags/BST/" rel="tag"># BST</a>
+            
+              <a href="/tags/Preorder-Traversal/" rel="tag"># Preorder Traversal</a>
+            
+          </div>
+        
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-next post-nav-item">
+              
+                <a href="/2019/08/26/verbatim-environments-and-frame-in-beamer/" rel="next" title="Beamer frame 中的抄录环境">
+                  <i class="fa fa-chevron-left"></i> Beamer frame 中的抄录环境
+                </a>
+              
+            </div>
+
+            <span class="post-nav-divider"></span>
+
+            <div class="post-nav-prev post-nav-item">
+              
+            </div>
+          </div>
+        
+      </footer>
+    
+  </div>
+  
+  
+  
+  </article>
+
+  </div>
+
+
+          </div>
+          
+    
+    <div class="comments" id="gitalk-container"></div>
+  
+
+        </div>
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+        
+        
+        
+        
+      
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc" data-target="post-toc-wrap">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview" data-target="site-overview-wrap">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#回顾"><span class="nav-number">1.</span> <span class="nav-text">回顾</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#前序遍历"><span class="nav-number">1.1.</span> <span class="nav-text">前序遍历</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#二叉搜索树"><span class="nav-number">1.2.</span> <span class="nav-text">二叉搜索树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分析"><span class="nav-number">2.</span> <span class="nav-text">分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#唯一性"><span class="nav-number">2.1.</span> <span class="nav-text">唯一性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#时间复杂度"><span class="nav-number">2.2.</span> <span class="nav-text">时间复杂度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#向-Theta-n-进发"><span class="nav-number">3.</span> <span class="nav-text">向 $\Theta(n))$ 进发</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#递归实现"><span class="nav-number">3.1.</span> <span class="nav-text">递归实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#非递归实现"><span class="nav-number">3.2.</span> <span class="nav-text">非递归实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+        
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image"
+      src="/images/avatar/avatar.webp"
+      alt="Liam Huang">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">不忘初心，方得始终。</div>
+</div>
+  <nav class="site-state motion-element">
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">300</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+        <span class="site-state-item-count">599</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+  <div class="feed-link motion-element">
+    <a href="/atom.xml" rel="alternate">
+      <i class="fa fa-rss"></i>RSS
+    </a>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    
+  
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://xixiaoyao.github.io/" title="https://xixiaoyao.github.io/" rel="noopener" target="_blank">Xiyao</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.jellythink.com/" title="http://www.jellythink.com/" rel="noopener" target="_blank">JellyThink</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+      
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright">&copy; 2013 – <span itemprop="copyrightYear">2019</span>
+  <span class="with-love" id="animate">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.1m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">34:46</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.3.0</div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-eye"></i>
+    </span>
+    <span class="site-pv" id="busuanzi_container_site_pv" title="总访问量" style='display:none'>
+      <span class="busuanzi-value" id="busuanzi_value_site_pv"></span>
+    </span>
+  
+</div>
+
+
+<script src="/js/liam/tools.js"></script>
+<script>
+  ready(function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (getStyleByID("busuanzi_container_site_pv", "display") != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/jquery/index.js?v=3.4.1"></script>
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+<script src="/js/utils.js?v=7.3.0"></script><script src="/js/motion.js?v=7.3.0"></script>
+<script src="/js/schemes/pisces.js?v=7.3.0"></script>
+
+<script src="/js/next-boot.js?v=7.3.0"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+  <script src="/js/local-search.js?v=7.3.0"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+  
+
+  
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID: 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo: 'liam0205.github.io',
+      owner: 'Liam0205',
+      admin: ['Liam0205'],
+      id: '3996642ec05ed9628e64a9a911fb88ee',
+        language: 'zh-CN',
+      
+      distractionFreeMode: 'true'
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+</script>
+
+</body>
+</html>

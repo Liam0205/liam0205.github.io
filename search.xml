@@ -1,6 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title><![CDATA[从前序遍历结果中重建二叉搜索树]]></title>
+    <url>%2F2019%2F08%2F29%2Frebuild-a-binary-search-tree-from-its-preorder-traversal-result%2F</url>
+    <content type="text"><![CDATA[今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。 回顾首先回顾一下前序遍历和二叉搜索树的概念。 前序遍历二叉树的前序遍历指得是：对于任意的结点及其左右子节点，在遍历结果中出现的顺序总是「父节点 -&gt; 左子节点 -&gt; 右子节点」；由于二叉树的自相似结构，这种描述唯一确定的遍历顺序即是前序遍历。 二叉搜索树二叉搜索树是一种特殊的二叉树，它要求：对于任意的结点及其左右子结点作为根节点形成的左右子树，满足：左子树的所有结点的值小于父节点的值，右子树的所有结点的值大于父节点的值。 显然，二叉搜索树的中序遍历是从小到大排序的。 分析唯一性首先要考虑，一个无重复元素的二叉搜索树的前序遍历结果能否唯一确定一个二叉搜索树？答案是可以的，简要证明如下： 已知二叉搜索树的前序遍历结果，即知晓二叉搜索树中所有元素； 对二叉搜索树中所有元素进行从小到大排序，根据二叉搜索树的性质，即得到该二叉搜索树的中序遍历结果； 已知二叉树的前序遍历结果和中序遍历结果，可以唯一地确定一个二叉树，即该二叉搜索树。 由此可知，，一个无重复元素的二叉搜索树的前序遍历结果，确实能够唯一地确定一个二叉搜索树。 时间复杂度重建二叉搜索树必然要获知该二叉搜索树中的全部结果。因此，时间复杂度必然不小于 $O(n)$，由此我们得到一个下界。 又从上述唯一性证明的过程中可知一种重建方法，分析该方法的复杂度可得到一个上界。现在我们简单分析一下该方法的时间复杂度。 一种恢复二叉搜索树的方法： 对结果进行从小到大排序，得到中序遍历结果。 根据前序遍历结果和中序遍历结果，重建二叉树。 该方法的时间复杂度是两步之和，其中第 (1) 步的时间复杂度为 $O(n \log(n))$；关键要求得第 (2) 步的时间复杂度。 根据前序遍历结果和中序遍历结果，重建二叉树的方法： 根据前序遍历结果，确定树根 根据中序遍历结果，确定树根位置 根据中序遍历结果，确定左子树（如果有）元素数量 根据 (3) 的结果，在前序遍历结果中，确定左右子树（如果有）的树根位置 如此分治递归 若使用支持随机访问的数组存储前序、中序遍历结果，这里的 (1), (3), (4) 步的复杂度均是常数 $O(1)$。对于 (2)，若中序遍历是有序结果（二叉搜索树的情况），可用二分搜索确定树根位置，这一步的复杂度是 $O(\log(n))$，否则只能逐一遍历，复杂度是 $O(n)$。根据「主定理」，这种重建二叉树的方法的时间复杂度不超过 $O(n\log(n))$。 由此可知，根据前序遍历结果重建二叉搜索树的方法，其时间复杂度下界是 $O(n)$，上界是 O(n\log(n))。 向 $\Theta(n))$ 进发回顾借助中序遍历结果重建二叉树的步骤，我们发现，中序遍历结果的核心作用是通过确定左子树（如果有）元素的数量，在前序遍历中确定左右子树的根节点。考虑到，在前序遍历中，左子树的根节点的位置是平凡的——如果存在左子树，左子树根节点就是整棵树根节点的在前序遍历中的下一个元素。所以关键是要想办法确定右子树（如果有）根节点的位置。 好消息是，我们现在需要重建的二叉树是二叉搜索树。因此，树根的右孩子，就是前序遍历中第一个比根节点大的那个元素。这样一来，我们就能确定根节点的左右孩子的位置了，如此一来，只需要递归就能解决问题。 于是，遗留的问题变成了：如何在常数时间内找到第一个比根节点大的元素的位置。 讲道理，单就查找元素的问题而言，我们是做不到的。最快的二分的复杂度也有 $\Theta(\log(n))$，何况它还有额外要求。但是，我们已知：根节点到右孩子之间的所有元素，都是左子树的元素（假设其个数是 $k$）。如果我们有办法在寻找右孩子的过程中，把左子树构建出来，我们就能把寻找右孩子的复杂度 $\Theta(k)$ 均摊到这 $k$ 个左子树的元素上去，复杂度就变成了常数。要做到这一点，依赖于实现。 递归实现12345678910TreeNode* rebuildBST(const std::vector&lt;int&gt;&amp; preorder, const int bound = std::numeric_limits&lt;int&gt;::max()) &#123; static size_t i = 0; if (preorder.size() == i or preorder[i] &gt; bound) &#123; return nullptr; &#125; auto node = new TreeNode(preorder[i]); ++i; node-&gt;left = rebuildBST(preorder, node-&gt;val); node-&gt;right = rebuildBST(preorder, bound); return node;&#125; 这里，所有递归调用都共享同一个下标 i，它从 0 开始自增到 preorder.size() 后，所有递归退出。在每次递归调用中，除开构建结点的开销，都只有常数项的操作：至多两次比较，一次变量自增。因此，复杂度是 $\Theta(n)$。 非递归实现再多一点挑战：有没有办法用非递归的方式去实现这一算法呢？ 既然会问出来，那答案肯定是「有」。 我们分析一下递归版本的代码。 函数的默认参数 std::numeric_limits&lt;int&gt;::max() 实际上是为了简化代码实现，而引入的「哨兵」。 变量 i 在所有递归调用中共享，从 0 开始自增到 preorder.size() 后，所有递归退出，实际上起到了循环的作用。 每次递归调用中，preorder 是不变的，变化的只有 bound；它保证了在处理右子树之前，先处理完左子树的所有节点。 因此，若要非递归地实现这一算法，我们需要： 用某种方式，重新引入哨兵 std::numeric_limits&lt;int&gt;::max()； 循环，从 0 -&gt; preorder.size()； 提供一个栈，直接或间接地保存这里的 bound。 于是有实现： 1234567891011121314151617181920TreeNode* bstFromPreorder(const std::vector&lt;int&gt;&amp; preorder) &#123; TreeNode* dummy = new TreeNode(std::numeric_limits&lt;int&gt;::max()); std::stack&lt;TreeNode*&gt; s; s.push(dummy); for (int x : preorder) &#123; TreeNode* node = new TreeNode(x); TreeNode* wk = nullptr; for (; s.top()-&gt;val &lt; x; wk = s.top(), s.pop()) &#123; ; &#125; if (wk == nullptr) &#123; s.top()-&gt;left = node; &#125; else &#123; wk-&gt;right = node; &#125; s.push(node); &#125; TreeNode* res = dummy-&gt;left; dummy-&gt;left = nullptr; delete dummy; return res;&#125; 这里，dummy 起到了哨兵的作用；for (:) 是上述提到的循环；for (;;) 里每一次弹栈，都意味着遇到了右孩子，对应递归版本中的 return nullptr;。 从非递归的版本中看时间复杂度是很明显的。for (:) 之外的内容只有常数复杂度，for (:) 循环之内的内容要重点分析 for (;;) 循环。for (;;) 循环每执行一次，都有一次 s.pop() 操作，它与 s.push(node) 一一对应。因此，有多少次 s.push(node) 就有多少次 s.pop()（不算 s.push(dummy)）。于是，均摊到每次 for (:) 循环中去，for (;;) 恰好只执行一次 wk = s.top() 和 s.pop()。于是 for (:) 之内的内容也只有常数复杂度。于是，这个实现的复杂度为 $\Theta(n)$。 这里非递归的实现，是从递归实现中变形出来的。但实际上，非递归的实现，也有其自身的含义。 首先看「栈」。由于是「前序遍历」，所以一个结点的祖辈结点一定在父辈节点之前。考虑到任何一个结点，都只和父亲节点直接建立联系，因此从前往后遍历 preorder 时，必然要用到栈结构，保存历代祖先。（笑死我） 然后看弹栈的循环。这实际上透露的是一种自底向上的思路：如果我遇到了一个结点，它是某个结点的左孩子，那么一定是刚才入栈的结点；如果它是某个结点的右孩子，这意味着这个节点的左子树都已经处理完了，就要依次弹栈。通过这样的方式，我们能找到每一个「孩子」的「父亲」是谁。与之对应，递归版本的实现，则是一种自顶向下的思路：我现在有一个结点，它的左孩子在哪里，你给我找出来（递归调用），找到之后再继续找它的右孩子（递归调用）。 总结遇到这个问题，我们的分析从确定唯一性开始。运用二叉搜索树中序遍历元素有序的特点，我们借助「前序中序唯一确定二叉树」的定理，很快确定了唯一性。（这要感谢 @linjie） 顺着唯一性出发，我们马上确定了一种重建二叉树的方法，从而确定了一个时间复杂度上界。 在确定上界之后，我们会希望继续降低算法的时间复杂度。自然而然地，我们从已有的方法出发，寻找可能的改进点。由于我们手头只有前序遍历结果，自然地，我们就会去想中序遍历在已有算法中起到的作用是什么，并寻找其替代。 如此，我们自顶向下地，很容易地找到了上述递归实现。在转递归为非递归的过成功中，我们又发现了自底向上的解法。这促使我们在将来的日子里，在符合常规思维的「自顶向下」中，多去找找「自底向上」的解法，可能会有奇效。]]></content>
+      <categories>
+        <category>Algorithm and Computer Science</category>
+      </categories>
+      <tags>
+        <tag>BST</tag>
+        <tag>Preorder Traversal</tag>
+      </tags>
+  </entry>
+  <entry>
     <title><![CDATA[Beamer frame 中的抄录环境]]></title>
     <url>%2F2019%2F08%2F26%2Fverbatim-environments-and-frame-in-beamer%2F</url>
     <content type="text"><![CDATA[今天 @Butui Hu 在群里问了一个老问题：怎么在 Beamer 的 frame 当中使用 minted 环境？ 这个问题的答案很简单：其实不论是 minted 还是 lstlisting 还是基本的 verbatim，这些「抄录」环境与 frame 联用时，统统都需要给 frame 加上 fragile 参数，形如： 123\begin&#123;frame&#125;[fragile]% verbatim-like environment.\end&#123;frame&#125; 但问题是，为啥事情会变成这个样子？这篇文章简单讨论一下。 抄录环境是怎么实现的？首先我们要解决的第一个问题是，类似 verbatim 的抄录环境是怎么实现的？ 基本上说，抄录环境有这么一些特征： 使用等宽字符字族 \ttfamily 排版内容； 排版所有空格，而非让输入处理器进入 S 状态忽略空格； 在每个回车处换行； 原样抄录每一个字符。 当然，对于 minted 和 lstlisting 之类的环境，还会有为特定字符、词组渲染颜色的功能。但这些都是「锦上添花」，我们要关注的核心还是上面四条。 很显然，抄录环境对于输入内容的处理方式与正常内容的处理方式有很大差异。比如，反斜线 \ 原本作为 TeX 默认的转义字符，此时却要原样输出。我们知道，TeX 中之所以有诸多特殊用途的字符（\, {, }, $ 等等），其原因在于输入处理器读入内容时，会为每个字符分配分类码。输入处理器会根据字符和字符的分类码，将输入内容处理成记号流（token stream），交由展开处理器继续处理。显然，抄录环境要改变 TeX 中特殊用途的字符的行为，就必须要改变他们的分类码。实际上，这些字符的分类码，在抄录环境中，都会被设置为 12（other）。 此外，为了恢复这些特殊用途的字符，TeX 要在合适的位置重新设置这些字符的分类码。对于 LaTeX 使用者来说，很显然这个「时机」就应该是 \end{varbatim} 出现时了。这个论断说对也对，说不对也不完全对。考虑到，进入抄录环境之后，诸如 \ 的分类码已经改变，因此 \end{varbatim} 不会像正常的「结束环境」的标志那样被 TeX 识别并处理。于是，为了达到预期效果，你必须把 \end{varbatim} 单独成行，作为恢复分类码的标志。也就是说，\end{varbatim} 在这里起到的是一个纯粹的标志作用，而不是通常意义上「结束环境」的作用。 123456\begingroup\catcode `|=0 \catcode `[= 1 \catcode`]=2\catcode `\&#123;=12 \catcode `\&#125;=12 \catcode`\\=12|gdef|@xverbatim#1\end&#123;verbatim&#125;[#1|end[verbatim]]|gdef|@sxverbatim#1\end&#123;verbatim*&#125;[#1|end[verbatim*]]|endgroup 上面这段代码是 LaTeX2e 中有关抄录环境结束的命令的定义。在由 begingroup 和 endgroup 形成的 semi-group 分组中，我们将 | 定义为转义字符（0），[] 分别定义为分组开始和结束的字符（1, 2），然后把 {}\ 都定义为「其他字符」（12）。虽有，用 |gdef（相当于平时的 \gdef）超出 semi-group 的范围，定义控制序列 @xverbatim，它接受 1 个参数，这个参数以 \end{verbatim} 这串字符结尾，同时将它的内容替换成实际内容 #1，以及有实际含义的 |end[verbatim]（后者会被展开成 \endverbatim 命令，负责真正的「结束环境」的工作）。 一顿操作猛如虎，最终还靠分类码。而最最重要的是我们得知道，分类码是由输入处理器在读入文件时设置的。 脆弱命令是怎么回事？在输入处理器把文本流变成记号流之后，展开处理器和执行处理器就开始工作啦！通常来说，展开处理器会拼了老命将记号展开成更加底层的记号，直到不可展开，然后执行处理器开始执行各个不可展开的底层记号。 但某些情况下，这个流程会有问题。其中一个典型的例子，就是所谓的「移动参数」问题。 考虑 \section{} 命令。它做四件事： 编号自增 1 输出章节标题 处理目录（和 PDF 书签） 做页眉的章节标记 其中 (3) 依赖于将标题内容和编号写入 &lt;jobname&gt;.toc 文件，当 TeX 第二遍编译时，从 &lt;jobname&gt;.toc 文件读入内容再去排版目录。也就是说，此类命令的具体含义在两次编译过程中是不一样的，而具体它是什么含义（最终效果），要等排版完成之后才能确定。 问题在于： TeX 在写文件时，会将宏——此处特别注意 \section{} 参数中可能包含的宏——完全展开； 但完全展开写入文件之后，又要重新为 TeX 所读入，这时可能造成奇怪的错误。 比方说，\(\) 展开后会包含很多带有 @ 的内容，如果将这些内容写入文件，再重新读入，就会因为 @ 的分类码是 12 而非 11 不能作为控制序列的一部分而报错。 我们将提前展开和延后展开的最终效果不一样的命令，称之为脆弱命令（fragile commands）。与之对应的，就是健壮命令（robust commands）。 这和 frame 有什么关系？为此我们需要查看 Beamer 的文档。文档 12.9 节提到： If you wish to use a {verbatim} environment in a frame, you have to add the option [fragile] to the {frame} environment. In this case, [...] and the \end{frame} must be alone on a single line. Using this option will cause the frame contents to be written to an external file and the read back. 这段提到了在 frame 当中使用抄录环境，必须制定 fragile 参数。但仍然没有解释「为啥要用」。继续找到文档 8.1 节： If a frame contains fragile text, different internal mechanisms are used to typeset the frame to ensure that inside the frame the character codes can be reset. The price of switching to another internal mechanism is that either you cannot use overlays or an external file needs to be written and read back (which is not always desirable). In detail, the following happens when this option is given for normal (pdf)LaTeX: The contents of the frame is scanned and then written to a special file named ⟨jobname⟩.vrb or, if a label has been assigned to the frame, ⟨jobname⟩.⟨current frame number⟩.vrb. Then, the frame is started anew and the content of this file is read back. Since, upon reading of a file, the character codes can be modified, this allows you to use both verbatim text and overlays. To determine the end of the frame, the following rule is used: The first occurence of a single line containing exactly \end{⟨frame environment name⟩} ends the frame. The ⟨environment name⟩ is normally frame, but it can be changed using the environment option. This special rule is needed since the frame contents is, after all, not interpreted when it is gathered. 这样我们就明白了。frame 在某种程度上限制了环境内容对分类码的修改。因此，对于抄录环境这样需要修改分类码来实现目的的「脆弱内容」，我们要指定 fragile 参数，然后 Beamer 会将这些内容写入到外部文件（为此 frame 环境变成了脆弱命令）。然后，在再次读入这些内容时，让输入处理器有机会正确处理分类码。如此一来，才能顾全这些「脆弱内容」的渲染，和 Beamer 的 overlay 效果。]]></content>
@@ -118,8 +130,8 @@
       <tags>
         <tag>Ranking</tag>
         <tag>Factorization Machine</tag>
-        <tag>CTR</tag>
         <tag>Variants</tag>
+        <tag>CTR</tag>
       </tags>
   </entry>
   <entry>
@@ -185,8 +197,8 @@
         <tag>Logistic Regression</tag>
         <tag>Ranking</tag>
         <tag>Factorization Machine</tag>
-        <tag>SVM</tag>
         <tag>CTR</tag>
+        <tag>SVM</tag>
       </tags>
   </entry>
   <entry>
@@ -2802,9 +2814,9 @@
         <category>Computer Skills</category>
       </categories>
       <tags>
+        <tag>Update</tag>
         <tag>Ubuntu</tag>
         <tag>Server</tag>
-        <tag>Update</tag>
         <tag>apt-get</tag>
         <tag>Upgrade</tag>
       </tags>
@@ -2817,10 +2829,10 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Update</tag>
         <tag>Fake</tag>
         <tag>tlpretest</tag>
         <tag>TeX Live</tag>
+        <tag>Update</tag>
         <tag>Packages</tag>
       </tags>
   </entry>
@@ -2995,8 +3007,8 @@
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Template</tag>
         <tag>Chinese</tag>
+        <tag>Template</tag>
         <tag>MacTeX</tag>
       </tags>
   </entry>
@@ -3586,17 +3598,14 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】LaTeX 公式上下花括号的交错]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-brace-overlap%2F</url>
-    <content type="text"><![CDATA[我们知道，LaTeX 数学模式下，为式子的上下添加花括号可以用 \overbrace 和 underbrace 这两个命令。他们可以互相嵌套，但是不能交错使用。这一特性有时候会给我们带来麻烦。 为了排版如上图所示的效果，我们需要用 \rlap 重叠，同时用 \phantom 占位，见下面的代码。 1234567\documentclass&#123;article&#125;\usepackage&#123;amsmath&#125;\begin&#123;document&#125;\[ \rlap&#123;$\overbrace&#123;\phantom&#123;a \to b&#125;&#125;$&#125; a \to \underbrace&#123;b \to c&#125;\]\end&#123;document&#125;]]></content>
+    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
+    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
       <categories>
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>Overbrace</tag>
-        <tag>Underbrace</tag>
-        <tag>Rlap</tag>
-        <tag>Phantom</tag>
+        <tag>LaTeX speech</tag>
       </tags>
   </entry>
   <entry>
@@ -3612,14 +3621,17 @@
       </tags>
   </entry>
   <entry>
-    <title><![CDATA[【LaTeX Tips】2013 清華大學（臺灣） LaTeX 研習投影片——蔡炎龍]]></title>
-    <url>%2F2013%2F10%2F18%2FLaTeX-Tsinghua-TW%2F</url>
-    <content type="text"><![CDATA[本文原载于 LaTeXstudio. 这是台湾清华大学 2013 年在清大『LaTeX 研習』上使用的投影片，内容非常实用易懂。 投影共分成四个部分： 基础速成 表格和进阶数学式子 基本排版、修饰、自订命令 用 Beamer 做简报 截图：]]></content>
+    <title><![CDATA[【LaTeX Tips】LaTeX 公式上下花括号的交错]]></title>
+    <url>%2F2013%2F10%2F18%2FLaTeX-brace-overlap%2F</url>
+    <content type="text"><![CDATA[我们知道，LaTeX 数学模式下，为式子的上下添加花括号可以用 \overbrace 和 underbrace 这两个命令。他们可以互相嵌套，但是不能交错使用。这一特性有时候会给我们带来麻烦。 为了排版如上图所示的效果，我们需要用 \rlap 重叠，同时用 \phantom 占位，见下面的代码。 1234567\documentclass&#123;article&#125;\usepackage&#123;amsmath&#125;\begin&#123;document&#125;\[ \rlap&#123;$\overbrace&#123;\phantom&#123;a \to b&#125;&#125;$&#125; a \to \underbrace&#123;b \to c&#125;\]\end&#123;document&#125;]]></content>
       <categories>
         <category>LaTeX</category>
       </categories>
       <tags>
-        <tag>LaTeX speech</tag>
+        <tag>Overbrace</tag>
+        <tag>Underbrace</tag>
+        <tag>Rlap</tag>
+        <tag>Phantom</tag>
       </tags>
   </entry>
   <entry>
