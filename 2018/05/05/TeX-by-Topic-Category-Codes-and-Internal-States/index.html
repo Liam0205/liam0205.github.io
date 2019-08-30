@@ -38,8 +38,8 @@
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
     fancybox: false,
-    mediumzoom: false,
-    lazyload: false,
+    mediumzoom: true,
+    lazyload: true,
     pangu: false,
     algolia: {
       appID: '',
@@ -68,13 +68,10 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="此篇基本上是译文，原文是 Victor Eijkhout 所著的《TeX by Topic》的第二章。译文项目参见：CTeX-org/tex-by-topic-cn。转载请保留本段文字，尊重原作者和译者版权。由于原著使用 GFDL，故而本文也被传染地同样使用 GFDL 许可，而不是本站默认的 BY-NC-SA 4.0 许可。  读取字符时，TeX 的输入处理器会为字符分配分类码。根据读取到字符的">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="https://liam.page/uploads/images/LaTeX/figmouth.png">
-<meta property="og:image" content="https://liam.page/uploads/images/LaTeX/optional_space.png">
 <meta property="og:updated_time" content="2019-08-27T09:43:08.879Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="TeX 主题选讲：分类码与内部状态">
 <meta name="twitter:description" content="此篇基本上是译文，原文是 Victor Eijkhout 所著的《TeX by Topic》的第二章。译文项目参见：CTeX-org/tex-by-topic-cn。转载请保留本段文字，尊重原作者和译者版权。由于原著使用 GFDL，故而本文也被传染地同样使用 GFDL 许可，而不是本站默认的 BY-NC-SA 4.0 许可。  读取字符时，TeX 的输入处理器会为字符分配分类码。根据读取到字符的">
-<meta name="twitter:image" content="https://liam.page/uploads/images/LaTeX/figmouth.png">
   <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <link rel="canonical" href="https://liam.page/2018/05/05/TeX-by-Topic-Category-Codes-and-Internal-States/">
 
@@ -502,7 +499,7 @@
 <h3 id="状态-N：新行"><a href="#状态-N：新行" class="headerlink" title="状态 N：新行"></a>状态 N：新行</h3><p>当且仅当遇到新的输入行时，TeX 会进入状态 N。在该状态下，TeX 遇到空格记号（分类码为 10 的字符）即会将之忽略；遇到行终止符则会将之替换为 <code>\par</code> 记号；遇到其它记号，则会切换到状态 M。</p>
 <h3 id="状态-S：忽略空格"><a href="#状态-S：忽略空格" class="headerlink" title="状态 S：忽略空格"></a>状态 S：忽略空格</h3><p>在状态 M 下遇到空格记号，或在任意状态下遇到控制词或控制空格之后（注意其他控制字符不在此列），TeX 会进入状态 S。在该状态下，TeX 遇到空格记号或行终止符都会忽略。</p>
 <h3 id="状态-M：行内"><a href="#状态-M：行内" class="headerlink" title="状态 M：行内"></a>状态 M：行内</h3><p>显然，状态 M 是输入处理器最常见的状态，它表示「处理到输入行的中间」（middle of line）。当输入处理器遇到分类码为 1--4、6--8 以及 11--13 的字符或者控制字符（不包括控制空格）之后，就会进入该状态。在该状态下，TeX 会将行终止符替换为空格记号。</p>
-<p><img src="/uploads/images/LaTeX/figmouth.png" alt></p>
+<p><img alt data-src="/uploads/images/LaTeX/figmouth.png"></p>
 <h2 id="访问整个字符集"><a href="#访问整个字符集" class="headerlink" title="访问整个字符集"></a>访问整个字符集</h2><p>大体上，TeX 的输入处理器可以认为是一个有限状态自动机，但严格来说它并不是。输入处理器在扫描输入行期间，为了让用户能够输入一些特殊字符，而设计了这样的机制：两个相同的上标符（分类码为 7）以及一个字符编码小于 128 的字符（暂称原字符）组成的三元组会被替换为一个新的字符。该字符的编码位于 0 -- 127 之间，并且与原字符的编码相差 64。</p>
 <p>这种机制可用于访问字体中难以输入的字符。例如 ASCII 中的控制符号 <code>&lt;return&gt;</code>（ASCII 编码为 13）和 <code>&lt;delete&gt;</code>（ASCII 编码为 127）可分别使用 <code>^^M</code> 和 <code>^^?</code> 进行访问。当然，由于 <code>^^?</code> 是无效字符（分类码是 15），故而在访问前需要先修改其分类码。</p>
 <p>在 TeX3 中，该机制被扩展为可以访问 256 个字符：四元组 <code>^^xy</code> 会被替换为一个编码在 0 -- 255 之间的字符；其中 <code>x</code> 和 <code>y</code> 是小写十六进制数字 <code>0</code>--<code>9</code>, <code>a</code>--<code>f</code>，而 <code>xy</code> 正是该字符编码的十六进制表示。这一扩展也给先前的机制带来了一些限制：例如 <code>^^7a</code> 会被输入处理器替换为 <code>z</code>，而不是 <code>wa</code>。</p>
@@ -569,7 +566,7 @@
 <h3 id="被忽略的空格"><a href="#被忽略的空格" class="headerlink" title="被忽略的空格"></a>被忽略的空格</h3><p>在上述有关输入处理器内部状态的讨论中，我们不难发现，有些空格在输入处理器中就被抛弃了，因此永远不会被输出：输入行开头的空格以及在让 TeX 进入状态 S 的字符之后的空格。</p>
 <p>另一方面，行终止符尽管不在输入中（而是由 TeX 添加的），但能产生可输出的空格。除此之外，还有第三种空格：它们可以通过输入处理器，甚至干脆由输入处理器产生，但也不会被输出。那便是非强制空格（<code>&lt;optional spaces&gt;</code>）。在 TeX 的语法中，很多地方都会出现此类空格。</p>
 <h3 id="非强制空格"><a href="#非强制空格" class="headerlink" title="非强制空格"></a>非强制空格</h3><p>TeX 语法中有所谓<strong>非强制空格</strong>与<strong>单个非强制空格</strong>的概念：</p>
-<p><img src="/uploads/images/LaTeX/optional_space.png" alt></p>
+<p><img alt data-src="/uploads/images/LaTeX/optional_space.png"></p>
 <p>通常单个非强制空格（<code>&lt;one optional space&gt;</code>）允许出现在数字和粘连说明之后；而非强制空格（<code>&lt;optional spaces&gt;</code>）允许出现在数字或粘连中任意允许出现空格的地方（比如负号与数字之间，又比如 <code>plus</code> 和 <code>1fil</code> 之间）。此外，根据 <code>&lt;equals&gt;</code> 的定义，非强制空格允许出现在 <code>=</code> 之前。</p>
 <p>以下是有关非强制空格的一些例子：</p>
 <ul>
@@ -2303,6 +2300,8 @@
   <script src="/lib/anime.min.js?v=3.1.0"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
 <script src="/js/utils.js?v=7.3.0"></script><script src="/js/motion.js?v=7.3.0"></script>
 <script src="/js/schemes/pisces.js?v=7.3.0"></script>
 
@@ -2368,6 +2367,19 @@ document.addEventListener('visibilitychange', function () {
 
   
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2387,18 +2399,5 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 </body>
 </html>

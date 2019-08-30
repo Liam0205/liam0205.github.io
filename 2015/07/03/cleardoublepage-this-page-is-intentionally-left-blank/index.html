@@ -38,8 +38,8 @@
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
     fancybox: false,
-    mediumzoom: false,
-    lazyload: false,
+    mediumzoom: true,
+    lazyload: true,
     pangu: false,
     algolia: {
       appID: '',
@@ -68,13 +68,10 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="很多书籍在设计版式的时候，会要求 \chapter 从奇数页码开始：上一章节在奇数页结束则留白一页，而后再从奇数页码继续排版。为了避免给读者造成「这里的内容缺失了」的印象，通常会写上「This page is intetionally left blank」的字样。 本文来实现这种效果。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="https://liam.page/images/LaTeX/def-of-cleardoublepage.png">
-<meta property="og:image" content="https://liam.page/images/LaTeX/intentionlly-left-blank.png">
 <meta property="og:updated_time" content="2019-08-27T09:43:08.631Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="在 LaTeX 的 book 类中实现章节间空白页「This page is intetionally left blank」的效果">
 <meta name="twitter:description" content="很多书籍在设计版式的时候，会要求 \chapter 从奇数页码开始：上一章节在奇数页结束则留白一页，而后再从奇数页码继续排版。为了避免给读者造成「这里的内容缺失了」的印象，通常会写上「This page is intetionally left blank」的字样。 本文来实现这种效果。">
-<meta name="twitter:image" content="https://liam.page/images/LaTeX/def-of-cleardoublepage.png">
   <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <link rel="canonical" href="https://liam.page/2015/07/03/cleardoublepage-this-page-is-intentionally-left-blank/">
 
@@ -446,7 +443,7 @@
 <li>如果是偶数页码，则再一次另起一页，从下一页开始排版</li>
 </ul>
 <p>我们可以在 <code>source2e.pdf</code> 中找到这一定义：</p>
-<p><img src="/images/LaTeX/def-of-cleardoublepage.png" alt="LaTeX2e 内核中 \cleardoublepage 的定义"></p>
+<p><img alt="LaTeX2e 内核中 \cleardoublepage 的定义" data-src="/images/LaTeX/def-of-cleardoublepage.png"></p>
 <p>我们只需要修改这一定义即可。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">[UTF8]</span><span class="string">&#123;ctexbook&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;tikz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">makeatletter</span></span></span><br><span class="line"><span class="tag">\<span class="name">renewcommand</span><span class="string">&#123;\cleardoublepage&#125;</span><span class="string">&#123;\relax</span></span></span><br><span class="line"><span class="tag"><span class="string">  \clearpage</span></span></span><br><span class="line"><span class="tag"><span class="string">  \if@twoside \ifodd\c@page\relax\else</span></span></span><br><span class="line"><span class="tag"><span class="string">  \thispagestyle&#123;empty&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">tikz</span><span class="string">[remember picture, overlay]</span></span> <span class="tag">\<span class="name">node</span></span>  at (current page.center)</span><br><span class="line">    &#123;<span class="tag">\<span class="name">large</span></span> 广告位招租&#125;;<span class="tag">\<span class="name">newpage</span></span><span class="tag">\<span class="name">fi</span></span><span class="tag">\<span class="name">fi</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">makeatother</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">chapter</span><span class="string">&#123;测试&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">chapter</span><span class="string">&#123;测试&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">clearpage</span></span></span><br><span class="line">测试</span><br><span class="line"><span class="tag">\<span class="name">chapter</span><span class="string">&#123;测试&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
 <p>在这里，我们重定义了 <code>\cleardoublepage</code> 命令：</p>
@@ -455,7 +452,7 @@
 <li>检测文档类模式，如果是双面模式，则继续检测，反之则结束操作</li>
 <li>继续检测当前页码，当前页码是奇数，则继续排版，反之则将当前页面风格设置为 <code>empty</code> 并用 TikZ 在页面中心写下「广告位招租」几个字</li>
 </ul>
-<p><img src="/images/LaTeX/intentionlly-left-blank.png" alt="实际效果"></p>
+<p><img alt="实际效果" data-src="/images/LaTeX/intentionlly-left-blank.png"></p>
 <p>注意，需要编译两遍才能得到正确的结果。</p>
 
     </div>
@@ -2078,6 +2075,8 @@
   <script src="/lib/anime.min.js?v=3.1.0"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
 <script src="/js/utils.js?v=7.3.0"></script><script src="/js/motion.js?v=7.3.0"></script>
 <script src="/js/schemes/pisces.js?v=7.3.0"></script>
 
@@ -2143,6 +2142,19 @@ document.addEventListener('visibilitychange', function () {
 
   
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2162,18 +2174,5 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 </body>
 </html>

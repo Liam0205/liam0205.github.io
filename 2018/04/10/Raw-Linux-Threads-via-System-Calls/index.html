@@ -38,8 +38,8 @@
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
     fancybox: false,
-    mediumzoom: false,
-    lazyload: false,
+    mediumzoom: true,
+    lazyload: true,
     pangu: false,
     algolia: {
       appID: '',
@@ -68,13 +68,10 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="本文是译文，原文由 Chris Wellons 创作，首刊于这里。本文已被翻译成日语、乌克兰语及中文。本文还有一后续。   Linux 的线程设计十分优美：线程只不过是共享虚拟地址空间和文件描述符表的进程而已。由某一进程产生的线程是该主线程（父进程）的子进程。除了少数线程相关的系统调用，操作线程的系统调用与操作进程的系统调用完全相同。这种优美与文件描述符的优美异曲同工。  通常来说，在类-Uni">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="https://liam.page/uploads/images/computer-architecture/register.png">
-<meta property="og:image" content="https://liam.page/uploads/images/computer-architecture/clone.png">
 <meta property="og:updated_time" content="2019-08-27T09:43:08.873Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="借由系统调用实现 Linux 原生线程">
 <meta name="twitter:description" content="本文是译文，原文由 Chris Wellons 创作，首刊于这里。本文已被翻译成日语、乌克兰语及中文。本文还有一后续。   Linux 的线程设计十分优美：线程只不过是共享虚拟地址空间和文件描述符表的进程而已。由某一进程产生的线程是该主线程（父进程）的子进程。除了少数线程相关的系统调用，操作线程的系统调用与操作进程的系统调用完全相同。这种优美与文件描述符的优美异曲同工。  通常来说，在类-Uni">
-<meta name="twitter:image" content="https://liam.page/uploads/images/computer-architecture/register.png">
   <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <link rel="canonical" href="https://liam.page/2018/04/10/Raw-Linux-Threads-via-System-Calls/">
 
@@ -461,7 +458,7 @@
 <li><code>rdi</code> <code>rsi</code>：<code>d</code> 和 <code>r</code> 分别表示 “destination” 和 “source”，不过现在已经没有意义了</li>
 <li><code>r8</code> <code>r9</code> <code>r10</code> <code>r11</code> <code>r12</code> <code>r13</code> <code>r14</code> <code>r15</code>：在 x86-64 中新增的寄存器</li>
 </ul>
-<p><img src="/uploads/images/computer-architecture/register.png" alt></p>
+<p><img alt data-src="/uploads/images/computer-architecture/register.png"></p>
 <!-- The “r” prefix indicates that they’re 64-bit registers. It won’t be relevant in this article, but the same name prefixed with “e” indicates the lower 32-bits of these same registers, and no prefix indicates the lowest 16 bits. This is because x86 was originally a 16-bit architecture, extended to 32-bits, then to 64-bits. Historically each of of these registers had a specific, unique purpose, but on x86-64 they’re almost completely interchangeable. -->
 <p>前缀 <code>r</code> 表明它们是 64 位寄存器。虽与本文主旨无关，但仍然提一句：前缀 <code>e</code> 表示同一寄存器的最低 32 位，以及没有前缀的则表示同一寄存器的最低 16 位。这是因为 <a href="https://nullprogram.com/blog/2014/12/09/" target="_blank" rel="noopener">x86 最早是 16 位的</a>，后来扩展到 32 位，又扩展到 64 位。历史上这些寄存器都有专门的用途，但是在 x86-64 上，它们基本上是地位等同的。</p>
 <!-- There’s also a “rip” instruction pointer register that conceptually walks along the machine instructions as they’re being executed, but, unlike the other registers, it can only be manipulated indirectly. Remember that data and code live in the same address space, so rip is not much different than any other data pointer. -->
@@ -526,7 +523,7 @@
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">thread_create:</span><br><span class="line">    push rdi</span><br><span class="line">    call stack_create</span><br><span class="line">    lea rsi, [rax + STACK_SIZE - 8]</span><br><span class="line">    pop qword [rsi]</span><br><span class="line">    mov rdi, CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | \</span><br><span class="line">             CLONE_PARENT | CLONE_THREAD | CLONE_IO</span><br><span class="line">    mov rax, SYS_clone</span><br><span class="line">    syscall</span><br><span class="line">    ret</span><br></pre></td></tr></table></figure>
 <!-- The second argument to clone() is a pointer to the high address of the stack (specifically, just above the stack). So we need to add STACK_SIZE to rax to get the high end. This is done with the lea instruction: load effective address. Despite the brackets, it doesn’t actually read memory at that address, but instead stores the address in the destination register (rsi). I’ve moved it back by 8 bytes because I’m going to place the thread function pointer at the “top” of the new stack in the next instruction. You’ll see why in a moment. -->
 <p>系统调用 <code>clone()</code> 的第二个参数指向线程栈的顶部地址（具体来说，是线程栈顶部上方页帧的地址）。在代码中，我们通过 <code>lea</code> 指令来计算：读取有效地址（<strong><em>l</em></strong>oad <strong><em>e</em></strong>ffective <strong><em>a</em></strong>ddress）。尽管有花括号，但它并不会真的去读取目标内存地址中的内容，而是将该地址保存在目标寄存器（<code>rsi</code>）当中。在代码中，我回退 8 字节的原因是我希望在下一条指令中，把线程函数的指针放在栈顶端。这样做的原因稍后即晓。</p>
-<p><img src="/uploads/images/computer-architecture/clone.png" alt></p>
+<p><img alt data-src="/uploads/images/computer-architecture/clone.png"></p>
 <!-- Remember that the function pointer was pushed onto the stack for safekeeping. This is popped off the current stack and written to that reserved space on the new stack. -->
 <p>注意，函数指针先前被压栈。此处我们将其弹栈并写入当前线程栈空间保留的空间中。</p>
 <!-- As you can see, it takes a lot of flags to create a thread with clone(). Most things aren’t shared with the callee by default, so lots of options need to be enabled. See the clone(2) man page for full details on these flags. -->
@@ -2183,6 +2180,8 @@
   <script src="/lib/anime.min.js?v=3.1.0"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
 <script src="/js/utils.js?v=7.3.0"></script><script src="/js/motion.js?v=7.3.0"></script>
 <script src="/js/schemes/pisces.js?v=7.3.0"></script>
 
@@ -2248,6 +2247,19 @@ document.addEventListener('visibilitychange', function () {
 
   
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2267,18 +2279,5 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 </body>
 </html>

@@ -38,8 +38,8 @@
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
     fancybox: false,
-    mediumzoom: false,
-    lazyload: false,
+    mediumzoom: true,
+    lazyload: true,
     pangu: false,
     algolia: {
       appID: '',
@@ -68,13 +68,10 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="先前我们从 LR 开始，讨论了因子分解机（FM）模型。FM 解决了稀疏数据场景下的自动特征组合问题，因而在广告、推荐等具有高维稀疏特征的领域被广泛使用。因其简单、可解释性强、效果好，FM 模型通常会被作为业务初期快速取得收益的首选。 这里将 FM 模型家族至今为止的演进做一个整理总结。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/attention-fm.png">
-<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/nfm.png">
 <meta property="og:updated_time" content="2019-08-27T09:43:08.967Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="谈谈因子分解机模型的各种变体">
 <meta name="twitter:description" content="先前我们从 LR 开始，讨论了因子分解机（FM）模型。FM 解决了稀疏数据场景下的自动特征组合问题，因而在广告、推荐等具有高维稀疏特征的领域被广泛使用。因其简单、可解释性强、效果好，FM 模型通常会被作为业务初期快速取得收益的首选。 这里将 FM 模型家族至今为止的演进做一个整理总结。">
-<meta name="twitter:image" content="https://liam.page/uploads/images/MachineLearning/attention-fm.png">
   <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <link rel="canonical" href="https://liam.page/2019/06/28/variants-of-FM/">
 
@@ -455,7 +452,7 @@
 <p><a href="https://arxiv.org/pdf/1708.04617v1.pdf" target="_blank" rel="noopener">https://arxiv.org/pdf/1708.04617v1.pdf</a></p>
 </blockquote>
 <p>AFM 是浙大（Jun Xiao, Hao Ye, Fei Wu）和新加坡国大（Xiangnan He, Hanwang Zhang, Tat-Seng Chua）几位同学提出来的模型。AFM 首先对 FM 做了神经网络改造，而后加入了注意力机制，为不同特征的二阶组合分配不同的权重。</p>
-<p><img src="/uploads/images/MachineLearning/attention-fm.png" alt></p>
+<p><img alt data-src="/uploads/images/MachineLearning/attention-fm.png"></p>
 <p><code>$$\hat y = f(\vec x) = w_0 + \sum_{i = 1}^{n}w_ix_i + \sum_{0 &lt; i &lt; j &lt;= n}\alpha_{ij}\big\langle \vec p, (\vec v_i \odot \vec v_j)\big\rangle x_ix_j.$$</code></p>
 <p>这里，<code>$\alpha_{ij}$</code> 是通过注意力机制学习得到的特征 $i$ 和特征 $j$ 组合的权重，$\vec p$ 是对隐向量每个维度学习得到的权重，<code>$\vec v_i \odot \vec v_j$</code> 表示向量 <code>$\vec v_i$</code> 和 <code>$\vec v_j$</code> 逐项相乘得到的新向量。显然，当 <code>$\alpha_{ij} \equiv 1$</code> 且 $\vec p = \vec 1$ 时，AFM 退化为标准的 FM 模型。</p>
 <p>AFM 和 FFM 都是从「特征和不同特征进行组合时，表征应该稍有差异」这个点出发，尝试对 FM 进行改进的。FFM 是基于 field 的概念，使得特征对不同 field 里的特征采取不同的表征，同时特征对不同 field 特征里的表征互不关联。AFM 是基于 attention 机制的，对不同特征的表征仅有权重（<code>$\alpha_{ij}$</code>）上的不同。从参数数量来说，AFM 会远小于 FFM。从这个角度说，AFM 在业界的应用前景应该比 FFM 更好。</p>
@@ -475,7 +472,7 @@
 <p><a href="https://arxiv.org/pdf/1708.05027v1.pdf" target="_blank" rel="noopener">https://arxiv.org/pdf/1708.05027v1.pdf</a></p>
 </blockquote>
 <p>DeepFM 是用 Wide &amp; Deep 框架，在 FM 旁边加了一个 NN，最后一并 sigmoid 输出。NFM 的做法则是利用隐向量逐项相乘得到的向量作为 MLP 的输入，构建的 FM + NN 模型。</p>
-<p><img src="/uploads/images/MachineLearning/nfm.png" alt></p>
+<p><img alt data-src="/uploads/images/MachineLearning/nfm.png"></p>
 <p><code>$$\hat y = f(\vec x) = w_0 + \sum_{i = 1}^{n}w_ix_i + f(\vec x).$$</code></p>
 <p>如图所示的是上述第三项 $f(\vec x)$ 的结构。Embedding 层中的向量即是传统 FM 模型中的 <code>$x_i\vec v_i$</code>；Bi-interaction 池化层则是将特征两两交叉后，逐项向量相乘再做向量加法，即池化层的输出是一个与隐向量长度相同的向量：</p>
 <p><code>$$\sum_{0 &lt; i &lt; j &lt;= n} x_ix_j(\vec v_i \odot \vec v_j).$$</code></p>
@@ -2140,6 +2137,8 @@
   <script src="/lib/anime.min.js?v=3.1.0"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
 <script src="/js/utils.js?v=7.3.0"></script><script src="/js/motion.js?v=7.3.0"></script>
 <script src="/js/schemes/pisces.js?v=7.3.0"></script>
 
@@ -2276,6 +2275,19 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2295,18 +2307,5 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 </body>
 </html>

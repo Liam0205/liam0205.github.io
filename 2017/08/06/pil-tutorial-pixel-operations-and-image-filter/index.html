@@ -38,8 +38,8 @@
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
     fancybox: false,
-    mediumzoom: false,
-    lazyload: false,
+    mediumzoom: true,
+    lazyload: true,
     pangu: false,
     algolia: {
       appID: '',
@@ -68,14 +68,10 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="这是系列文章的第三篇，参见系列中的相关内容。 这篇文章介绍如何利用 PIL 库，获取图像中的像素内容、修改后生成新的图像。此外，在修改的过程中，我们会引入卷积滤镜，进而引出 PIL 中的图像滤镜库 ImageFilter。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="https://liam.page/uploads/images/python/cat.jpg">
-<meta property="og:image" content="https://liam.page/uploads/images/python/funny_cat.jpg">
-<meta property="og:image" content="https://liam.page/uploads/images/python/cat_blur.jpg">
 <meta property="og:updated_time" content="2019-08-27T09:43:08.825Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="PIL 简明教程 - 像素操作与图像滤镜">
 <meta name="twitter:description" content="这是系列文章的第三篇，参见系列中的相关内容。 这篇文章介绍如何利用 PIL 库，获取图像中的像素内容、修改后生成新的图像。此外，在修改的过程中，我们会引入卷积滤镜，进而引出 PIL 中的图像滤镜库 ImageFilter。">
-<meta name="twitter:image" content="https://liam.page/uploads/images/python/cat.jpg">
   <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <link rel="canonical" href="https://liam.page/2017/08/06/pil-tutorial-pixel-operations-and-image-filter/">
 
@@ -457,11 +453,11 @@
 <p><code>PIL.Image.putdata(data, scale=1.0, offset=0.0)</code> 方法允许我们将像素内容写入 <code>Image</code> 类的对象。</p>
 <p>该方法将序列类型 <code>data</code> 拷贝进 <code>Image</code> 类的对象，直到 <code>Image</code> 类的对象容纳不下更多的像素或 <code>data</code> 内容已耗尽。<code>scale</code> 和 <code>offset</code> 则是针对每一个像素值进行调整：<code>pixel = value * scale + offset</code>。</p>
 <p>据此，我们可以写出完整的代码。首先来看看原图。</p>
-<p><img src="/uploads/images/python/cat.jpg" alt="一只惊讶的猫"></p>
+<p><img alt="一只惊讶的猫" data-src="/uploads/images/python/cat.jpg"></p>
 <p>示例代码：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"></span><br><span class="line">im = Image.open(<span class="string">'cat.jpg'</span>)</span><br><span class="line"></span><br><span class="line">mode = im.mode</span><br><span class="line">width, height = im.size</span><br><span class="line">rgb_pixels = list(im.getdata())</span><br><span class="line"></span><br><span class="line">imn = Image.new(mode, (height, width))</span><br><span class="line">imn.putdata(data = rgb_pixels)</span><br><span class="line"></span><br><span class="line">imn.save(<span class="string">'funny_cat.jpg'</span>)</span><br></pre></td></tr></table></figure>
 <p>结果：</p>
-<p><img src="/uploads/images/python/funny_cat.jpg" alt="一只扭曲的猫"></p>
+<p><img alt="一只扭曲的猫" data-src="/uploads/images/python/funny_cat.jpg"></p>
 <h2 id="实际操作看看——实现卷积滤镜"><a href="#实际操作看看——实现卷积滤镜" class="headerlink" title="实际操作看看——实现卷积滤镜"></a>实际操作看看——实现卷积滤镜</h2><p>用固定的矩阵扫描更大的矩阵，这个操作称为卷积。若后者是一张图片，那么这一操作，就是对图像的滤镜操作了。我们在<a href="/2017/07/27/convolutions-and-convolution-neural-network/#图像的滤镜">前作</a>中介绍了这种操作，此处我们来实践看看。</p>
 <p>示例代码：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"><span class="keyword">from</span> scipy <span class="keyword">import</span> signal</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">read_image</span><span class="params">(fname)</span>:</span></span><br><span class="line">    im     = Image.open(fname)</span><br><span class="line">    width, height = im.size</span><br><span class="line">    mode   = im.mode</span><br><span class="line">    pixels = list(im.getdata())</span><br><span class="line">    im.close()</span><br><span class="line"></span><br><span class="line">    r_pxs  = map(<span class="keyword">lambda</span> x:x[<span class="number">0</span>], pixels)</span><br><span class="line">    g_pxs  = map(<span class="keyword">lambda</span> x:x[<span class="number">1</span>], pixels)</span><br><span class="line">    b_pxs  = map(<span class="keyword">lambda</span> x:x[<span class="number">2</span>], pixels)</span><br><span class="line">    r_pxs  = [r_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line">    g_pxs  = [g_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line">    b_pxs  = [b_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> mode, (width, height), (r_pxs, g_pxs, b_pxs)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">convolve2d</span><span class="params">(x, ker, mode = <span class="string">'same'</span>, boundary = <span class="string">'wrap'</span>)</span>:</span></span><br><span class="line">    a = np.asarray(x, dtype = float)</span><br><span class="line">    b = np.asarray(ker, dtype = float)</span><br><span class="line">    res = signal.convolve2d(a, b, mode, boundary)</span><br><span class="line">    <span class="keyword">return</span> res</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">filter_image</span><span class="params">(mode, size, rgb, kernel, fname)</span>:</span></span><br><span class="line">    r   = convolve2d(rgb[<span class="number">0</span>], kernel)</span><br><span class="line">    g   = convolve2d(rgb[<span class="number">1</span>], kernel)</span><br><span class="line">    b   = convolve2d(rgb[<span class="number">2</span>], kernel)</span><br><span class="line"></span><br><span class="line">    int_it = <span class="keyword">lambda</span> f:int(round(f, <span class="number">0</span>))</span><br><span class="line"></span><br><span class="line">    pixels = map(<span class="keyword">lambda</span> x, y, z: (int_it(x), int_it(y), int_it(z)),</span><br><span class="line">                                            r.flat, g.flat, b.flat)</span><br><span class="line"></span><br><span class="line">    res = Image.new(mode, size)</span><br><span class="line">    res.putdata(pixels)</span><br><span class="line">    res.save(fname)</span><br><span class="line">    res.close()</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">None</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    base, ext = <span class="string">'cat'</span>, <span class="string">'jpg'</span></span><br><span class="line"></span><br><span class="line">    ifname = <span class="string">"%s.%s"</span> % (base, ext)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">"%s_blur.%s"</span> % (base, ext)</span><br><span class="line">    blur_5 = [[<span class="number">1.0</span> / <span class="number">25.0</span>] * <span class="number">5</span>] * <span class="number">5</span></span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, blur_5, ofname)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">"%s_shrp.%s"</span> % (base, ext)</span><br><span class="line">    shrp_3 = [[<span class="number">0</span>, <span class="number">-1</span>, <span class="number">0</span>],</span><br><span class="line">              [<span class="number">-1</span>, <span class="number">5</span>, <span class="number">-1</span>],</span><br><span class="line">              [<span class="number">0</span>, <span class="number">-1</span>, <span class="number">0</span>]]</span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, shrp_3, ofname)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">"%s_dtct.%s"</span> % (base, ext)</span><br><span class="line">    dtct_3 = [[<span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>],</span><br><span class="line">              [<span class="number">-1</span>, <span class="number">8</span>, <span class="number">-1</span>],</span><br><span class="line">              [<span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>]]</span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, dtct_3, ofname)</span><br></pre></td></tr></table></figure>
@@ -471,7 +467,7 @@
 <p>示例代码：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> ImageFilter</span><br><span class="line"></span><br><span class="line">im = Image.open(<span class="string">'cat.jpg'</span>)</span><br><span class="line"></span><br><span class="line">imn = im.filter(ImageFilter.Kernel(size = (<span class="number">5</span>, <span class="number">5</span>), kernel = [<span class="number">1.0</span> / <span class="number">25.0</span>] * <span class="number">25</span>))</span><br><span class="line"></span><br><span class="line">imn.show()</span><br></pre></td></tr></table></figure>
 <p>效果：</p>
-<p><img src="/uploads/images/python/cat_blur.jpg" alt></p>
+<p><img alt data-src="/uploads/images/python/cat_blur.jpg"></p>
 <p>你可以在<a href="http://pillow.readthedocs.io/en/3.4.x/reference/ImageFilter.html" target="_blank" rel="noopener">官方文档</a>中找到更多的滤镜。</p>
 
     </div>
@@ -2098,6 +2094,8 @@
   <script src="/lib/anime.min.js?v=3.1.0"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
 <script src="/js/utils.js?v=7.3.0"></script><script src="/js/motion.js?v=7.3.0"></script>
 <script src="/js/schemes/pisces.js?v=7.3.0"></script>
 
@@ -2163,6 +2161,19 @@ document.addEventListener('visibilitychange', function () {
 
   
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2182,18 +2193,5 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 </body>
 </html>

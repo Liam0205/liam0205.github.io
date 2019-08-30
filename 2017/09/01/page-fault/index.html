@@ -38,8 +38,8 @@
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
     fancybox: false,
-    mediumzoom: false,
-    lazyload: false,
+    mediumzoom: true,
+    lazyload: true,
     pangu: false,
     algolia: {
       appID: '',
@@ -68,12 +68,10 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="众所周知，CPU 不能直接和硬盘进行交互。CPU 所作的一切运算，都是通过 CPU 缓存间接与内存进行操作的。若是 CPU 请求的内存数据在物理内存中不存在，那么 CPU 就会报告「缺页错误（Page Fault）」，提示内核。 在内核处理缺页错误时，就有可能进行磁盘的读写操作。这样的操作，相对 CPU 的处理是非常缓慢的。因此，发生大量的缺页错误，势必会对程序的性能造成很大影响。因此，在对性能要">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:image" content="https://liam.page/uploads/images/CS/hard_page_faults.png">
 <meta property="og:updated_time" content="2019-08-27T09:43:08.829Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="程序员的自我修养（七）：内存缺页错误">
 <meta name="twitter:description" content="众所周知，CPU 不能直接和硬盘进行交互。CPU 所作的一切运算，都是通过 CPU 缓存间接与内存进行操作的。若是 CPU 请求的内存数据在物理内存中不存在，那么 CPU 就会报告「缺页错误（Page Fault）」，提示内核。 在内核处理缺页错误时，就有可能进行磁盘的读写操作。这样的操作，相对 CPU 的处理是非常缓慢的。因此，发生大量的缺页错误，势必会对程序的性能造成很大影响。因此，在对性能要">
-<meta name="twitter:image" content="https://liam.page/uploads/images/CS/hard_page_faults.png">
   <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <link rel="canonical" href="https://liam.page/2017/09/01/page-fault/">
 
@@ -463,7 +461,7 @@
 <p>在 Windows XP 流行的年代，有很多来路不明的「系统优化建议」。其中一条就是「扩大页面文件的大小，有助于加快系统速度」。事实上，这种方式只能加大内存「看起来」的容量，却给内存整体（将物理内存和磁盘页面文件看做一个整体）的响应速度带来了巨大的负面影响。因为，尽管容量增大了，但是访问这部分增大的容量时，进程实际上需要先陷入内核态，从磁盘上读取内容做好映射，再继续执行。更有甚者，这些建议会要求「将页面文件分散在多个不同磁盘分区」，并美其名曰「分散压力」。事实上，从页面文件中读取内存页帧本就已经很慢；若是还要求磁盘不断在不同分区上寻址，那就更慢了。可见谣言害死人。</p>
 <h2 id="观察缺页错误"><a href="#观察缺页错误" class="headerlink" title="观察缺页错误"></a>观察缺页错误</h2><h3 id="Windows-系统"><a href="#Windows-系统" class="headerlink" title="Windows 系统"></a>Windows 系统</h3><p>相对于任务管理器，Windows 的资源监视器知之者甚少。Windows 的资源监视器，可以实时显示一系列硬件、软件资源的适用情况。硬件资源包括 CPU、内存、磁盘和网络；软件资源则是文件句柄和模块。用户可以在启动窗口中，以 <code>resmon.exe</code> 启动资源监视器（Vista 里是 <code>perfmon.exe</code>）。或是由开始按钮→所有程序→辅助程序→系统工具→资源监视器打开。</p>
 <p>在内存资源监视标签中，有「硬错误/秒」或者「硬中断/秒」的监控项。若是一直打开资源监视器，以该项降序排列所有进程，则在发现程序卡顿、假死时，能观察到大量硬错误爆发性产生。</p>
-<p><img src="/uploads/images/CS/hard_page_faults.png" alt></p>
+<p><img alt data-src="/uploads/images/CS/hard_page_faults.png"></p>
 <p>上图是 Outlook 长时间不适用后，用户主动切换到 Outlook 时的情形。此时 Outlook 呈现假死状态，同时观察到 Outlook 触发了大量的硬缺页错误。</p>
 <h3 id="Linux-系统"><a href="#Linux-系统" class="headerlink" title="Linux 系统"></a>Linux 系统</h3><p><code>ps</code> 是一个强大的命令，我们可以用 <code>-o</code> 选项指定希望关注的项目。比如</p>
 <ul>
@@ -2120,6 +2118,8 @@
   <script src="/lib/anime.min.js?v=3.1.0"></script>
   <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
   <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
 <script src="/js/utils.js?v=7.3.0"></script><script src="/js/motion.js?v=7.3.0"></script>
 <script src="/js/schemes/pisces.js?v=7.3.0"></script>
 
@@ -2185,6 +2185,19 @@ document.addEventListener('visibilitychange', function () {
 
   
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2204,18 +2217,5 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 </body>
 </html>
