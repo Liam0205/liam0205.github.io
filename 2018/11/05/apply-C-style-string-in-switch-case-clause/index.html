@@ -436,24 +436,32 @@
       
         <p>众所周知，C/C++ 语言中的 <code>switch</code>-<code>case</code> 语句只支持整型数字的逻辑分支。因此，当我们需要对整型数字之外的变量进行分支判断时，就只能依赖 <code>if</code>-<code>else</code> 语句了。例如：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (policy == <span class="string">"SINGLE"</span>) &#123;</span><br><span class="line">    ;  <span class="comment">// do something</span></span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (policy == <span class="string">"MULTIPLE"</span>) &#123;</span><br><span class="line">    ;  <span class="comment">// do something</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;  <span class="comment">// UNSPECIFIED</span></span><br><span class="line">    ;  <span class="comment">// do something</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>这种情况下，虽然我们用 <code>if</code>-<code>else</code> 语句实现了类似 <code>switch</code>-<code>case</code> 语句的功能。但一方面写起来未免麻烦，分支多了难以维护；另一方面如果分支很多，那么执行起来需要注意进行字符串相等性判断，效率很低。因此，这篇文章尝试通过一些取巧的方式来解决这个问题。</p>
 <a id="more"></a>
+
 <h2 id="HASH"><a href="#HASH" class="headerlink" title="HASH"></a>HASH</h2><p>无论如何，语言层面的 <code>swtch</code>-<code>case</code> 限制是绕不开的。因此，我们需要找到一个有效的办法，将字符串与整形数字对应起来。虽然不甚完美，但是 Hash 是一种解决办法。于是我们针对 C 风格的字符串定义 Hash 函数。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">using</span> <span class="keyword">hash_t</span> = <span class="keyword">size_t</span>;</span><br><span class="line"><span class="keyword">constexpr</span> <span class="keyword">hash_t</span> prime = <span class="number">0x100000001B3</span>ull;</span><br><span class="line"><span class="keyword">constexpr</span> <span class="keyword">hash_t</span> basis = <span class="number">0xCBF29CE484222325</span>ull;</span><br><span class="line"></span><br><span class="line"><span class="keyword">hash_t</span> hash_run_time(<span class="keyword">const</span> <span class="keyword">char</span>* str) &#123;</span><br><span class="line">    <span class="keyword">hash_t</span> ret = basis;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (*str) &#123;</span><br><span class="line">        ret ^= *str;</span><br><span class="line">        ret *= prime;</span><br><span class="line">        str++;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>如此，我们「似乎」便可以针对字符串使用 <code>switch</code>-<code>case</code> 语句了。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">simple_switch</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span>* str)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (hash_run_time(str)) &#123;</span><br><span class="line">        case hash_run_time("first"):</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"1st"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        case hash_run_time("second"):</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"2nd"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        case hash_run_time("third"):</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"3rd"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Default..."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <h2 id="constexpr-函数"><a href="#constexpr-函数" class="headerlink" title="constexpr 函数"></a><code>constexpr</code> 函数</h2><p>然而，如果你编译这段代码，编译器就会提醒你在 <code>case</code> 处必须使用常量表达式。因此，对于 <code>case</code> 的分支选项，我们不仅要将他们转换为整型 <code>hash_t</code>，还必须保证它们在编译期就能运算完成，从而作为常量表达式。考虑到，在 C++11 中常量表达式函数必须只能有一个 <code>return</code> 语句（在 C++14 之后就没有这个限制了），因此我们需要借助 C++ 中的三元运算符 <code>?:</code> 将 <code>hash_run_time</code> 函数改造为递归形式。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">constexpr</span> hash_t <span class="title">hash_compile_time</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span>* str, <span class="keyword">hash_t</span> last_value = basis)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> *str ? hash_compile_time(str + <span class="number">1</span>, (*str ^ last_value) * prime) : last_value;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>同时，<code>simple_switch</code> 函数也需要改造一下：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">simple_switch</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span>* str)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (hash_run_time(str)) &#123;</span><br><span class="line">        case hash_compile_time("first"):</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"1st"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        case hash_compile_time("second"):</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"2nd"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        case hash_compile_time("third"):</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"3rd"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Default..."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>此时，<code>simple_switch</code> 函数已可通过编译。</p>
 <blockquote>
 <p>事实上，用于处理输入的 <code>hash_run_time</code> 也可以被 <code>hash_compile_time</code> 替代。</p>
 </blockquote>
 <h2 id="用户定义的字面值常量后缀"><a href="#用户定义的字面值常量后缀" class="headerlink" title="用户定义的字面值常量后缀"></a>用户定义的字面值常量后缀</h2><p>尽管此时代码已经可以通过编译并使用，但在每个 <code>case</code> 处都写一个函数调用未免麻烦。于是我们需要引入<a href="https://en.cppreference.com/w/cpp/language/user_literal" target="_blank" rel="noopener">用户定义的字面值常量后缀（User-defined suffix）</a>简化代码。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">constexpr</span> <span class="keyword">hash_t</span> <span class="keyword">operator</span> <span class="string">""</span> _hash(<span class="keyword">const</span> <span class="keyword">char</span>* p, <span class="keyword">size_t</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> hash_compile_time(p);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>于是，<code>simple_switch</code> 函数可被简化为：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">simple_switch</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span>* str)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (hash_run_time(str)) &#123;</span><br><span class="line">        <span class="keyword">case</span> <span class="string">"first"</span>_hash:</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"1st"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="string">"second"</span>_hash:</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"2nd"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">case</span> <span class="string">"third"</span>_hash:</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"3rd"</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Default..."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>完整的测试代码可见：<a href="https://gist.github.com/25dcb10e55b3cb2306931aa277355bbf" target="_blank" rel="noopener">https://gist.github.com/25dcb10e55b3cb2306931aa277355bbf</a>。</p>
 
     </div>
@@ -2013,12 +2021,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2199,19 +2207,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2231,6 +2226,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

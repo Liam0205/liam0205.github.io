@@ -421,7 +421,7 @@
               
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
               
-              <span>12 分钟</span>
+              <span>13 分钟</span>
             </span>
           
 
@@ -438,10 +438,13 @@
 <p>Homebrew 给自己贴了个一句话简介：The missing package manager for OS X。翻译过来成中文就是：寻它千百度的软件包管理器。名副其实地是，Homebrew 真的很好用。安装、升级、卸载等操作，在 Homebrew 的生态下，都只需要一条命令就可以了。并且 Homebrew 会自动为你解决软件包的依赖问题。</p>
 <p>近日，<a href="http://typeof.net/" target="_blank" rel="noopener">Belleve</a> 邀请我协助他维护 <a href="https://github.com/caryll/otfcc" target="_blank" rel="noopener"><code>otfcc</code></a> 在 OS X 上的预编译版本，并请我为之发布 Homebrew 的软件包。以下是对发布 Homebrew 软件包的总结。</p>
 <a id="more"></a>
+
 <h2 id="显而易见的对比"><a href="#显而易见的对比" class="headerlink" title="显而易见的对比"></a>显而易见的对比</h2><p><code>otfcc</code> 现在已经有了预编译好的 Mac 版本。对于用户来说，只需要执行</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz</span><br><span class="line">tar Jvxf otfcc-mac64-0.2.3.tar.xz</span><br><span class="line">sudo mv otfcc* /usr/<span class="built_in">local</span>/bin</span><br></pre></td></tr></table></figure>
+
 <p>好吧，那个「只」字，我应该加上引号表示夸张的。现在看看有了 Homebrew 包我们可以怎样做</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew tap caryll/tap &amp;&amp; brew install otfcc-mac64</span><br></pre></td></tr></table></figure>
+
 <p>对比确实是显而易见的，不是吗？使用 <code>brew</code> 安装，只需要执行命令。剩下的东西，只需要交给 Homebrew 去处理就好了。</p>
 <h2 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a>基本概念</h2><p>在 Homebrew 的架构下，至少有 4 层概念</p>
 <ul>
@@ -461,23 +464,30 @@
 <h3 id="理顺步骤"><a href="#理顺步骤" class="headerlink" title="理顺步骤"></a>理顺步骤</h3><p>第一节中，我们已经看到手工安装 <code>otfcc</code> 的操作步骤。其中第一步是下载，这一步在执行 <code>brew install</code> 时，Homebrew 会根据 Formula 的指示完成。第二步是解包，这一步 Homebrew 也会为我们自动完成。因此，实际我们要做的，就是将二进制文件放到 <code>/usr/local/bin</code> 目录下。</p>
 <h3 id="创建-Formula"><a href="#创建-Formula" class="headerlink" title="创建 Formula"></a>创建 Formula</h3><p>假设我们的软件已经有了一个发布版本，并且可供下载，比如 <a href="https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz" target="_blank" rel="noopener">https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz</a>。接下来，我们在终端里执行</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew create https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz</span><br></pre></td></tr></table></figure>
+
 <p>这条命令会在 <code>/usr/local/Library/Formula/</code> 下创建一个 <code>.rb</code> 文件，其文件名取决于传给 <code>brew create</code> 的 URL。比如，我们这里会创建 <code>/usr/local/Library/Formula/otfcc-mac64.rb</code>。</p>
 <figure class="highlight ruby"><figcaption><span>otfcc-mac64.rb</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Documentation: https://github.com/Homebrew/brew/blob/master/share/doc/homebrew/Formula-Cookbook.md</span></span><br><span class="line"><span class="comment">#                http://www.rubydoc.info/github/Homebrew/brew/master/Formula</span></span><br><span class="line"><span class="comment"># PLEASE REMOVE ALL GENERATED COMMENTS BEFORE SUBMITTING YOUR PULL REQUEST!</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">OtfccMac64</span> &lt; Formula</span></span><br><span class="line">  desc <span class="string">""</span></span><br><span class="line">  homepage <span class="string">""</span></span><br><span class="line">  url <span class="string">"https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz"</span></span><br><span class="line">  version <span class="string">"0.2.3"</span></span><br><span class="line">  sha256 <span class="string">"f393b14f9c42c890b8a60949b13a8f9b5c3f814daa8b18901656ccc3b866f646"</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># depends_on "cmake" =&gt; :build</span></span><br><span class="line">  depends_on <span class="symbol">:x11</span> <span class="comment"># if your formula requires any X11/XQuartz components</span></span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">install</span></span></span><br><span class="line">    <span class="comment"># ENV.deparallelize  # if your formula fails when building in parallel</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Remove unrecognized options if warned by configure</span></span><br><span class="line">    system <span class="string">"./configure"</span>, <span class="string">"--disable-debug"</span>,</span><br><span class="line">                          <span class="string">"--disable-dependency-tracking"</span>,</span><br><span class="line">                          <span class="string">"--disable-silent-rules"</span>,</span><br><span class="line">                          <span class="string">"--prefix=<span class="subst">#&#123;prefix&#125;</span>"</span></span><br><span class="line">    <span class="comment"># system "cmake", ".", *std_cmake_args</span></span><br><span class="line">    system <span class="string">"make"</span>, <span class="string">"install"</span> <span class="comment"># if this fails, try separate make/make install steps</span></span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"></span><br><span class="line">  test <span class="keyword">do</span></span><br><span class="line">    <span class="comment"># `test do` will create, run in and delete a temporary directory.</span></span><br><span class="line">    <span class="comment">#</span></span><br><span class="line">    <span class="comment"># This test will fail and we won't accept that! It's enough to just replace</span></span><br><span class="line">    <span class="comment"># "false" with the main program this formula installs, but it'd be nice if you</span></span><br><span class="line">    <span class="comment"># were more thorough. Run the test with `brew test otfcc-win32`. Options passed</span></span><br><span class="line">    <span class="comment"># to `brew install` such as `--HEAD` also need to be provided to `brew test`.</span></span><br><span class="line">    <span class="comment">#</span></span><br><span class="line">    <span class="comment"># The installed folder is not in the path, so use the entire path to any</span></span><br><span class="line">    <span class="comment"># executables being tested: `system "#&#123;bin&#125;/program", "do", "something"`.</span></span><br><span class="line">    system <span class="string">"false"</span></span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+
 <p>我们先来看类的头部</p>
 <figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">desc <span class="string">""</span></span><br><span class="line">homepage <span class="string">""</span></span><br><span class="line">url <span class="string">"https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz"</span></span><br><span class="line">version <span class="string">"0.2.3"</span></span><br><span class="line">sha256 <span class="string">"f393b14f9c42c890b8a60949b13a8f9b5c3f814daa8b18901656ccc3b866f646"</span></span><br></pre></td></tr></table></figure>
+
 <p><code>desc</code> 是 description 的缩写，我们应该在这里填上 <code>otfcc</code> 的简介。<code>homepage</code> 相应地填上项目主页。后面的 <code>url</code>/<code>version</code>/<code>sha256</code> 都由 Homebrew 默认给我们填好了，我们只需要检查一下是否正确即可。</p>
 <p>接下来是依赖项部分</p>
 <figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># depends_on "cmake" =&gt; :build</span></span><br><span class="line">depends_on <span class="symbol">:x11</span> <span class="comment"># if your formula requires any X11/XQuartz components</span></span><br></pre></td></tr></table></figure>
+
 <p>由于 <code>otfcc</code> 没有任何其他的依赖项，所以不需要在此填入任何内容。</p>
 <p>接下来是安装部分</p>
 <figure class="highlight ruby"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">install</span></span></span><br><span class="line">  <span class="comment"># ENV.deparallelize  # if your formula fails when building in parallel</span></span><br><span class="line"></span><br><span class="line">  <span class="comment"># Remove unrecognized options if warned by configure</span></span><br><span class="line">  system <span class="string">"./configure"</span>, <span class="string">"--disable-debug"</span>,</span><br><span class="line">                        <span class="string">"--disable-dependency-tracking"</span>,</span><br><span class="line">                        <span class="string">"--disable-silent-rules"</span>,</span><br><span class="line">                        <span class="string">"--prefix=<span class="subst">#&#123;prefix&#125;</span>"</span></span><br><span class="line">  <span class="comment"># system "cmake", ".", *std_cmake_args</span></span><br><span class="line">  system <span class="string">"make"</span>, <span class="string">"install"</span> <span class="comment"># if this fails, try separate make/make install steps</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+
 <p>默认情况下，Homebrew 会并行地编译源代码。不过，有些程序并不适用并行编译。此时可以将 <code># ENV.deparallelize</code> 的注释解开。后续的内容也比较简单，先后调用 <code>./configure</code> 和 <code>make install</code>——这是标准的 <code>*nix</code> 编译安装流程。</p>
 <p>由于我们现在讨论的是安装 <code>otfcc</code> 的预编译版本，所以不需要考虑编译的过程。只需要调用 Homebrew 提供的 <code>bin.install</code> 就可以了。</p>
 <p>最后的测试部分，我们暂时不探讨。</p>
 <p>于是我们就得到了最后的 <code>otfcc-mac64.rb</code></p>
 <figure class="highlight ruby"><figcaption><span>otfcc-mac64.rb</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Documentation: https://github.com/Homebrew/brew/blob/master/share/doc/homebrew/Formula-Cookbook.md</span></span><br><span class="line"><span class="comment">#                http://www.rubydoc.info/github/Homebrew/brew/master/Formula</span></span><br><span class="line"><span class="comment"># PLEASE REMOVE ALL GENERATED COMMENTS BEFORE SUBMITTING YOUR PULL REQUEST!</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">OtfccMac64</span> &lt; Formula</span></span><br><span class="line">  desc <span class="string">"Parses &amp; writes SFNT structures."</span></span><br><span class="line">  homepage <span class="string">"https://github.com/caryll/otfcc/releases/"</span></span><br><span class="line">  url <span class="string">"https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz"</span></span><br><span class="line">  version <span class="string">"0.2.3"</span></span><br><span class="line">  sha256 <span class="string">"f393b14f9c42c890b8a60949b13a8f9b5c3f814daa8b18901656ccc3b866f646"</span></span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">def</span> <span class="title">install</span></span></span><br><span class="line">    <span class="comment"># ENV.deparallelize  # if your formula fails when building in parallel</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># system "tar -Jvxf otfcc-mac64-0.2.3.tar.zx"</span></span><br><span class="line">    bin.install <span class="string">"otfccbuild"</span></span><br><span class="line">    bin.install <span class="string">"otfccdump"</span></span><br><span class="line">  <span class="keyword">end</span></span><br><span class="line"><span class="keyword">end</span></span><br></pre></td></tr></table></figure>
+
 <p>保存后，你就可以执行 <code>brew install otfcc-mac64</code> 了。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">$ brew install otfcc-mac64</span><br><span class="line">==&gt; Downloading https://github.com/caryll/otfcc/releases/download/v0.2.3/otfcc-mac64-0.2.3.tar.xz</span><br><span class="line">Already downloaded: /Library/Caches/Homebrew/otfcc-mac64-0.2.3.tar.xz</span><br><span class="line">🍺  /usr/<span class="built_in">local</span>/Cellar/otfcc-mac64/0.2.3: 3 files, 882.2K, built <span class="keyword">in</span> 0 seconds</span><br><span class="line">$ <span class="built_in">which</span> otfccdump</span><br><span class="line">/usr/<span class="built_in">local</span>/bin/otfccdump</span><br><span class="line">$ <span class="built_in">which</span> otfccbuild</span><br><span class="line">/usr/<span class="built_in">local</span>/bin/otfccbuild</span><br></pre></td></tr></table></figure>
+
 <p>由于之前在 <code>brew create</code> 的过程中，已经下载了 <code>otfcc-mac64-0.2.3.tar.zx</code> 这一文件，所以 Homebrew 不会再次下载。执行完毕后，我们发现，<code>otfccdump</code> 和 <code>otfccbuild</code> 两个二进制程序已经被安装在了 <code>/usr/local/bin/</code> 目录下——这是 Homebrew 安装二进制的默认目录。</p>
 <p>我们的 Formula 比较简单，不涉及 Homebrew 提供的更深的功能。如果有必要，你需要参考<a href="https://github.com/Homebrew/brew/blob/master/share/doc/homebrew/Formula-Cookbook.md" target="_blank" rel="noopener">官方指南</a>。</p>
 <h3 id="创建-Tap"><a href="#创建-Tap" class="headerlink" title="创建 Tap"></a>创建 Tap</h3><p>至此我们已经创建了 Formula。根据这个 Formula，我们本地的 Homebrew 已经可以将 <code>otfcc</code> 安装到 <code>/usr/local/bin</code> 目录下了。然而，其他人暂时还不能获取、安装我们的软件。为此，我们需要创建自己的 Tap。</p>
@@ -485,6 +495,7 @@
 <p>创建专案及纳入版本控制的过程是基本的 Git 操作，这里就不做展开了。创建好的专案在此：<a href="https://github.com/caryll/homebrew-tap" target="_blank" rel="noopener">https://github.com/caryll/homebrew-tap</a>，可供一观。</p>
 <h3 id="实际安装看看"><a href="#实际安装看看" class="headerlink" title="实际安装看看"></a>实际安装看看</h3><p>现在，我们创建了自己的 Formula 和 Tap，并在 GitHub 上为 Tap 创建了一个公开的专案。那么，世界上所有的 Homebrew 用户就可以使用下列指令很方便地安装 <code>otfcc</code> 了。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew tap caryll/tap &amp;&amp; brew install otfcc-mac64</span><br></pre></td></tr></table></figure>
+
 <p>注意，这里我们首先调用了 <code>brew tap</code> 命令，将我们自建的 Tap 加入到本地 Homebrew 的搜索列表中。加入搜索列表的内容是 <code>caryll/tap</code>——相比 GitHub 上的专案名称，Homebrew 会自动在传入 <code>brew tap</code> 的地址里加上 <code>homebrew-</code> 这一前缀。而后，我们照常调用 <code>brew install</code> 命令，就能顺利地安装 <code>otfcc</code> 在 OS X 上了。</p>
 
     </div>
@@ -2046,12 +2057,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2232,19 +2243,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2264,6 +2262,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

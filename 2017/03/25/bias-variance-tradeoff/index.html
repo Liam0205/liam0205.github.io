@@ -439,6 +439,7 @@
 </blockquote>
 <p>在机器学习领域，人们总是希望使自己的模型尽可能准确地描述数据背后的真实规律。通俗所言的「准确」，其实就是误差小。在领域中，排除人为失误，人们一般会遇到三种误差来源：随机误差、偏差和方差。偏差和方差又与「欠拟合」及「过拟合」紧紧联系在一起。由于随机误差是不可消除的，所以此篇我们讨论在偏差和方差之间的权衡（Bias-Variance Tradeoff）。</p>
 <a id="more"></a>
+
 <h2 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h2><h3 id="数学上定义"><a href="#数学上定义" class="headerlink" title="数学上定义"></a>数学上定义</h3><p>首先需要说明的是<strong>随机误差</strong>。随机误差是数据本身的噪音带来的，这种误差是不可避免的。一般认为随机误差服从高斯分布，记作 $\epsilon\sim\mathcal N(0, \sigma_\epsilon)$。因此，若有变量 $y$ 作为预测值，以及 $X$ 作为自变量（协变量），那么我们将数据背后的真实规律 $f$ 记作</p>
 <p>$$y = f(X) + \epsilon.$$</p>
 <p>偏差和方差则需要在统计上做对应的定义。</p>
@@ -467,10 +468,13 @@
 <h2 id="举个栗子"><a href="#举个栗子" class="headerlink" title="举个栗子"></a>举个栗子</h2><p>现在我们做一个模拟实验，用以说明至此介绍的内容。</p>
 <p>首先，我们生成了两组 array，分别作为训练集和验证集。这里，<code>x</code> 与 <code>y</code> 是接近线性相关的，而在 <code>y</code> 上加入了随机噪声，用以模拟真实问题中的情况。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line">np.random.seed(<span class="number">42</span>)  <span class="comment"># the answer to life, the universe and everything</span></span><br><span class="line">real = <span class="keyword">lambda</span> x:x + x ** <span class="number">0.1</span></span><br><span class="line"></span><br><span class="line">x_train = np.linspace(<span class="number">0</span>, <span class="number">15</span>, <span class="number">100</span>)</span><br><span class="line">y_train = map(real, x_train)</span><br><span class="line">y_noise = <span class="number">2</span> * np.random.normal(size = x_train.size)</span><br><span class="line">y_train = y_train + y_noise</span><br><span class="line"></span><br><span class="line">x_valid = np.linspace(<span class="number">0</span>, <span class="number">15</span>, <span class="number">50</span>)</span><br><span class="line">y_valid = map(real, x_valid)</span><br><span class="line">y_noise = <span class="number">2</span> * np.random.normal(size = x_valid.size)</span><br><span class="line">y_valid = y_valid + y_noise</span><br></pre></td></tr></table></figure>
+
 <p>现在，我们选用最小平方误差作为损失函数，尝试用多项式函数去拟合这些数据。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prop    = np.polyfit(x_train, y_train, <span class="number">1</span>)</span><br><span class="line">prop_   = np.poly1d(prop)</span><br><span class="line">overf   = np.polyfit(x_train, y_train, <span class="number">15</span>)</span><br><span class="line">overf_  = np.poly1d(overf)</span><br></pre></td></tr></table></figure>
+
 <p>这里，对于 <code>prop</code>，我们采用了一阶的多项式函数（线性模型）去拟合数据；对于 <code>overf</code>，我们采用了 15 阶的多项式函数（多项式模型）去拟合数据。如此，我们可以把拟合效果绘制成图。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt</span><br><span class="line"></span><br><span class="line">_ = plt.figure(figsize = (<span class="number">14</span>, <span class="number">6</span>))</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">prop_e  = np.mean((y_train - np.polyval(prop, x_train)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_train - np.polyval(overf, x_train)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(<span class="number">-2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_train, y_train, <span class="string">'.'</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">'-'</span>, label = <span class="string">'proper, err: %.3f'</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">'--'</span>, label = <span class="string">'overfit, err: %.3f'</span> % (overf_e))</span><br><span class="line">plt.ylim(<span class="number">-5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">'train set'</span>)</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>)</span><br><span class="line">prop_e  = np.mean((y_valid - np.polyval(prop,  x_valid)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_valid - np.polyval(overf, x_valid)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(<span class="number">-2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_valid, y_valid, <span class="string">'.'</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">'-'</span>, label = <span class="string">'proper, err: %.3f'</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">'--'</span>, label = <span class="string">'overfit, err: %.3f'</span> % (overf_e))</span><br><span class="line">plt.ylim(<span class="number">-5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">'validation set'</span>)</span><br></pre></td></tr></table></figure>
+
 <p><img alt="多项式拟合结果" data-src="/uploads/images/MachineLearning/polyfit.png"></p>
 <p>以训练集上的结果来说，线性模型的误差要明显高于多项式模型。站在人类观察者的角度来说，这似乎是显而易见的：数据是围绕一个近似线性的函数附近抖动的，那么用简单的线性模型，自然就无法准确地拟合数据；但是，高阶的多项式函数可以进行各种「扭曲」，以便将训练集的数据拟合得更好。</p>
 <p>这种情况，我们说线性模型在训练集上欠拟合（underfitting），并且它的偏差（bias）要高于多项式模型的偏差。</p>
@@ -2084,12 +2088,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2341,19 +2345,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2373,6 +2364,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

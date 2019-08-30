@@ -436,17 +436,20 @@
       
         <p><a href="https://www.mathjax.org/" target="_blank" rel="noopener">MathJax</a> 是一个 JavaScript 引擎，能够将 LaTeX 语法书写的公式在网页上显示出来，而且效果杠杠的。<a href="https://zh.wikipedia.org/zh/Markdown" target="_blank" rel="noopener">Markdown</a> 是一种轻量级的标记语言。用 Markdown 书写的文章，可以用 Markdown 解释器处理成标准的 HTML 文档。因此 Markdown 很适合用来写网络日志。</p>
 <p>作为数学系毕业的学生，写博客时不可避免地会涉及到一些数学公式。可惜不巧，用 Markdown 写博客的我，在使用 MathJax 的时候遇到了一点麻烦。</p>
-<p>在 Markdown 中，下划线 <code>_</code> 被保留，用作标记符号。比如 <code>_Slant_</code> 会生成倾斜的 <em>Slant</em>。在 LaTeX 中，下划线 <code>_</code> 被用作下标记号。比如 <code>x_i</code> 会生成 <code>$x_i$</code>。</p>
+<p>在 Markdown 中，下划线 <code>_</code> 被保留，用作标记符号。比如 <code>_Slant_</code> 会生成倾斜的 _Slant_。在 LaTeX 中，下划线 <code>_</code> 被用作下标记号。比如 <code>x_i</code> 会生成 <code>$x_i$</code>。</p>
 <p>由于 Markdown 在 MathJax 之前起作用，有时下标记号会被 Markdown 吃掉，变成 HTML 标记 <code>&lt;i&gt;</code> 而失去 LaTeX 的下标效果，造成数学公式显示不正常。比如 <code>This is an example: $f_i = f_{i + 1}$</code> 里的两个下划线会被 Markdown 理解成倾斜的标记，这就不对了。</p>
 <a id="more"></a>
+
 <h2 id="分析与思路"><a href="#分析与思路" class="headerlink" title="分析与思路"></a>分析与思路</h2><p>问题的本质在于，下划线 <code>_</code> 首先被 Markdown 处理，变成 HTML 标记 <code>&lt;i&gt;</code>。之后，MathJax 会认为相关代码是不合法的公式代码，不予处理。比如上述例子，在 MathJax 看来会变成这样：<code>This is an example: $f&lt;i&gt;i = f&lt;i&gt;{i + 1}$</code>——这是什么鬼（MathJax 内心独白）。因此，我们要做的，就是在 Markdown 处理文本的时候，将公式中的下划线保留起来；然后，再让 MathJax 去处理保留下来的下划线。</p>
 <p>在 Markdown 中，我们可以用 backtip (`) 来做原样抄写（Verbatim）。也就是说，包含在两个 ` 中间的内容，会被 Markdown 原样保留下来。这正符合我们「保护下划线」的需求。于是，上述例子应该写成 <code>This is an example: `$f_i = f_{i + 1}$`</code>。</p>
 <p>问题看似解决了，不过却又引发了下一个问题。被反引号包括的部分，被 Markdown 当做代码来处理，会加上 HTML 标签 <code>&lt;code&gt;</code>。这样一来，MathJax 在处理文档时，就会跳过这一部分——虽然下划线被保留了，但是整个公式都被忽略了。</p>
-<p>一个妥协的办法，是用 JavaScript 处理所有的 <code>&lt;code&gt;</code> 标签：如果发现 <code>&lt;code&gt;</code> 标签内包含数学公式（以美元符号 \$ 开头结尾），那么就剥离标签，并调用 MathJax 处理。</p>
+<p>一个妥协的办法，是用 JavaScript 处理所有的 <code>&lt;code&gt;</code> 标签：如果发现 <code>&lt;code&gt;</code> 标签内包含数学公式（以美元符号 $ 开头结尾），那么就剥离标签，并调用 MathJax 处理。</p>
 <p>下面我们来实现这一思路。</p>
 <h2 id="JavaScript-代码"><a href="#JavaScript-代码" class="headerlink" title="JavaScript 代码"></a>JavaScript 代码</h2><figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line">&lt;script type=<span class="string">"text/javascript"</span>&gt;</span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">yuuki_query_all_nodes_as_array</span>(<span class="params">selector</span>) </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">Array</span>.prototype.slice.call(<span class="built_in">document</span>.querySelectorAll(selector), <span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">function</span> <span class="title">replace_code_to_span</span>(<span class="params">node</span>) </span>&#123;</span><br><span class="line">  is_inline_math = <span class="regexp">/^\$(.*)\$$/</span>.exec(node.textContent);</span><br><span class="line">  is_display_math = <span class="regexp">/^\$\$(.*)\$\$$/m</span>s.exec(node.textContent) ||</span><br><span class="line">          /^\\begin\&#123;.+\&#125;(.*)\\end\&#123;.+\&#125;/ms.exec(node.textContent);</span><br><span class="line">  <span class="keyword">if</span> (is_inline_math || is_display_math) &#123;</span><br><span class="line">    <span class="keyword">var</span> parent = node.parentNode;</span><br><span class="line">    <span class="keyword">var</span> replacement = <span class="built_in">document</span>.createElement(<span class="string">'span'</span>);</span><br><span class="line">    <span class="keyword">if</span> (is_display_math) &#123;</span><br><span class="line">      replacement.class = <span class="string">"yuuki_mathjax_inline"</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      replacement.class = <span class="string">"yuuki_mathjax_display"</span></span><br><span class="line">    &#125;</span><br><span class="line">    replacement.textContent = node.textContent;</span><br><span class="line">    parent.replaceChild(replacement, node);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">document</span>.addEventListener(<span class="string">'DOMContentLoaded'</span>, <span class="function"><span class="keyword">function</span>(<span class="params"></span>) </span>&#123;</span><br><span class="line">  yuuki_query_all_nodes_as_array(<span class="string">"code"</span>).map(replace_code_to_span);</span><br><span class="line">&#125;);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+
 <p>或者更简洁的</p>
 <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">&lt;script type=<span class="string">"text/javascript"</span>&gt;</span><br><span class="line"><span class="built_in">window</span>.addEventListener(<span class="string">'DOMContentLoaded'</span>, () =&gt; &#123;</span><br><span class="line">  <span class="built_in">document</span>.querySelectorAll(<span class="string">'code'</span>).forEach(<span class="function"><span class="params">code</span> =&gt;</span> &#123;</span><br><span class="line">    <span class="keyword">const</span> text = code.innerHTML;</span><br><span class="line">    is_inline_math = <span class="regexp">/^\$(.*)\$$/</span>.exec(text);</span><br><span class="line">    is_display_math = <span class="regexp">/^\$\$(.*)\$\$$/m</span>s.exec(text) || <span class="regexp">/^\\begin\&#123;.+\&#125;(.*)\\end\&#123;.+\&#125;/m</span>s.exec(text);</span><br><span class="line">    <span class="keyword">if</span> (is_inline_math || is_display_math) &#123;</span><br><span class="line">      code.parentElement.classList.add(<span class="string">'has-jax'</span>);</span><br><span class="line">      <span class="keyword">if</span> (is_inline_math) &#123;</span><br><span class="line">        code.outerHTML = <span class="string">"&lt;span class=yuuki_mathjax_inline&gt;"</span> + text + <span class="string">"&lt;/span&gt;"</span>;</span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        code.outerHTML = <span class="string">"&lt;span class=yuuki_mathjax_display&gt;"</span> + text + <span class="string">"&lt;/span&gt;"</span>;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;);</span><br><span class="line">&lt;<span class="regexp">/script&gt;</span></span><br></pre></td></tr></table></figure>
+
 <p>这里，我们用正则表达式匹配了 <code>&lt;code&gt;</code> 标签内的美元符号，然后将 <code>&lt;code&gt;</code> 标签替换成 <code>&lt;span class=hpl_mathjax_inline&gt;</code> 标签。</p>
 <p>经过这样一番处理，<code>This is an example: `$f_i = f_{i + 1}$`</code> 就可以被正确处理为「This is an example: <code>$f_i = f_{i + 1}$</code>」了。</p>
 
@@ -2007,12 +2010,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2264,19 +2267,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2296,6 +2286,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

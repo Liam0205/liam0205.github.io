@@ -411,7 +411,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>8.5k</span>
+              <span>8.6k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -454,13 +454,16 @@
 <li><code>\escapechar</code>:  将控制序列转换为一串字符记号时，用作转义字符的字符之编码。在 IniTeX 中默认为 92（<code>\</code>）。</li>
 </ul>
 <a id="more"></a>
+
 <h2 id="字符编码"><a href="#字符编码" class="headerlink" title="字符编码"></a>字符编码</h2><p>在概念上说，认为 TeX 内部直接对字符进行处理是最简单的；但是实际上 TeX 内部处理的是整数，即<strong>字符编码</strong>。</p>
 <p>不同系统中，字符的编码方式可能不同。因此，TeX 使用其自身定义的字符编码方案。任何从文件或用户终端读入的字符，都会依据编码表转换成字符编码。之后，TeX 会根据这一字符编码为它们分配分类码。编码表基于 7-位 ASCII 编码表，可编码 128 个字符。</p>
 <p>反引号（<code>{</code>，或称左引号）可将字符（准确说是字符记号）转换为其字符编码。在 TeX 中，所有需要 <code>&lt;number&gt;</code> 的地方，都可以通过这种方式将一个字符记号的编码传给 TeX：反引号加字符或是反引号加单字符控制序列。例如 <code><code>\count\</code>a</code> 和 <code>\count`\a</code> 都表示 <code>\count97</code>。</p>
 <p>第二种方式在某些情况下是有必要的，例如在下例中，若去掉 <code>\</code>，就会让 TeX 产生误解。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">%</span>=<span class="number">11</span></span><span class="tag">\<span class="name">quad</span></span> or<span class="tag">\<span class="name">quad</span></span> <span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">CommentSign</span><span class="string">&#123;\char`\%&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>例如在下例中，<code>=11</code> 会被认为是注释。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`<span class="comment">%=11</span></span><br></pre></td></tr></table></figure>
+
 <p>单字符的控制序列可以由任何分类码的字符组成。</p>
 <blockquote>
 <p>译注：特别地，可以是无效字符。</p>
@@ -474,41 +477,57 @@
 <p>表面上看，<code>\char</code> 命令与 <code>^^</code> 替换机制类似：两种机制都是通过间接的方式来访问字符。但是，<code>^^</code> 替换机制发生的非常早——在 TeX 的输入处理器为字符分配分类码之前；而 <code>\char</code> 命令则在可视化处理器中起作用。从效果上看，<code>\char</code> 是告诉 TeX：「排版字体中第 $n$ 个字符。」</p>
 <p><code>\chardef</code> 命令可定义一个控制序列定义作为一个<strong>字符编码</strong>的代替品。它的用法是</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">chardef</span></span>&lt;control sequence&gt;&lt;equals&gt;&lt;number&gt;</span><br></pre></td></tr></table></figure>
+
 <p>此处的 <code>&lt;number&gt;</code> 可以是显式给出的数字，也可以是计数器值，也可以是用反引号提取得到的字符编码（见上文）。在 plain TeX 中，就有类似下面的用法：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">chardef</span></span><span class="tag">\<span class="name">%</span>=</span>`<span class="tag">\<span class="name">%</span></span></span><br></pre></td></tr></table></figure>
+
 <p>它等价于下面的定义方式：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">chardef</span></span><span class="tag">\<span class="name">%</span>=<span class="number">37</span></span></span><br></pre></td></tr></table></figure>
+
 <p>如此定义之后，控制字符 <code>\%</code> 就变成了 <code>\char37</code> 的同义词。也就是说，它可以用于排版第 37 个字符（通常是百分号）。</p>
 <p>用 <code>\chardef</code> 命令定义的控制序列可作为 <code>&lt;number&gt;</code> 使用。在诸如 <code>\newbox</code> 的分配类命令中，就用到了这一特性。用 <code>\mathchardef</code> 命令定义的记号同样可以这样使用。</p>
 <h3 id="隐式字符记号：-let"><a href="#隐式字符记号：-let" class="headerlink" title="隐式字符记号：\let"></a>隐式字符记号：<code>\let</code></h3><p>另一种定义表示字符的控制序列的方式是使用 <code>\let</code>  命令，并且将字符记号置于可选等号的右边：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">let</span></span>&lt;control sequence&gt;&lt;equals&gt;&lt;token&gt;</span><br></pre></td></tr></table></figure>
+
 <p>如此，得到的控制序列称为<strong>隐式字符</strong>记号。</p>
 <p>在 plain TeX 中有对左右花括号定义同义控制序列：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">bgroup</span>=</span>&#123; <span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">egroup</span>=</span>&#125;</span><br></pre></td></tr></table></figure>
+
 <p>如此，得到的控制序列被称为「隐式花括号」。</p>
 <p>通过 <code>\let</code> 和 <code>\chardef</code> 将字符赋值给控制序列是有区别的。被 <code>\let</code> 定义的控制序列是字符编码与分类码这一组合的替代品。</p>
 <p>例如在下例中，<code>\b</code> 关闭了 <code>\m</code> 定义所在的分组，因此 TeX 会提示错误：「未定义的控制序列」。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`|=2 <span class="comment">% make the bar an end of group</span></span><br><span class="line"><span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">b</span>=</span>|  <span class="comment">% make \b a bar character</span></span><br><span class="line">&#123;<span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">m</span><span class="string">&#123;...&#125;</span></span><span class="tag">\<span class="name">b</span></span> <span class="tag">\<span class="name">m</span></span></span><br></pre></td></tr></table></figure>
+
 <p>又例如在下例中，<code>\b</code> 的定义在分类码修改之前，因此它无法承担分组结束符的作用，只能表示一条竖线（或是其他任何在当前字体中编号为 124 的字符）。因此，这里构造的是一个不闭合的分组。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">b</span>=</span>| <span class="comment">% make \b a bar character</span></span><br><span class="line"><span class="tag">\<span class="name">catcode</span></span>`|=2  <span class="comment">% make the bar character end of group</span></span><br><span class="line">&#123;<span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">m</span><span class="string">&#123;...&#125;</span></span><span class="tag">\<span class="name">b</span></span> <span class="tag">\<span class="name">m</span></span></span><br></pre></td></tr></table></figure>
+
 <p>前一个例子表明，即是花括号本身被重定义了（例如在排版 C 语言代码时被定义成活动字符），分组开始和结束的功能依然可以由控制序列 <code>\bgroup</code> 和 <code>\egroup</code> 来承担。</p>
 <p>隐式字符记号的行为与真实字符记号非常相似。举例来说，在如此定义之后，</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">catcode</span></span>`|=2 <span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">b</span>=</span>|</span><br></pre></td></tr></table></figure>
+
 <p>以下两个真值测试均为真。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">if</span></span><span class="tag">\<span class="name">b</span></span>|</span><br></pre></td></tr></table></figure>
+
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">ifcat</span></span><span class="tag">\<span class="name">b</span></span>&#125;</span><br></pre></td></tr></table></figure>
+
 <p>再举一例。在 plain TeX 中，有如下对上标和下标符号的定义：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">sp</span>=</span>^ <span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">sb</span>=</span>_</span><br></pre></td></tr></table></figure>
+
 <p>如此一来，即使键盘上没有这两个符号，也可以通过这两个控制序列得到数学环境的上标和下标。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">x<span class="tag">\<span class="name">sp</span></span>2<span class="tag">\<span class="name">sb</span><span class="string">&#123;ij&#125;</span></span><span class="tag">\<span class="name">quad</span></span> gives<span class="tag">\<span class="name">quad</span></span> <span class="formula">$x<span class="tag">\<span class="name">sp</span></span>2<span class="tag">\<span class="name">sb</span><span class="string">&#123;ij&#125;</span></span>$</span></span><br></pre></td></tr></table></figure>
+
 <p>若是编写格式的人的键盘上也没有这些键，那么就要用更深的技巧了：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="tag">\<span class="name">lccode</span></span>`,=94 <span class="tag">\<span class="name">lccode</span></span>`.=95 <span class="tag">\<span class="name">catcode</span></span>`,=7 <span class="tag">\<span class="name">catcode</span></span>`.=8</span><br><span class="line"><span class="tag">\<span class="name">lowercase</span><span class="string">&#123;\global\let\sp=, \global\let\sb=.&#125;</span></span>&#125;</span><br></pre></td></tr></table></figure>
+
 <p>至于它为什么能起作用，可详见后文关于 <code>\lowercase</code> 的介绍。由于我们无法键入 <code>^</code>，因此 TeX2 中的 <code>^^</code> 表示法无法在此解决问题。考虑到上标和下标的字符编码以十六进制表示分别是 <code>5e</code> 和 <code>5f</code>，利用 TeX3 中扩展的表示法可以依照如下方式解决问题：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="tag">\<span class="name">catcode</span></span>`<span class="tag">\<span class="name">,</span>=<span class="number">7</span></span></span><br><span class="line"><span class="tag">\<span class="name">global</span></span><span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">sp</span>=</span>,,5e <span class="tag">\<span class="name">global</span></span><span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">sb</span>=</span>,,5f&#125;</span><br></pre></td></tr></table></figure>
+
 <p>使用 <code>\meaning</code> 命令可以查看使用 <code>\let</code> 定义的命令究竟代表哪个字符。例如下列代码将给出 &quot;the character 3&quot;。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">let</span></span><span class="tag">\<span class="name">x</span>=<span class="number">3</span></span> <span class="tag">\<span class="name">meaning</span></span><span class="tag">\<span class="name">x</span></span></span><br></pre></td></tr></table></figure>
+
 <h2 id="重音"><a href="#重音" class="headerlink" title="重音"></a>重音</h2><p>重音符号可用水平命令（<code>&lt;horizontal command&gt;</code>）<code>\accent</code> 给出。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">accent</span></span>&lt;8-bit number&gt;&lt;optional assignments&gt;&lt;character&gt;</span><br></pre></td></tr></table></figure>
+
 <p>其中，<code>&lt;character&gt;</code> 是分类码为 11 或 12 的字符，或是形如 <code>\char`<8-bit number></8-bit></code> 的命令，抑或是一个由 <code>\chardef</code> 定义的记号。此时，重音符号会被放置在该字符的上方。若 <code>&lt;character&gt;</code> 不是上述四种情况之中的任意一种，则重音符号会被 <code>\char</code> 命令直接处理，从而给出一个「悬在半空」的重音符号。可选的 <code>&lt;optional assignments&gt;</code> 可用于改变重音和字符的字体。</p>
 <p><code>\accent</code> 命令后必须紧跟 <code>&lt;character&gt;</code>。这一规定避免了将重音符号置于连字之上或是置于另一个重音符号之上。在诸如印度语及越南语的少数语言中，确实存在双重音符号的情况；因此这种规定有时可能会令人不爽。不过，将重音符号置于另一个之上可以在数学模式中实现。</p>
 <p>添加重音符号不会改变字符的宽度。对于重音符号摆放的位置，TeX 假设字体文件中，重音符号摆放的高度与字母 x 的高度相适应；对于其他高度的字母，TeX 则可以通过向上或向下移动恰当的高度来调整重音符号的位置。</p>
@@ -522,23 +541,30 @@
 </blockquote>
 <p>以下代码能将水平列表转储出来，作为铅空和重音符号的示例。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">setbox</span></span>0=<span class="tag">\<span class="name">hbox</span><span class="string">&#123;\it \`l&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">showbox</span></span>0</span><br></pre></td></tr></table></figure>
+
 <p>其结果是</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">hbox</span></span>(9.58334+0.0)x2.55554</span><br><span class="line">.<span class="tag">\<span class="name">kern</span></span> -0.61803 (for accent)</span><br><span class="line">.<span class="tag">\<span class="name">hbox</span></span>(6.94444+0.0)x5.11108, shifted -2.6389</span><br><span class="line">..<span class="tag">\<span class="name">tenit</span></span> ^^R</span><br><span class="line">.<span class="tag">\<span class="name">kern</span></span> -4.49306 (for accent)</span><br><span class="line">.<span class="tag">\<span class="name">tenit</span></span> l</span><br></pre></td></tr></table></figure>
+
 <p>注意，TeX 首先放置重音符号，以保证最后一个字符的倾斜校正仍然有效。</p>
 <h2 id="字符真值测试"><a href="#字符真值测试" class="headerlink" title="字符真值测试"></a>字符真值测试</h2><p>使用 <code>\if</code> 可检测两个字符记号的字符编码是否相等：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">if</span></span>&lt;token<span class="formula">$_1$</span>&gt;&lt;token<span class="formula">$_2$</span>&gt;</span><br></pre></td></tr></table></figure>
+
 <p>TeX 遇到 <code>\if</code> 后，会对其后的记号持续展开，直至遇见两个不可展开的记号。而后，不管分类码如何，若这两个记号的字符编码相等，则真值测试为真。</p>
 <p>对于 TeX 来说，不可展开的控制序列的字符码是 256 而分类码为 16（因此控制序列的字符编码只与控制序列的字符编码相等），除非控制序列被 <code>\let</code> 定义成一个非活动字符记号——如前所述，此时该控制序列的字符编码和分类码与相应的字符相同。</p>
 <p>后续章节会介绍用于检验分类码的 <code>\ifcat</code> 命令；此处关注真值测试</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">ifx</span></span>&lt;token<span class="formula">$_1$</span>&gt;&lt;token<span class="formula">$_2$</span>&gt;</span><br></pre></td></tr></table></figure>
+
 <p>则检验字符编码和分类码是否均相等。特别注意的是，TeX 不会展开 <code>\ifx</code> 之后的记号。不过，若它们是宏，则 TeX 会检验它们的展开是否相等。</p>
 <p>对于 <code>\chardef</code> 定义的数量，则可以用 <code>\ifnum</code> 来检验。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">chardef</span></span><span class="tag">\<span class="name">a</span>=</span>`x <span class="tag">\<span class="name">chardef</span></span><span class="tag">\<span class="name">b</span>=</span>`y <span class="tag">\<span class="name">ifnum</span></span><span class="tag">\<span class="name">a</span>=</span><span class="tag">\<span class="name">b</span></span> <span class="comment">% is false</span></span><br></pre></td></tr></table></figure>
+
 <p>这是因为由 <code>\chardef</code> 定义的记号可被当做是数字来使用。</p>
 <h2 id="大写和小写"><a href="#大写和小写" class="headerlink" title="大写和小写"></a>大写和小写</h2><h3 id="大写和小写的编码"><a href="#大写和小写的编码" class="headerlink" title="大写和小写的编码"></a>大写和小写的编码</h3><p>每个字符编码都有对应的<strong>大写编码</strong>和<strong>小写编码</strong>。它们可分别用</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">uccode</span></span>&lt;number&gt;&lt;equals&gt;&lt;number&gt;</span><br></pre></td></tr></table></figure>
+
 <p>和</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">lccode</span></span>&lt;number&gt;&lt;equals&gt;&lt;number&gt;</span><br></pre></td></tr></table></figure>
+
 <p>来指定。在 IniTeX 中，<code>a..z</code> 及 <code>A..Z</code> 的大写编码为 <code>A..Z</code> 而小写编码为 <code>a..z</code>。其余所有的字符的大写编码和小写编码均为零。</p>
 <h3 id="大写和小写命令"><a href="#大写和小写命令" class="headerlink" title="大写和小写命令"></a>大写和小写命令</h3><p><code>\uppercase{...}</code> 和 <code>\lowercase{...}</code> 命令会遍历参数记号列表，而后将所有对应大写编码或小写编码不为零的显式字符替换成相应的大写编码或小写编码，分类码则维持不变。</p>
 <p><code>\uppercase</code> 和 <code>\lowercase</code> 命令的参数是普通文本（<code>&lt;general text&gt;</code>），其定义如下：</p>
@@ -549,17 +575,22 @@
 <p>译注：这里的表述比较奇怪。事实上，TeX 要求 <code>\csname</code> 和 <code>\endcsname</code> 之间的内容展开到底后不能有不可展开的原语；而 <code>\uppercase</code> 正是一个不可展开的原语，故而报错。这里提出 TeX 在 <code>\uppercase</code> 之前插入 <code>\endcsname</code>，原因可能是 TeX 在发现问题「尝试修复的过程中」，会做这样的操作。</p>
 </blockquote>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">expandafter</span></span><span class="tag">\<span class="name">csname</span></span><span class="tag">\<span class="name">uppercase</span><span class="string">&#123;a&#125;</span></span><span class="tag">\<span class="name">endcsname</span></span></span><br></pre></td></tr></table></figure>
+
 <p>正确的写法如下：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">uppercase</span><span class="string">&#123;\csname a\endcsname&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>下例对 <code>\uppercase</code> 的使用是正确的，它可用于检测一个字符是否为大写：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">ifIsUppercase</span></span>#1&#123;<span class="tag">\<span class="name">uppercase</span><span class="string">&#123;\if#1&#125;</span></span>#1&#125;</span><br></pre></td></tr></table></figure>
+
 <p>大写检测也可以这样做：<code>\ifnum`#1=\uccode`#1</code>。</p>
 <p>首字母大写（首字母的字符编码与其 <code>\lccode</code> 不同）的单词是否允许截断连字取决于 <code>\uchyph</code> 参数。若改参数为正数，则允许对首字母大写的单词进行截断连字。</p>
 <h3 id="关键字的大写与小写形式"><a href="#关键字的大写与小写形式" class="headerlink" title="关键字的大写与小写形式"></a>关键字的大写与小写形式</h3><p>TeX 关键字可以是大写形式也可以是小写形式。比如 <code>pt</code> 还可以写作 <code>pT</code>、<code>Pt</code> 以及 <code>PT</code>。此处，TeX 不使用 <code>\uccode</code> 及 <code>\lccode</code> 表来确定小写形式；而是直接在大写字母的字符编码上加 32 来得到其小写形式——ASCII 编码中，同一字母大小写形式之差为 32。这种做法与 TeX 在处理非罗马字符时的具体实现方式有些关联；详见 TeXbook 第 370 页。</p>
 <h3 id="巧用-uppercase-和-lowercase"><a href="#巧用-uppercase-和-lowercase" class="headerlink" title="巧用 \uppercase 和 \lowercase"></a>巧用 <code>\uppercase</code> 和 <code>\lowercase</code></h3><p>利用 <code>\uppercase</code> 和 <code>\lowercase</code> 不会改变分类码的特性，可以构造出一些其它方式难以构造的字符编码-分类码配对。</p>
 <p>再将一个稍有些不同的例子。考虑这一问题（已由 Rainer Schopf 解决）：给定一个计数器 <code>\newcount\mycount</code>，如何将其值作为字符编号输出到终端？解法如下。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">lccode</span></span>`a=<span class="tag">\<span class="name">mycount</span></span> <span class="tag">\<span class="name">chardef</span></span><span class="tag">\<span class="name">terminal</span>=<span class="number">16</span></span></span><br></pre></td></tr></table></figure>
+
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">lowercase</span><span class="string">&#123;\write\terminal&#123;a&#125;</span></span>&#125;</span><br></pre></td></tr></table></figure>
+
 <p>此处，<code>\lowercase</code> 命令有效地将 <code>\write</code> 命令的参数，从「<code>a</code>」转换成目标值。</p>
 <h2 id="字符相关编码"><a href="#字符相关编码" class="headerlink" title="字符相关编码"></a>字符相关编码</h2><p>每个字符编码都有一系列与之相关的 <code>&lt;codename&gt;</code>。这些整数的取值范围各不相同；它们决定了在不同场合下，TeX 会如何处理该字符，或是决定了在不同场合下，该字符会如何影响 TeX 自身。</p>
 <p>这些编码的名字罗列如下：</p>
@@ -572,10 +603,13 @@
 </ul>
 <h2 id="将记号转换为字符串"><a href="#将记号转换为字符串" class="headerlink" title="将记号转换为字符串"></a>将记号转换为字符串</h2><p><code>\string</code>  命令能将其下一个记号展开为由若干字符组成的字符串。例如，下例将输出 <code>\control</code>。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">tt</span></span><span class="tag">\<span class="name">string</span></span><span class="tag">\<span class="name">control</span></span></span><br></pre></td></tr></table></figure>
+
 <p>又例如下例将输出 <code>$</code>。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">tt</span></span><span class="tag">\<span class="name">string</span></span><span class="formula">$</span></span><br></pre></td></tr></table></figure>
+
 <p>注意，字符串操作位于记号化之后。因此下例<strong>不能</strong>输出注释符号 <code>%</code>，因为早在输入处理器中，注释符号就被删除了。于是，下例中的 <code>\string</code> 会将下一行的第一个记号转换为字符串。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">tt</span></span><span class="tag">\<span class="name">string</span></span><span class="comment">%</span></span><br></pre></td></tr></table></figure>
+
 <p><code>\string</code> 命令由展开处理器执行。因此，除非显式地禁止，它必然会被展开。</p>
 <h3 id="输出控制序列"><a href="#输出控制序列" class="headerlink" title="输出控制序列"></a>输出控制序列</h3><p>上例使用了打字机字族。这是因为，在计算机现代字体中，罗马字族里没有反斜线这一字符。 不过，TeX 也可以使用其它字符来打印控制序列：具体来说，TeX 使用 <code>\escapechar</code> 保存的字符编码对应的字符来打印控制序列。在使用下列命令时，也会用到 <code>\escapechar</code> 这个宏保存的值： <code>\write</code>、<code>\message</code>、<code>\errmessage</code>、<code>\show</code>、<code>\showthe</code> 以及 <code>\meaning</code>。若 <code>\escapechar</code> 的值为负或者大于 255，则转义字符不会显示出来；此外，在 IniTeX 中 <code>\escapechar</code> 的默认值是 92，即反斜线的字符编码。</p>
 <blockquote>
@@ -2142,12 +2176,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2399,19 +2433,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2431,6 +2452,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

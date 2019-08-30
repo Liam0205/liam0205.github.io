@@ -436,6 +436,7 @@
       
         <p>今天，大学同学昊轩在微信群里问到「MD5 散列函数的结果是不是均匀分布的」。询问之后才知道，昊轩在工作中需要一个快速的、均匀分布的 8 -- 16 bytes 的散列函数。</p>
 <a id="more"></a>
+
 <p>回忆本科学过的内容，似乎并没有提及散列函数的结果服从何种统计分布。不过，一个合格的散列函数应当包含三个特征：</p>
 <ul>
 <li>单向性：容易计算输入的散列结果，但是从散列结果无法推出输入内容；</li>
@@ -447,8 +448,10 @@
 <p>如果我们将 MD5 的散列结果以十六进制的形式表达出来，那么表达的结果中可能出现 <code>1234567890abcdef</code> 这十六个可能的结果。如果十六个可能的结果等可能出现（均匀），那么对于某个十六进制位来说，它的信息熵等于 $\sum_0^{15} - \frac{1}{16} \log_2 \frac{1}{16} = 4$。</p>
 <p>这就是说，如果我们将 MD5 的散列结果以十六进制的形式表达出来，计算每一个数位的信息熵，如果（约）等于 4，就说明 MD5 的散列结果是（接近）均匀的。为此，我用 Python 写了一份代码作为测试。这份代码用到了 Python 的 <code>hashlib</code> 库，可能需要额外安装。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> hashlib <span class="keyword">import</span> md5</span><br><span class="line"><span class="keyword">from</span> math <span class="keyword">import</span> log</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">entropy</span><span class="params">(wkList)</span>:</span></span><br><span class="line">    wkSet   = set(wkList)</span><br><span class="line">    rate    = &#123;&#125;</span><br><span class="line">    lenList = len(wkList)</span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> wkSet:</span><br><span class="line">        rate[i] = float(wkList.count(i)) / lenList</span><br><span class="line">    <span class="keyword">return</span> sum([-p * log(p, <span class="number">2</span>) <span class="keyword">for</span> p <span class="keyword">in</span> rate.values()])</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    wkDict = &#123;&#125; <span class="comment"># key: index number; value: list of appeared chars</span></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> xrange(<span class="number">1000000</span>):</span><br><span class="line">        s = md5(str(i)).hexdigest()</span><br><span class="line">        <span class="keyword">for</span> j <span class="keyword">in</span> xrange(<span class="number">32</span>):</span><br><span class="line">            <span class="keyword">if</span> <span class="keyword">not</span> j <span class="keyword">in</span> wkDict:</span><br><span class="line">                wkDict[j] = [s[j]]</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                wkDict[j].append(s[j])</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> j <span class="keyword">in</span> xrange(<span class="number">32</span>):</span><br><span class="line">        <span class="keyword">print</span> j, <span class="string">'\t'</span>, entropy(wkDict[j])</span><br></pre></td></tr></table></figure>
+
 <p>运行之后结果如下：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">0   3.99997252009</span><br><span class="line">1   3.99999302786</span><br><span class="line">2   3.99999519608</span><br><span class="line">3   3.99998883009</span><br><span class="line">4   3.99999198139</span><br><span class="line">5   3.99999277151</span><br><span class="line">6   3.99998601745</span><br><span class="line">7   3.99998913662</span><br><span class="line">8   3.99998403144</span><br><span class="line">9   3.99998997451</span><br><span class="line">10  3.9999888372</span><br><span class="line">11  3.99999167561</span><br><span class="line">12  3.99998973775</span><br><span class="line">13  3.99998788689</span><br><span class="line">14  3.99998465031</span><br><span class="line">15  3.99999026671</span><br><span class="line">16  3.99998951346</span><br><span class="line">17  3.9999925505</span><br><span class="line">18  3.99999145863</span><br><span class="line">19  3.99999118615</span><br><span class="line">20  3.99999429662</span><br><span class="line">21  3.99998661919</span><br><span class="line">22  3.99999172588</span><br><span class="line">23  3.99998375623</span><br><span class="line">24  3.99999562943</span><br><span class="line">25  3.99998534411</span><br><span class="line">26  3.9999892247</span><br><span class="line">27  3.99998627499</span><br><span class="line">28  3.99999072251</span><br><span class="line">29  3.99999088822</span><br><span class="line">30  3.99999107997</span><br><span class="line">31  3.99998905455</span><br></pre></td></tr></table></figure>
+
 <p>经过一百万次的计算，我们发现，MD5 散列值的每一个十六进制位的信息熵都大致相等，且它们的值都约等于 4。根据之前的讨论，我们可以认为「MD5 散列函数的结果服从均匀分布」。</p>
 
     </div>
@@ -2006,12 +2009,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2263,19 +2266,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2295,6 +2285,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

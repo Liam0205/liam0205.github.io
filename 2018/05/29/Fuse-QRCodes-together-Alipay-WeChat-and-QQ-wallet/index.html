@@ -61,7 +61,7 @@
 </script>
 
   <meta name="description" content="今天在浏览 V2EX 时，看到了一个令人啼笑皆非的帖子。OP 在 GitHub 上开源了一个能将支付宝和微信收款码二合一的项目。由于在项目中，OP 默认填写了自己的支付宝和微信信息；当项目被 fork 出去后，很多人没有修改其中的信息。特别地，有一些被用在恶意用途上的 fork 分支也没有修改。这样一来，就有不少人扫描这些生成的二维码而受骗，最终导致 OP 的微信被封禁了收款功能——连红包都收不了">
-<meta name="keywords" content="WeChat,JavaScript,QRCode,HTML,Alipay,QQ">
+<meta name="keywords" content="WeChat,QRCode,HTML,JavaScript,Alipay,QQ">
 <meta property="og:type" content="article">
 <meta property="og:title" content="生成聚合收款二维码：支付宝、微信、QQ 钱包">
 <meta property="og:url" content="https://liam.page/2018/05/29/Fuse-QRCodes-together-Alipay-WeChat-and-QQ-wallet/index.html">
@@ -440,6 +440,7 @@
 <p>其二是以上述 OP 为代表的开源解决方案。这些解决方案对用户动手的能力更高，并且要求有一个可被公共访问的服务器来执行判断脚本。在这种套路里，还可以细分流派。一派是以 PHP 等为代表的解决方案，这要求上述服务器能够执行 PHP 等脚本。这一派的解决方案不适用于 GitHub Pages 等静态页面博客，因而使用范围受限。一派则是以静态 HTML 附议 CSS 和 JavaScript 为解决方案。这一派的方案适用面就广泛得多了。</p>
 <p>本文介绍一种以静态 HTML 为基础，辅以 CSS 和 JavaScript 的方案，用以生成聚合收款码。</p>
 <a id="more"></a>
+
 <h2 id="二维码收款的真相"><a href="#二维码收款的真相" class="headerlink" title="二维码收款的真相"></a>二维码收款的真相</h2><p>二维码事实上只是一种编码手段，它将信息编码成了正方形的二维码的形状。只不过，在二维码协议中定义了许多用于诸如抗干扰、放破损的冗余等内容。但事实上二维码只是编码了一些信息而已。</p>
 <p>我们使用微信、支付宝等手机 App 扫描二维码后，这些 App 的行为取决于二维码编码的信息。App 首先会解码二维码，而后根据这些信息采取相应的动作。具体到二维码收款时，二维码至少应当包含转账的目标人的 uid，以及（若需要）包含要求的金额。</p>
 <p>开源中国的工具集中有针对二维码的<a href="http://tool.oschina.net/qr?type=2" target="_blank" rel="noopener">解码工具</a>。利用这些工具，我们就可以读取二维码中编码的信息了。以下是从我的支付宝、微信、QQ 钱包的收款码中读出的信息（关键信息已隐藏）。</p>
@@ -464,11 +465,14 @@
 </ul>
 <p>在 HTML 中，我们可以使用 <code>navigator.userAgent.match(/foobar/i)</code> 来判断 UA 中是否包含有 <code>foobar</code> 这一特征字符串。据此我们有：</p>
 <figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (navigator.userAgent.match(<span class="regexp">/Alipay/i</span>)) &#123;</span><br><span class="line">    <span class="comment">// 返回支付宝链接</span></span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (navigator.userAgent.match(<span class="regexp">/MicroMessenger\//i</span>)) &#123;</span><br><span class="line">    <span class="comment">// 返回微信链接对应的二维码</span></span><br><span class="line">&#125; <span class="keyword">else</span> <span class="keyword">if</span> (navigator.userAgent.match(<span class="regexp">/QQ\//i</span>)) &#123;</span><br><span class="line">    <span class="comment">// 返回 QQ 钱包链接对应的二维码</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// 不支持的 App</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <h2 id="在线生成二维码"><a href="#在线生成二维码" class="headerlink" title="在线生成二维码"></a>在线生成二维码</h2><p>由于聚合码被微信或 QQ 钱包扫描时需返回相应链接对应的二维码，我们要不然应保存相应二维码，要不然应想办法在线生成并将二维码返回给用户。在线生成二维码又有两个办法，其一是使用 JQuery 之类工具中的 QRCode 接口，直接由用户浏览器（手机 App）生成二维码，其二是调用现成的接口。此处我们通过调用现成的借口来生成二维码。</p>
 <p>此处我们借用百度云盘的接口来生成二维码。具体来说</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://pan.baidu.com/share/qrcode?w=150&amp;h=150&amp;url=Liam%20loves%20Sophia!</span><br></pre></td></tr></table></figure>
+
 <p>返回的二维码中隐藏的信息是：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Liam loves Sophia!</span><br></pre></td></tr></table></figure>
+
 <h2 id="GitHub-Repository"><a href="#GitHub-Repository" class="headerlink" title="GitHub Repository"></a>GitHub Repository</h2><p>至此，解决方案的主要思想就已经阐述清楚了；完整的代码可见 <a href="https://github.com/Liam0205/FuseQRCode" target="_blank" rel="noopener">GitHub Repository</a>。</p>
 <p>使用时，首先应当获取支付宝、微信和 QQ 钱包的二维码后对应的链接。三个 App 的操作路径分别是：</p>
 <ul>
@@ -477,7 +481,7 @@
 <li>QQ 钱包：手机 QQ 首页 -&gt; <code>+</code> -&gt; 付款 -&gt; <code>...</code> -&gt; 我要收款 -&gt; 截屏保存</li>
 </ul>
 <p>将上述保存的二维码上传至开源中国，即可获取收款二维码背后的链接。而后，应当把这些链接填空到 <code>index.html</code> 头部的配置当中。最后只需将该 HTML 文档上传至一个公共服务器即可。如此给出的二维码如下，可供扫描测试——当然如果最后转账就最好啦！</p>
-<p><img alt data-src="https://pan.baidu.com/share/qrcode?w=500&amp;h=500&amp;url=https://tar.cat/donation/"></p>
+<p><img alt data-src="https://pan.baidu.com/share/qrcode?w=500&h=500&url=https://tar.cat/donation/"></p>
 <h3 id="致谢"><a href="#致谢" class="headerlink" title="致谢"></a>致谢</h3><p>GitHub 项目的原作者应当是<a href="https://mkblog.cn/922/" target="_blank" rel="noopener">孟坤</a>，在此感谢！</p>
 
     </div>
@@ -577,11 +581,11 @@
             
               <a href="/tags/WeChat/" rel="tag"># WeChat</a>
             
-              <a href="/tags/JavaScript/" rel="tag"># JavaScript</a>
-            
               <a href="/tags/QRCode/" rel="tag"># QRCode</a>
             
               <a href="/tags/HTML/" rel="tag"># HTML</a>
+            
+              <a href="/tags/JavaScript/" rel="tag"># JavaScript</a>
             
               <a href="/tags/Alipay/" rel="tag"># Alipay</a>
             
@@ -2043,12 +2047,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2229,19 +2233,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2261,6 +2252,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

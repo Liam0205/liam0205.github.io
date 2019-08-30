@@ -437,6 +437,7 @@
         <p>LaTeX 是一些理工专业论文排版的事实标准。既然是论文排版，就不可避免会涉及到参考文献的处理。Oren Patashnik 和 Leslie Lamport 在 1985 年开发的 BibTeX 是在 LaTeX 社区相当流行的参考文献格式化工具。</p>
 <p>其实网络上流传的 BibTeX 教程很多，本不用我再来插一句嘴。不过这么多年来，始终有很多朋友会对几个问题反复提问。这让我感到，现有的教程恐怕是不够的。这篇文章尝试将 BibTeX 的基本用法讲解清楚，同时适当地提及一些处理流程，争取在有限的篇幅里，讲清楚 BibTeX 的来龙去脉。</p>
 <a id="more"></a>
+
 <h2 id="bst-和-bib-格式简介"><a href="#bst-和-bib-格式简介" class="headerlink" title="bst 和 bib 格式简介"></a>bst 和 bib 格式简介</h2><p>BibTeX 涉及到两种特有的辅助的文件格式：<code>bst</code> 和 <code>bib</code>。</p>
 <p><code>bst</code> 是 (B)ibliography (ST)yle 的缩写。顾名思义，和 <code>sty</code> 文件是 style 的缩写一样，<code>bst</code> 文件控制着参考文献列表的格式。在这里说的「格式」，主要指参考文献列表中的编号、排序规则、对人名的处理（是否缩写）、月份的处理（是否缩写）、期刊名称的缩写等。</p>
 <p><code>bib</code> 是 BibTeX 定义的「参考文献数据库」。通常，我们会按照 BibTeX 规定的格式，向 <code>bib</code> 文件写入多条文献信息。在实际使用时，我们就可以根据 <code>bib</code> 文件中定义的文献标记（label），从数据库中调取文献信息，继而排版成参考文献列表。</p>
@@ -446,18 +447,23 @@
 <h3 id="知道需要哪些参考文献信息"><a href="#知道需要哪些参考文献信息" class="headerlink" title="知道需要哪些参考文献信息"></a>知道需要哪些参考文献信息</h3><p>既然 BibTeX 会<em>根据需要</em> 格式化数据，那么首先要解决的问题就是：BibTeX 如何了解此处的「需求」。</p>
 <p>对 BibTeX 稍有了解的读者可能知道，运行 BibTeX 的命令行命令是：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bibtex foo.aux <span class="comment"># 其中后缀名 .aux 可以省略</span></span><br></pre></td></tr></table></figure>
+
 <p>实际上，BibTeX 正是通过读取 <code>aux</code> 文件中的 <code>\citation{}</code> 标记，来确定用户需要哪些参考文献的。</p>
 <p>举个例子，假设用户用 LaTeX 编译了以下代码：</p>
 <figure class="highlight tex"><figcaption><span>foo.tex</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;article&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line">bar<span class="tag">\<span class="name">cite</span><span class="string">&#123;baz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>如果该文件名为 <code>foo.tex</code>，那么就会生成 <code>foo.aux</code>。其内容大约是：</p>
 <figure class="highlight tex"><figcaption><span>foo.aux</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">relax</span></span></span><br><span class="line"><span class="tag">\<span class="name">citation</span><span class="string">&#123;baz&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>在这里，<code>\relax</code> 表示休息一会儿，什么也不做；<code>\citation</code> 则是由 <code>tex</code> 文件中的 <code>\cite</code> 命令写入 <code>aux</code> 文件的标记。它说明了：用户需要标记为 <code>baz</code> 的参考文献信息。</p>
 <p>当 BibTeX 读入 <code>aux</code> 文件的时候，它就会记录下所有 <code>\citation</code> 命令中的内容（即文献标记——label），这样就知道了用户需要哪些参考文献信息。</p>
 <h3 id="了解文献列表格式以及读取文献数据库"><a href="#了解文献列表格式以及读取文献数据库" class="headerlink" title="了解文献列表格式以及读取文献数据库"></a>了解文献列表格式以及读取文献数据库</h3><p>当 BibTeX 清楚了用户需要哪些文献信息，接下来自然应该搞清楚用户想要什么样的格式。而知道了格式之后，就可以从数据库中抽取所需的文献信息，按照格式准备数据。</p>
 <p>为了讲清楚这个步骤，我们对上述 LaTeX 代码做些许的修改。</p>
 <figure class="highlight tex"><figcaption><span>foo.tex</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;article&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibliographystyle</span><span class="string">&#123;unsrt&#125;</span></span></span><br><span class="line">bar<span class="tag">\<span class="name">cite</span><span class="string">&#123;baz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibliography</span><span class="string">&#123;foobar&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>同样，我们将它保存为 <code>foo.tex</code>，经由 LaTeX 编译之后得到一个 <code>foo.aux</code> 文件，其内容如下：</p>
 <figure class="highlight tex"><figcaption><span>foo.aux</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">relax</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibstyle</span><span class="string">&#123;unsrt&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">citation</span><span class="string">&#123;baz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibdata</span><span class="string">&#123;foobar&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>简单的对比，不难发现：</p>
 <ol>
 <li><code>foo.tex</code> 中新增的 <code>\bibliographystyle{unsrt}</code> 与 <code>aux</code> 文件中的 <code>\bibstyle{unsrt}</code> 相对应。</li>
@@ -467,18 +473,25 @@
 <p>在这里，<code>unsrt</code> 是 unsort 的缩写，它对应着 <code>unsrt.bst</code> 文件，是大多数 TeX 发行版自带的标准格式文件之一；<code>foobar</code> 则对应着 <code>foobar.bib</code> 文件，该文件是用户自己编写或生成的参考文献数据库。</p>
 <h3 id="实际操作看看"><a href="#实际操作看看" class="headerlink" title="实际操作看看"></a>实际操作看看</h3><p>我们假设上述 <code>foobar.bib</code> 文件有如下内容：</p>
 <figure class="highlight xquery"><figcaption><span>foobar.bib</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">@BOOK&#123;</span><br><span class="line">    baz,</span><br><span class="line">    title = &#123;Dummy Book&#125;,</span><br><span class="line">    publisher = &#123;Egypt&#125;,</span><br><span class="line">    year = &#123;<span class="number">321</span>&#125;,</span><br><span class="line">    author = &#123;The King&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>我们在命令行执行以下操作：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">latex foo.tex   <span class="comment"># .tex 可以省略</span></span><br><span class="line">bibtex foo.aux  <span class="comment"># .aux 可以省略</span></span><br></pre></td></tr></table></figure>
+
 <p>我们会发现，BibTeX 生成了两个文件：<code>foo.bbl</code> 和 <code>foo.blg</code>。其中 <code>foo.bbl</code> 的内容如下：</p>
 <figure class="highlight tex"><figcaption><span>foo.bbl</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;thebibliography&#125;</span><span class="string">&#123;1&#125;</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">bibitem</span><span class="string">&#123;baz&#125;</span></span></span><br><span class="line">The King.</span><br><span class="line"><span class="tag">\<span class="name">newblock</span></span> &#123;<span class="tag">\<span class="name">em</span></span> Dummy Book&#125;.</span><br><span class="line"><span class="tag">\<span class="name">newblock</span></span> Egypt, 321.</span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;thebibliography&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>显然，这就是一个标准的 LaTeX 环境。对 LaTeX 参考文献排版稍有了解的读者可能知道 <code>thebibliography</code> 环境正是 LaTeX 中手工编排参考文献时使用的环境。因此，<strong><code>foo.bbl</code> 就是 BibTeX 格式化输出的结果</strong>，LaTeX 只需要将该文件的内容读入，就能在相应的位置输出格式化之后的参考文献列表了。</p>
 <p>接下来，我们看看 <code>foo.blg</code> 的内容。<code>blg</code> 实际是 BibTeX Log 的缩写，亦即这是一个日志文件。</p>
 <figure class="highlight applescript"><figcaption><span>foo.blg</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">This <span class="keyword">is</span> BibTeX, Version <span class="number">0.99</span>d (TeX Live <span class="number">2015</span>)</span><br><span class="line">Capacity: max_strings=<span class="number">35307</span>, hash_size=<span class="number">35307</span>, hash_prime=<span class="number">30011</span></span><br><span class="line">The top-level auxiliary <span class="built_in">file</span>: foo.aux</span><br><span class="line">The style <span class="built_in">file</span>: unsrt.bst</span><br><span class="line">Database <span class="built_in">file</span> <span class="comment">#1: foobar.bib</span></span><br><span class="line">You've used <span class="number">1</span> entry,</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
 <p>我们看到，BibTeX 打出的日志文件中，记录了读入 <code>aux</code>/<code>bst</code>/<code>bib</code> 文件的情况。特别地，记录了所需的参考文献条目（entry）的数量（此处为 1）。</p>
 <p>日志中值得注意的地方是在提到 <code>bib</code> 文件时，使用了 <code>#1</code> 的标记。既然存在 <code>#1</code>，那么合理推测也可以存在 <code>#2</code>。也就是说，BibTeX 可能支持两个或更多的 <code>bib</code> 数据库共同工作。具体如何实现，请读者自己阅读相关资料（手册或 Google 检索）后实验。</p>
 <p>紧接着，我们再执行一次 LaTeX：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">latex foo.tex</span><br></pre></td></tr></table></figure>
-<p>首先，来看看 <code>aux</code> 文件会发生什么变化：<br><figure class="highlight tex"><figcaption><span>foo.aux</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">relax</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibstyle</span><span class="string">&#123;unsrt&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">citation</span><span class="string">&#123;baz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibdata</span><span class="string">&#123;foobar&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibcite</span><span class="string">&#123;baz&#125;</span><span class="string">&#123;1&#125;</span></span></span><br></pre></td></tr></table></figure></p>
+
+<p>首先，来看看 <code>aux</code> 文件会发生什么变化：</p>
+<figure class="highlight tex"><figcaption><span>foo.aux</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">relax</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibstyle</span><span class="string">&#123;unsrt&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">citation</span><span class="string">&#123;baz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibdata</span><span class="string">&#123;foobar&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">bibcite</span><span class="string">&#123;baz&#125;</span><span class="string">&#123;1&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>相比上一次的 <code>foo.aux</code>，在读入 BibTeX 之后，LaTeX 向 <code>aux</code> 文件写入了更多的信息。这里 <code>\bibcite{baz}{1}</code> 将 <code>baz</code> 这一参考文献标记（label）与参考文献编号（数字 1）绑定起来了。</p>
 <p>接下来，我们看看 <code>dvi</code> 文件的内容：</p>
 <p><img alt="foo.pdf" data-src="/uploads/images/LaTeX/foo.pdf.png"></p>
@@ -486,6 +499,7 @@
 <p>实际上，LaTeX 需要 <code>aux</code> 文件中的 <code>\bibcite</code> 命令，将参考文献标记与参考文献编号关联起来，从而在 <code>tex</code> 文件中的 <code>\cite</code> 命令位置填上正确的参考文献编号。我们注意到，在我们第二次执行 LaTeX 命令编译之前，<code>foo.aux</code> 文件中是没有这些信息的，直到编译完成，这些信息才被正确写入。因此，第二次执行 LaTeX 命令时，LaTeX 还不能填入正确的文献编号，于是就写入了一个问号作为占位符。</p>
 <p>解决这个问题的办法也很简单——此时 <code>aux</code> 文件中已经有了需要的信息，再编译一遍就好了。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">latex foo.tex</span><br></pre></td></tr></table></figure>
+
 <p>如果没有意外，此时的 <code>foo.dvi</code> 文件应该看起来一切正常了。</p>
 <h3 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h3><ul>
 <li>BibTeX 是一个参考文献格式化工具，它会根据需要，按照（<code>bst</code> 文件规定的）某种格式，将（<code>bib</code> 文件中包含的）参考文献信息，<em>格式化</em> 为 LaTeX 能够使用的列表信息。</li>
@@ -498,6 +512,7 @@
 </ul>
 <p>因此，总的来说，想要正确使用 BibTeX 协同 LaTeX 处理参考文献，需要编译四次：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">(xe/pdf)latex foo.tex   <span class="comment"># 表示使用 latex, pdflatex 或 xelatex 编译，下同</span></span><br><span class="line">bibtex foo.aux</span><br><span class="line">(xe/pdf)latex foo.tex</span><br><span class="line">(xe/pdf)latex foo.tex</span><br></pre></td></tr></table></figure>
+
 <h2 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h2><blockquote>
 <p>我希望将一条文献展示在参考文献列表中，但不想在正文中用 <code>\cite</code> 命令引用，怎么办？</p>
 </blockquote>
@@ -2086,12 +2101,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2272,19 +2287,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2304,6 +2306,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

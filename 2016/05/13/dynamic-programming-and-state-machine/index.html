@@ -436,6 +436,7 @@
       
         <p><a href="/2016/05/12/max-subsequence-sum-in-circular-list/">前作</a>以最大子序列和问题为起点，引出了动态规划思想的核心框架。今日恰逢构建之法群里，讨论起一个股票买卖问题，我用动态规划解决了。和邹欣老师的交流中，我进一步发现，引入状态机后，实际上股票买卖问题是最大子序列和问题的扩展。并且，这样的扩展可以更进一步地接近动态规划的核心，因此续作此篇，讨论一下动态规划与状态机。</p>
 <a id="more"></a>
+
 <h2 id="动态规划与状态机"><a href="#动态规划与状态机" class="headerlink" title="动态规划与状态机"></a>动态规划与状态机</h2><p>状态机是一种抽象的数学模型。它描述的是一些特定的状态，以及在这些状态之间转移的行为。如果状态的数量和转移方式都是有限的，那么这就是一个有限状态机。下图是一个有限状态机的示例：</p>
 <p><img alt data-src="/uploads/images/ACS/state_machine_demo.png"></p>
 <p>图中，每一个圆圈代表一个状态；每一道箭头代表一次转移；箭头上的内容则是转移的条件。</p>
@@ -447,8 +448,7 @@
 <th>动态规划</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>阶段</td>
 <td>状态的集合</td>
 </tr>
@@ -464,8 +464,7 @@
 <td>转移条件</td>
 <td>最优子结构</td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <p>唯一的区别在于，动态规划只关注每个阶段的局部最优解；而状态机理论中，则没有这种倾向。</p>
 <p>可见，动态规划思想，实际上是一种特殊的状态机罢了。</p>
 <h2 id="再探-Kadane-算法"><a href="#再探-Kadane-算法" class="headerlink" title="再探 Kadane 算法"></a>再探 Kadane 算法</h2><p>那么，在最大子序列和的 Kadane 算法中，蕴含了怎样的状态机呢？呃，好吧。这个状态机非常简单，所以可能很多人都意识不到。</p>
@@ -485,6 +484,7 @@
 <p>这个问题是说：<br>给定一个包含若干整数（正负不限）的序列，该序列中的数值对应过去某天的股票价格。假设只有一张股票可以买卖，你可以自由地选择在某天买入或卖出，但必须保证：先买入后卖出、卖出后至少一天不允许交易（cooldown day）、每天最多只能交易一次（要么买入、要么卖出、要么不交易）。现在请问，在买入卖出的过程中，你最多能挣取多大收益？</p>
 <p>假设我们对如下序列做讨论：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">prices = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">5</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">2</span>]</span><br></pre></td></tr></table></figure>
+
 <p>对于这个问题，我们可以定义如图所示的状态机：</p>
 <p><img alt data-src="/uploads/images/ACS/state_machine_stocks.png"></p>
 <p>这个状态机是对问题的忠实还原：</p>
@@ -501,8 +501,10 @@
 <p>对于 $\text{S}_2$ 状态来说，不存在第一天就卖出的现象，因此我们需要一个足够小的值，来表示这种不可能出现的状态，即 <code>s2[0] = -sys.maxint - 1</code>。接下来考虑，如果第 <code>i</code> 天进入了 $\text{S}_2$ 状态，那么第 <code>i - 1</code> 天必然在 $\text{S}_1$ 状态。因此 <code>s2[i] = s1[i - 1] + prices[i]</code>。</p>
 <p>于是，我们很容易能写出代码：</p>
 <figure class="highlight python"><figcaption><span>maxProfit.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> sys</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">maxProfit</span> <span class="params">(prices)</span>:</span></span><br><span class="line">    length = len (prices)</span><br><span class="line">    <span class="keyword">if</span> length &lt; <span class="number">2</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span></span><br><span class="line"></span><br><span class="line">    s0, s1, s2          = [<span class="number">0</span>] * length, [<span class="number">0</span>] * length, [<span class="number">0</span>] * length</span><br><span class="line">    s0[<span class="number">0</span>], s1[<span class="number">0</span>], s2[<span class="number">0</span>] = <span class="number">0</span>, -prices[<span class="number">0</span>], -sys.maxint - <span class="number">1</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> i <span class="keyword">in</span> xrange (<span class="number">1</span>, length):</span><br><span class="line">        s0[i] = max (s0[i - <span class="number">1</span>], s2[i - <span class="number">1</span>])</span><br><span class="line">        s1[i] = max (s0[i - <span class="number">1</span>] - prices[i], s1[i - <span class="number">1</span>])</span><br><span class="line">        s2[i] = s1[i - <span class="number">1</span>] + prices[i]</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> max (s0[<span class="number">-1</span>], s2[<span class="number">-1</span>])</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    test_cases = [[], [<span class="number">1</span>], [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">5</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">2</span>],</span><br><span class="line">                    [<span class="number">6</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>]]</span><br><span class="line">    <span class="keyword">for</span> prices <span class="keyword">in</span> test_cases:</span><br><span class="line">        <span class="keyword">print</span> <span class="string">"The maxProfit of"</span>, prices, <span class="string">"is"</span>, maxProfit (prices)</span><br></pre></td></tr></table></figure>
+
 <p>结果输出：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">The maxProfit of [] <span class="keyword">is</span> <span class="number">0</span></span><br><span class="line">The maxProfit of [<span class="number">1</span>] <span class="keyword">is</span> <span class="number">0</span></span><br><span class="line">The maxProfit of [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">5</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">2</span>] <span class="keyword">is</span> <span class="number">6</span></span><br><span class="line">The maxProfit of [<span class="number">6</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>] <span class="keyword">is</span> <span class="number">0</span></span><br></pre></td></tr></table></figure>
+
 <p>符合预期；并且，由于循环内的操作均可以在常数时间内完成，因此这是一个 <code>O(n)</code> 复杂度的算法。</p>
 
     </div>
@@ -2064,12 +2066,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2321,19 +2323,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2353,6 +2342,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

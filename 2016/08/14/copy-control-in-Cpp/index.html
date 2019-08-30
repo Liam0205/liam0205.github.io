@@ -439,20 +439,25 @@
 </blockquote>
 <p>为了避免「上天」，我们有必要讨论一下 C++ 中类的拷贝控制。</p>
 <a id="more"></a>
+
 <h2 id="问题重现"><a href="#问题重现" class="headerlink" title="问题重现"></a>问题重现</h2><p>为了说明问题的严重性，我们先来重现一下这个问题。</p>
 <figure class="highlight c++"><figcaption><span>double_free.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">int</span>* p = <span class="keyword">new</span> <span class="keyword">int</span>[<span class="number">100</span>];</span><br><span class="line">    <span class="keyword">auto</span> q = p;</span><br><span class="line">    <span class="keyword">delete</span>[] p; p = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">delete</span>[] q; q = <span class="literal">nullptr</span>; <span class="comment">// core dumped!</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>这段代码很简单，展现的问题也很清楚。</p>
 <p>首先，我们在 <code>main</code> 函数里，在栈里动态分配了一个 <code>int</code> 型数组，返回的内存地址保存在 <code>p</code> 中。而后，通过赋值运算符，将 <code>p</code> 的值赋值给 <code>q</code>。这样，我们就有了 <code>p</code> 和 <code>q</code>，两个指针指向栈中同一块内存空间。</p>
 <p>接下来，我们调用 <code>delete[]</code>，将 <code>p</code> 对应的内存空间释放，并将 <code>p</code> 置空。注意，这里是不够的！因为，<code>p</code> 和 <code>q</code> 原本指向同一块内存空间，而我们通过 <code>p</code> 将内存释放了，<code>q</code> 就变成野指针了。于是，在下面的操作中，<code>delete[] q</code> 就变成了对同一内存空间的第二次释放，这是未定义的行为。更有甚者，如果后续程序中，依然使用 <code>q</code> 对相应的内存空间进行存取访问，那么——我就呵呵一笑……</p>
 <h2 id="拷贝与赋值的问题"><a href="#拷贝与赋值的问题" class="headerlink" title="拷贝与赋值的问题"></a>拷贝与赋值的问题</h2><p>上述错误，根本原因是我们通过赋值运算符，将指针 <code>p</code> 的值赋给 <code>q</code> 之后，<code>p</code> 和 <code>q</code> 指向了同一块内存空间。于是，任何对 <code>p</code>/<code>q</code> 其一的操作，都等同于对另一的操作。莫说是多次释放可能造成问题，在正常使用过程中，<code>p</code> 与 <code>q</code> 相互干扰，也可能产生不符合预期的结果——而且很难追查。</p>
 <p>这就是说，对于指针的复制，特别是指向动态内存的指针的复制，我们要特别小心。实际上，我们可能期待的是这样的效果：</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span>* p = <span class="keyword">new</span> <span class="keyword">int</span>[<span class="number">100</span>];</span><br><span class="line"><span class="comment">// set value of elements in p</span></span><br><span class="line"><span class="comment">// do a **deep copy**</span></span><br><span class="line"><span class="keyword">int</span>* q = <span class="keyword">new</span> <span class="keyword">int</span>[<span class="number">100</span>];</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i != <span class="number">100</span>; ++i) &#123;</span><br><span class="line">    q[i] = p[i];</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>也就是说，我们需要一个「深度拷贝」，将 <code>q</code> 与 <code>p</code> 指向不同的内存空间；只不过，它们所包含的元素内容完全相同。如此一来，<code>p</code> 与 <code>q</code> 除了内里一致，其实完全是两块不相干的内存空间。之后，按照既定的规矩来操作，都会是安全可控的。</p>
 <h2 id="拷贝构造函数与赋值运算符重载"><a href="#拷贝构造函数与赋值运算符重载" class="headerlink" title="拷贝构造函数与赋值运算符重载"></a>拷贝构造函数与赋值运算符重载</h2><p>对于 C++ 的内置类型，其拷贝（赋值）过程我们都非常熟悉，也不会出错。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> i_tmp  = <span class="number">100</span>;</span><br><span class="line"><span class="keyword">int</span> i_copy = i_tmp;</span><br></pre></td></tr></table></figure>
+
 <p>涉及到类实例（instance of a Class, aka object of a Class）的拷贝和赋值，看似熟悉的问题，就不那么清晰了。每个类的实例当中，都存在若干成员变量。在我们的直觉中，类实例的拷贝和赋值，无非就是将一个实例中的全部成员变量，挨个拷贝、赋值给新的实例。大体上，也没错。但关键是，这些操作，谁来执行呢？</p>
 <p>我们知道，在 C++ 中，大多数的操作都是通过某个函数实现的。类实例的拷贝和赋值，也不例外。类实例的拷贝，是通过<strong>拷贝构造函数</strong>来实现的；而类实例的赋值，则是通过<strong>重载过的赋值运算符</strong>来实现的——运算符也是一种函数。不熟悉这个话题的读者，可能没有听说过「拷贝构造函数」或者「重载赋值运算符」。这是因为，一般情况下，编译器会为你<strong>合成</strong>这两个函数。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">SalesData &#123;</span><br><span class="line">    <span class="keyword">public</span>:</span><br><span class="line">        SalesData (<span class="keyword">const</span> SalesData&amp;);</span><br><span class="line">        SalesData&amp; <span class="keyword">operator</span>= (<span class="keyword">const</span> SalesData&amp;);</span><br><span class="line">        <span class="comment">// other functions</span></span><br><span class="line">    <span class="keyword">private</span>:</span><br><span class="line">        <span class="built_in">std</span>::<span class="built_in">string</span> ID;</span><br><span class="line">        <span class="keyword">size_t</span> sold_count;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// fake: synthesized copy constructor</span></span><br><span class="line">SalesData::SalesData (<span class="keyword">const</span> SalesData&amp; orig) :</span><br><span class="line">    ID (orig.ID),                <span class="comment">// call the copy constructor of std::string</span></span><br><span class="line">    sold_count (orig.sold_count) <span class="comment">// copy size_t</span></span><br><span class="line">    &#123;&#125;                           <span class="comment">// empty function body</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// fake: synthesized overloaded operator</span></span><br><span class="line">SalesData&amp;</span><br><span class="line">SalesData::<span class="keyword">operator</span>= (<span class="keyword">const</span> SalesData&amp; rhs) &#123;</span><br><span class="line">    <span class="keyword">this</span>-&gt;ID         = rhs.ID;          <span class="comment">// call std::string::operator=</span></span><br><span class="line">    <span class="keyword">this</span>-&gt;sold_count = rhs.sold_count;  <span class="comment">// operator= for size_t</span></span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>这里我们手动实现了 <code>SalesData</code> 类的拷贝构造函数和重载了 <code>SalesData</code> 类的赋值运算符。这两个函数都接收 <code>SalesData</code> 类的常量引用；不同的是，拷贝构造函数没有返回值（因为它是构造函数），而赋值运算符返回了 <code>SalesData</code> 类的左值引用——这与默认的赋值运算符的行为是一致的。</p>
 <p>我们注意到，在编译器合成的拷贝构造函数中，在初始化列表里，我们依次调用数据成员的拷贝构造函数，将成员的值拷贝到新的实例中。如果数据成员本身是类实例（而不是基本类型），那么在这个过程中，又会调用这些类的拷贝构造函数。编译器重载的赋值运算符的行为和编译器合成的拷贝构造函数行为类似。只不过，操作由调用拷贝构造函数，变为了调用相应成员变量的赋值运算符。</p>
 <h2 id="浅拷贝与深拷贝"><a href="#浅拷贝与深拷贝" class="headerlink" title="浅拷贝与深拷贝"></a>浅拷贝与深拷贝</h2><p>至今为止，我们看过的拷贝构造函数（与重载的赋值运算符）都还能如预期一样正常工作。但是，在一些情况下，类似编译器合成的拷贝构造函数和赋值运算符，就没法如预期一样工作了：</p>
@@ -464,6 +469,7 @@
 <p>我们将简单地对数据成员按位赋值的拷贝方式称为<strong>浅拷贝</strong>。毫无疑问，编译器自动合成的拷贝构造函数和赋值运算符，都属于浅拷贝。根据上述分析，我们知道，浅拷贝在某些情况下是不合适的。于是，在这些情况下，我们需要<strong>深拷贝</strong>。</p>
 <p>所谓深拷贝，就是在拷贝的过程中，我们需要小心地处理类的静态变量或者动态内存空间。在第一节中，解决复制指针导致两次释放同一块内存空间的实践中，我们就用到了深拷贝。以下是一个深拷贝的例子：</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MAX_BUFFER 10240</span></span><br><span class="line">SalesData &#123;</span><br><span class="line">    <span class="keyword">public</span>:</span><br><span class="line">        SalesData () = <span class="keyword">default</span>;</span><br><span class="line">        SalesData (<span class="keyword">const</span> SalesData&amp;);</span><br><span class="line">        SalesData&amp; <span class="keyword">operator</span>= (<span class="keyword">const</span> SalesData&amp;);</span><br><span class="line">        ~SalesData ();</span><br><span class="line">        <span class="comment">// other functions</span></span><br><span class="line">    <span class="keyword">private</span>:</span><br><span class="line">        <span class="built_in">std</span>::<span class="built_in">string</span> ID;</span><br><span class="line">        <span class="keyword">size_t</span> sold_count;</span><br><span class="line">        <span class="keyword">size_t</span>* p_buffer;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">SalesData::SalesData () :</span><br><span class="line">    ID (<span class="string">""</span>), sold_count (<span class="number">0</span>) &#123;</span><br><span class="line">    p_buffer = <span class="keyword">new</span> <span class="keyword">size_t</span> [MAX_BUFFER];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">SalesData::SalesData (<span class="keyword">const</span> SalesData&amp; orig) :</span><br><span class="line">    ID (orig.ID),                <span class="comment">// call the copy constructor of std::string</span></span><br><span class="line">    sold_count (orig.sold_count) <span class="comment">// copy size_t</span></span><br><span class="line">    &#123;</span><br><span class="line">    <span class="keyword">this</span>-&gt;p_buffer = <span class="keyword">new</span> <span class="keyword">size_t</span> [MAX_BUFFER];</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i != MAX_BUFFER; ++i) &#123;</span><br><span class="line">        <span class="keyword">this</span>-&gt;p_buffer[i] = orig.p_buffer[i];</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">SalesData&amp;</span><br><span class="line">SalesData::<span class="keyword">operator</span>= (<span class="keyword">const</span> SalesData&amp; rhs) &#123;</span><br><span class="line">    <span class="keyword">this</span>-&gt;ID         = rhs.ID;          <span class="comment">// call std::string::operator=</span></span><br><span class="line">    <span class="keyword">this</span>-&gt;sold_count = rhs.sold_count;  <span class="comment">// operator= for size_t</span></span><br><span class="line">    <span class="keyword">this</span>-&gt;p_buffer   = <span class="keyword">new</span> <span class="keyword">size_t</span> [MAX_BUFFER];</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">size_t</span> i = <span class="number">0</span>; i != MAX_BUFFER; ++i) &#123;</span><br><span class="line">        <span class="keyword">this</span>-&gt;p_buffer[i] = rhs.p_buffer[i];</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">SalesData::~SalesData () &#123;</span><br><span class="line">    <span class="keyword">delete</span>[] p_buffer;</span><br><span class="line">    p_buffer = <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <h2 id="什么时候需要手工实现深拷贝"><a href="#什么时候需要手工实现深拷贝" class="headerlink" title="什么时候需要手工实现深拷贝"></a>什么时候需要手工实现深拷贝</h2><p>在 C++ 中，如果需要你手工实现一个析构函数，通常意味着你的类实例中有动态开辟的内存空间——因为只有这种情况，需要程序员手工在析构实例的时候释分配的内存空间。而我们注意到，一旦类实例中涉及到动态内存空间，在拷贝实例的时候，就需要用深拷贝小心地处理这些内存空间。于是，我们得到了第一条结论<strong>如果需要实现手工的析构函数，那么就需要实现手工的拷贝构造函数和重载赋值运算符</strong>。</p>
 <p>此外，<strong>如果类定义中包含静态成员变量，并且这些成员变量在构建、析构实例的时候需要修改，那么通常我们也需要手工实现拷贝构造函数和重载复制运算符</strong>。</p>
 
@@ -2024,12 +2030,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2210,19 +2216,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2242,6 +2235,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

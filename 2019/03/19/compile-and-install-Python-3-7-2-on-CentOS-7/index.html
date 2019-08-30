@@ -437,18 +437,22 @@
         <p>又到了愉悦地配置系统的时间……今日的任务是在 CentOS 7 上安装最新版本的 Python 3.7.2。</p>
 <p>由于前些日子，蛤力橙表示 Anaconda 是 some what 邪恶的，所以这次不打算偷懒用 Anaconda 了，而是选择从源码编译安装。这里记录一些踩过的坑。</p>
 <a id="more"></a>
+
 <h2 id="安装完成后-yum-等脚本挂掉"><a href="#安装完成后-yum-等脚本挂掉" class="headerlink" title="安装完成后 yum 等脚本挂掉"></a>安装完成后 <code>yum</code> 等脚本挂掉</h2><p>原因：<code>yum</code> 等脚本依赖 Python2 而非 Python3。这次跨大版本升级，会破坏 <code>yum</code> 等脚本 shebang 头部的指令。</p>
 <p>解决办法：使 <code>yum</code> 等脚本显式依赖 Python2。</p>
 <p>具体：修改 <code>/usr/bin</code> 下 <code>yum</code> 相关脚本的 shebang 头，将 <code>python</code> 修改为 <code>python2</code>。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> /usr/bin</span><br><span class="line">$ ls -al yum*</span><br><span class="line">-rwxr-xr-x. 1 root root   801 11月 15 2016 yum</span><br><span class="line">-rwxr-xr-x. 1 root root  9429 11月  6 2016 yum-builddep</span><br><span class="line">-rwxr-xr-x. 1 root root  8582 11月  6 2016 yum-config-manager</span><br><span class="line">-rwxr-xr-x. 1 root root  7609 11月  6 2016 yum-debug-dump</span><br><span class="line">-rwxr-xr-x. 1 root root  7903 11月  6 2016 yum-debug-restore</span><br><span class="line">-rwxr-xr-x. 1 root root 10999 11月  6 2016 yumdownloader</span><br><span class="line">-rwxr-xr-x. 1 root root 11031 11月  6 2016 yum-groups-manager</span><br></pre></td></tr></table></figure>
+
 <h2 id="安装过程中缺胳膊少腿"><a href="#安装过程中缺胳膊少腿" class="headerlink" title="安装过程中缺胳膊少腿"></a>安装过程中缺胳膊少腿</h2><p>原因：Python 依赖其他第三方库，而这些库在系统内没有安装，或者安装的位置不在 Python 安装脚本默认搜索的范围内。</p>
 <p>解决办法：使用 <code>yum</code> 一口气安装就好了。</p>
 <p>具体：执行下列 <code>yum</code> 命令。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ yum install -y ncurses-libs zlib-devel mysql-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel libffi-devel</span><br></pre></td></tr></table></figure>
+
 <h2 id="安装完成后-pip-提示没有可用的-SSL，以至于无法访问-https-协议的源"><a href="#安装完成后-pip-提示没有可用的-SSL，以至于无法访问-https-协议的源" class="headerlink" title="安装完成后 pip 提示没有可用的 SSL，以至于无法访问 https 协议的源"></a>安装完成后 <code>pip</code> 提示没有可用的 SSL，以至于无法访问 <code>https</code> 协议的源</h2><p>原因：Python 编译时没有将 SSL 编译进去。</p>
 <p>解决办法：安装符合要求的 OpenSSL 版本，并在 <code>./configure</code> 时添加 <code>--with-ssl</code> 参数。</p>
 <p>具体：执行下列命令。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cd</span> /path/to/downloads</span><br><span class="line">$ wget https://www.openssl.org/<span class="built_in">source</span>/openssl-1.1.1b.tar.gz</span><br><span class="line">$ tar zvxf openssl-1.1.1b.tar.gz</span><br><span class="line">$ <span class="built_in">cd</span> openssl-1.1.1b</span><br><span class="line">$ ./config -fPIC --prefix=/usr/ --openssldir=/usr/openssl <span class="built_in">enable</span>-shared shared zlib</span><br><span class="line">$ make -j24</span><br><span class="line">$ make install</span><br></pre></td></tr></table></figure>
+
 <blockquote>
 <p>注意：必须安装 1.0.2 以上版本的 OpenSSL，故而 <code>yum</code> 源当中的 1.0.1 版本不可用。</p>
 </blockquote>
@@ -456,8 +460,10 @@
 <p>解决办法：修改相应头文件。</p>
 <p>具体：在 Python 源码根目录，编辑 <code>./Modules/_uuidmodule.c</code> 文件，修改头部 <code>#include</code> 部分的代码如下：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> PY_SSIZE_T_CLEAN</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"Python.h"</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> HAVE_UUID_UUID_H</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;uuid/uuid.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">else</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;uuid.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>总结一下编译安装 Python 3.7.2 时用到的命令。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">yum install -y ncurses-libs zlib-devel mysql-devel bzip2-devel openssl-devel ncurses-devel sqlite-devel readline-devel tk-devel gdbm-devel db4-devel libpcap-devel xz-devel uuid-devel libuuid-devel libffi-devel</span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> /path/to/downloads</span><br><span class="line">wget https://www.openssl.org/<span class="built_in">source</span>/openssl-1.1.1b.tar.gz</span><br><span class="line">tar zvxf openssl-1.1.1b.tar.gz</span><br><span class="line"><span class="built_in">cd</span> openssl-1.1.1b</span><br><span class="line">./config -fPIC --prefix=/usr/ --openssldir=/usr/openssl <span class="built_in">enable</span>-shared shared zlib</span><br><span class="line">make -j24</span><br><span class="line">make install</span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> /path/to/downloads</span><br><span class="line">wget https://www.python.org/ftp/python/3.7.2/Python-3.7.2.tgz</span><br><span class="line">tar zvxf Python-3.7.2.tgz</span><br><span class="line"><span class="built_in">cd</span> Python-3.7.2</span><br><span class="line">sed -i <span class="string">"6s/endif/else/"</span> ./Modules/_uuidmodule.c</span><br><span class="line">sed -i <span class="string">"7d"</span> ./Modules/_uuidmodule.c</span><br><span class="line"></span><br><span class="line">./configure --prefix=/usr/<span class="built_in">local</span>/python3.7.2 --<span class="built_in">enable</span>-optimizations --<span class="built_in">enable</span>-shared --<span class="built_in">enable</span>-profiling --with-ssl</span><br><span class="line">make -j24</span><br><span class="line">make install</span><br><span class="line"></span><br><span class="line"><span class="built_in">cd</span> /usr/bin</span><br><span class="line"><span class="keyword">for</span> fname <span class="keyword">in</span> $(ls /usr/<span class="built_in">local</span>/python3.7.2/bin/); <span class="keyword">do</span> ln -sf /usr/<span class="built_in">local</span>/python3.7.2/bin/<span class="variable">$&#123;fname&#125;</span> ./<span class="variable">$&#123;fname&#125;</span>; <span class="keyword">done</span></span><br><span class="line">ln -sf pydoc3 pydoc</span><br><span class="line">ln -sf python3 python</span><br><span class="line">ln -sf python3-config python-config</span><br><span class="line">ln -sf pip3 pip</span><br></pre></td></tr></table></figure>
+
 
     </div>
 
@@ -2018,12 +2024,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2204,19 +2210,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2236,6 +2229,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

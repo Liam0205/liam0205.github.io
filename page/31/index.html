@@ -427,7 +427,9 @@
       
           <p>最近在改 XGBoost 的代码。XGBoost 在代码中使用了很多来自 C++11 标准中的特性，让我比较好奇和困惑的，就有其中关于右值引用的部分。涉及到代码里，有比较明显的两类用法：</p>
 <figure class="highlight cpp"><figcaption><span>std::move</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::move(foo)</span><br></pre></td></tr></table></figure>
+
 <figure class="highlight cpp"><figcaption><span>std::unique_ptr</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">std</span>::<span class="built_in">unique_ptr</span>&lt;T&gt;&gt;</span><br></pre></td></tr></table></figure>
+
 <p>前者是使用 <code>std::move</code> 返回 <code>foo</code> 的右值引用；后者则在容器 <code>std::vector</code> 中放入了不可复制只能移动的类的对象（智能指针 <code>std::unique_ptr</code>），当你尝试用常规方法将整个 <code>std::vector</code> 中的元素依次加入另一个 <code>std::vector</code> 的时候，编译器就会报错，提示 <code>std::unique_ptr</code> 的拷贝构造函数是被删除的。</p>
 <p>因为好奇和困惑，所以想要把它们搞清楚，于是有了这篇文章。</p>
           <!--noindex-->
@@ -529,7 +531,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>785</span>
+              <span>790</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -655,7 +657,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>707</span>
+              <span>708</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -803,6 +805,7 @@
       
           <h2 id="虚函数与动态绑定"><a href="#虚函数与动态绑定" class="headerlink" title="虚函数与动态绑定"></a>虚函数与动态绑定</h2><p>C++ 通过类的继承与虚函数的动态绑定，实现了多态。这种特性，使得我们能够用基类的指针，访问子类的实例。例如我们可以实现一个名为 <code>Animal</code> 的基类，以及 <code>Cat</code>, <code>Dog</code> 等子类，并通过在子类中重载虚函数 <code>jump</code>，实现不同动物的跳跃动作。而后我们可以通过访问 <code>Zoo</code> 类的实例中存有 <code>Animal</code> 指针的数组，让动物园中所有的动物都跳一遍。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Zoo</span> &#123;</span></span><br><span class="line"> ...</span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">shared_ptr</span>&lt;Animal&gt;&gt; animals;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="keyword">void</span> () &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="keyword">auto</span> animal : animals) &#123;</span><br><span class="line">            animal-&gt;jump();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"> ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>在每次执行 <code>animal-&gt;jump()</code> 的时候，系统会检查 <code>animal</code> 指向的实例实际的类型，然后调用对应类型的 <code>jump</code> 函数。这一步骤需要通过查询虚函数表（<code>vtable</code>）来实现；由于实际 <code>animal</code> 指向对象的类型在运行时才确定（而不是在编译时就确定），所以这种方式称为动态绑定（或者运行时绑定）。</p>
 <p>因为每次都需要查询虚函数表，所以动态绑定会降低程序的执行效率。为了兼顾多态与效率，有人提出了 Curiously Recurring Template Pattern 的概念。</p>
           <!--noindex-->
@@ -904,7 +907,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>240</span>
+              <span>241</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -929,6 +932,7 @@
       
           <p>这是一篇简单的记录，因为我总是忘记如何从硬编码的 Array 中初始化得到一个 Vector。</p>
 <figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;vector&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="built_in">std</span>::<span class="built_in">vector</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">int</span> arr[] = &#123;<span class="number">16</span>,<span class="number">2</span>,<span class="number">77</span>,<span class="number">29</span>&#125;;</span><br><span class="line">    <span class="built_in">vector</span>&lt;<span class="keyword">int</span>&gt; vec (arr, arr + <span class="keyword">sizeof</span>(arr) / <span class="keyword">sizeof</span>(arr[<span class="number">0</span>]));</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 
         
       
@@ -2366,12 +2370,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2583,6 +2587,7 @@ document.addEventListener('visibilitychange', function () {
 
   
 
+
   <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
   <script>
       pbOptions = {};
@@ -2596,7 +2601,6 @@ document.addEventListener('visibilitychange', function () {
       
       new needShareButton('#needsharebutton-postbottom', pbOptions);
   </script>
-
     </div>
 </body>
 </html>

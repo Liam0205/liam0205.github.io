@@ -436,9 +436,11 @@
       
         <p>在软件工程课中，有一个经典的作业题：实现一个小学四则运算器。当然，它有不少变种，比如要求学生预先生成合规的四则运算题目。但不论如何变形，此类问题都绕不开 <a href="https://en.wikipedia.org/wiki/Edsger_Dijkstra" target="_blank" rel="noopener">Dijkstra</a> 提出的调度场算法。</p>
 <a id="more"></a>
+
 <h2 id="回顾问题"><a href="#回顾问题" class="headerlink" title="回顾问题"></a>回顾问题</h2><p>对于中国人来说，可能从小学学会四则运算开始，这件事情就变成了深入骨髓的本能。类似的问题，可能还有：人脸识别、性别判断等等。对于计算机而言，似乎有这样一个悖论：有一些对人而言非常自然和简单的事情，想要用有效的算法表示出来，就不那么容易。</p>
 <p>比如，对于一个四则运算式子</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1 + 2 * (3 + (4 + 5 - 6) * 2)</span><br></pre></td></tr></table></figure>
+
 <p>对于人来说，可能一眼扫过去，就知道应该怎样运算。可是，当被问及下面这个问题的时候，人们就很难回答了：怎样让计算机理解你使用的算法，并有足够的通用性去解决普遍的四则运算问题（带括号）。但不论如何，我们还是要回到这个问题本身，尝试理清一下，我们究竟是怎样在大脑里处理四则运算的。</p>
 <ul>
 <li>首先，我们定义了「先乘除、后加减」的优先级规则，所有的运算都应该遵循这个规则。</li>
@@ -460,10 +462,12 @@
 </ul>
 <p>显而易见，操作符置于什么地方本身并不能解决痛点，但是省略了括号和优先级，就能正确计算结果，才是对计算机来说最重要的特性。就刚才的式子来说，转换成后缀表达式应该是：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1 2 3 4 5 + 6 - 2 * + * +</span><br></pre></td></tr></table></figure>
+
 <p>对计算机来说，它只需要从左向右扫描后缀表达式，每当遇到操作符的时候，就停下来，取出刚才读入的合适数量的操作数进行计算。而后它需要将计算结果放回序列，再重复整个步骤，直到完成计算就可以了。</p>
 <p>现在的问题是，我们要如何快速有效地将中缀表达式转换成后缀表达式，以便计算机能够顺利处理。</p>
 <h2 id="调度场算法"><a href="#调度场算法" class="headerlink" title="调度场算法"></a>调度场算法</h2><h3 id="理想的算法是怎样的？"><a href="#理想的算法是怎样的？" class="headerlink" title="理想的算法是怎样的？"></a>理想的算法是怎样的？</h3><p>事情总是从易到难，慢慢解决的。我们先看一个简单的例子，它不包含括号这种恼人的东西。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1 + 2 * 3 / 4 - 5</span><br></pre></td></tr></table></figure>
+
 <p>我们希望，一个完美的算法，能够从左往右扫描中缀表达式，然后就能得到等价的后缀表达式。虽然我们暂时不知道这个算法长什么样，不过我们可以先扫描试试看。</p>
 <ul>
 <li>读入操作数 <code>1</code>，将它放在结果序列中</li>
@@ -496,6 +500,7 @@
 <li>读入完毕，将那个地方剩余的操作符 <code>-</code> 取出，于是得到</li>
 </ul>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1 2 3 * 4 / + 5 -</span><br></pre></td></tr></table></figure>
+
 <p>完美！总结一下，我们不难发现整个流程有以下一些特点：</p>
 <ol>
 <li>每次遇到操作数，都直接放入结果序列；</li>
@@ -504,7 +509,7 @@
 <li>那个地方挺神秘的，不过<br> a. 任意时刻，那个地方先进去的操作符总是在优先级上低于后进去的操作符；因此<br> b. 在从那个地方取出操作符的时候，总是先取出后进去的操作符</li>
 </ol>
 <p>不难发现，「那个地方」所具有的性质，就是一个<a href="https://en.wikipedia.org/wiki/Stack_(abstract_data_type" target="_blank" rel="noopener">栈</a>所具有的性质。因此，我们说，在这套流程里，我们需要一个栈作为辅助的数据结构，而作为结果序列，则只需要一个顺序表即可。我们将整个过程整理如下。</p>
-<table><tbody><tr><th>输入</th><th>动作</th><th>输出</th><th>操作符栈</th><th>说明</th></tr><tr><td>1</td><td>将操作数加入输出队列</td><td>1</td><td></td><td></td></tr><tr><td>+</td><td>操作符压栈</td><td>1</td><td>+</td><td></td></tr><tr><td>2</td><td>将操作数加入输出队列</td><td>1 2</td><td>+</td><td></td></tr><tr><td>*</td><td>操作符压栈</td><td>1 2</td><td>+ *</td><td>当前操作符优先级高于栈顶</td></tr><tr><td>3</td><td>将操作数加入输出队列</td><td>1 2 3</td><td>+ *</td><td></td></tr><tr><td rowspan="2">/</td><td>操作符弹栈入列</td><td>1 2 3 *</td><td>+</td><td>当前操作符优先级与栈顶相等</td></tr><tr><td>操作符压栈</td><td>1 2 3 *</td><td>+ /</td><td>当前操作符优先级高</td></tr><tr><td>4</td><td>将操作数加入输出队列</td><td>1 2 3 * 4</td><td>+ /</td><td></td></tr><tr><td rowspan="3">-</td><td>操作符弹栈入列</td><td>1 2 3 * 4 /</td><td>+</td><td>当前操作符优先级低于栈顶</td></tr><tr><td>操作符弹栈入列</td><td>1 2 3 * 4 / +</td><td></td><td>当前操作符优先级与栈顶相等</td></tr><tr><td>操作符压栈</td><td>1 2 3 * 4 / +</td><td>-</td><td></td></tr><tr><td>5</td><td>将操作数加入输出队列</td><td>1 2 3 * 4 / + 5</td><td>-</td><td></td></tr><tr><td>EOL</td><td>弹栈入列至空</td><td>1 2 3 * 4 / + 5 -</td><td></td><td></td></tr></tbody></table>
+<table><tbody><tr><th>输入</th><th>动作</th><th>输出</th><th>操作符栈</th><th>说明</th></tr><tr><td>1</td><td>将操作数加入输出队列</td><td>1</td><td></td><td></td></tr><tr><td>+</td><td>操作符压栈</td><td>1</td><td>+</td><td></td></tr><tr><td>2</td><td>将操作数加入输出队列</td><td>1 2</td><td>+</td><td></td></tr><tr><td>\*</td><td>操作符压栈</td><td>1 2</td><td>+ \*</td><td>当前操作符优先级高于栈顶</td></tr><tr><td>3</td><td>将操作数加入输出队列</td><td>1 2 3</td><td>+ \*</td><td></td></tr><tr><td rowspan="2">/</td><td>操作符弹栈入列</td><td>1 2 3 \*</td><td>+</td><td>当前操作符优先级与栈顶相等</td></tr><tr><td>操作符压栈</td><td>1 2 3 \*</td><td>+ /</td><td>当前操作符优先级高</td></tr><tr><td>4</td><td>将操作数加入输出队列</td><td>1 2 3 \* 4</td><td>+ /</td><td></td></tr><tr><td rowspan="3">-</td><td>操作符弹栈入列</td><td>1 2 3 \* 4 /</td><td>+</td><td>当前操作符优先级低于栈顶</td></tr><tr><td>操作符弹栈入列</td><td>1 2 3 \* 4 / +</td><td></td><td>当前操作符优先级与栈顶相等</td></tr><tr><td>操作符压栈</td><td>1 2 3 \* 4 / +</td><td>-</td><td></td></tr><tr><td>5</td><td>将操作数加入输出队列</td><td>1 2 3 \* 4 / + 5</td><td>-</td><td></td></tr><tr><td>EOL</td><td>弹栈入列至空</td><td>1 2 3 \* 4 / + 5 -</td><td></td><td></td></tr></tbody></table>
 
 <blockquote>
 <p>又有来自 Wikipedia 的图解（类似但不完全相同的问题）<br><img alt data-src="/uploads/images/ACS/Shunting_yard.png"><br>由 <a href="//commons.wikimedia.org/wiki/User:Salix_alba" title="User:Salix alba">Salix alba</a> - <span class="int-own-work" lang="zh-cn"> 自己的作品</span>，<a href="http://creativecommons.org/licenses/by-sa/3.0" title="Creative Commons Attribution-Share Alike 3.0" target="_blank" rel="noopener">CC BY-SA 3.0</a>，<a href="https://commons.wikimedia.org/w/index.php?curid=10960619" target="_blank" rel="noopener">链接</a></p>
@@ -2088,12 +2093,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2345,19 +2350,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2377,6 +2369,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

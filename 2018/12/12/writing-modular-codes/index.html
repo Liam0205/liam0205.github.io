@@ -437,6 +437,7 @@
         <p>我们总是说要写模块化的代码。但是到底什么是模块化的代码？怎样写模块化的代码？这两个问题不解决，模块化就不接地气、无法落地。</p>
 <p>这篇谈谈我对代码模块化的一些思考。</p>
 <a id="more"></a>
+
 <h2 id="模块化是什么"><a href="#模块化是什么" class="headerlink" title="模块化是什么?"></a>模块化是什么?</h2><h3 id="代码分割"><a href="#代码分割" class="headerlink" title="代码分割"></a>代码分割</h3><p>可能在很多人的理解中，要「模块化」就要分割代码。于是他们会把项目分成很多个文件，甚至分割成很多个版本仓库（repository）。但实际上，这种分割只是手段，而不是目的。如果把这种手段错误地当做是目的，那可能不会带来什么好处，反而会带来很多麻烦。</p>
 <p>例如说，我曾经参与过一个项目的开发。对于运行在网络通信框架上的业务逻辑插件，人们为之写了一个基类，命名为 <code>PluginBase</code>。而后，人们把它单独拉出去，作为一个单独的版本仓库。在实际编写插件时，再通过二进制依赖的方式，将 <code>PluginBase</code> 的共享对象（<code>.so</code>）动态链接到进程中去。这种做法其实完全没必要，就属于典型的错把手段当目的。<code>PluginBase</code> 与 <code>PluginFooBar</code> 在逻辑上的结合是很紧密的——基类和派生类，因此将它们分开不合适。打个比方，在开发 <code>PluginFooBar</code> 时，我们可能发现之前在设计 <code>PluginBase</code> 时不够完善，需要再添加一个接口。此时，我们就需要：</p>
 <ul>
@@ -460,9 +461,11 @@
 <h3 id="单一职责"><a href="#单一职责" class="headerlink" title="单一职责"></a>单一职责</h3><p>设计函数时，最好让函数的职责足够简单，只有一个。</p>
 <p>为什么这么说呢？我们可以考虑一下，如果一个函数既可以做这个，又可以做那个，这种函数需要怎样设计？显然，函数需要根据某些变量的值，或者某种条件，来选择走哪个逻辑分支。比如可能有如下代码：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// bool flag;</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">foo</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (flag == <span class="literal">true</span>) &#123;</span><br><span class="line">    bar_a();</span><br><span class="line">    baz_a();</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    bar_b();</span><br><span class="line">    baz_b();</span><br><span class="line">  &#125;</span><br><span class="line">  qux();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>变量 <code>flag</code> 用来表示影响函数行为的外部因素。函数 <code>foo</code> 内，根据 <code>flag</code> 取值的不同，会走不同的分支。这种设计看起来不错。比如，有人可能会认为它节省了代码行数，写起来爽快。但是实际上这个函数的行为某种程度上就不是良定义的了——它取决于一个外部变量。试想，一个刚接手这段代码的人，调用 <code>foo</code> 函数，TA 就必须不断去追踪 <code>flag</code> 变量代表的外部环境。如果你觉得追踪某个变量还算好的话，可以试想一下如果这个变量代表「打印机有没有连上」这种在代码中完全不可控的外部因素会怎样。</p>
 <p>对于这种代码，就不如把两种不同情形分开，写成这样：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// bool flag;</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">foo_a</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  bar_a();</span><br><span class="line">  baz_a();</span><br><span class="line">  quz();</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">foo_b</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  bar_b();</span><br><span class="line">  baz_b();</span><br><span class="line">  quz();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">if (flag == true) &#123;</span></span><br><span class="line"><span class="comment">  foo_a();</span></span><br><span class="line"><span class="comment">&#125; else &#123;</span></span><br><span class="line"><span class="comment">  foo_b();</span></span><br><span class="line"><span class="comment">&#125;</span></span><br><span class="line"><span class="comment">*/</span></span><br></pre></td></tr></table></figure>
+
 <p>如此一来，<code>foo_a</code> 和 <code>foo_b</code> 的职责都很明确，接手维护的人再也不会疑惑函数的行为了。</p>
 <h3 id="输入决定（input-dominated）"><a href="#输入决定（input-dominated）" class="headerlink" title="输入决定（input dominated）"></a>输入决定（input dominated）</h3><p>设计函数时，尽可能使函数的行为完全由其输入参数决定。特别地，尽可能不要让函数的行为受到全局变量、类的成员变量的取值影响。某种意义上，这和「可重入」的概念比较像。</p>
 <p>这一点应该比较好理解。如果一个函数的行为取决于入参之外的因素，那么相当于这个函数在参数之外还有其他输入。显然，这和「输入良定义」是矛盾的。特别地，如果一个类的成员函数的行为依赖类的成员变量的取值，那么使用这个成员函数时，我们就不得不胆战心惊，逐个推演其他的成员函数有可能在某些情况下修改这些成员变量的值。</p>
@@ -2023,12 +2026,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2209,19 +2212,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2241,6 +2231,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

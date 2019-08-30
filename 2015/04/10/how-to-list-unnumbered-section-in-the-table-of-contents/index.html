@@ -437,6 +437,7 @@
         <p>LaTeX 标准文档类提供了 <code>\section</code> 和 <code>\section*</code> 等两组命令，用于排版章节标题。其中不带星号的版本有章节编号，会列入目录，同时修改章节标记。带星号的版本只有章节标题格式而不编号，不列入目录，也不会修改章节标记。</p>
 <p>有时，我们会希望将不编号的章节标题列入目录。这种情况使用 <code>\section</code> 或 <code>\section*</code> 都不大合适。本文将对这些问题做出分析，并给出解决方案。</p>
 <a id="more"></a>
+
 <p>LaTeX 标准文档类的 <code>\section</code> 命令做四件事情：</p>
 <ol>
 <li>编号自增 1</li>
@@ -449,25 +450,32 @@
 <h2 id="思路一"><a href="#思路一" class="headerlink" title="思路一"></a>思路一</h2><p>LaTeX 处理目录需要编译两次。在第一次编译的过程中，<code>\section</code> 命令将目录信息写入 <code>.aux</code> 文件。随后，在第二次编译的过程中，LaTeX 读取 <code>.aux</code> 文件中的相应信息，形成目录。因此，我们只需要模仿 <code>\section</code> 写入 <code>.aux</code> 文件的过程就可以了。</p>
 <p>LaTeX 提供了 <code>\addcontentsline{&lt;辅助文件后缀&gt;}{&lt;章节等级&gt;}{名字}</code> 命令来做这样的工作。我们来看一个例子。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section*</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">addcontentsline</span><span class="string">&#123;toc&#125;</span><span class="string">&#123;section&#125;</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <h2 id="思路二"><a href="#思路二" class="headerlink" title="思路二"></a>思路二</h2><p>LaTeX 标准文档类中的 <code>\appendix</code> 命令，会使得后续的章节标题从 0 开始编号，同时将编号格式从阿拉伯数字修改为大写英文字母。<code>\appendix</code> 命令虽然不符合我们的需求，但是产生的效果却和我们需要的效果类似：修改了章节标题编号。我们可以对这个命令做适当的修改，达成我们的目的。</p>
 <p>我们来看一下 <code>article.cls</code> 里的 <code>\appendix</code> 是如何定义的。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">appendix</span><span class="string">&#123;\par</span></span></span><br><span class="line"><span class="tag"><span class="string">  \setcounter&#123;section&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">setcounter</span><span class="string">&#123;subsection&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">gdef</span></span><span class="tag">\<span class="name">thesection</span><span class="string">&#123;\@Alph\c@section&#125;</span></span>&#125;</span><br></pre></td></tr></table></figure>
+
 <p>接下来，我们仿造它，定义一个新的命令 <code>\specialsectioning</code>。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">[hyperref]</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">specialsectioning</span><span class="string">&#123;\par</span></span></span><br><span class="line"><span class="tag"><span class="string">  \setcounter&#123;section&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">setcounter</span><span class="string">&#123;subsection&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">renewcommand</span></span><span class="tag">\<span class="name">thesection</span><span class="string">&#123;\relax&#125;</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;正常编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">specialsectioning</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>编译之后我们会发现，在 <code>\specialsectioning</code> 之后的 <code>\section</code> 虽然不带星花，但已然不编号了，并且出现在了目录当中。</p>
 <p>不过，正常标题的编号和标题正文之间是有一定的空距的。我们现在虽然将编号取消了，但是这个空距依然存在。虽然它不明显，但是毕竟是个问题。作为一个精益求精的完美主义者，我们要解决它。</p>
 <p>正文中编号的格式由 LaTeX 内部宏 <code>\@seccntformat</code> 控制，默认是在编号后面加一个 <code>\quad</code>，我们把它去掉。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">@</span></span>seccntformat##1&#123;<span class="tag">\<span class="name">@</span></span>nameuse&#123;the##1&#125;&#125;</span><br></pre></td></tr></table></figure>
+
 <p>此外，目录中的编号和章节标题之间也有距离，我们通过 <code>tocloft</code> 宏包来将这个距离设置为 <code>0pt</code>。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">addtocontents</span><span class="string">&#123;toc&#125;</span><span class="string">&#123;\def\cftsecnumwidth&#123;0pt&#125;</span></span>&#125;</span><br></pre></td></tr></table></figure>
+
 <p>这样，完整的代码变成：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;tocloft&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">makeatletter</span></span></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">specialsectioning</span><span class="string">&#123;\par</span></span></span><br><span class="line"><span class="tag"><span class="string">  \setcounter&#123;section&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">setcounter</span><span class="string">&#123;subsection&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">renewcommand</span></span><span class="tag">\<span class="name">thesection</span><span class="string">&#123;\relax&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">@</span></span>seccntformat##1&#123;<span class="tag">\<span class="name">@</span></span>nameuse&#123;the##1&#125;&#125;<span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">addtocontents</span><span class="string">&#123;toc&#125;</span><span class="string">&#123;\def\cftsecnumwidth&#123;0pt&#125;</span></span>&#125;&#125;</span><br><span class="line"><span class="tag">\<span class="name">makeatother</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;正常编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">specialsectioning</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <hr>
 <p>问题解决了，不过思路二这样做未免麻烦。在这个思路下，会不会有更简单的方法呢？答案是肯定的。</p>
 <p>在 LaTeX 标准文档类中，secnumdepth 这个计数器是用来控制章节编号深度的。在 article 中，这个计数器的值默认是 3，对应的章节命令是 \subsubsection。也就是说，默认情况下，article 将会对 \subsubsection 及其之上的所有章节标题进行编号，也就是 \part, \section, \subsection, \subsubsection。</p>
 <p>LaTeX 标准文档类中，最大的标题是 \part。它在 book 和 report 类中的层级是「-1」，在 article 类中的层级是「0」。因此，我们只需要将计数器设置为 -2，之后章节命令都不会编号了，从而解决问题。</p>
 <p>我们来看一下代码。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">makeatletter</span></span></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">specialsectioning</span><span class="string">&#123;\setcounter&#123;secnumdepth&#125;</span><span class="string">&#123;-2&#125;</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">makeatother</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;正常编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">specialsectioning</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>怎么样？是不是简单多了？</p>
 
     </div>
@@ -2029,12 +2037,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2215,19 +2223,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2247,6 +2242,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

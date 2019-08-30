@@ -438,6 +438,7 @@
 <p>解决字符串匹配问题，最朴素的办法就是拿着模式串逐字符地沿着待匹配的串去比对，每次向前移动一个字符，直到完全匹配或者找不到匹配。显然，这个算法的复杂度是 $O(n\cdot m)$（$n$ 表示母串的长度，$m$ 表示模式串的长度），是比较高的。</p>
 <p>这里介绍的 KMP 算法，能够在 $O(n)$ 时间内完成任务，它是由 <a href="https://en.wikipedia.org/wiki/Donald_Knuth" target="_blank" rel="noopener">Donald Knuth</a>/<a href="https://en.wikipedia.org/wiki/James_H._Morris" target="_blank" rel="noopener">James H. Morris</a>/<a href="https://en.wikipedia.org/wiki/Vaughan_Pratt" target="_blank" rel="noopener">Vaughan Pratt</a> 发明的。当然，你也可以称之为「看毛片算法」——你高兴就好。</p>
 <a id="more"></a>
+
 <h2 id="从朴素算法开始"><a href="#从朴素算法开始" class="headerlink" title="从朴素算法开始"></a>从朴素算法开始</h2><p>为了体现 KMP 算法的优势，也为了更容易地说明问题，我们先从最朴素的算法开始。</p>
 <p>假设有</p>
 <ul>
@@ -451,13 +452,16 @@
 </ol>
 <p>在我们的示例里，具体的操作流程是这样的。</p>
 <figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">-&gt; # 从头开始匹配</span><br><span class="line">abab|aababc</span><br><span class="line">abab|c</span><br><span class="line">-&gt; # 匹配失败，移动一位，继续尝试匹配</span><br><span class="line">a|babaababc</span><br><span class="line"> |ababc</span><br><span class="line">-&gt; # 匹配失败，移动一位，继续尝试匹配</span><br><span class="line">ababa|ababc</span><br><span class="line">  aba|bc</span><br><span class="line">-&gt; # 匹配失败，移动一位，继续尝试匹配</span><br><span class="line">aba|baababc</span><br><span class="line">   |ababc</span><br><span class="line">-&gt; # 匹配失败，移动一位，继续尝试匹配</span><br><span class="line">ababa|ababc</span><br><span class="line">    a|babc</span><br><span class="line">-&gt; # 匹配失败，移动一位，继续尝试匹配</span><br><span class="line">ababaababc|</span><br><span class="line">     ababc|</span><br><span class="line">-&gt; # 匹配成功，返回子串在母串中的位置</span><br></pre></td></tr></table></figure>
+
 <h2 id="对多余工作的分析"><a href="#对多余工作的分析" class="headerlink" title="对多余工作的分析"></a>对多余工作的分析</h2><p>优化算法一个很重要的方法，就是寻找重复/多余的工作，然后用合适的方法去除它们。因此，我们应该试着分析上述朴素算法，看看有哪些工作是多余的，或者是重复的。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">-&gt; # 从头开始匹配</span><br><span class="line">abab|aababc</span><br><span class="line">abab|c</span><br><span class="line">-&gt; # 匹配失败，移动一位，继续尝试匹配</span><br><span class="line">a|babaababc</span><br><span class="line"> |ababc</span><br></pre></td></tr></table></figure>
+
 <p>我们来观察第一次匹配失败，沿着母串移动模式串的位置的过程。匹配失败，是因为 <code>S[0:4] == P[0:4]</code> 但是 <code>S[4] != P[4]</code>。于是我们将 <code>P[0]</code> 对齐 <code>S[1]</code>，继续尝试匹配。但是，实际上在验证 <code>S[0:4] == P[0:4]</code> 的过程中，我们已经知道了 <code>S[0] == P[0] and S[0] != S[1]</code>。因此，如果将 <code>P[0]</code> 与 <code>S[1]</code> 对齐，那么必然是匹配失败的。</p>
 <p>既然在匹配的过程中，我们获得的信息，已经足够说明仅仅移动一位，必然匹配失败。那么这就是多余的工作，我们应该想办法规避掉这些多余的工作。那么，我们应该怎么办呢？</p>
 <p>注意，在第一次尝试匹配的过程中，我们确定了 <code>S[0:4] == P[0:4]</code>，又容易观察，对于模式串 <code>P</code> 来说，有 <code>P[0:2] == P[4 - 2:4]</code>；即模式串 <code>P</code> 成功匹配的部分中，它的首两个字符与末两个字符完全相同。于是，因为 <code>S[0:4] == P[0:4]</code>，所以我们有 <code>S[4 - 2:4] == P[4 - 2:4] == P[0:2]</code>。这也就是说，如果将模式串对齐 <code>S[4 - 2]</code> 位置，我们天然就能确认两个位置的匹配，只需要接着向后尝试匹配就可以了——KMP 算法就是这样做的。</p>
 <p>总结起来就是：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> S[i:i + j] == P[<span class="number">0</span>:j] <span class="keyword">and</span> S[i + j] != P[j]: <span class="comment"># i + j &lt; n and j &lt; m</span></span><br><span class="line">    k = argmax(k)&#123;P[<span class="number">0</span>:k] == P[j - k:j]&#125; <span class="comment"># 0 &lt;= k &lt; j</span></span><br><span class="line">    align P[<span class="number">0</span>] to S[i + j - k]</span><br></pre></td></tr></table></figure>
+
 <p>在这个优化中，我们让模式串尽可能快地沿着母串向前跳跃；同时尽可能多地保留了已匹配的信息，避免接下来重复匹配。这一优化的关键，就是对每一个 <code>j</code>，在模式串中寻找最大的 <code>k</code>，使得 <code>P[0:k] == P[j - k:j]</code>。显然，对于给定的模式串 <code>P</code>，<code>k</code> 的取值只与 <code>j</code> 有关；我们记作 $k = f(j;P)$，并称之为模式串 <code>P</code> 的部分匹配函数。接下来，我们要看看如何快速地得到这个部分匹配函数。</p>
 <h2 id="部分匹配函数"><a href="#部分匹配函数" class="headerlink" title="部分匹配函数"></a>部分匹配函数</h2><p>根据定义，不难发现</p>
 <p><code>$$
@@ -467,20 +471,25 @@ f(1) &amp;{}= 0.
 $$</code></p>
 <p>接下来我们看一个稍微复杂一点的模式串 <code>P = ababacb</code>。</p>
 <figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">j:    <span class="number">0</span> <span class="number">1</span> <span class="number">2</span> <span class="number">3</span> <span class="number">4</span> <span class="number">5</span> <span class="number">6</span></span><br><span class="line">P:    a b a b a c b</span><br><span class="line">f(j):   0 0 1 2 3 ?</span><br></pre></td></tr></table></figure>
+
 <p>我们来验证一下</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">j == <span class="number">2</span>: P[<span class="number">0</span>:<span class="number">0</span>](<span class="keyword">None</span>) == P[j - <span class="number">0</span>:j](<span class="keyword">None</span>) <span class="keyword">and</span> P[<span class="number">0</span>:<span class="number">1</span>](a)    != P[j - <span class="number">1</span>:j](b)</span><br><span class="line">j == <span class="number">3</span>: P[<span class="number">0</span>:<span class="number">1</span>](a)    == P[j - <span class="number">1</span>:j](a)    <span class="keyword">and</span> P[<span class="number">0</span>:<span class="number">2</span>](ab)   != P[j - <span class="number">2</span>:j](ba)</span><br><span class="line">j == <span class="number">4</span>: P[<span class="number">0</span>:<span class="number">2</span>](ab)   == P[j - <span class="number">2</span>:j](ab)   <span class="keyword">and</span> P[<span class="number">0</span>:<span class="number">3</span>](aba)  != P[j - <span class="number">3</span>:j](bab)</span><br><span class="line">j == <span class="number">5</span>: P[<span class="number">0</span>:<span class="number">3</span>](aba)  == P[j - <span class="number">3</span>:j](aba)  <span class="keyword">and</span> P[<span class="number">0</span>:<span class="number">4</span>](abab) != P[j - <span class="number">4</span>:j](baba)</span><br></pre></td></tr></table></figure>
+
 <p>很好，没有问题。接下来我们看 $f(6)$ 是多少。遇到这样的问题，我们就会想，$f(j)$ 组成的序列，后项是否会与前项有关，存在某种递推关系呢？因此我们会做这样的分析。</p>
 <p>首先，因为 $f(5) = 3$，所以我们知道 <code>P[0:3] == P[5 - 3:5] == P[2:5]</code>。现在，如果有 <code>P[3] == P[5]</code>，也就是 <code>P[f(5)] == P[5]</code>，那么 $f(6) = f(5) + 1$。但是现在 <code>P[3] == b != P[5] == c</code>，因此 $f(6) = f(5) + 1$ 不成立。</p>
 <p>接下来，我们考虑 $f(f(5)) = f(3) = 1$。为什么考虑 $f(3)$ 而不是 $f(4)$ 呢？这是因为，我们已知 $f(5) = 3$，所以有 <code>P[0:3] == P[2:5]</code>；同时已知 $f(3) = 1$，就有 <code>P[0:1] == P[2:3] == P[4:5]</code>。而 <code>P[4:5]</code> 与当前待考虑的字符 <code>P[5]</code> 是紧挨着的。于是，如果我们有 <code>P[f(3)] == P[5]</code>，那么 $f(6) = f(3) + 1$。但是现在 <code>P[1] == b != P[5] == c</code>，因此 $f(6) = f(3) + 1$ 也不成立。</p>
 <p>按照同样的分析，我们接下来应该考虑 $f(f(f(5))) = f(1) = 0$。但显然，<code>P[0] == a != P[5] == c</code>，因此 $f(6) = f(1) + 1$ 也不成立；于是只能是 $f(6) = 0$ 了。</p>
 <p>也就是说，对于已经求得前 $k$ 项部分匹配的模式串 <code>P</code> 来说，起第 $k + 1$ 项的部分匹配函数的值可以这样计算：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">p_table = [<span class="number">-1</span>, <span class="number">0</span>, ...]</span><br><span class="line">ptr = k</span><br><span class="line"><span class="keyword">while</span> ptr &gt; <span class="number">0</span> <span class="keyword">and</span> pattern[k] != pattern[res[ptr]]:</span><br><span class="line">    ptr = p_table[ptr]</span><br><span class="line"><span class="keyword">else</span>:</span><br><span class="line">    p_table.append(p_table[ptr] + <span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
 <p>这样一来，我们就能快速地计算任意的模式串 <code>P</code> 的部分匹配表了。</p>
 <h2 id="KMP-算法的实现示例"><a href="#KMP-算法的实现示例" class="headerlink" title="KMP 算法的实现示例"></a>KMP 算法的实现示例</h2><p>经过上面的分析，我们很自然地就能得到 KMP 算法（以下是一个用 Python 的实现）。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">getPartialTable</span><span class="params">(pattern)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> pattern:</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">None</span></span><br><span class="line">    lp = len(pattern)</span><br><span class="line">    res = [<span class="number">-1</span>, <span class="number">0</span>]</span><br><span class="line">    <span class="keyword">if</span> lp &gt; <span class="number">1</span>:</span><br><span class="line">        <span class="keyword">for</span> curr <span class="keyword">in</span> xrange(<span class="number">1</span>, lp):</span><br><span class="line">            ptr = curr</span><br><span class="line">            <span class="keyword">while</span> ptr &gt; <span class="number">0</span> <span class="keyword">and</span> pattern[curr] != pattern[res[ptr]]:</span><br><span class="line">                ptr = res[ptr]</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                res.append(res[ptr] + <span class="number">1</span>)</span><br><span class="line">    <span class="keyword">return</span> res</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">matchPatternKMP</span><span class="params">(string, pattern)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> string <span class="keyword">or</span> <span class="keyword">not</span> pattern:</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">None</span></span><br><span class="line">    p_table = getPartialTable(pattern)</span><br><span class="line">    start, matched = <span class="number">0</span>, <span class="number">0</span></span><br><span class="line">    ls, lp  = len(string), len(pattern)</span><br><span class="line">    stop    = ls - lp + <span class="number">1</span></span><br><span class="line">    res     = list()</span><br><span class="line">    <span class="keyword">while</span> <span class="keyword">True</span>:</span><br><span class="line">        <span class="keyword">while</span> matched == lp <span class="keyword">or</span> string[start + matched] != pattern[matched]:</span><br><span class="line">            <span class="keyword">if</span> matched == lp:</span><br><span class="line">                res.append(start)</span><br><span class="line">            start   += matched - p_table[matched]</span><br><span class="line">            matched  = max(<span class="number">0</span>, p_table[matched])</span><br><span class="line">            <span class="keyword">if</span> <span class="keyword">not</span> start &lt; stop:</span><br><span class="line">                <span class="keyword">return</span> res</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            matched += <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    string  = <span class="string">'abababaababacbababacb'</span></span><br><span class="line">    pattern = <span class="string">'aaa'</span></span><br><span class="line">    <span class="keyword">print</span> <span class="string">'string:\t\t%s\npattern:\t%s'</span> % (string, pattern)</span><br><span class="line">    <span class="keyword">print</span> matchPatternKMP(string, pattern)</span><br></pre></td></tr></table></figure>
+
 <h2 id="复杂度分析"><a href="#复杂度分析" class="headerlink" title="复杂度分析"></a>复杂度分析</h2><p>好了，现在我们知道为什么 KMP 算法很快，也有了具体的实现。但是，它到底有多快呢？换句话说，它的时间复杂度是怎样的呢？</p>
 <p>我们先来看算法的主体部分：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> <span class="keyword">True</span>:</span><br><span class="line">    <span class="keyword">while</span> matched == lp <span class="keyword">or</span> string[start + matched] != pattern[matched]:</span><br><span class="line">        <span class="keyword">if</span> matched == lp:</span><br><span class="line">            res.append(start)</span><br><span class="line">        start   += matched - p_table[matched]</span><br><span class="line">        matched  = max(<span class="number">0</span>, p_table[matched])</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> start &lt; stop:</span><br><span class="line">            <span class="keyword">return</span> res</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        matched += <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
 <p>首先注意到，在 <code>while</code> 循环内部，算法执行的操作数目是固定的；同时，每次循环失败，都可能执行最多 $m - 1$ 次 <code>matched += 1</code>。因此，整个算法的总体复杂度，就取决于 <code>while</code> 循环会被执行多少次。而要确定循环执行的次数，就要观察循环变量的初始值、中间变化和终止条件。</p>
 <p>无疑，循环的终止条件与 <code>start</code> 有关：它从 <code>0</code> 开始，每次进入循环体都会自增，直到 <code>start &lt; stop</code> 的条件被破坏。因此，整个循环最多被执行 <code>stop</code> 次；整个算法最多有 $(n - m)\cdot m$ 次操作。看起来，这是一个复杂度为 $O(n\cdot m)$ 的算法。然而这是一个足够严格的渐进界限吗？答案是否定的，我们需要使用摊还分析来处理这个算法。</p>
 <p>所谓摊还分析，就是抓住某一个变量（或者函数）的性质和行为，对零散、杂乱或不规则的执行进行累计，得到比一般方法更严格的上界。在这里，我们观察 <code>matched</code> 变量。它具有这样的性质：</p>
@@ -492,6 +501,7 @@ $$</code></p>
 <p>考虑到循环的终止条件，第 10 行最多被执行 <code>stop</code> 次；也就是 <code>matched</code> 最多自增 <code>stop</code> 次。考虑到 <code>matched</code> 必须保证非负，并且每次执行到第 6 行 <code>matched</code> 都会至少减小 <code>1</code>，所以第 6 行也最多被执行 <code>stop</code> 次。这也就是说，整个部分最多有 $2 \cdot \text{stop}$ 次操作。因此，它的时间复杂度不超过 $O(n)$。</p>
 <p>同样的，我们可以用摊还分析的方法，分析部分匹配表的算法。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> curr <span class="keyword">in</span> xrange(<span class="number">1</span>, lp):</span><br><span class="line">    ptr = curr</span><br><span class="line">    <span class="keyword">while</span> ptr &gt; <span class="number">0</span> <span class="keyword">and</span> pattern[curr] != pattern[res[ptr]]:</span><br><span class="line">        ptr = res[ptr]</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        res.append(res[ptr] + <span class="number">1</span>)</span><br></pre></td></tr></table></figure>
+
 <p>在这里，我们观察 <code>res</code> 这个部分匹配表；它具有这样的性质：</p>
 <ul>
 <li><code>0&lt;= res[ptr] &lt;= lp</code>；</li>
@@ -2056,12 +2066,12 @@ $$</code></p>
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2313,19 +2323,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2345,6 +2342,19 @@ window.addEventListener('DOMContentLoaded', () => {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

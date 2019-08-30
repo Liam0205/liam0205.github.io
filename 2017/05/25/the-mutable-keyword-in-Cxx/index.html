@@ -411,7 +411,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>1.9k</span>
+              <span>2k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -436,6 +436,7 @@
       
         <p>此篇介绍 C++ 中的 <code>mutable</code> 关键字。</p>
 <a id="more"></a>
+
 <h2 id="类中的-mutable"><a href="#类中的-mutable" class="headerlink" title="类中的 mutable"></a>类中的 <code>mutable</code></h2><p><code>mutable</code> 从字面意思上来说，是「可变的」之意。</p>
 <p>若是要「顾名思义」，那么这个关键词的含义就有些意思了。显然，「可变的」只能用来形容变量，而不可能是「函数」或者「类」本身。然而，既然是「变量」，那么它本来就是可变的，也没有必要使用 <code>mutable</code> 来修饰。那么，<code>mutable</code> 就只能用来形容某种不变的东西了。</p>
 <p>C++ 中，不可变的变量，称之为常量，使用 <code>const</code> 来修饰。然而，若是 <code>const mutable</code> 联用，未免让人摸不着头脑——到底是可变还是不可变呢？</p>
@@ -450,10 +451,12 @@
 <p>显而易见，<code>mutable</code> 只能用来修饰类的数据成员；而被 <code>mutable</code> 修饰的数据成员，可以在 <code>const</code> 成员函数中修改。</p>
 <p>这里举一个例子，展现这类情形。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">HashTable</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="comment">//...</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">lookup</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; key)</span> <span class="keyword">const</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (key == last_key_) &#123;</span><br><span class="line">            <span class="keyword">return</span> last_value_;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">std</span>::<span class="built_in">string</span> value&#123;<span class="keyword">this</span>-&gt;lookupInternal(key)&#125;;</span><br><span class="line"></span><br><span class="line">        last_key_   = key;</span><br><span class="line">        last_value_ = value;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> value;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">mutable</span> <span class="built_in">std</span>::<span class="built_in">string</span> last_key_</span><br><span class="line">    <span class="keyword">mutable</span> <span class="built_in">std</span>::<span class="built_in">string</span> last_value_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
 <p>这里，我们呈现了一个哈希表的部分实现。显然，对哈希表的查询操作，在逻辑上不应该修改哈希表本身。因此，<code>HashTable::lookup</code> 是一个 <code>const</code> 成员函数。在 <code>HashTable::lookup</code> 中，我们使用了 <code>last_key_</code> 和 <code>last_value_</code> 实现了一个简单的「缓存」逻辑。当传入的 <code>key</code> 与前次查询的 <code>last_key_</code> 一致时，直接返回 <code>last_value_</code>；否则，则返回实际查询得到的 <code>value</code> 并更新 <code>last_key_</code> 和 <code>last_value_</code>。</p>
 <p>在这里，<code>last_key_</code> 和 <code>last_value_</code> 是 <code>HashTable</code> 的数据成员。按照一般的理解，<code>const</code> 成员函数是不允许修改数据成员的。但是，另一方面，<code>last_key_</code> 和 <code>last_value_</code> 从逻辑上说，修改它们的值，外部是无有感知的；因此也就不会破坏逻辑上的 <code>const</code>。为了解决这一矛盾，我们用 <code>mutable</code> 来修饰 <code>last_key_</code> 和 <code>last_value_</code>，以便在 <code>lookup</code> 函数中更新缓存的键值。</p>
 <h2 id="Lambda-表达式中的-mutable"><a href="#Lambda-表达式中的-mutable" class="headerlink" title="Lambda 表达式中的 mutable"></a>Lambda 表达式中的 <code>mutable</code></h2><p>C++11 引入了 Lambda 表达式，程序员可以凭此创建匿名函数。在 Lambda 表达式的设计中，捕获变量有几种方式；其中按值捕获（Caputre by Value）的方式不允许程序员在 Lambda 函数的函数体中修改捕获的变量。而以 <code>mutable</code> 修饰 Lambda 函数，则可以打破这种限制。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> x&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">auto</span> f1 = [=]() <span class="keyword">mutable</span> &#123;x = <span class="number">42</span>;&#125;;  <span class="comment">// okay, 创建了一个函数类型的实例</span></span><br><span class="line"><span class="keyword">auto</span> f2 = [=]()         &#123;x = <span class="number">42</span>;&#125;;  <span class="comment">// error, 不允许修改按值捕获的外部变量的值</span></span><br></pre></td></tr></table></figure>
+
 <p>需要注意的是，上述 <code>f1</code> 的函数体中，虽然我们给 <code>x</code> 做了赋值操作，但是这一操作仅只在函数内部生效——即，实际是给拷贝至函数内部的 <code>x</code> 进行赋值——而外部的 <code>x</code> 的值依旧是 <code>0</code>。</p>
 
     </div>
@@ -2011,12 +2014,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2197,19 +2200,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2229,6 +2219,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

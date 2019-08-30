@@ -438,13 +438,16 @@
       
         <h2 id="问题的描述"><a href="#问题的描述" class="headerlink" title="问题的描述"></a>问题的描述</h2><p>用 listings 包排版源代码时通常为了便于说明，会显示代码的行号，但是，我们在文档复制的时候却发现，复制代码的时候，同时会把行号也复制出来了，如下：</p>
 <a id="more"></a>
+
 <p><img alt data-src="//liam.page/attachment/attachment/images/listingsCopy/wrong.png"></p>
 <p>我们想实现如下的复制，更便于读者提取文档中的源代码进行相关测试。</p>
 <p><img alt data-src="//liam.page/attachment/attachment/images/listingsCopy/right.png"></p>
 <h2 id="一次尝试"><a href="#一次尝试" class="headerlink" title="一次尝试"></a>一次尝试</h2><p><a href="http://www.latexstudio.net/" target="_blank" rel="noopener">LaTeX studio</a> 提供了一个<a href="http://www.latexstudio.net/latex-tip-743-how-to-make-text-copy-in-pdf-previewers-ignore-lineno-line-numbers/" target="_blank" rel="noopener">解决方案</a>。但是该方案是有问题的，因为 \thelstnumber 在很多地方都要用到，所以直接重定义这个宏是很危险的——比如，无法和 hyperref 宏包一起使用。下面的测试代码说明了这个问题：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;minimal&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;hyperref&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;listings&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;accsupp&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">renewcommand</span><span class="string">&#123;\thelstnumber&#125;</span><span class="string">&#123;</span></span></span><br><span class="line"><span class="tag"><span class="string">\protect\BeginAccSupp&#123;ActualText=&#123;&#125;</span></span>&#125;<span class="tag">\<span class="name">arabic</span><span class="string">&#123;lstnumber&#125;</span></span><span class="tag">\<span class="name">protect</span></span><span class="tag">\<span class="name">EndAccSupp</span><span class="string">&#123;&#125;</span></span><span class="comment">%</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="tag">\<span class="name">lstset</span><span class="string">&#123;numbers = left&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;lstlisting&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">foo</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;lstlisting&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <h2 id="最终的解决"><a href="#最终的解决" class="headerlink" title="最终的解决"></a>最终的解决</h2><p>更健壮的办法，可以定义一个新的命令，然后用 listings 宏包的 numberstyle 选项来加载这一命令，如下</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;minimal&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;hyperref&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;listings&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;accsupp&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">emptyaccsupp</span><span class="string">[1]</span><span class="string">&#123;\BeginAccSupp&#123;ActualText=&#123;&#125;</span></span>&#125;#1<span class="tag">\<span class="name">EndAccSupp</span><span class="string">&#123;&#125;</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">lstset</span><span class="string">&#123;numbers = left, numberstyle=\emptyaccsupp&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;lstlisting&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">foo</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;lstlisting&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 
     </div>
 
@@ -2003,12 +2006,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2189,19 +2192,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2221,6 +2211,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

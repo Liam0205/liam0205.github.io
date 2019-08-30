@@ -437,6 +437,7 @@
         <p>接触 TeX 稍久的用户，应该多少都接触过 <code>\kern</code> 和 <code>\hskip</code> 两个命令。那么不知你是否会好奇，TeX 是如何获取它们的参数的呢？要知道，像 <code>I\kern37ptlike\hskip100ptcake</code> 这种看上去奇奇怪怪的写法，能正常工作，但 <code>\hskip 2pt minuscule chances of error</code> 这种看起来正常的写法却会报错。</p>
 <p>此篇介绍一下 TeX 中作为参数的 dimen 和 skip。</p>
 <a id="more"></a>
+
 <h2 id="作为参数的-dimen"><a href="#作为参数的-dimen" class="headerlink" title="作为参数的 dimen"></a>作为参数的 dimen</h2><p>命令 <code>\kern</code> 的参数是 ⟨dimen⟩，因此我们以它为例。具体来说，TeX 在读入 <code>\kern</code> 这个 token 之后，会先去寻找一个十进制分数（⟨decimal number⟩），而后寻找合法的单位（⟨unit of measure⟩）。在十进制分数和单位之间的空格都会被忽略。在单位之后，则有一个可选空格。</p>
 <p>这里，十进制分数可以是：</p>
 <ul>
@@ -446,16 +447,19 @@
 <p>特别说明一下以逗号作为整数与小数部分的分隔的问题。在中国，大多数时候，我们都以句点作为小数点，来分隔十进制分数的整数与小数部分；例如 <code>1.25</code>。同时，逗号通常用于大数记录时的千分标记；例如 <code>1, 000.25</code>。但是，在部分国家（例如法国和德国），在表示十进制分数时，句点和逗号的用法正好颠倒。因此，<code>1, 000.25</code> 在法国和德国记作 <code>1. 000,25</code>。有趣的是，<code>\kern , pt</code> 是一个合法的铅空。它会产生一个宽度为 <code>0pt</code> 的铅空。这是因为，逗号在此被当做是小数点。而小数点前后的数字是零时，是可以省略的。</p>
 <p>这里的单位，指得是 TeX 接受的，以两个字符表达的长度单位。包括：<code>pt</code>, <code>cm</code>, <code>mm</code>, <code>in</code>, <code>dd</code>, <code>pc</code>, <code>cc</code>, <code>bp</code>, <code>sp</code>, <code>em</code>, <code>ex</code>。对于 pdfTeX 来说，还包括 <code>px</code>。如果 TeX 在读入一个合法的十进制分数之后，没有找到合法的单位，则会报错：</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">! Illegal unit of measure (pt inserted).</span><br></pre></td></tr></table></figure>
+
 <p>因此，<code>\kern37ptlike</code> 是合法的。它与 <code>\kern 37 pt like</code> 等价。</p>
 <h2 id="作为参数的-skip"><a href="#作为参数的-skip" class="headerlink" title="作为参数的 skip"></a>作为参数的 skip</h2><p>命令 <code>\hskip</code> 的参数是 ⟨skip⟩，因此我们以它为例。具体来说，TeX 在读入 <code>\hskip</code> 这个 token 之后，会先和上述步骤一样，寻找一个 ⟨dimen⟩，作为 ⟨skip⟩ 的自然长度。而后，TeX 会在展开得到的 token list 当中继续寻找 <code>plus</code>。如果 TeX 找到了 <code>plus</code>，则 TeX 又会去寻找一个 ⟨dimen⟩。不过，此时十进制分数之后，除了长度单位，还可以是 <code>fil</code>, <code>fill</code> 或者 <code>filll</code>。其中 <code>fil(|l|ll)</code> 之后的可选空格会被忽略。特别地，如果没有找到 <code>plus</code>，TeX 也会继续寻找 <code>minus</code>。找到 <code>minus</code> 之后的规则，就跟 <code>plus</code> 的情况一样了。</p>
 <p>因此，在 <code>\hskip 2pt minuscule chances of errors</code> 这个例子中，TeX 读入 <code>2pt</code> 作为 <code>\hskip</code> 的自然长度。而后，尽管没有找到 <code>plus</code>，但找到了 <code>minus</code>——它藏在 <code>minuscule</code> 这个单词中。很不幸，此时在 <code>minus</code> 之后没有一个合法的 ⟨dimen⟩，于是 TeX 会报错。如果你不了解 TeX 读入 ⟨skip⟩ 的规则，那这种报错还是蛮令人挠头的。</p>
 <p>为了避免这些问题，在 ⟨skip⟩ 之后，果断地加一个 <code>\relax</code> 总归是个好主意。</p>
 <h2 id="bonus-奇怪的-fil-l-ll"><a href="#bonus-奇怪的-fil-l-ll" class="headerlink" title="bonus! 奇怪的 fil(|l|ll)"></a>bonus! 奇怪的 <code>fil(|l|ll)</code></h2><p>首先我们来看一个例子。你认为下面的写法是合法的吗？</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">hskip</span></span> 0pt plus 1 fil L l minus 2 fiLL</span><br></pre></td></tr></table></figure>
+
 <p>答案是合法的……</p>
 <p>事实上，<code>fill</code> 和 <code>filll</code> 并不是 TeX 的关键字。真实情况是，<code>fil</code> 和 <code>l</code> 是 TeX 关键字。而 TeX 在读入 <code>fil</code> 之后，会尝试继续寻找 <code>l</code> 这个关键字。如果找到了，就拼在一起，作为弹力更大的弹簧。此外，TeX 的关键字是不区分大小写的。</p>
 <p>因此，<code>fil L l</code> 就相当于 <code>filll</code>；而 <code>fiLL</code> 就相当于是 <code>fill</code>。也因此，如果你不了解这一点，下面的例子可能会让你很伤脑筋——<code>Let&#39;s Go</code> 当中的 <code>L</code> 怎么不输出了？</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">hskip</span></span> 0pt plus 1fil Let's go</span><br></pre></td></tr></table></figure>
+
 <p>通常，我们（雾）把这种情况称之为「神秘的 L」。<code>←_←</code></p>
 
     </div>
@@ -2013,12 +2017,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2199,19 +2203,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2231,6 +2222,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

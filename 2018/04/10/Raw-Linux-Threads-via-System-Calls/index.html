@@ -444,9 +444,12 @@
 <!-- It’s so simple that it takes less than 15 instructions to spawn a thread with its own stack, no libraries needed, and no need to call Pthreads! In this article I’ll demonstrate how to do this on x86-64. All of the code with be written in NASM syntax since, IMHO, it’s by far the best (see: nasm-mode). -->
 <p>在进程的栈上创建一个新的线程非常简单——只需要 15 条命令，而无需任何库，特别是不需要调用 <code>pthread</code> 库！本文中，我将以 x86-64 平台为例。所有代码均以 <a href="https://www.nasm.us/" target="_blank" rel="noopener">NASM</a> 语法写就，因为，依我愚见，它是至今为止最好的（参见：<a href="https://nullprogram.com/blog/2015/04/19/" target="_blank" rel="noopener">这里</a>）。</p>
 <!-- I’ve put the complete demo here if you want to see it all at once: -->
+
 <!-- Pure assembly, library-free Linux threading demo -->
+
 <p>此处是完整的示例代码：<a href="https://github.com/skeeto/pure-linux-threads-demo" target="_blank" rel="noopener">Pure assembly, library-free Linux threading demo</a>。</p>
 <a id="more"></a>
+
 <h2 id="x86-64-启蒙"><a href="#x86-64-启蒙" class="headerlink" title="x86-64 启蒙"></a>x86-64 启蒙</h2><!-- I want you to be able to follow along even if you aren’t familiar with x86_64 assembly, so here’s a short primer of the relevant pieces. If you already know x86-64 assembly, feel free to skip to the next section. -->
 <p>为了在你不熟悉 x86-64 汇编的情况下能够读完本文，此处给出 x86-64 中相关内容的启蒙教程。若你对这些内容很熟悉，则可跳过本节。</p>
 <!-- x86-64 has 16 64-bit general purpose registers, primarily used to manipulate integers, including memory addresses. There are many more registers than this with more specific purposes, but we won’t need them for threading. -->
@@ -470,20 +473,27 @@
 <!-- So, for example, to perform a function call like foo(1, 2, 3), store 1, 2 and 3 in rdi, rsi, and rdx, then call the function. The mov instruction stores the source (second) operand in its destination (first) operand. The call instruction pushes the current value of rip onto the stack, then sets rip (jumps) to the address of the target function. When the callee is ready to return, it uses the ret instruction to pop the original rip value off the stack and back into rip, returning control to the caller. -->
 <p>因此，举例来说，当调用 <code>foo(1, 2, 3)</code> 时，参数 <code>1</code>, <code>2</code>, <code>3</code> 会被分别保存在 <code>rdi</code>, <code>rsi</code> 和 <code>rdx</code> 三个寄存器当中。<code>mov</code> 指令将第二个操作数的值保存在第一个操作数（寄存器名称）中。<code>call</code> 指令将 <code>rip</code> 寄存器的当前值压栈，而后将 <code>rip</code> 设置为目标函数的起始地址（跳转）。当被调用的函数执行完毕准备返回时，它会使用 <code>ret</code> 指令将 <code>rip</code> 寄存器的原始值弹栈并保存在 <code>rip</code> 寄存器当中，以将程序的控制权交还给调用者。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mov rdi, 1</span><br><span class="line">mov rsi, 2</span><br><span class="line">mov rdx, 3</span><br><span class="line">call foo</span><br></pre></td></tr></table></figure>
+
 <!-- Called functions must preserve the contents of these registers (the same value must be stored when the function returns): -->
+
 <!-- rbx, rsp, rbp, r12, r13, r14, r15 -->
+
 <p>在被调用函数返回时，它还必须保证下列寄存器的值与被调用前保持一致：<code>rbx</code>, <code>rsp</code>, <code>rbp</code>, <code>r12</code>, <code>r13</code>, <code>r14</code>, <code>r15</code>。</p>
 <h3 id="系统调用"><a href="#系统调用" class="headerlink" title="系统调用"></a>系统调用</h3><!-- When making a system call, the argument registers are slightly different. Notice rcx has been changed to r10. -->
+
 <!-- rdi, rsi, rdx, r10, r8, r9 -->
+
 <p>执行系统调用时，用于传参的寄存器<a href="http://man7.org/linux/man-pages/man2/syscall.2.html" target="_blank" rel="noopener">稍有不同</a>。注意，<code>rcx</code> 换成了 <code>r10</code>：<code>rdi</code>, <code>rsi</code>, <code>rdx</code>, <code>r10</code>, <code>r8</code>, <code>r9</code>。</p>
 <!-- Each system call has an integer identifying it. This number is different on each platform, but, in Linux’s case, it will never change. Instead of call, rax is set to the number of the desired system call and the syscall instruction makes the request to the OS kernel. Prior to x86-64, this was done with an old-fashioned interrupt. Because interrupts are slow, a special, statically-positioned “vsyscall” page (now deprecated as a security hazard), later vDSO, is provided to allow certain system calls to be made as function calls. We’ll only need the syscall instruction in this article. -->
 <p>每个系统调用都有一个整数标识符。在不同平台上，系统调用的编号可能不同。不过，在 Linux 中，这些标识符是<a href="https://www.youtube.com/watch?v=1Mg5_gxNXTo#t=8m28" target="_blank" rel="noopener">永远不会变</a>的。与 <code>call</code> 指令不同，在 <code>syscall</code> 指令之前，相应的系统调用编号需要保存在 <code>rax</code> 当中，而后由 <code>syscall</code> 指令向系统内核发起系统调用请求。在 x86-64 之前，系统调用是通过旧式的中断来实现的。因为中断效率低下，旧式的中断先后被一个特别的静态定位的 <code>vsyscall</code> 帧（现在因为<a href="http://en.wikipedia.org/wiki/Return-oriented_programming" target="_blank" rel="noopener">安全风险</a>而弃用）和 <a href="https://lwn.net/Articles/446528/" target="_blank" rel="noopener">vDSO</a> 所代替，使得一些系统调用能像普通函数调用那样被调用。在本文中，我们只需要 <code>syscall</code> 指令即可。</p>
 <!-- So, for example, the write() system call has this C prototype. -->
 <p>因此，例如说系统调用 <code>write()</code> 有如下 C 函数原型。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ssize_t</span> write(<span class="keyword">int</span> fd, <span class="keyword">const</span> <span class="keyword">void</span> *buf, <span class="keyword">size_t</span> count);</span><br></pre></td></tr></table></figure>
+
 <!-- On x86-64, the write() system call is at the top of the system call table as call 1 (read() is 0). Standard output is file descriptor 1 by default (standard input is 0). The following bit of code will write 10 bytes of data from the memory address buffer (a symbol defined elsewhere in the assembly program) to standard output. The number of bytes written, or -1 for error, will be returned in rax. -->
 <p>在 x86-64 中，系统调用 <code>write()</code> 位于<a href="https://filippo.io/linux-syscall-table/" target="_blank" rel="noopener">系统调用表</a>的顶端，编号为 1（编号为 0 的是系统调用 <code>read()</code>）。标准输出的文件描述符是 1（标准输入是 0）。下面的代码将从内存地址 <code>buffer</code> 中（在汇编程序其他位置定义的符号）读取 10 字节的内容写至标准输出。成功写入的字节数将被保存在 <code>rax</code> 中返回；若返回 -1，则表示出现错误。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">mov rdi, 1        ; fd</span><br><span class="line">mov rsi, buffer</span><br><span class="line">mov rdx, 10       ; 10 bytes</span><br><span class="line">mov rax, 1        ; SYS_write</span><br><span class="line">syscall</span><br></pre></td></tr></table></figure>
+
 <h3 id="有效地址"><a href="#有效地址" class="headerlink" title="有效地址"></a>有效地址</h3><!-- There’s one last thing you need to know: registers often hold a memory address (i.e. a pointer), and you need a way to read the data behind that address. In NASM syntax, wrap the register in brackets (e.g. [rax]), which, if you’re familiar with C, would be the same as dereferencing the pointer. -->
 <p>还有最后一个知识点：寄存器通常保存着内存地址（也就是一个指针），而你需要有办法读取这一地址中保存的内容。在 NASM 语法中，用方括号包裹寄存器的名字（例如 <code>[rax]</code>）和 C 中对指针进行解引用是一个效果。</p>
 <!-- These bracket expressions, called an effective address, may be limited mathematical expressions to offset that base address entirely within a single instruction. This expression can include another register (index), a power-of-two scalar (bit shift), and an immediate signed offset. For example, [rax + rdx*8 + 12]. If rax is a pointer to a struct, and rdx is an array index to an element in array on that struct, only a single instruction is needed to read that element. NASM is smart enough to allow the assembly programmer to break this mold a little bit with more complex expressions, so long as it can reduce it to the [base + index*2^exp + offset] form. -->
@@ -504,23 +514,29 @@
 <!-- On x86-64, mmap() is system call 9. I’ll define a function to allocate a stack with this C prototype. -->
 <p>在 x86-64 中，系统调用 <code>mmap()</code> 的编号是 9。我将以如下 C 函数原型来分配一个线程栈。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> *<span class="title">stack_create</span><span class="params">(<span class="keyword">void</span>)</span></span>;</span><br></pre></td></tr></table></figure>
+
 <!-- The mmap() system call takes 6 arguments, but when creating an anonymous memory map the last two arguments are ignored. For our purposes, it looks like this C prototype. -->
 <p>系统调用 <code>mmap()</code> 需要 6 个参数。不过在创建匿名内存映射时，最后两个参数会被忽略掉。对于我们的需求来说，它有如下 C 函数原型。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> *<span class="title">mmap</span><span class="params">(<span class="keyword">void</span> *addr, <span class="keyword">size_t</span> length, <span class="keyword">int</span> prot, <span class="keyword">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+
 <!-- For flags, we’ll choose a private, anonymous mapping that, being a stack, grows downward. Even with that last flag, the system call will still return the bottom address of the mapping, which will be important to remember later. It’s just a simple matter of setting the arguments in the registers and making the system call. -->
 <p>对于 <code>flags</code>，考虑到我们将用这块内存作为线程栈，我们将选择私有、匿名、向下生长。不过，哪怕设置了向下生长，系统调用 <code>mmap()</code> 仍然会返回内存映射的底部地址。一会儿会用到这一重要信息。于是，事情就简单了：只需要将寄存器的值设置好，而后执行 <code>syscall</code> 指令即可。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">%define SYS_mmap    9</span><br><span class="line">%define STACK_SIZE  (4096 * 1024)   ; 4 MB</span><br><span class="line"></span><br><span class="line">stack_create:</span><br><span class="line">    mov rdi, 0</span><br><span class="line">    mov rsi, STACK_SIZE</span><br><span class="line">    mov rdx, PROT_WRITE | PROT_READ</span><br><span class="line">    mov r10, MAP_ANONYMOUS | MAP_PRIVATE | MAP_GROWSDOWN</span><br><span class="line">    mov rax, SYS_mmap</span><br><span class="line">    syscall</span><br><span class="line">    ret</span><br></pre></td></tr></table></figure>
+
 <!-- Now we can allocate new stacks (or stack-sized buffers) as needed. -->
 <p>此时，我们就能为线程分配栈空间（或者准确说是和栈大小相同的内存缓冲区）了。</p>
 <h2 id="生成线程"><a href="#生成线程" class="headerlink" title="生成线程"></a>生成线程</h2><!-- Spawning a thread is so simple that it doesn’t even require a branch instruction! It’s a call to clone() with two arguments: clone flags and a pointer to the new thread’s stack. It’s important to note that, as in many cases, the glibc wrapper function has the arguments in a different order than the system call. With the set of flags we’re using, it takes two arguments. -->
 <p>生成线程非常简单，因为它甚至不涉及指令分支！只需往系统调用 <code>clone()</code> 中传入两个参数即可：<code>clone()</code> 的标记以及指向新线程栈的指针。注意，和其他诸多系统调用一样，glibc 包装的函数，其参数顺序与原始系统调用有所不同。总之，包括我们使用的标记在内，它接收两个参数。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">sys_clone</span><span class="params">(<span class="keyword">unsigned</span> <span class="keyword">long</span> flags, <span class="keyword">void</span> *child_stack)</span></span>;</span><br></pre></td></tr></table></figure>
+
 <!-- Our thread spawning function will have this C prototype. It takes a function as its argument and starts the thread running that function. -->
 <p>我们用于生成线程的函数有如下 C 原型。它接收一个函数指针，而后在线程中执行该函数。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">thread_create</span><span class="params">(<span class="keyword">void</span> (*)(<span class="keyword">void</span>))</span></span>;</span><br></pre></td></tr></table></figure>
+
 <!-- The function pointer argument is passed via rdi, per the ABI. Store this for safekeeping on the stack (push) in preparation for calling stack_create(). When it returns, the address of the low end of stack will be in rax. -->
 <p>根据 ABI，函数指针参数会通过寄存器 <code>rdi</code> 传给 <code>thread_create</code> 函数。首先，我们将其安全地保存（<code>push</code>）在栈中，并调用 <code>stack_create()</code>。最后，当函数返回时，线程栈的底部地址会保存在寄存器 <code>rax</code> 当中。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">thread_create:</span><br><span class="line">    push rdi</span><br><span class="line">    call stack_create</span><br><span class="line">    lea rsi, [rax + STACK_SIZE - 8]</span><br><span class="line">    pop qword [rsi]</span><br><span class="line">    mov rdi, CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND | \</span><br><span class="line">             CLONE_PARENT | CLONE_THREAD | CLONE_IO</span><br><span class="line">    mov rax, SYS_clone</span><br><span class="line">    syscall</span><br><span class="line">    ret</span><br></pre></td></tr></table></figure>
+
 <!-- The second argument to clone() is a pointer to the high address of the stack (specifically, just above the stack). So we need to add STACK_SIZE to rax to get the high end. This is done with the lea instruction: load effective address. Despite the brackets, it doesn’t actually read memory at that address, but instead stores the address in the destination register (rsi). I’ve moved it back by 8 bytes because I’m going to place the thread function pointer at the “top” of the new stack in the next instruction. You’ll see why in a moment. -->
 <p>系统调用 <code>clone()</code> 的第二个参数指向线程栈的顶部地址（具体来说，是线程栈顶部上方页帧的地址）。在代码中，我们通过 <code>lea</code> 指令来计算：读取有效地址（<strong><em>l</em></strong>oad <strong><em>e</em></strong>ffective <strong><em>a</em></strong>ddress）。尽管有花括号，但它并不会真的去读取目标内存地址中的内容，而是将该地址保存在目标寄存器（<code>rsi</code>）当中。在代码中，我回退 8 字节的原因是我希望在下一条指令中，把线程函数的指针放在栈顶端。这样做的原因稍后即晓。</p>
 <p><img alt data-src="/uploads/images/computer-architecture/clone.png"></p>
@@ -545,6 +561,7 @@
 <h2 id="清理并退出线程"><a href="#清理并退出线程" class="headerlink" title="清理并退出线程"></a>清理并退出线程</h2><!-- The thread function has to be careful not to return (ret) since there’s nowhere to return. It will fall off the stack and terminate the program with a segmentation fault. Remember that threads are just processes? It must use the exit() syscall to terminate. This won’t terminate the other threads. -->
 <p>由于线程函数没有逻辑上的调用者，所以它不能有返回（<code>ret</code> 指令）；否则，将导致执行序列脱离线程栈而引发段错误并使程序停止运行。还记得线程其实只是进程吗？它们必须使用系统调用 <code>exit()</code> 来结束运行。在线程中执行系统调用 <code>exit()</code> 不会退出其他线程。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">%define SYS_exit    60</span><br><span class="line"></span><br><span class="line">exit:</span><br><span class="line">    mov rax, SYS_exit</span><br><span class="line">    syscall</span><br></pre></td></tr></table></figure>
+
 <!-- Before exiting, it should free its stack with the munmap() system call, so that no resources are leaked by the terminated thread. The equivalent of pthread_join() by the main parent would be to use the wait4() system call on the thread process. -->
 <p>在退出前，应当使用系统调用 <code>munmap()</code> 释放线程栈，以防有资源泄漏。主线程中等价于 <code>pthread_join()</code> 的系统调用是 <code>wait4()</code>。</p>
 <h2 id="后续"><a href="#后续" class="headerlink" title="后续"></a>后续</h2><!-- If you found this interesting, be sure to check out the full demo link at the top of this article. Now with the ability to spawn threads, it’s a great opportunity to explore and experiment with x86’s synchronization primitives, such as the lock instruction prefix, xadd, and compare-and-exchange (cmpxchg). I’ll discuss these in a future article. -->
@@ -2113,12 +2130,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2299,19 +2316,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2331,6 +2335,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

@@ -437,6 +437,7 @@
         <p>模板是一个 C++ 的高级特性，它使得程序员可以编写一个类或者函数，以相同的方式处理不同类型的数据。</p>
 <p>前段时间在网上看到，有人认为类模板的成员函数必须实现在类模板的定义当中。这与我一直以来的认知是冲突的——我认为类模板和普通的类其实没有什么差别，除了它需要做额外的实例化之外。于是，我翻看了 C++ Primer，并检索了一些资料，就有了这篇文章。</p>
 <a id="more"></a>
+
 <h2 id="模板编译"><a href="#模板编译" class="headerlink" title="模板编译"></a>模板编译</h2><p>C++ 中的模板，是一个很有意思的概念。说它有意思，是因为这个模板的概念，和现实生活中的模板非常相似。因此，实际上只需要理解了现实生活中的模板，理解 C++ 中的模板的一些特殊性就容易了。</p>
 <p>学生在写论文的时候，经常会去网上检索「LaTeX 论文模板」。下载下来之后，论文模板实际上只有一个简单的骨架。学生们需要在这个骨架的基础上，书写、构建自己的内容，才能变成实际的论文。这个过程，我们称其为「实例化」；这是一个从一般到特殊的过程——从一个一般化的模板，填入自己的内容，变成自己的论文。</p>
 <p>C++ 中的模板也是一样。当程序员定义了一个模板后，它只是一个骨架。而只有当编译器知道用户需要传入的模板类型参数之后，编译器才会给出一个「有血有肉」的函数（对应函数模板）或者类（对应类模板）。因此，对于模板的编译，我们需要知道：<strong>当我们使用模板时（具体来说，是实例化时），编译器才会根据模板的定义生成具体的代码</strong>。这个特性，决定了涉及到模板的错误检测时机可能与一般的代码有所差异。</p>
@@ -450,10 +451,14 @@
 <h2 id="两种做法"><a href="#两种做法" class="headerlink" title="两种做法"></a>两种做法</h2><p>至此，我们可以讨论一下，在类模板定义的头文件之外实现其成员函数，具体要怎么做了。一般来说，有两种做法。</p>
 <h3 id="在头文件末尾引入实现源文件"><a href="#在头文件末尾引入实现源文件" class="headerlink" title="在头文件末尾引入实现源文件"></a>在头文件末尾引入实现源文件</h3><p>这样一来，成员函数的实现会被 <code>#include</code> 包含进头文件，实际上在编译器看来和写在头文件内没有本质的差别了。</p>
 <figure class="highlight cpp"><figcaption><span>foo.h</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> FOO_</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> FOO_</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Foo</span> &#123;</span></span><br><span class="line">    T val;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">doSomething</span><span class="params">(T param)</span></span>;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"foo.tpp"</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+
 <figure class="highlight cpp"><figcaption><span>foo.tpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">void</span> Foo&lt;T&gt;::doSomething(T param) &#123;</span><br><span class="line">    <span class="comment">// do something</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <h3 id="在实现时显示地实例化类模板"><a href="#在实现时显示地实例化类模板" class="headerlink" title="在实现时显示地实例化类模板"></a>在实现时显示地实例化类模板</h3><p>这种情况下，只有实例化的版本才能被使用——因为只有它们真正被编译成了类代码；其它未实例化的版本，实际是没有定义的类。</p>
 <figure class="highlight cpp"><figcaption><span>bar.h</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">ifndef</span> BAR_</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BAR_</span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Bar</span> &#123;</span></span><br><span class="line">    T val;</span><br><span class="line">    <span class="function"><span class="keyword">void</span> <span class="title">doSomething</span><span class="params">(T param)</span></span>;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+
 <figure class="highlight cpp"><figcaption><span>bar.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">"bar.h"</span></span></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">void</span> Bar&lt;T&gt;::doSomething(T param) &#123;</span><br><span class="line">    <span class="comment">// do something</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> <span class="class"><span class="keyword">class</span> <span class="title">Bar</span>&lt;int&gt;;</span></span><br><span class="line"><span class="keyword">template</span> <span class="class"><span class="keyword">class</span> <span class="title">Bar</span>&lt;double&gt;;</span></span><br></pre></td></tr></table></figure>
+
 <p>当编译过 <code>bar.cpp</code> 之后，其它包含头文件 <code>bar.h</code> 并与其目标文件链接的源文件，就可以使用 <code>Bar&lt;int&gt;</code> 和 <code>Bar&lt;double&gt;</code> 这两个类了。而使用其它版本，则会报错。</p>
 
     </div>
@@ -2011,12 +2016,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2197,19 +2202,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2229,6 +2221,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

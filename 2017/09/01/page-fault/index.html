@@ -438,6 +438,7 @@
 <p>在内核处理缺页错误时，就有可能进行磁盘的读写操作。这样的操作，相对 CPU 的处理是非常缓慢的。因此，发生大量的缺页错误，势必会对程序的性能造成很大影响。因此，在对性能要求很高的环境下，应当尽可能避免这种情况。</p>
 <p>此篇介绍缺页错误本身，并结合一个实际示例作出一些实践分析。这里主要在 Linux 的场景下做讨论；其他现代操作系统，基本也是类似的。</p>
 <a id="more"></a>
+
 <h2 id="内存页和缺页错误"><a href="#内存页和缺页错误" class="headerlink" title="内存页和缺页错误"></a>内存页和缺页错误</h2><h3 id="分页模式"><a href="#分页模式" class="headerlink" title="分页模式"></a>分页模式</h3><p>我们在前作<a href="/2016/05/01/Introduction-to-Memory-Addressing/">内存寻址</a>中介绍了 CPU 发展过程中内存寻址方式的变化。现代 CPU 都支持分段和分页的内存寻址模式。出于寻址能力的考虑，现代操作系统，也顺应着都支持段页式的内存管理模式。当然，虽然支持段页式，但是 Linux 中只启用了段基址为 0 的段。也就是说，在 Linux 当中，实际起作用的只有分页模式。</p>
 <p>具体来说，分页模式在逻辑上将虚拟内存和物理内存同时等分成固定大小的块。这些块在虚拟内存上称之为「页」，而在物理内存上称之为「页帧」，并交由 CPU 中的 MMU 模块来负责页帧和页之间的映射管理。</p>
 <p>引入分页模式的好处，可以大致概括为两个方面：</p>
@@ -474,10 +475,13 @@
 </ul>
 <p>因此，我们可以用 <code>ps -o min_flt,maj_flt,cmd,args,uid,gid 1</code> 来观察进程号为 <code>1</code> 的进程的缺页错误。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ ps -o min_flt,maj_flt,cmd,args,uid,gid 1</span><br><span class="line"> MINFL  MAJFL CMD                         COMMAND                       UID   GID</span><br><span class="line">  3104     41 /sbin/init                  /sbin/init                      0     0</span><br></pre></td></tr></table></figure>
+
 <p>结合 <code>watch</code> 命令，则可关注进程当前出发缺页中断的状态。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">watch -n 1 --difference <span class="string">"ps -o min_flt,maj_flt,cmd,args,uid,gid 1"</span></span><br></pre></td></tr></table></figure>
+
 <p>你还可以结合 <code>sort</code> 命令，动态观察产生缺页错误最多的几个进程。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ watch -n 1 <span class="string">"ps -eo min_flt,maj_flt,cmd,args,uid,gid | sort -nrk1 | head -n 8"</span></span><br><span class="line"></span><br><span class="line">Every 1.0s: ps -eo min_flt,maj_flt,cmd,args,uid,gid | sort -nrk1 | head -n 8</span><br><span class="line"></span><br><span class="line">3027665711  1 tmux -2 new -s yu-ws        tmux -2 new -s yu-ws        19879 19879</span><br><span class="line">1245846907 9082 tmux                      tmux                        20886 20886</span><br><span class="line">1082463126 57 /usr/<span class="built_in">local</span>/bin/tmux         /usr/<span class="built_in">local</span>/bin/tmux          5638  5638</span><br><span class="line">868590907   2 irqbalance                  irqbalance                      0     0</span><br><span class="line">662275941 289831 tmux                     tmux                         2612  2612</span><br><span class="line">424339087 247 perl ./bin_agent/bin/aos_cl perl ./bin_agent/bin/aos_cl     0     0</span><br><span class="line">200045670   0 /bin/bash ./t.sh            /bin/bash ./t.sh            12498 12498</span><br><span class="line">151206845 10335 tmux new -s dev           tmux new -s dev             16629 16629</span><br></pre></td></tr></table></figure>
+
 <p>这是公司开发服务器上的一瞥，不难发现，我司有不少 <code>tmux</code> 用户。（笑）</p>
 <h2 id="一个硬缺页错误导致的问题"><a href="#一个硬缺页错误导致的问题" class="headerlink" title="一个硬缺页错误导致的问题"></a>一个硬缺页错误导致的问题</h2><p>我司的某一高性能服务采取了 <code>mmap</code> 的方式，从磁盘加载大量数据。由于调研测试需要，多名组内成员共享一台调研机器。现在的问题是，当共享的人数较多时，新启动的服务进程会在启动时耗费大量时间——以几十分钟计。那么，这是为什么呢？</p>
 <blockquote>
@@ -2051,12 +2055,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2237,19 +2241,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2269,6 +2260,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

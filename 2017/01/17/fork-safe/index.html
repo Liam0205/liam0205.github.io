@@ -436,16 +436,21 @@
       
         <p>这个系列的文章，已有两篇（<a href="/2016/08/30/review-of-hardware-development/">一</a>、<a href="/2017/01/17/layers-and-operation-system/">二</a>）。本文将接着第二篇的叙述，探讨一个与多进程、多线程相关的问题：<code>fork()</code>-安全。</p>
 <a id="more"></a>
+
 <h2 id="抛出异常"><a href="#抛出异常" class="headerlink" title="抛出异常"></a>抛出异常</h2><p>首先我们来看这样的代码</p>
 <figure class="highlight cpp"><figcaption><span>mutex_deadlock.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// compile: g++ ‐‐std=c++11 ‐lpthread mutex_deadlock.cpp</span></span><br><span class="line"><span class="comment">// execute: ./a.out</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="keyword">pthread_mutex_t</span> mutex = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span>* <span class="title">doit</span><span class="params">(<span class="keyword">void</span>*)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_lock(&amp;mutex);</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">timespec</span> <span class="title">ts</span> = &#123;</span><span class="number">20</span>, <span class="number">0</span>&#125;;</span><br><span class="line">    nanosleep(&amp;ts, <span class="number">0</span>);</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">pthread_t</span> t;</span><br><span class="line">    pthread_create(&amp;t, <span class="literal">nullptr</span>, doit, <span class="literal">nullptr</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fork() == <span class="number">0</span>) &#123;</span><br><span class="line">        doit(<span class="literal">nullptr</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    pthread_join(t, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>在代码里，我们首先用 <code>pthread_create()</code> 创建了一个子线程。在子线程里，<code>doit()</code> 工作函数会持有一把互斥锁，然后睡 20 秒后再释放这把锁。而后，与子线程同时进行的，在主线程中，我们调用 <code>fork()</code> 函数，创建一个子进程。并且，在子进程里，我们也调用 <code>doit()</code> 函数，尝试获取互斥锁。</p>
 <h2 id="捕获异常"><a href="#捕获异常" class="headerlink" title="捕获异常"></a>捕获异常</h2><p>现在我们观察一下，这个程序的运行状态。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ ./a.out</span><br><span class="line">$ ps ‐ef | grep <span class="string">"a.out"</span> | grep ‐v grep</span><br><span class="line">   16629    10449   340  0 11:25 pts/90   00:00:00 ./a.out</span><br><span class="line">   16629    10451 10449  0 11:25 pts/90   00:00:00 ./a.out</span><br></pre></td></tr></table></figure>
+
 <p>可以看到，等到我们有机会查看程序的运行状态时，子进程已经被创建出来了。显而易见，<code>10449</code> 是主进程，而 <code>10451</code> 是子进程。我们用 <code>strace</code> 跟踪主进程试试看。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ strace -p 10449 -f</span><br><span class="line">Process 10449 attached with 2 threads - interrupt to quit</span><br><span class="line">[pid 10450] restart_syscall(&lt;... resuming interrupted call ...&gt; &lt;unfinished ...&gt;</span><br><span class="line">[pid 10449] futex(0x41c279d0, FUTEX_WAIT, 10450, NULL &lt;unfinished ...&gt;</span><br><span class="line">[pid 10450] &lt;... restart_syscall resumed&gt; ) = 0</span><br><span class="line">[pid 10450] _exit(0)                    = ?</span><br><span class="line">Process 10450 detached</span><br><span class="line">&lt;... futex resumed&gt; )                   = 0</span><br><span class="line">exit_group(0)                           = ?</span><br><span class="line">Process 10449 detached</span><br></pre></td></tr></table></figure>
+
 <p>不难发现，<code>strace</code> 提示主进程里有 2 个线程，其中主线程正在等待子线程释放互斥锁。待子线程释放互斥锁并退出后，主线程就获取到锁，而后退出了。这表明，主进程运行正常。</p>
 <p>现在看看子进程的状态。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ ps -ef | grep <span class="string">"a.out"</span> | grep -v grep</span><br><span class="line">16629    10451     1  0 11:25 pts/90   00:00:00 ./a.out</span><br><span class="line">$ strace -p 10451 -f</span><br><span class="line">Process 10451 attached - interrupt to quit</span><br><span class="line">futex(0x600e20, FUTEX_WAIT_PRIVATE, 2, NULL</span><br></pre></td></tr></table></figure>
+
 <p>这里有几处值得注意的地方</p>
 <ul>
 <li>执行 <code>ps -ef</code> 的时候，主进程已经退出了，但是子进程依然存活。这时候，子进程变为孤儿，过继给 1 号进程 <code>init</code>。</li>
@@ -467,6 +472,7 @@
 <p>这是一个刻意构造的例子，说明当子线程持有锁的时候，由主线程进行 <code>fork()</code> 操作是不安全的。在生产实际中，这种现象不总是发生，但是在概率的意义上是必然发生的。因此，我们有必要考虑怎样解决这个问题。好在，<code>fork()</code> 的文档中给出了提示：使用 <code>pthread_atfork()</code> 函数。</p>
 <h2 id="pthread-atfork-函数"><a href="#pthread-atfork-函数" class="headerlink" title="pthread_atfork() 函数"></a><code>pthread_atfork()</code> 函数</h2><p><code>pthread_atfork()</code> 和 <code>phread_create()</code> 函数一样，由 <code>pthread</code> 库提供。它的原型是</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">pthread_atfork</span> <span class="params">(<span class="keyword">void</span> (*prepare) (<span class="keyword">void</span>), <span class="keyword">void</span> (*parent) (<span class="keyword">void</span>), <span class="keyword">void</span> (*child) (<span class="keyword">void</span>))</span></span>;</span><br></pre></td></tr></table></figure>
+
 <p>它接收三个参数，分别是</p>
 <ul>
 <li><code>prepare</code>: 将在 <code>fork()</code> 之前执行；</li>
@@ -476,6 +482,7 @@
 <p>这个函数实际上是一个注册机，它可以被执行多次，而后将诸多 <code>prepare</code> 函数压入堆栈中，在 <code>fork()</code> 之前依次弹栈执行（执行顺序与注册的顺序相反）；将诸多 <code>parent</code> 和 <code>child</code> 函数分别填入队列中，在 <code>fork()</code> 函数即将 <code>return</code> 的地方依次执行（执行顺序与注册顺序相同）。按照设计的意图，程序员可以在 <code>fork()</code> 之前，做好清理工作，以便 <code>fork()</code> 能够安全地调用；并且在 <code>fork()</code> 返回之前，对函数做初始化，以便后续代码能够顺利执行。</p>
 <p>据此，对上面的代码，我们可以有这样的修改</p>
 <figure class="highlight cpp"><figcaption><span>mutex_deadlock_fix.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// compile: g++ ‐‐std=c++11 ‐lpthread mutex_deadlock_fix.cpp</span></span><br><span class="line"><span class="comment">// execute: ./a.out</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="keyword">pthread_mutex_t</span> mutex = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span>* <span class="title">doit</span><span class="params">(<span class="keyword">void</span>*)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_lock(&amp;mutex);</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">timespec</span> <span class="title">ts</span> = &#123;</span><span class="number">20</span>, <span class="number">0</span>&#125;;</span><br><span class="line">    nanosleep(&amp;ts, <span class="number">0</span>);</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">prepare</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_lock(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">parent</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">child</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_atfork(prepare, parent, child);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">pthread_t</span> t;</span><br><span class="line">    pthread_create(&amp;t, <span class="literal">nullptr</span>, doit, <span class="literal">nullptr</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fork() == <span class="number">0</span>) &#123;</span><br><span class="line">        doit(<span class="literal">nullptr</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    pthread_join(t, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>不难验证，死锁的问题已经解决。</p>
 <h2 id="没有银弹"><a href="#没有银弹" class="headerlink" title="没有银弹"></a>没有银弹</h2><p>不幸的是，<code>pthread_atfork()</code> 函数并不是解决此类问题的银弹。事实上，<code>pthread_atfork()</code> 本身就可能造成死锁的问题。</p>
 <p>实际上，因为库作者不可能知道其它第三方库对锁的使用，因此每个库必须自己调用 <code>pthread_atfork()</code> 来处理自己的环境。然而，在实际环境中，各个 <code>pthread_atfork()</code> 函数调用的时机是不确定的；也因此，各个 <code>prepare</code> 函数的调用顺序是不确定的。这有可能会造成问题，例如可能有下面的情况发生</p>
@@ -2047,12 +2054,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2233,19 +2240,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2265,6 +2259,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

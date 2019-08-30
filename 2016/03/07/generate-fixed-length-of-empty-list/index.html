@@ -411,7 +411,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>819</span>
+              <span>827</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -421,7 +421,7 @@
               
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
               
-              <span>1 分钟</span>
+              <span>2 分钟</span>
             </span>
           
 
@@ -437,20 +437,28 @@
         <p>最近用 Python 的时候，踩了一个坑。</p>
 <p>主需求，是将横向排列为主的二维数组，读入序列化为纵向排列为主的二维数组。为此，需要先确定原数据的列数，然后建立一个特定长度的空列表:</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[[], [], [], ... [], []]</span><br></pre></td></tr></table></figure>
+
 <a id="more"></a>
+
 <h2 id="这是个坑"><a href="#这是个坑" class="headerlink" title="这是个坑"></a>这是个坑</h2><p>Python 的乘法非常神奇。比如有：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>a = [[]] * <span class="number">2</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>a</span><br><span class="line">[[], []]</span><br></pre></td></tr></table></figure>
+
 <p>这个方式非常优雅，所以我首先想到的，就是用这样的乘法生成符合要求的二维空数组。</p>
 <figure class="highlight python"><figcaption><span>trap.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">width = <span class="number">3</span></span><br><span class="line">a = [list()] * <span class="number">3</span></span><br><span class="line">b = range (width + <span class="number">1</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> xrange (width):</span><br><span class="line">    a[i].append (b[i + <span class="number">1</span>])</span><br><span class="line"><span class="keyword">print</span> a</span><br></pre></td></tr></table></figure>
+
 <p>预想中，最后的 <code>print a</code> 应该输出 <code>[[1], [2], [3]]</code>，然而实际上却输出了</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>], [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>], [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]]</span><br></pre></td></tr></table></figure>
+
 <p>看到这个结果，我直接懵逼了。</p>
 <h2 id="出坑"><a href="#出坑" class="headerlink" title="出坑"></a>出坑</h2><p>原来，Python 里的乘法创建的是<strong>实例的引用</strong>。也就是说，<code>[list()] * 3</code> 里的（作为元素的）列表，实际是一个实例：修改其中之一，会同步修改到剩余所有的引用。也就是有：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>a = [[<span class="number">1</span>]] * <span class="number">2</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>a</span><br><span class="line">[[<span class="number">1</span>], [<span class="number">1</span>]]</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>a[<span class="number">0</span>][<span class="number">0</span>] = <span class="number">2</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>a</span><br><span class="line">[[<span class="number">2</span>], [<span class="number">2</span>]]</span><br></pre></td></tr></table></figure>
+
 <p>因此，为了达到我最开始的目的，不能用「魔术乘法」，只能老实地用列表推导式。如：</p>
 <figure class="highlight python"><figcaption><span>answer.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">width = <span class="number">3</span></span><br><span class="line">a = [list() <span class="keyword">for</span> i <span class="keyword">in</span> xrange (width)]</span><br><span class="line">b = range (width + <span class="number">1</span>)</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> xrange (width):</span><br><span class="line">    a[i].append (b[i + <span class="number">1</span>])</span><br><span class="line"><span class="keyword">print</span> a</span><br></pre></td></tr></table></figure>
+
 <p>得到预期：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">[[<span class="number">1</span>], [<span class="number">2</span>], [<span class="number">3</span>]]</span><br></pre></td></tr></table></figure>
+
 
     </div>
 
@@ -2009,12 +2017,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2195,19 +2203,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2227,6 +2222,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

@@ -61,7 +61,7 @@
 </script>
 
   <meta name="description" content="Python 是非常灵活的语言，其中 yield 关键字是普遍容易困惑的概念。 此篇将介绍 yield 关键字，及其相关的概念。">
-<meta name="keywords" content="Python,Yield,Coroutine,Generator,Iterator">
+<meta name="keywords" content="Python,Yield,Coroutine,Iterator,Generator">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Python 中的黑暗角落（一）：理解 yield 关键字">
 <meta property="og:url" content="https://liam.page/2017/06/30/understanding-yield-in-python/index.html">
@@ -437,11 +437,13 @@
         <p>Python 是非常灵活的语言，其中 <code>yield</code> 关键字是普遍容易困惑的概念。</p>
 <p>此篇将介绍 <code>yield</code> 关键字，及其相关的概念。</p>
 <a id="more"></a>
+
 <h2 id="迭代、可迭代、迭代器"><a href="#迭代、可迭代、迭代器" class="headerlink" title="迭代、可迭代、迭代器"></a>迭代、可迭代、迭代器</h2><h3 id="迭代（iteration）与可迭代（iterable）"><a href="#迭代（iteration）与可迭代（iterable）" class="headerlink" title="迭代（iteration）与可迭代（iterable）"></a>迭代（iteration）与可迭代（iterable）</h3><blockquote>
 <p>迭代是一种操作；可迭代是对象的一种特性。</p>
 </blockquote>
 <p>很多数据都是「容器」；它们包含了很多其他类型的元素。实际使用容器时，我们常常需要逐个获取其中的元素。<strong>逐个获取元素的过程，就是「迭代」</strong>。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># iteration</span></span><br><span class="line">a_list = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]</span><br><span class="line"><span class="keyword">for</span> i <span class="keyword">in</span> a_list:</span><br><span class="line">    print(i)</span><br></pre></td></tr></table></figure>
+
 <p>如果我们可以从一个对象中，逐个地获取元素，那么我们就说这个对象是「可迭代的」。</p>
 <p>Python 中的顺序类型，都是可迭代的（<code>list</code>, <code>tuple</code>, <code>string</code>）。其余包括 <code>dict</code>, <code>set</code>, <code>file</code> 也是可迭代的。对于用户自己实现的类型，如果提供了 <code>__iter__()</code> 或者 <code>__getitem__()</code> 方法，那么该类的对象也是可迭代的。</p>
 <h3 id="迭代器（iterator）"><a href="#迭代器（iterator）" class="headerlink" title="迭代器（iterator）"></a>迭代器（iterator）</h3><blockquote>
@@ -454,18 +456,22 @@
 <p>如果一个容器类提供了 <code>__iter__()</code> 方法，并且该方法能返回一个能够逐个访问容器内所有元素的迭代器，则我们说该容器类实现了迭代器协议。</p>
 <p>Python 中的迭代器协议和 Python 中的 <code>for</code> 循环是紧密相连的。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># iterator protocol and for loop</span></span><br><span class="line"><span class="keyword">for</span> x <span class="keyword">in</span> something:</span><br><span class="line">    print(x)</span><br></pre></td></tr></table></figure>
+
 <p>Python 处理 <code>for</code> 循环时，首先会调用内建函数 <code>iter(something)</code>，它实际上会调用 <code>something.__iter__()</code>，返回 <code>something</code> 对应的迭代器。而后，<code>for</code> 循环会调用内建函数 <code>next()</code>，作用在迭代器上，获取迭代器的下一个元素，并赋值给 <code>x</code>。此后，Python 才开始执行循环体。</p>
 <h2 id="生成器、yield-表达式"><a href="#生成器、yield-表达式" class="headerlink" title="生成器、yield 表达式"></a>生成器、<code>yield</code> 表达式</h2><h3 id="生成器函数（generator-function）和生成器（generator）"><a href="#生成器函数（generator-function）和生成器（generator）" class="headerlink" title="生成器函数（generator function）和生成器（generator）"></a>生成器函数（generator function）和生成器（generator）</h3><blockquote>
 <p>生成器函数是一种特殊的函数；生成器则是特殊的迭代器。</p>
 </blockquote>
 <p>如果一个函数包含 <code>yield</code> 表达式，那么它是一个生成器函数；调用它会返回一个特殊的迭代器，称为生成器。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">gen</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">yield</span> <span class="number">1</span></span><br><span class="line"></span><br><span class="line">print(type(func))   <span class="comment"># &lt;class 'function'&gt;</span></span><br><span class="line">print(type(gen))    <span class="comment"># &lt;class 'function'&gt;</span></span><br><span class="line"></span><br><span class="line">print(type(func())) <span class="comment"># &lt;class 'int'&gt;</span></span><br><span class="line">print(type(gen()))  <span class="comment"># &lt;class 'generator'&gt;</span></span><br></pre></td></tr></table></figure>
+
 <p>如上，生成器 <code>gen</code> 看起来和普通的函数没有太大区别。仅只是将 <code>return</code> 换成了 <code>yield</code>。用 <code>type()</code> 函数打印二者的类型也能发现，<code>func</code> 和 <code>gen</code> 都是函数。然而，二者的返回值的类型就不同了。<code>func()</code> 是一个 <code>int</code> 类型的对象；而 <code>gen()</code> 则是一个迭代器对象。</p>
 <h3 id="yield-表达式"><a href="#yield-表达式" class="headerlink" title="yield 表达式"></a><code>yield</code> 表达式</h3><p>如前所述，如果一个函数定义中包含 <code>yield</code> 表达式，那么该函数是一个生成器函数（而非普通函数）。实际上，<code>yield</code> 仅能用于定义生成器函数。</p>
 <p>与普通函数不同，生成器函数被调用后，其函数体内的代码并不会立即执行，而是返回一个生成器（generator-iterator）。当返回的生成器调用成员方法时，相应的生成器函数中的代码才会执行。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">square</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">for</span> x <span class="keyword">in</span> range(<span class="number">4</span>):</span><br><span class="line">        <span class="keyword">yield</span> x ** <span class="number">2</span></span><br><span class="line">square_gen = square()</span><br><span class="line"><span class="keyword">for</span> x <span class="keyword">in</span> square_gen:</span><br><span class="line">    print(x)</span><br></pre></td></tr></table></figure>
+
 <p>前面说到，<code>for</code> 循环会调用 <code>iter()</code> 函数，获取一个生成器；而后调用 <code>next()</code> 函数，将生成器中的下一个值赋值给 <code>x</code>；再执行循环体。因此，上述 <code>for</code> 循环基本等价于：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">genitor = square_gen.__iter__()</span><br><span class="line"><span class="keyword">while</span> <span class="keyword">True</span>:</span><br><span class="line">    x = geniter.next() <span class="comment"># Python 3 是 __next__()</span></span><br><span class="line">    print(x)</span><br></pre></td></tr></table></figure>
+
 <p>注意到，<code>square</code> 是一个生成器函数；作为它的返回值，<code>square_gen</code> 已经是一个迭代器；迭代器的 <code>__iter__()</code> 返回它自己。因此 <code>geniter</code> 对应的生成器函数，即是 <code>square</code>。</p>
 <p>每次执行到 <code>x = geniter.next()</code> 时，<code>square</code> 函数会从上一次暂停的位置开始，一直执行到下一个 <code>yield</code> 表达式，将 <code>yield</code> 关键字后的表达式列表返回给调用者，并再次暂停。注意，<strong>每次从暂停恢复时，生成器函数的内部变量、指令指针、内部求值栈等内容和暂停时完全一致</strong>。</p>
 <h3 id="生成器的方法"><a href="#生成器的方法" class="headerlink" title="生成器的方法"></a>生成器的方法</h3><p>生成器有一些方法。调用这些方法可以控制对应的生成器函数；不过，若是生成器函数已在执行过程中，调用这些方法则会抛出 <code>ValueError</code> 异常。</p>
@@ -483,7 +489,9 @@
 </ul>
 <h4 id="关于「下一个」yield-表达式"><a href="#关于「下一个」yield-表达式" class="headerlink" title="关于「下一个」yield 表达式"></a>关于「下一个」<code>yield</code> 表达式</h4><p>介绍「生成器的方法」时，我们说当调用 <code>generator.next()</code> 时，生成器函数会从当前位置开始执行到下一个 <code>yield</code> 表达式。这里的「下一个」指的是执行逻辑的下一个。因此</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">f123</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">yield</span> <span class="number">1</span></span><br><span class="line">    <span class="keyword">yield</span> <span class="number">2</span></span><br><span class="line">    <span class="keyword">yield</span> <span class="number">3</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> item <span class="keyword">in</span> f123(): <span class="comment"># 1, 2, and 3, will be printed</span></span><br><span class="line">    print(item)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">f13</span><span class="params">()</span>:</span></span><br><span class="line">    <span class="keyword">yield</span> <span class="number">1</span></span><br><span class="line">    <span class="keyword">while</span> <span class="keyword">False</span>:</span><br><span class="line">        <span class="keyword">yield</span> <span class="number">2</span></span><br><span class="line">    <span class="keyword">yield</span> <span class="number">3</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> item <span class="keyword">in</span> f13(): <span class="comment"># 1 and 3, will be printed</span></span><br><span class="line">    print(item)</span><br></pre></td></tr></table></figure>
+
 <h4 id="使用-send-方法与生成器函数通信"><a href="#使用-send-方法与生成器函数通信" class="headerlink" title="使用 send() 方法与生成器函数通信"></a>使用 <code>send()</code> 方法与生成器函数通信</h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">func</span><span class="params">()</span>:</span></span><br><span class="line">    x = <span class="number">1</span></span><br><span class="line">    <span class="keyword">while</span> <span class="keyword">True</span>:</span><br><span class="line">        y = (<span class="keyword">yield</span> x)</span><br><span class="line">        x += y</span><br><span class="line"></span><br><span class="line">geniter = func()</span><br><span class="line">geniter.next()  <span class="comment"># 1</span></span><br><span class="line">geniter.send(<span class="number">3</span>) <span class="comment"># 4</span></span><br><span class="line">geniter.send(<span class="number">10</span>)<span class="comment"># 14</span></span><br></pre></td></tr></table></figure>
+
 <p>此处，生成器函数 <code>func</code> 用 <code>yield</code> 表达式，将处理好的 <code>x</code> 发送给生成器的调用者；与此同时，生成器的调用者通过 <code>send</code> 函数，将外部信息作为生成器函数内部的 <code>yield</code> 表达式的值，保存在 <code>y</code> 当中，并参与后续的处理。</p>
 <p>这一特性是使用 <code>yield</code> 在 Python 中使用协程的基础。</p>
 <h2 id="yield-的好处"><a href="#yield-的好处" class="headerlink" title="yield 的好处"></a><code>yield</code> 的好处</h2><p>Python 的老用户应该会熟悉 Python 2 中的一个特性：内建函数 <code>range</code> 和 <code>xrange</code>。其中，<code>range</code> 函数返回的是一个列表，而 <code>xrange</code> 返回的是一个迭代器。</p>
@@ -599,9 +607,9 @@
             
               <a href="/tags/Coroutine/" rel="tag"># Coroutine</a>
             
-              <a href="/tags/Generator/" rel="tag"># Generator</a>
-            
               <a href="/tags/Iterator/" rel="tag"># Iterator</a>
+            
+              <a href="/tags/Generator/" rel="tag"># Generator</a>
             
           </div>
         
@@ -2059,12 +2067,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2245,19 +2253,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2277,6 +2272,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

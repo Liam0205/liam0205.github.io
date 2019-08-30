@@ -437,17 +437,22 @@
         <p><a href="/2017/09/12/rescue-your-life-with-SSH-config-file/">前作</a>提到为了防止中间人攻击，SSH 会要求 client 用户确认 server 的密钥指纹。这个设计很有用，但是如果在可靠环境里有大量机器组成的集群，而我们需要自动化地进行 SSH 访问和相关部署，交叉地去确认密钥指纹是很大的工作量。</p>
 <p>前作提到了 <code>ssh-keygen</code> 命令，用以在机器上生成密钥。此处我们需要用到 <code>ssh-keyscan</code> 命令，批量获取集群上机器的密钥指纹。</p>
 <a id="more"></a>
+
 <h2 id="ssh-keyscan"><a href="#ssh-keyscan" class="headerlink" title="ssh-keyscan"></a><code>ssh-keyscan</code></h2><p><code>ssh-keyscan</code> 的语法是</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh-keyscan [-46Hv] [-f file] [-p port] [-T timeout] [-t <span class="built_in">type</span>] [host | addrlist namelist] ...</span><br></pre></td></tr></table></figure>
+
 <p><code>-46</code> 是限定以 IPv4 或者 IPv6 连接机器；<code>-H</code> 则会对机器名进行散列，隐藏真实机器名，但仍能用于 SSH 相关连接；<code>-v</code> 则打印大量调试信息。</p>
 <p><code>host | addrlist namelist</code> 是需要扫描的机器列表；而 <code>-f</code> 指定一个文件，包含若干需要扫描的机器列表。<code>-f -</code> 表示从标准输入读取机器列表。</p>
 <p><code>-p</code> 指定连接远端 server 时的端口号；<code>-T</code> 指定超时时间；<code>-t</code> 则选择需要获取哪些类型的公钥指纹。</p>
 <h2 id="获取公钥指纹"><a href="#获取公钥指纹" class="headerlink" title="获取公钥指纹"></a>获取公钥指纹</h2><p>首先应准备好需要获取公钥指纹的 IP 或 HOSTNAME 列表，保存在文件中。例如演示用的文件是这样的。</p>
 <figure class="highlight bash"><figcaption><span>hostlist.txt</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1</span><br><span class="line">127.0.0.2</span><br></pre></td></tr></table></figure>
+
 <p>而后执行命令</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ ssh-keyscan -f hostlist.txt</span><br><span class="line"><span class="comment"># 127.0.0.1 SSH-2.0-OpenSSH_6.6.1</span></span><br><span class="line">127.0.0.1 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCWBZ3XrIajPmnd6R+g/wcUuOPOiRBMOYjAl4Dv8SfcZtgHqKTK6Zb1EeG3u/uzRYxqXMctG/2A4iXRDG9mvg9H9bimCWbA3xtR79NImPYg4m7BNuH9C+OXRYYJwoOGpjVMs0rGLXkq3/WVkXvQreBuhVD8NI2pEPnQsT1J5abdVbCHlwFYG6wVCJQqFY6jdntJJlxQv5EJu6w4/+Fd4LvdjysH+ngqArac6HMJUxqSxLQjzMdCRWEQKp3ySwmnRp9rHYVaJnnsXeYPfnMN1iMjdIQJPzc89Mepg4ip1q2bCMbMcx2XFO3I7YjYRdcOameFNafMGY0q5RHzhvgnNnal</span><br><span class="line"><span class="comment"># 127.0.0.1 SSH-2.0-OpenSSH_6.6.1</span></span><br><span class="line">127.0.0.1 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCPWoEQ7iCCYDrpyb5KeMmCaQ8aOnSfehqmrplZRkbqqnkS9++PdSX/eSLJ0tkFd5902/C+HTCqbDgso4mCKpMo=</span><br><span class="line"><span class="comment"># 127.0.0.2 SSH-2.0-OpenSSH_6.6.1</span></span><br><span class="line">127.0.0.2 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCWBZ3XrIajPmnd6R+g/wcUuOPOiRBMOYjAl4Dv8SfcZtgHqKTK6Zb1EeG3u/uzRYxqXMctG/2A4iXRDG9mvg9H9bimCWbA3xtR79NImPYg4m7BNuH9C+OXRYYJwoOGpjVMs0rGLXkq3/WVkXvQreBuhVD8NI2pEPnQsT1J5abdVbCHlwFYG6wVCJQqFY6jdntJJlxQv5EJu6w4/+Fd4LvdjysH+ngqArac6HMJUxqSxLQjzMdCRWEQKp3ySwmnRp9rHYVaJnnsXeYPfnMN1iMjdIQJPzc89Mepg4ip1q2bCMbMcx2XFO3I7YjYRdcOameFNafMGY0q5RHzhvgnNnal</span><br><span class="line"><span class="comment"># 127.0.0.2 SSH-2.0-OpenSSH_6.6.1</span></span><br><span class="line">127.0.0.2 ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCPWoEQ7iCCYDrpyb5KeMmCaQ8aOnSfehqmrplZRkbqqnkS9++PdSX/eSLJ0tkFd5902/C+HTCqbDgso4mCKpMo=</span><br></pre></td></tr></table></figure>
+
 <p>如此，将标准错误的输出重定向到 <code>/dev/null</code> 即可获得机器列表的公钥指纹了。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ssh-keyscan -f hostlist.txt 1&gt;&gt;~/.ssh/known_hosts 2&gt;/dev/null</span><br></pre></td></tr></table></figure>
+
 <p>而后将 <code>~/.ssh/known_hosts</code> 用 <code>scp</code> 拷贝到 <code>hostlist.txt</code> 中的所有机器上即可。</p>
 
     </div>
@@ -2005,12 +2010,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2191,19 +2196,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2223,6 +2215,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

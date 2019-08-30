@@ -437,10 +437,13 @@
         <p>一直听说 C++ 继承体系中对虚函数调用的动态绑定是基于虚函数表和虚表指针的，但是因为一些原因，我一直没有去搞清楚。今天想起这件事情，就去翻看了 <a href="https://github.com/cplusplus/draft/releases" target="_blank" rel="noopener">C++ 的标准文档</a>。然而，标准文档只提及了动态绑定的各种规则，却并没有提及任何有关虚函数表或虚表指针的内容。显然，我看的不会是假的标准文档，那么只可能是动态绑定是由编译器实现决定的了。</p>
 <p>本想具体详细地写一写虚函数表相关的问题，但已入深夜，就简单记录一份实验的代码吧。详细的内容待后续再讨论。</p>
 <a id="more"></a>
+
 <p>不多做分析，直接上代码。</p>
 <figure class="highlight cpp"><figcaption><span>crack_private.cc</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stddef.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Base</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">f</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Your are calling Base::f (public)."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">g</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Your are calling Base::g (private)."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Derived</span> :</span> <span class="keyword">public</span> Base&#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">funcptr_t</span> = <span class="keyword">void</span>(*)(<span class="keyword">void</span>);</span><br><span class="line"><span class="keyword">using</span> <span class="keyword">ptr_t</span>     = <span class="keyword">uint64_t</span>*;</span><br><span class="line"></span><br><span class="line"><span class="keyword">funcptr_t</span> fuckcxx(Base* <span class="keyword">const</span> ptr, <span class="keyword">const</span> <span class="keyword">ptrdiff_t</span> offset) &#123;</span><br><span class="line">  <span class="keyword">ptr_t</span> pvtbl = <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">ptr_t</span>&gt;(ptr);               <span class="comment">// 1.</span></span><br><span class="line">  <span class="keyword">ptr_t</span> pfunc = <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">ptr_t</span>&gt;(*pvtbl);</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">funcptr_t</span>&gt;(*(pfunc + offset));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    Derived d;</span><br><span class="line">    <span class="keyword">auto</span> f = fuckcxx(&amp;d, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">auto</span> g = fuckcxx(&amp;d, <span class="number">1</span>);                                <span class="comment">// 2.</span></span><br><span class="line">    f(); g();</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>编译并执行。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ g++-6 --version</span><br><span class="line">g++-6 (Homebrew GCC 6.4.0_1) 6.4.0</span><br><span class="line">Copyright (C) 2017 Free Software Foundation, Inc.</span><br><span class="line">This is free software; see the <span class="built_in">source</span> <span class="keyword">for</span> copying conditions.  There is NO</span><br><span class="line">warranty; not even <span class="keyword">for</span> MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span><br><span class="line"></span><br><span class="line">$ g++-6 crack_private.cc</span><br><span class="line">$ ./a.out</span><br><span class="line">Your are calling Base::f (public).</span><br><span class="line">Your are calling Base::g (private).</span><br></pre></td></tr></table></figure>
+
 <p>无疑，我们已经成功地访问了 <code>Base</code> 类的私有函数 <code>g</code>。现在我们来看看是怎样做到的。</p>
 <p>主函数很简单，无非是取了一个 <code>Derived</code> 类型的变量 <code>d</code>。而后借助它，用 <code>fuckcxx</code> 函数通过偏移量，去获得 <code>Base</code> 的函数指针。最后实现函数调用。这里可以作出几个推断。</p>
 <ul>
@@ -2007,12 +2010,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2193,19 +2196,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2225,6 +2215,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

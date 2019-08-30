@@ -438,6 +438,7 @@
 <p>一个「看似」可行的解决办法，是在编译 <code>A.so</code> 的时候，将对应的高版本的 <code>libstdc++</code> 以静态的方式链接到 <code>A.so</code> 里面。这样，如果能把来自高版本 <code>libstdc++.a</code> 的符号隐藏起来（不暴露给动态链接器，避免符号冲突），那么就可以解决问题了。</p>
 <p>然而，这个解决办法，实际上是不可行的。本文将分析为什么不可行。</p>
 <a id="more"></a>
+
 <h2 id="静态链接的优缺点"><a href="#静态链接的优缺点" class="headerlink" title="静态链接的优缺点"></a>静态链接的优缺点</h2><p>总结起来，静态链接有如下优点</p>
 <ul>
 <li>得到单一的文件，可以拷贝到所有体系结构相同的操作系统上运行；</li>
@@ -459,6 +460,7 @@
 <p>当我们在 Linux bash 当中执行命令启动一个进程的时候，bash 实际上会先做一个 <code>fork()</code> 系统调用，而后在子进程里做一个 <code>execve()</code> 系统调用执行指定的 ELF 可执行文件，原先的进程则返回等待。GLIBC 对 <code>execve()</code> 系统调用做了封装，提供了诸如 <code>execlp()</code> 的函数；但这些函数内里都会去执行 <code>execve()</code> 系统调用。</p>
 <p>以下代码实现了一个简单的 minibash，模拟展示了启动一个进程的过程。</p>
 <figure class="highlight c"><figcaption><span>minibash.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">size_t</span> buf_size = <span class="number">1024</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">char</span> buf[buf_size] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">    <span class="keyword">pid_t</span> pid;</span><br><span class="line">    <span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"minibash $ "</span>);</span><br><span class="line">        <span class="built_in">scanf</span>(<span class="string">"%s"</span>, buf);</span><br><span class="line">        pid = fork();</span><br><span class="line">        <span class="keyword">if</span> (<span class="number">0</span> == pid) &#123;</span><br><span class="line">            <span class="keyword">if</span> (execlp(buf, <span class="number">0</span>) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">printf</span>(<span class="string">"exec error\n"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (pid &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">int</span> status;</span><br><span class="line">            waitpid(pid, &amp;status, <span class="number">0</span>);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            pritnf(<span class="string">"fork error %d\n"</span>, pid);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>当执行到 <code>execve()</code> 系统调用时，就会进入到对应的 <code>sys_execve()</code> 入口。这标志着由用户态向内核态的转变，同时也标志着装载的开始。对于 ELF 可执行文件，之后的调用顺序是</p>
 <ul>
 <li><code>sys_execve()</code> - 进行参数检查；</li>
@@ -511,17 +513,22 @@
 <hr>
 <h2 id="附录：如何将依赖的库静态链接进可执行程序"><a href="#附录：如何将依赖的库静态链接进可执行程序" class="headerlink" title="附录：如何将依赖的库静态链接进可执行程序"></a>附录：如何将依赖的库静态链接进可执行程序</h2><p>我们先来看一个耳熟能详的 <code>Hello world!</code> 程序。</p>
 <figure class="highlight c++"><figcaption><span>hello.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="built_in">std</span>::<span class="built_in">cout</span>;</span><br><span class="line"><span class="keyword">using</span> <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="string">"Hello world!"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>众所周知，如果要将它编译为可执行程序，只需要执行 <code>g++ hello.cpp -o hello</code> 就可以了。在这个过程中，<code>g++</code> 这个命令，隐藏了编译、链接的细节。我们在这里把步骤拆开，依次进行。</p>
 <p>首先，我们对其进行编译。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ g++ -c hello.cpp -o hello.o</span><br></pre></td></tr></table></figure>
+
 <p>在这里，<code>-c</code> 参数告知 <code>g++</code> 命令，我们只希望编译就可以了，之后的链接不要自动执行。</p>
 <p>我们知道，编译器会将代码中的函数、变量等，翻译成一个个的符号（symbol）。我们可以用 <code>nm</code> 命令，查看 <code>hello.o</code> 当中包含了哪些符号。而后可以用 <code>c++filt</code> 命令，查看符号背后对应的函数签名或者变量名。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ nm hello.o | wc -l</span><br><span class="line">14</span><br><span class="line">$ nm hello.o</span><br><span class="line">000000000000003e t _GLOBAL__I_main</span><br><span class="line">0000000000000000 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev</span><br><span class="line">                 U _ZSt4cout</span><br><span class="line">                 U _ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_</span><br><span class="line">0000000000000000 b _ZSt8__ioinit</span><br><span class="line">                 U _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc</span><br><span class="line">                 U __cxa_atexit</span><br><span class="line">                 U __dso_handle</span><br><span class="line">                 U __gxx_personality_v0</span><br><span class="line">0000000000000054 t __tcf_0</span><br><span class="line">000000000000006c T main</span><br><span class="line">$ c++filt _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">__static_initialization_and_destruction_0(int, int)</span><br></pre></td></tr></table></figure>
+
 <p>我们看到，<code>hello.o</code> 当中，只有 14 个符号。并且，在这些符号中，有很多是未定义的符号——第二列提示 <code>U</code> 表示未定义。这表明，<code>hello.o</code> 用到了这些符号，但是这些符号对应的函数、变量，定义在其他目标文件当中。</p>
 <p>接下来我们执行链接这一步。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">49</span><br><span class="line">$ nm hello</span><br><span class="line">0000000000600ae8 d _DYNAMIC</span><br><span class="line">0000000000600cb0 d _GLOBAL_OFFSET_TABLE_</span><br><span class="line">0000000000400816 t _GLOBAL__I_main</span><br><span class="line">0000000000400958 R _IO_stdin_used</span><br><span class="line">                 w _Jv_RegisterClasses</span><br><span class="line">00000000004007d8 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev@@GLIBCXX_3.4</span><br><span class="line">...</span><br><span class="line">0000000000400844 T main</span><br></pre></td></tr></table></figure>
+
 <p>经过链接之后，可执行文件 <code>hello</code> 当中的符号多了不少：从 14 个增加到了 49 个。这说明，经过链接之后，可执行文件补充了一些执行过程中需要的符号。但是我们也看到，在 <code>hello</code> 当中，仍然存在被标记为 <code>U</code> 的未定义的符号。这说明，<code>hello</code> 在运行时仍旧会动态地依赖系统中的动态库。我们可以用 <code>ldd</code> 命令查看一个 ELF 文件依赖的动态库。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffb3bfd000)</span><br><span class="line">        libstdc++.so.6 =&gt; /opt/gcc/lib64/libstdc++.so.6 (0x00002ada4968e000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002ada49996000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br></pre></td></tr></table></figure>
+
 <p>这里</p>
 <ul>
 <li><code>linux-vdso.so.1</code> 是 Linux 的一个内核模块；</li>
@@ -531,11 +538,13 @@
 </ul>
 <p>如果想要将这些依赖的动态库对应的符号，都静态链接到可执行文件中的话，则需要在链接的时候加上 <code>-static</code> 参数。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">4425</span><br><span class="line">$ ldd hello</span><br><span class="line">        not a dynamic executable</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span></span><br><span class="line">                 U __tls_get_addr</span><br></pre></td></tr></table></figure>
+
 <p>我们看到，相对不加 <code>-static</code> 参数的版本，新的 <code>hello</code> 多出了四千多个符号；并且，以 <code>ldd</code> 查看 <code>hello</code> 依赖的动态库，命令提示 <code>hello</code> 没有依赖其他的动态库；最后，我们发现，<code>hello</code> 的所有符号中，仅有 <code>__tls_get_addr</code> 是未定义的。</p>
 <p><code>tls</code> 是 Thread Local Storage 的缩写，<code>__tls_get_addr()</code> 接收一个参数（数据结构 <code>tls_index</code> 的起始地址），返回一个 Thread Local Variable 的在当前段的偏移量和长度。这个函数是专为动态链接器设计的，在静态链接时这个符号对应的函数无意义（参见 <code>ELF/SymbolTable.cpp</code>）。</p>
 <p>因此，我们说，对于静态链接版本的 <code>hello</code> 来说，它已经包含了运行所需的所有符号。</p>
 <p>若是想要静态链接 <code>libstdc++</code>，其他的部分依然保留动态链接，则可以使用 <code>g++</code> 的参数 <code>-static-libstdc++</code>。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static-libstdc++</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffcd5fd000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002b6ccb401000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">3022</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span> | grep -v GLIBC | grep -v GCC</span><br></pre></td></tr></table></figure>
+
 <p>可以看到，使用 <code>-static-libstdc++</code> 之后，<code>hello</code> 不再依赖 <code>libstdc++.so</code> 了。同时，其中包含的符号相比动态链接 <code>libstdc++</code> 的版本要多出不少，而相对完全静态链接的版本又少了不少；介于二者之间。此外，我们也验证了，<code>hello</code> 中包含的未定义的符号，除开 <code>GLIBC</code> 和 <code>GCC</code> 相关的符号之外，就没有了。</p>
 
     </div>
@@ -2099,12 +2108,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2285,19 +2294,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2317,6 +2313,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

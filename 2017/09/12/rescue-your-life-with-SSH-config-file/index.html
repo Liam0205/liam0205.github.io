@@ -439,13 +439,16 @@
 <p>若你在学习工作生活中，需要通过 SSH 协议，登录、管理多台服务器。那么，一方面你可能会厌烦记忆各个远程服务器的主机名/IP 地址；另一方面你可能会被繁琐的口令输入过程弄得烦躁不安。特别地，若是你需要在同一台远程主机上，打开多个终端窗口进行操作时；你可能需要反复输入多次用户名和口令（在不用 <code>screen</code>/<code>tmux</code> 之类的工具的前提下）。</p>
 <p>这篇文章首先会尝试介绍 Linux 自带的 SSH 工具的基本用法，并附带介绍 SSH 配置文件的编写规则。而后，尝试解决上述繁琐的记忆和口令输入命令。</p>
 <a id="more"></a>
+
 <h2 id="SSH"><a href="#SSH" class="headerlink" title="SSH"></a>SSH</h2><p>我们说，在创造一件事情之前，你需要想清楚这件事情的意义是什么。通常而言，创造新事物的原动力，是我们发现了旧事物和我们目标之间存在的差距（gap）；而新事物就是为了填上这一差距的。因此，讲道理，我们首先应该去分析在 SSH 协议诞生之前人们使用的远程登录协议有哪些问题；而后去分析 SSH 分别是如何解决这些问题，填上所谓的 gaps 的。</p>
 <p>然而，「空谈误国，实干兴邦」。一方面在没有任何实践之前，大谈理论是空洞的；另一方面，我们最终也是要将理论落实到时间上去。因此这一节，我们首先介绍/回顾 SSH 的最基本用法；而后讨论 SSH 是如何解决过去远程登录协议遗留下来的问题的；借此，我们将讨论 SSH 连接建立时会发生什么；介绍完这些内容之后，我们将介绍如何免密登录。</p>
 <h3 id="SSH-的基本用法"><a href="#SSH-的基本用法" class="headerlink" title="SSH 的基本用法"></a>SSH 的基本用法</h3><p>Linux 下，<code>ssh</code> 命令的基本用法是</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh [params] [flags] [user@]remotehost [<span class="built_in">command</span>]</span><br></pre></td></tr></table></figure>
+
 <p>先除去参数（<code>params</code>）和标识（<code>flags</code>）不论，以及不讨论后续的执行命令（<code>command</code>）；<code>ssh</code> 命令的基本用法是 <code>ssh [user@]remotehost</code>。若一切顺利，如此就能成功以用户 <code>user</code> 登录远程服务器 <code>remotehost</code>。其中，若你本地登录账户的用户名与远程服务器上的用户名一致，则可以省略 <code>[user@]</code>。</p>
 <p>另外值得一提的是，这里说的 <code>remotehost</code> 指的是「逻辑上」的远程主机。实际上，若是你尝试执行下列命令，就能（利用本地回环）登录你本机的 <code>foo</code> 账户了。此时，本机的主机名/IP 地址，就充当了 <code>ssh</code> 命令中逻辑上的远程主机。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh foo@localhost <span class="comment"># 127.0.0.0/24, ::1</span></span><br></pre></td></tr></table></figure>
+
 <blockquote>
 <p><code>127.0.0.0/24</code> 都是本地回环的 IPv4 地址。只不过，因为 <code>127.0.0.1</code> 是其中第一个合法的主机地址；所以被用来指代本地回环。但千万不要以为只有 <code>127.0.0.1</code> 这一个地址能够本地回环。<code>: )</code></p>
 </blockquote>
@@ -466,12 +469,14 @@
 </ol>
 <p>前面已经说过，<code>localhost</code> 也可以充当逻辑上的远程主机。这里我们就以 <code>localhost</code> 为例，验证一下这一过程。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ ssh liamhuang@localhost</span><br><span class="line">The authenticity of host <span class="string">'localhost (127.0.0.1)'</span> can<span class="string">'t be established.</span></span><br><span class="line"><span class="string">ECDSA key fingerprint is 4d:28:ed:f1:3d:40:fe:68:c8:b3:b0:9b:a7:dc:5d:7e.</span></span><br><span class="line"><span class="string">Are you sure you want to continue connecting (yes/no)?</span></span><br></pre></td></tr></table></figure>
+
 <p>执行 <code>ssh liamhuang@localhost</code> 尝试以 <code>liamhuang</code> 的用户身份登录（逻辑上的）远程主机 <code>localhost</code> 时，SSH 如我们预期一样，提示我们验证远程主机的身份。这段文字翻译如下。</p>
 <blockquote>
 <p>无法验证主机 &#39;localhost (127.0.0.1)&#39; 的真实性。ECDSA 密钥指纹为 <code>4d:28:ed:f1:3d:40:fe:68:c8:b3:b0:9b:a7:dc:5d:7e</code>。你是否要继续连接？(yes/no)</p>
 </blockquote>
 <p>标准的操作，我们必须通过额外的方式，与远程主机取得联系，验证这一指纹是否真实。不过，此处我们略去这一步骤，键入 <code>yes</code>。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ ssh liamhuang@localhost</span><br><span class="line">The authenticity of host <span class="string">'localhost (127.0.0.1)'</span> can<span class="string">'t be established.</span></span><br><span class="line"><span class="string">ECDSA key fingerprint is 4d:28:ed:f1:3d:40:fe:68:c8:b3:b0:9b:a7:dc:5d:7e.</span></span><br><span class="line"><span class="string">Are you sure you want to continue connecting (yes/no)? yes</span></span><br><span class="line"><span class="string">Warning: Permanently added '</span>localhost<span class="string">' (ECDSA) to the list of known hosts.</span></span><br><span class="line"><span class="string">liamhuang@localhost'</span>s password:</span><br><span class="line">Last login: Tue Sep 12 17:49:33 2017 from 127.0.0.1</span><br></pre></td></tr></table></figure>
+
 <p>如前所述，为了下次自动地验证远程主机的身份，本地主机会将远程主机的公钥指纹保存下来。新出现的提示，翻译如下。</p>
 <blockquote>
 <p>警告：已将 &#39;localhost&#39; (ECDSA) 永久地加入已知主机列表之中。</p>
@@ -482,6 +487,7 @@
 </blockquote>
 <p>那么，具体来说，本地主机将这一信息保存在哪里了呢？答案是当前用户的 <code>${HOME}/.ssh/known_hosts</code> 文件当中。我们可以执行 <code>exit</code> 命令，退出远程主机；而后使用 <code>tail</code> 命令可以查看刚刚插入在该文件末尾的远程主机信息。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ tail -1 <span class="variable">$&#123;HOME&#125;</span>/.ssh/known_hosts</span><br><span class="line">localhost ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCPWoEQ7iCCYDrpyb5KeMmCaQ8aOnSfehqmrplZRkbqqnkS9++PdSX/eSLJ0tkFd5902/C+HTCqbDgso4mCKpMo=</span><br></pre></td></tr></table></figure>
+
 <h3 id="使用公钥验证身份"><a href="#使用公钥验证身份" class="headerlink" title="使用公钥验证身份"></a>使用公钥验证身份</h3><p>现在我们考虑下一个问题：除去输入远程主机用户口令的方式，是否还有其他方式能够验证登录者的身份？</p>
 <p>对于身份认证来说，通常有三种手段：</p>
 <ol>
@@ -503,21 +509,27 @@
 <p>在这个过程中，远程主机对比一来一回前后随机信息的一致性，验证了本地主机确实持有一个安全介质——本地主机生成的私钥。因此，这就不需要输入远程主机的用户口令了。</p>
 <p>为此，我们首先需要生成一对密钥。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">$ ssh-keygen</span><br><span class="line">Generating public/private rsa key pair.</span><br><span class="line">Enter file <span class="keyword">in</span> <span class="built_in">which</span> to save the key (/home/<span class="built_in">test</span>/.ssh/id_rsa): /home/<span class="built_in">test</span>/.ssh/id_rsa.test</span><br><span class="line">Enter passphrase (empty <span class="keyword">for</span> no passphrase):</span><br><span class="line">Enter same passphrase again:</span><br><span class="line">Your identification has been saved <span class="keyword">in</span> /home/<span class="built_in">test</span>/.ssh/id_rsa.test.</span><br><span class="line">Your public key has been saved <span class="keyword">in</span> /home/<span class="built_in">test</span>/.ssh/id_rsa.test.pub.</span><br><span class="line">The key fingerprint is:</span><br><span class="line">91:cb:1d:45:65:27:76:cc:66:02:4d:e5:1f:c4:64:6d liam@localhost</span><br><span class="line">The key<span class="string">'s randomart image is:</span></span><br><span class="line"><span class="string">+--[ RSA 2048]----+</span></span><br><span class="line"><span class="string">|         .o.*o*=.|</span></span><br><span class="line"><span class="string">|        .o o.=== |</span></span><br><span class="line"><span class="string">|        +  E .o.=|</span></span><br><span class="line"><span class="string">|       . =     +o|</span></span><br><span class="line"><span class="string">|        S  o    .|</span></span><br><span class="line"><span class="string">|                 |</span></span><br><span class="line"><span class="string">|                 |</span></span><br><span class="line"><span class="string">|                 |</span></span><br><span class="line"><span class="string">|                 |</span></span><br><span class="line"><span class="string">+-----------------+</span></span><br></pre></td></tr></table></figure>
+
 <p><code>ssh-keygen</code> 是 OpenSSH 的一部分，它用于生成供 SSH 使用的密钥。默认情况下，<code>ssh-keygen</code> 生成的是 RSA 密钥（本机上是 2048 位 RSA），并将私钥保存在 <code>${HOME}/.ssh/id_rsa</code> 当中。为了避免与已有的密钥冲突，这里我们另存为 <code>id_rsa.test</code>。随后，<code>ssh-keygen</code> 要求我们为生成的私钥设置口令（passphrase）。这一口令是对私钥进行保护的口令，可以留空。这样一来，我们就生成了一对 RSA 密钥。其中，私钥保存在 <code>/home/test/.ssh/id_rsa.test</code> 而公钥保存在 <code>/home/test/.ssh/id_rsa.test.pub</code>。</p>
 <p>接下来，我们需要将生成的密钥交付给远程主机。为此，我们需要使用 <code>ssh-copy-id</code> 这一命令。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ ssh-copy-id -i ~/.ssh/id_rsa.test liamhuang@localhost</span><br><span class="line">/usr/bin/ssh-copy-id: INFO: attempting to <span class="built_in">log</span> <span class="keyword">in</span> with the new key(s), to filter out any that are already installed</span><br><span class="line">/usr/bin/ssh-copy-id: INFO: 1 key(s) remain to be installed -- <span class="keyword">if</span> you are prompted now it is to install the new keys</span><br><span class="line">liamhuang@localhost<span class="string">'s password:</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">Number of key(s) added: 1</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">Now try logging into the machine, with:   "ssh '</span>liamhuang@localhost<span class="string">'"</span></span><br><span class="line"><span class="string">and check to make sure that only the key(s) you wanted were added.</span></span><br></pre></td></tr></table></figure>
+
 <p><code>ssh-copy-id</code> 会将 <code>~/.ssh/id_rsa.test</code> 对应的公钥，交付给 <code>liamhuang@localhost</code>。在这个过程中，我们需要输入用户 <code>liamhuang</code> 在远程主机 <code>localhost</code> 上的口令。注意，此处我们使用了 <code>-i</code> 参数，指定了需要交付的密钥。若是省略 <code>-i</code> 参数，则 <code>ssh-copy-id</code> 会将默认的密钥 <code>~/.ssh/id_rsa</code> 对应的公钥交付给远程主机。</p>
 <p>之后，我们就可以「免密登录」了。同样，我们需要使用 <code>-i</code> 参数指定所需使用的私钥。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ ssh -i ~/.ssh/id_rsa.test liamhuang@localhost</span><br><span class="line">Last login: Tue Sep 12 17:53:11 2017 from 127.0.0.1</span><br></pre></td></tr></table></figure>
+
 <p>类似上面提到过的 <code>~/.ssh/known_hosts</code>，保存这类公钥也有一个特定的文件：远程主机目标用户的 <code>${HOME}/.ssh/authorized_keys</code>。登录远程主机后，我们可以使用 <code>tail</code> 命令来查看刚刚添加的公钥。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ tail -1 ~/.ssh/authorized_keys</span><br><span class="line">ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiDajuJwE1cyrRxDiDNB+2T2WiWB29l7C61zfnSTFA31SrsWU2DGuC9qoFqRtsbXUXS57E0kmPSJzmkwj+EihHJmZUt6AXYx8UdwXtzSPyhkLH6K/iH2W4fxe9vMvzSdbhM58LUi9+4d1I3Zte9zdG1/boHPIH/+6reU/2V1l2rr44+/LzZoeoyVWICIq2gf7ZMxdJzLLUtuFUBMLIxre3sob6EYSeIJFPvMXfpk9D/Qxio+x8U+PdFOl5avA0m0BaaatXyBe0jhTs43YJOgONnbBQAuJOEJ8RKHgnEVUh1Wu7eIKheaHAeOqBiNW3UMEUDGY9dyInhvFR0tlY8jg5 <span class="built_in">test</span>@localhost</span><br><span class="line">$ tail -1 ~/.ssh/authorized_keys | md5sum</span><br><span class="line">293b27ababace5a6004427af4b0739b9  -</span><br></pre></td></tr></table></figure>
+
 <p>返回到本地主机，可见它正是我们刚刚生成的公钥。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ cat ~/.ssh/id_rsa.test.pub</span><br><span class="line">ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCiDajuJwE1cyrRxDiDNB+2T2WiWB29l7C61zfnSTFA31SrsWU2DGuC9qoFqRtsbXUXS57E0kmPSJzmkwj+EihHJmZUt6AXYx8UdwXtzSPyhkLH6K/iH2W4fxe9vMvzSdbhM58LUi9+4d1I3Zte9zdG1/boHPIH/+6reU/2V1l2rr44+/LzZoeoyVWICIq2gf7ZMxdJzLLUtuFUBMLIxre3sob6EYSeIJFPvMXfpk9D/Qxio+x8U+PdFOl5avA0m0BaaatXyBe0jhTs43YJOgONnbBQAuJOEJ8RKHgnEVUh1Wu7eIKheaHAeOqBiNW3UMEUDGY9dyInhvFR0tlY8jg5 <span class="built_in">test</span>@localhost</span><br><span class="line">$ cat ~/.ssh/id_rsa.test.pub | md5sum</span><br><span class="line">293b27ababace5a6004427af4b0739b9  -</span><br></pre></td></tr></table></figure>
+
 <blockquote>
 <p>须得注意的是，出于安全性考虑，若要保证这一特性打开，远程主机上的相关文件必须限制除当前用户之外的权限。个人建议 <code>.ssh</code> 目录权限必须不高于 <code>700</code>；且 <code>authorized_keys</code> 文件权限必须不高于 <code>600</code>。</p>
 </blockquote>
 <p>若是你的机器不支持 <code>ssh-copy-id</code>，也可以直接将公钥信息写入远程主机目标用户的 <code>${HOME}/.ssh/authorized_keys</code> 当中。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ ssh liamhuang@localhost <span class="string">'mkdir -p .ssh &amp;&amp; chmod 700 .ssh &amp;&amp; cat &gt;&gt; .ssh/authorized_keys &amp;&amp; chmod 600 .ssh/authorized_keys'</span> &lt; ~/.ssh/id_rsa.test.pub</span><br></pre></td></tr></table></figure>
+
 <h2 id="SSH-的配置文件"><a href="#SSH-的配置文件" class="headerlink" title="SSH 的配置文件"></a>SSH 的配置文件</h2><p>我们在文章开头处提出了利用 SSH 登录管理大量机器的两个不便：</p>
 <ul>
 <li>需要记忆大量机器的主机名；</li>
@@ -542,14 +554,18 @@
 </ul>
 <h3 id="一个简单的例子"><a href="#一个简单的例子" class="headerlink" title="一个简单的例子"></a>一个简单的例子</h3><p>这样一来，我们可以在配置文件中写入如下内容。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Host localliam</span><br><span class="line">    HostName localhost</span><br><span class="line">    User liamhuang</span><br><span class="line">    IdentityFile /home/test/.ssh/id_rsa.test</span><br></pre></td></tr></table></figure>
+
 <p>这样一来，执行 <code>ssh localliam</code> 就相当于执行了 <code>ssh -i /home/test/.ssh/id_rsa.test liamhuang@localhost</code> 了。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ ssh localliam</span><br><span class="line">Last login: Tue Sep 12 19:03:16 2017 from 127.0.0.1</span><br></pre></td></tr></table></figure>
+
 <h3 id="批量管理"><a href="#批量管理" class="headerlink" title="批量管理"></a>批量管理</h3><p>现在我们构建这样一个场景。我们有 1000 台服务器；它们的主机名编号从 <code>w-i0.test.sh.localnet</code> 一直到 <code>w-i999.test.sh.localnet</code>。那么，为了免密以 <code>cloud</code> 用户的身份登录这 1000 台机器，我们可以首先将准备好的公钥上传到这 1000 台机器上；而后在 SSH 配置文件里配置如下内容。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Host i? i?? i???</span><br><span class="line">    Host w-%h.test.sh.localnet</span><br><span class="line">    User cloud</span><br><span class="line">    IdentityFile ~/.ssh/id_rsa.test</span><br></pre></td></tr></table></figure>
+
 <p>这样一来，我们就只需要使用 <code>ssh i73</code> 就能以 <code>cloud</code> 用户的身份，登录 <code>w-i73.test.sh.localnet</code> 了。</p>
 <h3 id="更多场景"><a href="#更多场景" class="headerlink" title="更多场景"></a>更多场景</h3><p>在实际使用中，任何基于 SSH 之上的程序，都可以借助 SSH 配置文件达到简化的目的。例如，代码托管网站 <a href="https://bitbucket.org/" target="_blank" rel="noopener">bitbucket</a> 支持通过 Git 来管理代码。而 Git 又是支持 SSH 方式与远程仓库进行通信。这样一来，我们就可以通过 SSH 配置文件，简化对 bitbucket 的访问；另一方面，通过 SSH 配置文件，我们可以将访问 bitbucket 时使用的密钥与其它密钥区分开。</p>
 <p>首先，我们使用 <code>ssh-keygen</code> 生成一对专用于 bitbucket 的密钥；保存在 <code>~/.ssh/id_rsa.bitbucket</code> 当中。而后，我们需要将 <code>~/.ssh/id_rsa.bitbucket.pub</code> 中的内容，粘贴到 bitbucket 的账户设置中去。而后，我们可以在 SSH 配置文件中记录：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">Host bitb</span><br><span class="line">    HostName bitbucket.org</span><br><span class="line">    IdentityFile ~/.ssh/id_rsa.bitbucket</span><br></pre></td></tr></table></figure>
+
 <p>这样一来，<code>git clone git@bitb:foo/bar.git</code> 就能克隆 bitbucket 上 <code>foo</code> 用户的 <code>bar</code> 仓库了（前提是你的账户对这个仓库有访问权限）。</p>
 
     </div>
@@ -2109,12 +2125,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2295,19 +2311,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2327,6 +2330,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

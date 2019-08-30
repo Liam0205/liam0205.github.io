@@ -442,6 +442,7 @@
 <p>此篇别名：可能是中文网络中关于 C 和 C++ 指针最好的文章。</p>
 </blockquote>
 <a id="more"></a>
+
 <h2 id="数据、指令和内存"><a href="#数据、指令和内存" class="headerlink" title="数据、指令和内存"></a>数据、指令和内存</h2><p>在冯诺依曼体系中，程序的数据和指令，是存放在同一空间中的。在 Linux 中，它们存放在进程的虚拟内存空间中。（相关内容可以关注「程序员的自我修养」系列文章，目前有：<a href="/2016/08/30/review-of-hardware-development/">一</a>/<a href="/2016/05/01/Introduction-to-Memory-Addressing/">二</a>/<a href="/2017/01/17/fork-safe/">三</a>）因此，对于进程来说，数据和指令其实没有本质的差别；其区别仅在于如何理解和使用虚存空间中的内容——如果读取虚存空间某个位置的值来使用，这块内容就是数据，如果执行虚存空间某个位置的代码，这块内容就是指令。决定如何理解和使用虚存空间中的内容的因素，是类型。具体到 C 和 C++ 语言来说，对应数据的那部分内存，当中存储的自然就是数据；对应函数的那部分内存，当中存储的就是指令。</p>
 <p>因此，对于虚存空间中的内容来说，有两个关键要素：</p>
 <ul>
@@ -451,26 +452,35 @@
 <h2 id="指针是对内存区域的抽象"><a href="#指针是对内存区域的抽象" class="headerlink" title="指针是对内存区域的抽象"></a>指针是对内存区域的抽象</h2><p>C 和 C++ 中的指针，是一种特殊的复合类型。指针变量中存放着目标对象的内存地址，而与指针相符合的类型，则说明了相应内存区域中的内容具有哪些属性，以及能做什么事情。也就是说，在内存空间某块区域中的内容，原本可以是不可解读的；但是，如果有一个描述这块内存区域的指针存在，我们就能找到它（地址的作用），并且<strong>合理地</strong>使用它（类型的作用）。因此，我们说：<strong>指针是对内存区域的抽象</strong>。</p>
 <h2 id="定义和使用指针"><a href="#定义和使用指针" class="headerlink" title="定义和使用指针"></a>定义和使用指针</h2><h3 id="指针的定义"><a href="#指针的定义" class="headerlink" title="指针的定义"></a>指针的定义</h3><p>在 C 和 C++ 中定义指针变量是很简单的，和定义普通的变量基本是一样的。所有的区别，仅在于我们需要在变量名称前使用<strong>解引用符号 <code>*</code></strong> 来标记这是一个指针。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> *ip1, *ip2;         <span class="comment">// ip1 和 ip2 都是指向 int 类型变量的指针变量</span></span><br><span class="line"><span class="keyword">double</span> d, *dp;          <span class="comment">// d 是 double 类型变量，dp 是指向 double 类型变量的指针变量</span></span><br></pre></td></tr></table></figure>
+
 <p>在上述定义中，我们看到，<code>ip1</code>, <code>ip2</code>, <code>dp</code> 是三个指针——因为在它们之前用 <code>*</code> 号标记处他们是指针；而 <code>d</code> 是一个普通的 <code>double</code> 类型变量。同时，我们注意到，<code>ip1</code> 和 <code>ip2</code> 在定义之时，就确定了他们是指向 <code>int</code> 类型的变量。这意味着，被 <code>ip1</code> 和 <code>ip2</code> 指向的内存，<strong>在使用 <code>ip1</code> 和 <code>ip2</code> 进行访问的时候</strong>，将被当做是 <code>int</code> 类型的对象来对待。同理，<code>dp</code> 指向的内存，<strong>在使用 <code>dp</code> 进行访问的时候</strong>，将被当做是 <code>double</code> 类型的对象来对待。</p>
 <p>回顾一下，我们在第一节中提到，内存空间中的内容有两个关键要素：地址和类型。在上述定义过程中，我们通过类型与解引用符号 <code>*</code> 相结合，已经确定了类型。如果要正确使用指针，我们还应该让指针记录一个地址。</p>
 <h3 id="获取对象的地址"><a href="#获取对象的地址" class="headerlink" title="获取对象的地址"></a>获取对象的地址</h3><p>上面说到，我们应该在定义指针之后，记录一个地址。在 C 和 C++ 中，我们需要使用<strong>取地址符号 <code>&amp;</code></strong> 来获取对象的地址。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> val = <span class="number">42</span>;</span><br><span class="line"><span class="keyword">int</span> *p  = &amp;val;     <span class="comment">// &amp;val 返回变量 val 的地址，记录在指向 int 类型变量的指针里</span></span><br></pre></td></tr></table></figure>
+
 <p>（绝大多数情况下，）指针的类型和对象的类型需要严格匹配。例如，你不能用一个指向 <code>int</code> 类型的指针变量，保存一个 <code>double</code> 类型的对象的地址。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">double</span> dval = <span class="number">0.0</span>;</span><br><span class="line"><span class="keyword">double</span> *pd1 = &amp;dval;    <span class="comment">// 正确：pd1 保存 double 类型变量 dval 的地址</span></span><br><span class="line"><span class="keyword">double</span> *pd2 = pd1;      <span class="comment">// 正确：pd1 是 double 类型的指针，可以赋值初始化同样类型的 pd2</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span> *pi1 = &amp;dval;       <span class="comment">// 错误：不能用指向 int 类型变量的指针保存 double 类型变量的地址</span></span><br><span class="line"><span class="keyword">int</span> *pi2 = pd1;         <span class="comment">// 错误：pd1 是 double 类型的指针，不能将其赋值给 int 类型的指针</span></span><br></pre></td></tr></table></figure>
+
 <h3 id="访问指针指向的对象"><a href="#访问指针指向的对象" class="headerlink" title="访问指针指向的对象"></a>访问指针指向的对象</h3><p>在下例中，指针 <code>p</code> 记录了变量 <code>val</code> 的地址。因此，我们可以通过解引用指针 <code>p</code> 来访问变量 <code>val</code>。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> val = <span class="number">42</span>;</span><br><span class="line"><span class="keyword">int</span> *p  = &amp;val;         <span class="comment">// &amp;val 返回变量 val 的地址，记录在指向 int 类型变量的指针里</span></span><br><span class="line"><span class="built_in">cout</span> &lt;&lt; *p &lt;&lt; <span class="built_in">endl</span>;     <span class="comment">// 通过指针 p 访问变量 val，输出 val 的值：42</span></span><br><span class="line"></span><br><span class="line">*p = <span class="number">360</span>;               <span class="comment">// 通过指针 p 改变变量 val 的值</span></span><br><span class="line"><span class="built_in">cout</span> &lt;&lt; *p &lt;&lt; <span class="built_in">endl</span>;     <span class="comment">// 通过指针 p 访问变量 val，输出 val 的值：360</span></span><br><span class="line"><span class="built_in">cout</span> &lt;&lt; val &lt;&lt; <span class="built_in">endl</span>;    <span class="comment">// 输出 val 的值：360</span></span><br></pre></td></tr></table></figure>
+
 <h3 id="空指针和空类型的指针"><a href="#空指针和空类型的指针" class="headerlink" title="空指针和空类型的指针"></a>空指针和空类型的指针</h3><p>空指针是不指向任何对象的指针，在实际编程中，通常使用空指针作为指针变量有效性的判断标准。</p>
 <p>C 语言和老版本 C++ 的空指针字面值是 <code>NULL</code>，它定义在 <code>stdlib</code> 当中；新版本的 C++ 使用 <code>nullptr</code> 作为空指针字面值。C++ 还支持用字面值常量 <code>0</code> 初始化指针变量，被这样初始化的指针变量会是一个空指针。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> *p1 = <span class="literal">NULL</span>;         <span class="comment">// C 风格的空指针初始化</span></span><br><span class="line"><span class="keyword">int</span> *p2 = <span class="literal">nullptr</span>;      <span class="comment">// C++ 风格的空指针初始化</span></span><br><span class="line"><span class="keyword">int</span> *p3 = <span class="number">0</span>;            <span class="comment">// 使用字面值常量 0 初始化空指针</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (<span class="literal">nullptr</span> == p1) &#123;    <span class="comment">// 思考一下为什么不是 p1 == nullptr</span></span><br><span class="line">    ; <span class="comment">// do something</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>空类型的指针，指的是形如 <code>void *pv</code> 的指针。这是一类特殊的指针；这里的空类型，不是说没有类型，而是说空类型的指针，可以用于存储任意类型对象的地址。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">double</span> pi = <span class="number">3.14</span>;</span><br><span class="line"><span class="keyword">void</span> *pv = &amp;pi;     <span class="comment">// 使用 void * 存放了一个 double 类型对象的地址</span></span><br><span class="line"><span class="keyword">double</span> *pd = &amp;pi;</span><br><span class="line">pd = pv;            <span class="comment">// 错误：不能将空类型的指针赋值给其他类型的指针</span></span><br><span class="line">pv = pd;            <span class="comment">// 正确：空类型的指针可以接受任意类型的指针赋值</span></span><br><span class="line">pd = (<span class="keyword">double</span> *)pv;  <span class="comment">// 正确：C 风格的强制类型转换</span></span><br><span class="line">pd = <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">double</span> *&gt;(pv); <span class="comment">// 正确：C++ 风格的强制类型转换</span></span><br></pre></td></tr></table></figure>
+
 <p>让我们回顾一下指针的两个要素：地址和类型。由于空类型的指针可以接受任意类型对象的地址，所以，当编译器拿到一个空类型的指针的时候，它无法知道应该按照何种方式解释和使用指针中记录地址中的内容。因此，空类型指针能够做的事情非常有限：做指针之间的比较、作为函数的输入或输出、赋值给另外一个空类型指针。</p>
 <h2 id="理解指针的定义"><a href="#理解指针的定义" class="headerlink" title="理解指针的定义"></a>理解指针的定义</h2><h3 id="再探变量声明"><a href="#再探变量声明" class="headerlink" title="再探变量声明"></a>再探变量声明</h3><p>在 C 和 C++ 中，变量的声明包括一个基本数据类型（或者类类型），以及一组声明符。定义指针使用的解引用符号 <code>*</code> 是类型修饰符，它是声明符的一部分。因此，在下列语句中，<code>int</code> 是基本数据类型，<code>*p</code> 是声明符，<code>*</code> 是类型修饰符作为声明符的一部分存在。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> *p;</span><br></pre></td></tr></table></figure>
+
 <p>在同一个变量定义语句中，基本数据类型只能有一个，但是可以有多个形式相同或不同的声明符。这也就是说，同一个语句可以定义出不同类型的变量。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// pi 是指向 int 型变量的指针；val 是 int 型变量</span></span><br><span class="line"><span class="keyword">int</span> *pi = <span class="literal">nullptr</span>,</span><br><span class="line">    val = <span class="number">1024</span>;</span><br></pre></td></tr></table></figure>
+
 <h3 id="理解稍微复杂的指针定义"><a href="#理解稍微复杂的指针定义" class="headerlink" title="理解稍微复杂的指针定义"></a>理解稍微复杂的指针定义</h3><p>因为指针本身也是变量，所以它当然也是存储在虚存空间里的。因此，我们当然也可以定义一个指向这一指针的指针。比如：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> val  = <span class="number">1024</span>;</span><br><span class="line"><span class="keyword">int</span> *p   = &amp;val;</span><br><span class="line"><span class="keyword">int</span> **pp = &amp;p;</span><br></pre></td></tr></table></figure>
+
 <p>我们需要仔细理解一下 <code>pp</code> 的定义。理解这类稍微复杂的定义语句，一个基本的办法就是：从最靠近变量名字的地方开始，一层一层剖析变量的类型。我们来看</p>
 <ul>
 <li>距离 <code>pp</code> 最近的是一个解引用符 <code>*</code>，这预示着 <code>pp</code> 是一个指针，它指向 <code>int *</code> 类型的变量；</li>
@@ -482,8 +492,10 @@
 </blockquote>
 <h2 id="const-与指针"><a href="#const-与指针" class="headerlink" title="const 与指针"></a><code>const</code> 与指针</h2><p>常量的值在生存期内不允许改变。这一特性经常是有用的：可以定义一个常量，然后在多个地方使用；当认为这个常量的值不合适的时候，修改它的定义，即可在所有使用到它的地方生效（而无需依次手工修改）；此外，还可以防止程序意外修改这个值。定义常量，只需要在基本类型前，加上 <code>const</code> 关键字即可；它是 constant 的缩写，意为常量。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> <span class="keyword">double</span> pi = <span class="number">3.141592653580793</span>;</span><br></pre></td></tr></table></figure>
+
 <p>当 <code>const</code> 与指针牵扯到一起，就有些复杂了。至少有以下几种情况：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> val = <span class="number">0</span>;                <span class="comment">// int 型变量</span></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> cnst = <span class="number">1</span>;         <span class="comment">// int 型常量</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span> *pi = &amp;val;             <span class="comment">// pi 本身是变量，通过 pi 访问的也是变量</span></span><br><span class="line">                            <span class="comment">// 正确：将变量地址赋值给变量的指针</span></span><br><span class="line">pi = &amp;cnst;                 <span class="comment">// 错误：不允许将常量的地址赋值给变量的指针</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> *pci = &amp;cnst;     <span class="comment">// pci 本身是变量，通过 pci 访问的是常量 (point to const)</span></span><br><span class="line">                            <span class="comment">// 正确：将常量地址赋值给常量的指针</span></span><br><span class="line">pci = &amp;val;                 <span class="comment">// 正确：允许将变量地址赋值给常量的指针</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">int</span> *<span class="keyword">const</span> cpi = &amp;val;      <span class="comment">// cpi 本身是常量，通过 cpi 访问的是变量</span></span><br><span class="line">                            <span class="comment">// 正确：允许将变量地址赋值给变量的指针</span></span><br><span class="line"><span class="keyword">int</span> fake = <span class="number">2</span>;               <span class="comment">// int 型变量</span></span><br><span class="line">cpi = &amp;fake;                <span class="comment">// 错误：cpi 本身是常量，不能在定义之外赋值</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> *<span class="keyword">const</span> cpci = &amp;val;</span><br><span class="line">                            <span class="comment">// cpci 本身是常量，通过 cpci 访问的也是常量</span></span><br><span class="line">                            <span class="comment">// 正确：允许将变量地址赋值给常量的指针</span></span><br><span class="line">cpci = &amp;fake;               <span class="comment">// 错误：cpci 本身是常量，不能在定义之外赋值</span></span><br><span class="line">cpci = &amp;cnst;               <span class="comment">// 错误：cpci 本身是常量，不能在定义之外赋值，哪怕是常量的地址</span></span><br></pre></td></tr></table></figure>
+
 <p>因为变量可以是常量，而指针本身也可以是常量。因此在变量和指针两个维度，都可以选择是否为常量。这样一来，就像上面代码展示的那样，当 <code>const</code> 与指针牵扯在一起的时候，就有 4 中可能性。为了区分这两个维度，我们引入<strong>顶层 <code>const</code></strong> 和<strong>底层 <code>const</code></strong> 的概念：</p>
 <ul>
 <li>顶层 <code>const</code>：指针本身是常量。此时，指针在定义初始化之外，不能被赋值修改。称指针为指针常量。</li>
@@ -491,62 +503,79 @@
 </ul>
 <h2 id="指针与数组"><a href="#指针与数组" class="headerlink" title="指针与数组"></a>指针与数组</h2><h3 id="数组的名字被当做指针使用"><a href="#数组的名字被当做指针使用" class="headerlink" title="数组的名字被当做指针使用"></a>数组的名字被当做指针使用</h3><p>在 C 和 C++ 中，指针与数组有非常紧密的联系。实际上，使用数组的时候，编译器通常都是在操作指针。这里我们从两个角度说明数组名在很多时候被当做是一个指针。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> nums[] = &#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;;</span><br><span class="line"><span class="keyword">int</span> *p = &amp;(nums[<span class="number">0</span>]);</span><br><span class="line"><span class="keyword">if</span> (p == nums) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"true!\n"</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">size_t</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i != <span class="number">3</span>; ++i) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"%d\n"</span>, p[i]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>如果你执行这一小段代码，那么，不出意外的话，程序会在终端上打印 <code>true!</code>，以及 <code>nums</code> 中的三个数字。这预示着，指针变量 <code>p</code> 保存的内容（也就是 <code>nums[0]</code> 的地址）和 <code>nums</code> 保存的内容是完全一样的；同时，编译器以相同的方式去解释 <code>p</code> 和 <code>nums</code>。显然 <code>p</code> 是一个指向 <code>int</code> 型变量的指针，那么 <code>nums</code> 也就是一个指针了。</p>
 <p>C++11 标准引入了 <code>auto</code> 关键字，它能够在定义变量时，探测初始值的类型，并为新定义的变量设置合适的类型。我们看看 <code>auto</code> 关键字作用于数组名字的时候，会发生什么。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> nums[] = &#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;;</span><br><span class="line"><span class="keyword">auto</span> what = nums;</span><br><span class="line"><span class="keyword">int</span> val = <span class="number">42</span>;</span><br><span class="line">what = &amp;val;</span><br></pre></td></tr></table></figure>
+
 <p>这份代码在 C++11 标准中，可以顺利通过。这说明 <code>what</code> 的类型，经由 <code>auto</code> 检测，是 <code>int *</code>。</p>
 <p>这两个例子，足以说明：当数组名字被当做是一个值来使用的时候，它就相当于是一个指针。</p>
 <h3 id="也不是全部时候"><a href="#也不是全部时候" class="headerlink" title="也不是全部时候"></a>也不是全部时候</h3><p>当然，也不是全部时候，数组名字都被当做是简单的指针。比如，<a href="/2016/11/26/init-vector-from-array/">前作</a>中的使用方式表明，在数组名字被传入 <code>sizeof()</code> 运算符的时候，它会被当做是一个真实的数组来看待。</p>
 <h3 id="数组指针可以自增"><a href="#数组指针可以自增" class="headerlink" title="数组指针可以自增"></a>数组指针可以自增</h3><p>数组的指针，可以像 C++ 中 <code>std::vector</code> 的迭代器那样进行自增操作。这句话不是太严谨，因为，实际上是先有数组的指针，再有 <code>std::vector</code> 的迭代器；迭代器实际上是仿造数组的指针设计的功能。</p>
 <p>前文提到，数组的指针，实际上是一个指向数组元素类型的对象的指针。数组的指针进行自增、自减运算，实际是将指针所指的位置，沿着数组向后或者向前移动一个元素。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> nums[] = &#123;<span class="number">0</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>,<span class="number">5</span>&#125;;</span><br><span class="line"><span class="keyword">size_t</span> len = <span class="keyword">sizeof</span>(nums) / <span class="keyword">sizeof</span>(nums[<span class="number">0</span>]);</span><br><span class="line"><span class="keyword">int</span> *iter;</span><br><span class="line"><span class="keyword">int</span> *end = nums + len;     <span class="comment">// end 是尾后指针</span></span><br><span class="line"><span class="keyword">for</span> (iter = nums; iter != end; ++iter) &#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"%d\n"</span>, *iter);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>像这样的用法，就和 <code>std::vector</code> 的迭代器几乎没有差别了。</p>
 <h3 id="数组指针可以进行加减运算"><a href="#数组指针可以进行加减运算" class="headerlink" title="数组指针可以进行加减运算"></a>数组指针可以进行加减运算</h3><p>数组的指针还可以进行加减运算。比如，在上述例子中 <code>iter += 2</code>，就是将 <code>iter</code> 指针沿着数组向后移动 2 个元素。</p>
 <p>两个指针如果指向同一个数组中的元素，那么它们可以做差。做差得到的结果是两个指针之间的距离，这个结果可以是负数（实际类型是 <code>ptrdiff_t</code>）。例如，在上述例子中在循环体末尾处，如果进行 <code>end - iter</code> 计算，则其结果表示当前尚未打印的元素的数量。</p>
 <h3 id="数组下标与指针加减"><a href="#数组下标与指针加减" class="headerlink" title="数组下标与指针加减"></a>数组下标与指针加减</h3><p>上面提到，数组指针可以进行加减运算：数组指针与整数的加减，实际是将指针沿着数组进行移动，得到的结果还是一个指针。既然结果是指针，那么就可以解引用，访问数组中的元素。因此有</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> nums[] = &#123;<span class="number">0</span>,<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>,<span class="number">4</span>&#125;;</span><br><span class="line"><span class="keyword">size_t</span> len = <span class="keyword">sizeof</span>(nums) / <span class="keyword">sizeof</span>(nums[<span class="number">0</span>]);</span><br><span class="line"><span class="keyword">int</span> *p = nums;</span><br><span class="line"><span class="keyword">size_t</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i != len; ++i) &#123;</span><br><span class="line">    <span class="keyword">if</span> (nums[i] == *(p + i)) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"true!\n"</span>);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>不出意外的话，这一小段代码会连续打印五行 <code>true!</code>。这提供了另一种访问数组内元素的方法；而事实上，在使用下标访问数组元素的时候，编译器都会转换成类似 <code>*(nums + i)</code> 的形式。也就是说，通过指针运算和解引用来访问数组元素，其实是更加本质的方式。</p>
 <h2 id="函数与指针"><a href="#函数与指针" class="headerlink" title="函数与指针"></a>函数与指针</h2><p>函数与指针，基本上是指针相关的话题中，最复杂的一个了。</p>
 <h3 id="让函数返回一个数组的指针"><a href="#让函数返回一个数组的指针" class="headerlink" title="让函数返回一个数组的指针"></a>让函数返回一个数组的指针</h3><p>我们知道，函数在返回的过程中，会对返回值进行拷贝。因此，一个无法拷贝的对象，是无法被函数返回的。（也可以参考<a href="/2016/08/14/copy-control-in-Cpp/">此篇</a>）数组是不能被拷贝的，所以函数无法直接返回数组。为了达到返回数组的目的，我们只能寄希望于让函数返回数组的指针（在 C++ 中还可以返回数组的引用）。</p>
 <p>为此，我们需要了解，如何定义一个返回数组指针的函数。</p>
 <p>首先，我们看一组数组的定义：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> arr[<span class="number">10</span>];        <span class="comment">// arr 是一个数组，长度是 10，元素类型是 int 型</span></span><br><span class="line"><span class="keyword">int</span> *parr[<span class="number">10</span>];      <span class="comment">// parr 是一个数组，长度是 10，元素类型是 int *，也就是数组中存的是指针</span></span><br><span class="line"><span class="keyword">int</span> (*p)[<span class="number">10</span>] = &amp;arr;</span><br><span class="line">                    <span class="comment">// p 是一个指针，它指向一个长度是 10 元素类型是 int 型的数组</span></span><br></pre></td></tr></table></figure>
+
 <p>这样一来，就不难构造返回数组的指针的函数定义了。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> *(func(param_list))[<span class="number">10</span>];</span><br><span class="line">                    <span class="comment">// 错误：func 是一个函数，param_list 是它的参数</span></span><br><span class="line">                    <span class="comment">// 它尝试返回一个长度为 10，元素类型为 int * 的数组</span></span><br><span class="line">                    <span class="comment">// 而数组是无法返回的</span></span><br><span class="line"><span class="keyword">int</span> (*func(param_list))[<span class="number">10</span>];</span><br><span class="line">                    <span class="comment">// 正确：func 是一个函数，param_list 是它的参数</span></span><br><span class="line">                    <span class="comment">// 它返回的是一个指针</span></span><br><span class="line">                    <span class="comment">// 这个指针指向了一个长度为 10 元素类型是 int 型的数组</span></span><br></pre></td></tr></table></figure>
+
 <p>于是，我们得到了此类函数定义的一般形式：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">element_type (*func(param_list))[dimension]</span><br></pre></td></tr></table></figure>
+
 <h3 id="函数的指针"><a href="#函数的指针" class="headerlink" title="函数的指针"></a>函数的指针</h3><blockquote>
 <p>终于到这个话题了，呼……</p>
 </blockquote>
 <p>上文提到，无论是数据（变量）还是指令（函数），都是存放在虚存空间的。因此，既然有变量的指针，那么也一定会有函数的指针。这就是我们这一小节需要讨论的函数指针；这会逐渐引出本文最复杂的话题。</p>
 <p>一个函数的类型，取决于它的输入和输出。这也就是说，一个函数的类型，应当包含它的返回值类型和参数列表。比如下面定义的函数，用于比较两个 <code>int</code> 型数据是否相等（这是一个仅用于示例而没有实际用处的函数）：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">isEqual</span><span class="params">(<span class="keyword">int</span>, <span class="keyword">int</span>)</span></span>;</span><br></pre></td></tr></table></figure>
+
 <p>对于一个函数来说，如果你能拿到它的定义，就很容易能取得它的类型：只需要去掉函数名字就可以了。因此，定义一个指向该类型的函数指针，并不困难。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">isEqual</span><span class="params">(<span class="keyword">int</span>, <span class="keyword">int</span>)</span></span>;</span><br><span class="line"><span class="keyword">bool</span> (*pfunc)(<span class="keyword">int</span>, <span class="keyword">int</span>) = &amp;isEqual;     <span class="comment">// 定义了一个函数指针，指向 isEqual</span></span><br><span class="line"><span class="keyword">bool</span> (*pfunc)(<span class="keyword">int</span>, <span class="keyword">int</span>) = isEqual;      <span class="comment">// 一个等价定义</span></span><br></pre></td></tr></table></figure>
+
 <p>在这里，<code>pfunc</code> 就是一个函数指针，它指向一个 <code>bool (int, int)</code> 类型的函数。也就是说，这类函数接收两个 <code>int</code> 型的参数，并返回一个 <code>bool</code> 类型的值。</p>
 <p>值得一提的是，当函数名字作为值使用时，它会自动地转换成指针（有点像数组名字，不是吗）。因此，在函数指针的初始化或者复制的过程中，取值运算符是可选的。于是，上述两个定义语句是等价的。另一方面，函数指针作为函数调用使用时，它会自动转换成函数名（有点像数组指针，不是吗）。因此，这种情况下，解引用运算符是可选的。请看下例：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">isEqual</span><span class="params">(<span class="keyword">int</span>, <span class="keyword">int</span>)</span></span>;</span><br><span class="line"><span class="keyword">bool</span> (*pfunc)(<span class="keyword">int</span>, <span class="keyword">int</span>) = isEqual;</span><br><span class="line"></span><br><span class="line"><span class="keyword">bool</span> res1 = isEqual(<span class="number">1</span>, <span class="number">2</span>);  <span class="comment">// 通过原函数名调用</span></span><br><span class="line"><span class="keyword">bool</span> res2 = (*pfunc)(<span class="number">1</span>, <span class="number">2</span>); <span class="comment">// 一个等价调用：通过函数指针，解引用调用</span></span><br><span class="line"><span class="keyword">bool</span> res3 = pfunc(<span class="number">1</span>, <span class="number">2</span>);    <span class="comment">// 另一个等价调用：函数指针自动转换成函数名</span></span><br></pre></td></tr></table></figure>
+
 <p>值得一提的是，不同类型的函数的指针之间，不存在任何的类型转换：你不能期待一个接受两个 <code>int</code> 型参数并返回 <code>bool</code> 值的函数的指针，经过类型转换，就能接受三个 <code>int</code> 型的参数。因此，对于重载的同名函数，他们的函数类型是不一样的，因此函数指针也不能是同一个。</p>
 <h3 id="将函数指针作为参数传入另一个函数"><a href="#将函数指针作为参数传入另一个函数" class="headerlink" title="将函数指针作为参数传入另一个函数"></a>将函数指针作为参数传入另一个函数</h3><p>在传参的过程中（除了 C++ 的传引用），也是伴随着拷贝的过程。因此，一个对象如果不能拷贝，那么它就不能作为参数传入函数。无疑，函数是不能拷贝的，因此你无法将函数作为参数直接传给另一个函数。但是，指针是可以拷贝的，因此，你可以将函数指针作为参数，传给另一个函数。</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">addIfEqual</span><span class="params">(<span class="keyword">int</span> lhs, <span class="keyword">int</span> rhs, <span class="keyword">bool</span> pfunc(<span class="keyword">int</span>, <span class="keyword">int</span>))</span></span>;</span><br><span class="line">                            <span class="comment">// addIfEqual 的第三个参数是一个函数定义</span></span><br><span class="line">                            <span class="comment">// 它会自动地转换成一个函数指针的参数</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">addIfEqual</span><span class="params">(<span class="keyword">int</span> lhs, <span class="keyword">int</span> rhs, <span class="keyword">bool</span> (*pfunc)(<span class="keyword">int</span>, <span class="keyword">int</span>))</span></span>;</span><br><span class="line">                            <span class="comment">// 一个等价定义：显式地注明第三个参数是函数指针</span></span><br></pre></td></tr></table></figure>
+
 <p>于是，你可以这样使用这个函数：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">addIfEqual(<span class="number">1</span>, <span class="number">1</span>, isEqual);</span><br></pre></td></tr></table></figure>
+
 <p>此时，函数名 <code>isEqual</code> 作为引数被传入，它起到的是「值」的作用。因此，<code>isEqual</code> 被自动地转换成指向该函数的指针。</p>
 <h3 id="让函数返回一个函数的指针"><a href="#让函数返回一个函数的指针" class="headerlink" title="让函数返回一个函数的指针"></a>让函数返回一个函数的指针</h3><p>同样地，与数组类似，虽然我们无法返回一个函数，但是我们可以返回一个函数指针。我们回到 <code>isEqual</code> 的函数指针的定义上来：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">bool</span> (*pfunc)(<span class="keyword">int</span>, <span class="keyword">int</span>) = isEqual;</span><br></pre></td></tr></table></figure>
+
 <p>在这里，<code>pfunc</code> 是一个指针，它指向了一个函数；该函数接收两个 <code>int</code> 型参数，并返回一个 <code>bool</code> 值。因此，仿造之前「返回数组指针的函数的定义形式」，我们不难得出：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">outer_return_type (*func(param_list))(outer_param_list)</span><br></pre></td></tr></table></figure>
+
 <p>这里，<code>func(param_list)</code> 是当前需要定义的函数；<code>outer_return_type</code> 和 <code>outer_param_list</code> 分别是当前定义的函数返回的函数指针对应函数的返回值类型和参数列表。</p>
 <h2 id="登峰造极的-void-0"><a href="#登峰造极的-void-0" class="headerlink" title="登峰造极的 (*(void(*)())0)();"></a>登峰造极的 <code>(*(void(*)())0)();</code></h2><p>这恐怕是一个会令所有 C/C++ 程序员战栗不已的函数调用语句。因此，在解释这个语句之前，我愿意先给出它的含义，安抚读者战栗的心灵。它表示：<strong>访问内存地址 <code>0</code>，将它作为一个参数列表和返回类型均为空的函数，并执行函数调用</strong>。（这是一个特殊场景下的函数调用，不用纠结为什么会调用 <code>0</code> 位置上的函数）</p>
 <h3 id="类型定义与-C-风格的类型强制转换符"><a href="#类型定义与-C-风格的类型强制转换符" class="headerlink" title="类型定义与 C 风格的类型强制转换符"></a>类型定义与 C 风格的类型强制转换符</h3><p>C 风格的类型强制转换符应该不是个稀罕玩意儿。比如 <code>(double)a</code> 就能将变量 <code>a</code> 强制转换为 <code>double</code> 类型。在这个简单的例子里，我们希望能够找到一些朴素的规律，破解这一登峰造极而又令人战栗的函数调用语句。</p>
 <p>同样以 <code>double</code> 类型及相关指针类型为例，我们首先看下面的代码：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">double</span> a;       <span class="comment">// 定义了一个 double 型的变量</span></span><br><span class="line"><span class="keyword">double</span> *b;      <span class="comment">// 定义了一个 double * 型的变量（double 型的指针）</span></span><br><span class="line"></span><br><span class="line">(<span class="keyword">double</span>) c;     <span class="comment">// 将变量 c 强制转换为 double 类型</span></span><br><span class="line">(<span class="keyword">double</span> *) d;   <span class="comment">// 将变量 d 强制转换为 double * 类型</span></span><br></pre></td></tr></table></figure>
+
 <p>我们不难发现，类型转换和对应类型的变量定义，有着千丝万缕的联系：首先去掉变量定义语句末尾的分号，然后去掉变量定义语句中的变量名，最后给剩余的部分加上括号——一个 C 风格的类型强制转换符，就得到了。</p>
 <h3 id="破解谜题"><a href="#破解谜题" class="headerlink" title="破解谜题"></a>破解谜题</h3><p>我们知道 <code>void(*pfunc)();</code> 定义了一个函数指针 <code>pfunc</code>，它指向的函数参数列表为空、返回值类型也为空。因此，<code>(void(*)())</code> 就是一个 C 风格的类型转换符。</p>
 <p>因此，<code>(void(*)())0</code> 会将 <code>0</code> 转换成一个函数指针，然后交给 <code>*</code> 解引用，最后传入参数（空的参数列表 <code>()</code>），执行函数调用。</p>
 <blockquote>
-<p>在 C++ 中，这个函数调用应该写作<br><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(*<span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">void</span>(*)()&gt;(<span class="number">0</span>))();</span><br></pre></td></tr></table></figure></p>
+<p>在 C++ 中，这个函数调用应该写作</p>
 </blockquote>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(*<span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">void</span>(*)()&gt;(<span class="number">0</span>))();</span><br></pre></td></tr></table></figure>
+
 <blockquote>
 <p>显而易见，这个写法，相较 C 风格的类型强制转换符，要清晰明朗得多。因此，请不要再吐槽 C++ 风格的强制转换是「语法盐」了。</p>
 </blockquote>
@@ -2110,12 +2139,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2296,19 +2325,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2328,6 +2344,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

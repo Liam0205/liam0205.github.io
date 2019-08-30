@@ -411,7 +411,7 @@
               
                 <span class="post-meta-item-text">本文字数：</span>
               
-              <span>3.1k</span>
+              <span>3k</span>
             </span>
           
             <span class="post-meta-item" title="阅读时长">
@@ -438,6 +438,7 @@
 <p>在中文网络搜索，大多数内容都是在系统偏好设置中，在账户和群组里管理「登录项」。但是目标软件没有出现在登录项的列表中。为此，我不得不在英文网络上搜索，找到了 Apple 关于开发者的一些文档，最终解决了问题。</p>
 <p>这篇记录一下如何管理 macOS 系统上的启动项。</p>
 <a id="more"></a>
+
 <h2 id="守护进程与用户代理"><a href="#守护进程与用户代理" class="headerlink" title="守护进程与用户代理"></a>守护进程与用户代理</h2><p>启动项的专业称呼是守护进程（Daemon）。守护进程是计算机系统中，运行在后台的程序。在 *nix 系统中，守护进程通常没有父进程（让自己成为孤儿进程，<a href="/2016/09/25/review-of-envoy/#%E8%BF%9B%E7%A8%8B%E7%9A%84%E7%BB%88%E6%AD%A2">前作</a>中有相关讨论）。一般来说，守护进程完成监听而后作出响应的任务。举例来说，杀毒软件的守护进程监听到有新下载的文件，就给出响应——启动杀毒软件对新下载的文件进行安全扫描。</p>
 <p>通常来说，守护进程是系统启动及内核运行后在系统初始化阶段启动的进程。对于 macOS 来说，还有名为用户代理（User Agent）的守护进程类似物。与守护进程相同，用户代理也能实现上述监听而后作出响应的功能。不过，与守护进程不同的是，用户代理是在用户登录系统时启动的，而不是在系统初始化阶段启动的。不过，就本文而言，守护进程与用户代理是一回事，因此除有特殊注明外，一律以守护进程指代，不做区分。</p>
 <h2 id="launchd"><a href="#launchd" class="headerlink" title="launchd"></a><code>launchd</code></h2><p>在 macOS 上，Apple 推荐用 <code>launchd</code> 来启动守护进程与用户代理。具体来说，<code>launchd</code> 在系统启动及内和运行后，在系统初始化阶段启动守护进程，而在用户登录是启动用户代理。流程大致如下：</p>
@@ -463,6 +464,7 @@
 <h2 id="属性列表文件（property-list-files）"><a href="#属性列表文件（property-list-files）" class="headerlink" title="属性列表文件（property list files）"></a>属性列表文件（property list files）</h2><p>上一节提到，<code>launchd</code> 会去相应目录读取属性列表文件，然后根据属性列表文件中的参数，注册套接字和文件描述符等资源，以及控制守护进程的运行策略。因此，接下来的关键就是这类属性列表文件。</p>
 <p>属性列表文件的英文是 Property List files，对应的文件名后缀是 <code>.plist</code>。说是属性列表文件，其实本质上就是 XML 文件。以下是一个示例文件。</p>
 <figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span></span><br><span class="line"><span class="meta">&lt;!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">plist</span> <span class="attr">version</span>=<span class="string">"1.0"</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dict</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">key</span>&gt;</span>Label<span class="tag">&lt;/<span class="name">key</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">string</span>&gt;</span>com.example.hello<span class="tag">&lt;/<span class="name">string</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">key</span>&gt;</span>ProgramArguments<span class="tag">&lt;/<span class="name">key</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">array</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">string</span>&gt;</span>hello<span class="tag">&lt;/<span class="name">string</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">string</span>&gt;</span>world<span class="tag">&lt;/<span class="name">string</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">array</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">key</span>&gt;</span>KeepAlive<span class="tag">&lt;/<span class="name">key</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">true</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dict</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">plist</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
 <p>Apple 在<a href="https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html#//apple_ref/doc/uid/10000172i-SW7-104142-BCICCCFI" target="_blank" rel="noopener">文档里</a>给出了守护进程属性列表文件必选和推荐的字段，这里翻译如下。</p>
 <table>
 <thead>
@@ -471,8 +473,7 @@
 <th>说明</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td><code>Label</code></td>
 <td>必填；包含用于 <code>launchd</code> 识别守护进程的唯一字符串标识符。</td>
 </tr>
@@ -488,8 +489,7 @@
 <td><code>KeepAlive</code></td>
 <td>该关键字用于指定相应的守护进程是按需启动还是要一直启动着。Apple 推荐实现按需启动的守护进程。</td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <p>此外，Apple 在<a href="https://developer.apple.com/library/archive/technotes/tn2083/_index.html" target="_blank" rel="noopener">技术笔记</a>中还提及了其他两个关键字，这两个关键字也可能影响守护进程的运行策略（当然还有其他一些关键字可能影响，但主要还有这两个）：</p>
 <ul>
 <li><code>RunAtLoad</code>：在属性列表文件加载时启动守护进程；</li>
@@ -503,8 +503,7 @@
 <th>相应的属性配置</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>完全地按需启动</td>
 <td><code>KeepAlive = false; RunAtLoad = false</code></td>
 </tr>
@@ -520,8 +519,7 @@
 <td>在守护进程正常退出之前，按需启动</td>
 <td><code>KeepAlive = { SuccessfulExit = true }; RunAtLoad = false</code></td>
 </tr>
-</tbody>
-</table>
+</tbody></table>
 <h2 id="管理启动项"><a href="#管理启动项" class="headerlink" title="管理启动项"></a>管理启动项</h2><p>有了这些知识，管理 macOS 上的启动项就很容易了。你需要做的就是在上述 5 个目录下，找到相应程序的属性列表文件，而后按你的意图修改即可。当然，有些属性列表文件需要使用 <code>root</code> 权限来修改。有必要的话，你需要在终端（Terminal.app）当中使用 <code>sudo vim /path/to/your.plist</code> 来修改目标文件。</p>
 <p>唯有一点需要注意，在做任何修改之前<strong>做好备份</strong>。</p>
 
@@ -2082,12 +2080,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2268,19 +2266,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2300,6 +2285,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

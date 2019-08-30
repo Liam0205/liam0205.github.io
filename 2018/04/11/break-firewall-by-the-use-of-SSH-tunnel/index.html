@@ -436,8 +436,10 @@
       
         <p>SSH 最基本的用法相信你已经了解。这次我们要用 SSH 来做一些特别的事情：建立正反 SSH 隧道，穿透防火墙，访问本不可见的内网服务器。</p>
 <a id="more"></a>
+
 <h2 id="管道和隧道"><a href="#管道和隧道" class="headerlink" title="管道和隧道"></a>管道和隧道</h2><p>我们先来看最简单的 SSH 命令。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh [-p &lt;onPort&gt;] [&lt;user&gt;@] &lt;connectToHost&gt;</span><br></pre></td></tr></table></figure>
+
 <p>此处方括号内的内容是可以省略的，尖括号内的内容是根据实际情况可修改的参数。这条命令表示，自执行命令的本机，向 <code>connectToHost</code> 的 <code>onPort</code> 端口发起请求，尝试以 <code>user</code> 身份登录。在上述 SSH 命令执行成功之后，我们就建立了从本机到 <code>connectToHost</code> 的连接。具体来说，本机的 SSH client 与 <code>connectToHost</code> 的 SSH server 建立了连接。我们可以将这一连接想像成一个有方向的管道；它的起点是本机的某个端口，而终点是 <code>connectToHost</code> 上的 <code>onPort</code> 端口。</p>
 <p>SSH 的 <code>-L</code> 和 <code>-R</code> 选项，允许用户在上述管道内部，再创建一个有向隧道。大体上，你可以将其想像为外部的大号管道套住了内部的小号隧道。隧道的两端与管道的两端相同，起点则由 <code>-L</code>ocal/<code>-R</code>emote 决定。使用 <code>-L</code> 选项时，本机的某个端口是起点；这种隧道称之为正向隧道；而使用 <code>-R</code> 选项时，起点是 <code>connectToHost</code> 上的 <code>onPort</code> 端口，这种隧道称之为反向隧道。</p>
 <blockquote>
@@ -445,12 +447,14 @@
 </blockquote>
 <h2 id="隧道与转发"><a href="#隧道与转发" class="headerlink" title="隧道与转发"></a>隧道与转发</h2><p>上述隧道可在已建立的 SSH 连接（管道）的基础上进行端口转发。我们从其语法开始说起，首先以 <code>-L</code> 为例。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -L [&lt;bindHost&gt;:]&lt;sourcePort&gt;:&lt;forwardToHost&gt;:&lt;onPort&gt; &lt;connectToHost&gt;</span><br></pre></td></tr></table></figure>
+
 <p>这条命令表示，本机的 SSH 客户端将与 <code>connectToHost</code> 建立连接（管道），并在管道内建立从本机到 <code>connectToHost</code> 的隧道。此后，本机将把所有来自 <code>bindHost</code> 发往本机的 <code>sourcePort</code> 端口的消息，通过上述隧道转交给 <code>connectToHost</code>，并由 <code>connectToHost</code> 负责发往 <code>forwardToHost</code> 的 <code>onPort</code> 端口。此处有两点值得注意。其一，<code>bindHost</code> 省略时或置为 <code>*</code> 时，表示本机将转发所有主机发往 <code>sourcePort</code> 的消息。其二，<code>forwardToHost</code> 是站在 <code>connectToHost</code> 的视角看待的，因此若 <code>forwardToHost</code> 的值是 <code>localhost</code>，则在此语境下表示 <code>connectToHost</code> 这台主机的本地回环。</p>
 <blockquote>
 <p><img alt data-src="/uploads/images/Linux/a28N8.png"><br>来自：<a href="https://unix.stackexchange.com/a/118650/140887" target="_blank" rel="noopener">https://unix.stackexchange.com/a/118650/140887</a></p>
 </blockquote>
 <p>于是，<code>-R</code> 的版本也就容易理解了。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -R [&lt;bindHost&gt;:]&lt;sourcePort&gt;:&lt;forwardToHost&gt;:&lt;onPort&gt; &lt;connectToHost&gt;</span><br></pre></td></tr></table></figure>
+
 <p>这条命令表示，本机的 SSH 客户端将与 <code>connectToHost</code> 建立连接（管道），并在管道内建立从 <code>connectToHost</code> 到本机的隧道。此后，<code>connectToHost</code> 将把所有来自 <code>bindHost</code> 发往 <code>connectToHost</code> 的 <code>sourcePort</code> 端口的消息，通过上述隧道转交给本机，并由本机负责发往 <code>forwardToHost</code> 的 <code>onPort</code> 端口。至于 <code>bindHost</code> 和 <code>forwardToHost</code> 的语义则与 <code>-L</code> 版本类似。</p>
 <blockquote>
 <p><img alt data-src="/uploads/images/Linux/4iK3b.png"><br>来自：<a href="https://unix.stackexchange.com/a/118650/140887" target="_blank" rel="noopener">https://unix.stackexchange.com/a/118650/140887</a></p>
@@ -473,12 +477,15 @@
 <p>至此，跳板机 <code>HOST_B</code> 上已有一个端口可以连接到目标机器 <code>HOST_A</code>。现在的问题是，如何将连向跳板机的 SSH 连接转发到跳板机上的这个特殊端口。为此，我们可以在跳板机上向其自身建立一个 SSH 连接，而后通过正向隧道将流量在跳板机内部转发到上述端口。</p>
 <h3 id="实际操作看看"><a href="#实际操作看看" class="headerlink" title="实际操作看看"></a>实际操作看看</h3><p>首先在 <code>HOST_A</code> 上执行：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -fNTCR localhost:1556:localhost:22 HOST_B</span><br></pre></td></tr></table></figure>
+
 <p>这里，<code>HOST_A</code> 向 <code>HOST_B</code> 发起 SSH 连接，建立了一个管道。而后，在管道内建立了一个从 <code>HOST_B</code> 到 <code>HOST_A</code> 的反向隧道。<code>HOST_B</code> 会将所有来自（第一个）<code>localhost</code>（即 <code>HOST_B</code> 本机）的发往 <code>HOST_B</code> 1556 端口的流量，经由上述隧道转交给 <code>HOST_A</code> 本机，而后转发给（第二个）<code>localhost</code>（即 <code>HOST_A</code>）的 22 端口。</p>
 <p>而后在 <code>HOST_B</code> 上执行：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -fNTCL *:1555:localhost:1556 localhost</span><br></pre></td></tr></table></figure>
+
 <p>这里，<code>HOST_B</code> 向自身（第二个 <code>localhost</code>）发起 SSH 连接，建立了一个管道。而后，在管道内建立了一个从 <code>HOST_B</code>（本机）到 <code>HOST_B</code>（<br>这里，<code>HOST_B</code> 向自身（第二个 <code>localhost</code>）的正向隧道。<code>HOST_B</code>（本机）会将来自任意主机的发往其 1555 端口的流量，经由上述隧道转交给 <code>HOST_B</code>（第二个 <code>localhost</code>），而后转发给（第一个）<code>localhost</code>（即 <code>HOST_B</code>）的 1556 端口。</p>
 <p>如此一来，所有发往 <code>HOST_B</code> 的 1555 端口的流量，会先转发到 <code>HOST_B</code> 的 1556 端口，再转发到 <code>HOST_A</code> 的 22 端口。因此，只需要在 <code>HOST_C</code> 上对 <code>HOST_B</code> 的 1555 端口发起 SSH 连接，就相当于是对 <code>HOST_A</code> 的 22 端口发起连接。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ssh -p 1555 HOST_B</span><br></pre></td></tr></table></figure>
+
 <p>如此即可。</p>
 
     </div>
@@ -2036,12 +2043,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2222,19 +2229,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2254,6 +2248,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

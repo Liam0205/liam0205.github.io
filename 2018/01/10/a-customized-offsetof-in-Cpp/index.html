@@ -436,6 +436,7 @@
       
         <p>此篇讲一讲 C/C++ 中的 <code>offsetof</code>。</p>
 <a id="more"></a>
+
 <h2 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h2><p><code>offsetof</code> 是源自 C 语言的宏，它接受两个参数（类型名和成员名），返回一个 <code>std::size_t</code> 类型的常量表达式。<code>offsetof</code> 的返回值是成员在该类型对象中以字节计算的的偏移量。其中，传入计算的类型名，必须满足标准内存布局的要求；即</p>
 <ul>
 <li>所有非 <code>static</code> 数据成员的访问控制权限相同；</li>
@@ -454,12 +455,16 @@
 <p><code>offsetof</code> 的这三个特性，也是实现 <code>offsetof</code> 宏的三个难点。为了解决这些问题，首先，实现应当让编译器相信在某处存在一个「虚拟的」但是「可用的」对象。而后，根据该虚拟对象，可以取得目标成员 <code>m</code> 的地址。随后，利用 <code>m</code> 的地址与该虚拟对象的起始地址做差，即可得知 <code>m</code> 的偏移量；为了求得以字节为单位的 <code>ptrdiff_t</code>，需将 <code>m</code> 的地址转变为 <code>char</code> 类型的指针。最后，只需将 <code>ptrdiff_t</code> 转换为 <code>std::size_t</code> 即可。</p>
 <p>因此，有如下 C++ 实现：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> offsetof(s, m) (reinterpret_cast<span class="meta-string">&lt;size_t&gt;(&amp;reinterpret_cast&lt;const volatile char&amp;&gt;(static_cast&lt;s*&gt;(nullptr)-&gt;m)))</span></span></span><br></pre></td></tr></table></figure>
+
 <p>此处，通过 <code>static_cast&lt;s*&gt;(nullptr)</code>，编译器相信在 <code>nullptr</code> 处（<code>0x0</code>）有一个真实存在的 <code>s</code> 类型的对象。此处使用 <code>static_cast</code> 而非 <code>reinterpret_cast</code> 是因为 C++ 标准不允许将 <code>nullptr</code> 通过 <code>reinterpret_cast</code> 转换成其他类型的指针；此类转换应用 <code>static_cast</code>。由于 <code>static_cast&lt;s*&gt;(nullptr)</code> 返回指向 <code>s</code> 类型对象的指针，因此 <code>static_cast&lt;s*&gt;(nullptr)-&gt;m</code> 就是一个虚拟但在编译器看来可用的成员变量 <code>m</code>。为了求得以字节为单位的 <code>ptrdiff_t</code>，实现中通过 <code>&amp;reinterpret_cast&lt;const volatile char&amp;&gt;(static_cast&lt;s*&gt;(nullptr)-&gt;m)</code> 获得一个 <code>const volatile char*</code> 类型的变量。由于在该实现中，虚拟的变量位于 <code>0x0</code> 位置，故而 <code>&amp;reinterpret_cast&lt;const volatile char&amp;&gt;(static_cast&lt;s*&gt;(nullptr)-&gt;m)</code> 即是 <code>m</code> 在 <code>s</code> 类型对象当中相对对象起始地址的偏移量。最后，只需将它转换为 <code>size_t</code> 类型的值即可：<code>reinterpret_cast&lt;size_t&gt;(&amp;reinterpret_cast&lt;const volatile char&amp;&gt;(static_cast&lt;s*&gt;(nullptr)-&gt;m))</code>。</p>
 <p>同样，可以有 C 风格的实现：</p>
 <figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> offsetof(s, m) (size_t)((char*)(&amp;((s*)0)-&gt;m))</span></span><br></pre></td></tr></table></figure>
+
 <h2 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> offsetof(s, m) (reinterpret_cast<span class="meta-string">&lt;size_t&gt;(&amp;reinterpret_cast&lt;const volatile char&amp;&gt;(static_cast&lt;s*&gt;(nullptr)-&gt;m)))</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">S</span> &#123;</span></span><br><span class="line">    <span class="keyword">char</span> c;</span><br><span class="line">    <span class="keyword">double</span> d;</span><br><span class="line">    <span class="keyword">char</span> cc;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"the first element is at offset %zu\n"</span>, offsetof(struct S, c));</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"the double is at offset %zu\n"</span>, offsetof(struct S, d));</span><br><span class="line">    <span class="built_in">printf</span>(<span class="string">"the third element is at offset %zu\n"</span>, offsetof(struct S, cc));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>上述测试代码的结果是：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ ./a.out</span><br><span class="line">the first element is at offset 0</span><br><span class="line">the double is at offset 8</span><br><span class="line">the third element is at offset 16</span><br></pre></td></tr></table></figure>
+
 
     </div>
 
@@ -2020,12 +2025,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2206,19 +2211,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2238,6 +2230,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

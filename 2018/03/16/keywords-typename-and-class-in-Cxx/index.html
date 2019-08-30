@@ -436,14 +436,17 @@
       
         <p>其实这是一个老掉牙的问题，网络上已有很多辨析。但看下来都有遗漏其中一个区别，所以有了这篇文章。</p>
 <a id="more"></a>
+
 <h2 id="共同点"><a href="#共同点" class="headerlink" title="共同点"></a>共同点</h2><p>如果两个事物没有任何共同点，那么也就没必要讨论他们的区别——因为他们所有的特性都是区别。所以这里我们首先来看一下 <code>typename</code> 和 <code>class</code> 关键字的共同点。</p>
 <p>在定义类模板或者函数模板时，<code>typename</code> 和 <code>class</code> 关键字都可以用于指定模板参数中的类型。也就是说，以下两种用法是完全等价的。这在大多数文章中都有提到。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt; <span class="comment">/* class or function declaration */</span>;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">T</span>&gt;    /* <span class="title">class</span> <span class="title">or</span> <span class="title">function</span> <span class="title">declaration</span> */;</span></span><br></pre></td></tr></table></figure>
+
 <p>关于这个问题，Stan Lippman 曾在其<a href="https://web.archive.org/web/20060619131004/http://blogs.msdn.com/slippman/archive/2004/08/11/212768.aspx" target="_blank" rel="noopener">博客</a>中表示，最早 Stroustrup 使用 <code>class</code> 来声明模板参数列表中的类型是为了避免增加不必要的关键字；后来委员会认为这样混用可能造成概念上的混淆才加上了 <code>typename</code> 关键字。</p>
 <h2 id="typename-独有的功能"><a href="#typename-独有的功能" class="headerlink" title="typename 独有的功能"></a><code>typename</code> 独有的功能</h2><p>除此之外，<code>typename</code> 还有其独有的功能。</p>
 <p>由于 C++ 允许在类内定义类型别名，且其使用方法与通过类型名访问类成员的方法相同。故而，在类定义不可知的时候，编译器无法知晓类似 <code>Type::foo</code> 的写法具体指的是一个类型还是类内成员。</p>
 <p>例如在以下代码中，类模板 <code>Bar</code> 的原意是使用类 <code>Foo</code> 实例化，而后引用其中的 <code>bar_type</code> 定义名为 <code>bar</code> 的类内成员。然而，就 <code>T::bar_type</code> 而言，编译器在编译期无法确定它究竟是不是一个类型。此时就需要 <code>typename</code> 关键字来辅助编译器的判断。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Foo</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">typedef</span> <span class="keyword">int</span> bar_type;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Bar</span> &#123;</span></span><br><span class="line"> <span class="comment">/* typename */</span></span><br><span class="line"> T::bar_type bar;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
 <p>这在大多数文章中也都有提到。</p>
 <p>值得一提的是，在编译期能够判断的情形，例如在上例中直接使用 <code>Foo::bar_type</code> 时，使用冗余的 <code>typename</code> 会报错。</p>
 <p>只有少数文章提到了这一点。</p>
@@ -451,10 +454,12 @@
 <p>除此之外，在模板的使用中，<code>class</code> 关键字也有其特有的功能。而这是绝大多数文章不会提及的。</p>
 <p>C++ 的标准模板库中有名为 <code>std::stack</code> 的容器适配器，它能适配许多容器作为底层，实现栈的功能。其声明为</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> Containter = <span class="built_in">std</span>::<span class="built_in">deque</span>&lt;T&gt; &gt;</span><br><span class="line">class <span class="built_in">stack</span>;</span><br></pre></td></tr></table></figure>
+
 <p>因此，在使用中，我们可以使用 <code>std::stack&lt;int&gt;</code> 来声明一个以 <code>std::deque&lt;int&gt;</code> 保存整型变量的栈；也可以使用 <code>std::stack&lt;int, std::vector&lt;int&gt; &gt;</code> 来声明一个以 <code>std::vector&lt;int&gt;</code> 保存整型变量的栈。</p>
 <p>现在的问题是，是否有可能以类似 <code>Stack&lt;int, std::vector&gt;</code> 的形式，来达到同样的目的？</p>
 <p>为此，我们需要有类似这样的声明</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T,</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> E, <span class="keyword">typename</span> = <span class="built_in">std</span>::allocater&lt;E&gt; &gt; class Container = <span class="built_in">std</span>::<span class="built_in">deque</span>&gt;</span><br><span class="line">class Stack;</span><br></pre></td></tr></table></figure>
+
 <p>由于 <code>Container</code> 必须是一个容器类模板，所以，如果不适用具体的模板参数实例化，就必须将其声明为一个类模板。故此，<code>Container</code> 之前需要保留标准库中容器类模板的模板参数。注意此处使用了标准库提供的内存分配器。</p>
 <p>此处 <code>class</code> 特有的功能，体现在 <code>class Container</code> 之处。此处虽然是在声明 <code>Stack</code> 这个类模板，但是此处的 <code>class</code> 不能替换为 <code>typename</code>；否则编译器会报错。</p>
 <blockquote>
@@ -2016,12 +2021,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2202,19 +2207,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2234,6 +2226,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

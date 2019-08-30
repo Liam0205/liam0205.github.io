@@ -438,8 +438,10 @@
 <p><img alt data-src="/uploads/images/LaTeX/tikz_comment_01.png"></p>
 <p>这篇文章，我们将用 Ti<em>k</em>Z 实现这个效果。</p>
 <a id="more"></a>
+
 <h2 id="TikZ-的知识"><a href="#TikZ-的知识" class="headerlink" title="TikZ 的知识"></a>Ti<em>k</em>Z 的知识</h2><p>我们知道，在 <code>tikzpicture</code> 环境中，类似上面的效果，很容易就能实现。</p>
 <figure class="highlight tex"><figcaption><span>tikzpicture_sample.tex</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;article&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;tikz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usetikzlibrary</span><span class="string">&#123;positioning&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tikzset</span><span class="string">&#123;&gt;=stealth&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;tikzpicture&#125;</span><span class="string">[node distance = 1.5cm]</span></span></span><br><span class="line">    <span class="tag">\<span class="name">node</span></span> (test) &#123;I'm a soldier!&#125;;</span><br><span class="line">    <span class="tag">\<span class="name">node</span></span> (testDesc) [above right = of test] &#123;Yes, you are!&#125;;</span><br><span class="line">    <span class="tag">\<span class="name">draw</span></span> [-&gt;,thick] (testDesc) to [in = 60, out = -120] (test);</span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;tikzpicture&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p><img alt data-src="/uploads/images/LaTeX/tikz_comment_02.png"></p>
 <p>在这里，我们引入了 <code>tikz</code> 宏包，以及它的 <code>positioning</code> 库，用来绘制和定位 <code>node</code>s。在 <code>tikzpicture</code> 中，我们建立了两个 <code>node</code>: <code>test</code> 和 <code>testDesc</code>，后者的位于前者的右上方。最后，我们用绘制了从 <code>testDesc</code> 到 <code>test</code> 的曲线箭头，其样式由之前的 <code>\tikzset{&gt;=stealth}</code> 指定。</p>
 <p>这是 Ti<em>k</em>Z 的基本应用，不必多言。然而我们的需求，是将位于正文中的文字（它应该是一个 <code>node</code>）和正文外 <code>tikzpicture</code> 中的 <code>node</code> 连起来。如果能解决这一点，那么我们就能将未知问题转换为已知问题。</p>
@@ -451,11 +453,14 @@
 </ul>
 <h2 id="实际实现看看"><a href="#实际实现看看" class="headerlink" title="实际实现看看"></a>实际实现看看</h2><p>首先，我们来实现 <code>test</code> 的部分。这部分比较通用，本质上就是用 Ti<em>k</em>Z 给几个单词打上 <code>node</code> 标记的过程。于是我们可以定义一个命令</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">newcommand</span><span class="string">&#123;\tikzmark&#125;</span><span class="string">[3]</span><span class="string">[]</span></span></span><br><span class="line">  &#123;<span class="tag">\<span class="name">tikz</span><span class="string">[remember picture, baseline]</span></span></span><br><span class="line">    <span class="tag">\<span class="name">node</span></span> [anchor=base,#1](#2) &#123;#3&#125;;&#125;</span><br></pre></td></tr></table></figure>
+
 <p>注意，这里我们用了 <code>remember picture</code> 选项，确保 <code>\tikzmark</code> 的位置会被保存下来。之后，在写注释的时候，就可以引用 <code>\tikzmark</code> 的位置了。这里有一个简单的实现</p>
 <figure class="highlight tex"><figcaption><span>tikz_comment_sample.tex</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;article&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;tikz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usetikzlibrary</span><span class="string">&#123;positioning&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tikzset</span><span class="string">&#123;&gt;=stealth&#125;</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span><span class="string">&#123;\tikzmark&#125;</span><span class="string">[3]</span><span class="string">[]</span></span></span><br><span class="line">  &#123;<span class="tag">\<span class="name">tikz</span><span class="string">[remember picture, baseline]</span></span></span><br><span class="line">    <span class="tag">\<span class="name">node</span></span> [anchor=base,#1](#2) &#123;#3&#125;;&#125;</span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;mwe&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">blindtext</span></span></span><br><span class="line"><span class="tag">\<span class="name">tikzmark</span><span class="string">&#123;test&#125;</span><span class="string">&#123;I'm a soldier!&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">blindtext</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;tikzpicture&#125;</span><span class="string">[overlay, remember picture, node distance = 1.5cm]</span></span></span><br><span class="line">    <span class="tag">\<span class="name">node</span></span> (testDesc) [above left = of test, xshift = -1cm] &#123;Yes, you are!&#125;;</span><br><span class="line">    <span class="tag">\<span class="name">draw</span></span> [-&gt;,thick] (testDesc) to [in = 120, out = -60] (test);</span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;tikzpicture&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>在写注释的时候，我们给 <code>tikzpicture</code> 环境加上了 <code>overlay</code> 选项。这是因为从 <code>testDesc</code> 到 <code>test</code> 的箭头应该可以与其它正文重叠。这段代码的效果，就是文章开头的那个样子。</p>
 <h2 id="还能用在数学公式里？"><a href="#还能用在数学公式里？" class="headerlink" title="还能用在数学公式里？"></a>还能用在数学公式里？</h2><p>是的，<code>\tikzmark</code> 也可以写在数学公式里。</p>
 <figure class="highlight tex"><figcaption><span>comment_to_equation.tex</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;article&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;amsmath&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;tikz&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usetikzlibrary</span><span class="string">&#123;positioning&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tikzset</span><span class="string">&#123;&gt;=stealth&#125;</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span><span class="string">&#123;\tikzmark&#125;</span><span class="string">[3]</span><span class="string">[]</span></span></span><br><span class="line">  &#123;<span class="tag">\<span class="name">tikz</span><span class="string">[remember picture, baseline]</span></span></span><br><span class="line">    <span class="tag">\<span class="name">node</span></span> [anchor=base,#1](#2) &#123;#3&#125;;&#125;</span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">[</span></span></span><br><span class="line">    <span class="tag">\<span class="name">mathcal</span><span class="string">&#123;A&#125;</span> = </span>(<span class="tag">\<span class="name">tikzmark</span><span class="string">&#123;identity&#125;</span><span class="string">&#123;\texttt&#123;I&#125;</span></span>&#125; -<span class="tag">\<span class="name">tikzmark</span><span class="string">[red]</span><span class="string">&#123;G&#125;</span><span class="string">&#123;\texttt&#123;G&#125;</span></span>&#125;</span><br><span class="line">    <span class="tag">\<span class="name">tikzmark</span><span class="string">[blue]</span><span class="string">&#123;L&#125;</span><span class="string">&#123;\texttt&#123;L&#125;</span></span>&#125; - <span class="tag">\<span class="name">tikzmark</span><span class="string">[purple]</span><span class="string">&#123;C&#125;</span><span class="string">&#123;\texttt&#123;C &#125;</span></span>&#125;)</span><br><span class="line"><span class="tag">\<span class="name">]</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;tikzpicture&#125;</span><span class="string">[overlay, remember picture,node distance =1.5cm]</span></span></span><br><span class="line">    <span class="tag">\<span class="name">node</span></span> (identitydescr) [below left=of identity ]&#123;words&#125;;</span><br><span class="line">    <span class="tag">\<span class="name">draw</span><span class="string">[,-&gt;,thick]</span></span> (identitydescr) to [in=-90,out=90] (identity);</span><br><span class="line">    <span class="tag">\<span class="name">node</span><span class="string">[red]</span></span> (Gdescr) [below =of G]&#123;other words&#125;;</span><br><span class="line">    <span class="tag">\<span class="name">draw</span><span class="string">[red,-&gt;,thick]</span></span> (Gdescr) to [in=-90,out=90] (G);</span><br><span class="line">    <span class="tag">\<span class="name">node</span><span class="string">[blue,xshift=1cm]</span></span> (Ldescr) [above right =of L]&#123;some words&#125;;</span><br><span class="line">    <span class="tag">\<span class="name">draw</span><span class="string">[blue,-&gt;,thick]</span></span> (Ldescr) to [in=45,out=-90] (L.north);</span><br><span class="line">    <span class="tag">\<span class="name">node</span><span class="string">[purple]</span></span> (Cdescr) [below right =of C]&#123;more words&#125;;</span><br><span class="line">    <span class="tag">\<span class="name">draw</span><span class="string">[purple,-&gt;,thick]</span></span> (Cdescr) to [in=-90,out=90] (C.south);</span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;tikzpicture&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p>你可以试着编译上面的代码，将得到以下效果</p>
 <p><img alt data-src="/uploads/images/LaTeX/tikz_comment_03.png"></p>
 <p>期待你能做出更多有趣的效果。<code>:)</code></p>
@@ -2015,12 +2020,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2201,19 +2206,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2233,6 +2225,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

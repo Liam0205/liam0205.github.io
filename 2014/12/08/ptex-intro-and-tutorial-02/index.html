@@ -440,6 +440,7 @@
 <p><a href="http://www.preining.info/blog/2014/12/writing-japanese-in-latex-part-1-introduction/" target="_blank" rel="noopener">上一篇文章</a>（<a href="http://liam0205.me/2014/12/07/ptex-intro-and-tutorial-01/" target="_blank" rel="noopener">译文</a>）简单介绍了在 LaTeX 中排版日文的一些情况，今次我们会探讨一些关于字符和编码的技术细节。</p>
 <p><img alt data-src="/images/pTeX-intro/nihongo-latex.jpg"></p>
 <a id="more"></a>
+
 <p>这篇文章我们将讨论字符集和编码。在书写欧洲文字的时候，人们就已经需要用到非 ASCII 字符了；诸如日文这样的有成千上万个表义字符的书写系统，其字符数量更是远超 ASCII 所能涵盖的数量。同时我们也会琢磨一下为什么在日文文档里的转义字符为什么不是反斜线（\），而是日本货币标志（￥）。</p>
 <p>首先，我并不精于此道。因此，文中讲解的内容十分简单，并且不可避免地会有谬误。如有发现请指出。</p>
 <h2 id="字符集和编码"><a href="#字符集和编码" class="headerlink" title="字符集和编码"></a>字符集和编码</h2><p>对于 ASCII 来说，这事儿很简单。比如，在计算机中表示「A」这个字母，我们只需要用 65 这个十进制数来表示即可。并且，65 对应的二进制数，也正是字母「A」在计算机中的样子。因此，对于 ASCII 来说，它既是字符集又是编码。</p>
@@ -460,20 +461,25 @@
 </ul>
 <p>最后我们来看一个例子。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Language</span><br><span class="line">Ä á</span><br><span class="line">日本語</span><br><span class="line">ひらがな</span><br></pre></td></tr></table></figure>
+
 <p>注意观察他们在不同编码规则情况下对应的十六进制数据。</p>
 <p><strong>UTF-8</strong></p>
 <p>第一行的「Language」在 UTF-8 编码中对应的十六进制与 ASCII 完全相同，用一个字节表示一个字符；第二行的注音字母则用两个字节来编码，其中 0x20 是单字节的空格；第三行的日文汉字和第四行的平假名都用三个字符来编码。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">4c 61 6e 67 75 61 67 65</span><br><span class="line">c3 84 20 c3 a1</span><br><span class="line">e6 97 a5 e6 9c ac e8 aa 9e</span><br><span class="line">e3 81 b2 e3 82 89 e3 81 8c e3 81 aa</span><br></pre></td></tr></table></figure>
+
 <p><strong>SJIS</strong></p>
 <p>SJIS 编码就有点意思了。首先，第一行保持相同，与 ASCII 兼容。第二行的「Ä」并不在字符集当中，于是 SJIS 把它当做是「&quot;A」，编码成「0x22 0x41」；另一方面，「á」在字符集当中，SJIS 用三个字节将它编码成「0x81 0x4c 0x61」。注意第一行的编码，「0x4c」是字母「L」，「0x61」是字母「a」。它们连在一起与「á」的第二和第三个字节完全相同。这样「La」的编码就出现了歧义，一些解析器就无法正常工作了。</p>
 <p>接下来的日文汉字和平假名分别用两个字节来编码。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">4c 61 6e 67 75 61 67 65</span><br><span class="line">22 41 20 81 4c 61</span><br><span class="line">93 fa 96 7b 8c ea</span><br><span class="line">82 d0 82 e7 82 aa 82 c8</span><br></pre></td></tr></table></figure>
+
 <p><strong>ISO2022-JP</strong></p>
 <p>同样由于「Ä」不在字符集当中，ISO2022-JP 把它当做是「&quot;A」来进行编码；但「á」却花了 9 个字节来编码。同时汉字和平假名的编码方式也是不固定的。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">4c 61 6e 67 75 61 67 65</span><br><span class="line">22 41 20 1b 24 42 21 2d 1b 28 42 61</span><br><span class="line">1b 24 42 46 7c 4b 5c 38 6c 1b 28 42</span><br><span class="line">1b 24 42 24 52 24 69 24 2c 24 4a 1b 28 42</span><br></pre></td></tr></table></figure>
+
 <p><strong>EUC-JP</strong></p>
 <p>EUC-JP 编码对应的字符集是 JIS X 0212，比之前的 JIS X 0201 和 JIS X 0208 大得多。这次「Ä」能够正确编码了。两个变音的拉丁字符被分别编码成三个字节；汉字和假名则是两个字节。</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">4c 61 6e 67 75 61 67 65</span><br><span class="line">8f aa a3 20 8f ab a1</span><br><span class="line">c6 fc cb dc b8 ec</span><br><span class="line">a4 d2 a4 e9 a4 ac a4 ca</span><br></pre></td></tr></table></figure>
+
 <p>从这里可以看到，UTF-8 编码汉字和假名需要用到三个字节。因此用 UTF-8 编码来处理文档，得到的文件体积要大上不少。同时，旧有的编码沿用多年，惯性很大。因此 UTF-8 编码在日本用了很多年才得以推广。</p>
 <h2 id="我的计算机在用什么编码？"><a href="#我的计算机在用什么编码？" class="headerlink" title="我的计算机在用什么编码？"></a>我的计算机在用什么编码？</h2><p>这取决于你的计算机操作系统。</p>
 <ul>
@@ -2048,12 +2054,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2234,19 +2240,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2266,6 +2259,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

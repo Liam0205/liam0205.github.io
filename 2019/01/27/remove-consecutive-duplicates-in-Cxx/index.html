@@ -446,21 +446,29 @@
 <p>前一个功能很好实现。将空白符保存在 <code>const char* trim_chars = &quot; \t\n\r\v\f&quot;</code> 当中，然后使用 <code>std::string::find_first_not_of</code> 以及 <code>std::string::find_last_not_of</code> 即可找到有效内容的起止位置，最后再 <code>std::string::erase</code> 一下就好了。</p>
 <p>后一个功能也不复杂。但要写得优雅——最好是能利用上标准库的设施——就不那么容易了。</p>
 <a id="more"></a>
+
 <h2 id="std-unique-的基本用法"><a href="#std-unique-的基本用法" class="headerlink" title="std::unique 的基本用法"></a><code>std::unique</code> 的基本用法</h2><p><code>std::unique</code> 是定义在 <code>algorithm</code> 头文件内的容器算法。它有两种基本形式：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt; <span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span> &gt;</span></span><br><span class="line"><span class="class"><span class="title">ForwardIt</span> <span class="title">unique</span>( <span class="title">ForwardIt</span> <span class="title">first</span>, <span class="title">ForwardIt</span> <span class="title">last</span> );</span></span><br><span class="line"><span class="keyword">template</span>&lt; <span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span>, <span class="title">class</span> <span class="title">BinaryPredicate</span> &gt;</span></span><br><span class="line"><span class="class"><span class="title">ForwardIt</span> <span class="title">unique</span>( <span class="title">ForwardIt</span> <span class="title">first</span>, <span class="title">ForwardIt</span> <span class="title">last</span>, <span class="title">BinaryPredicate</span> <span class="title">p</span> );</span></span><br></pre></td></tr></table></figure>
+
 <p>其中，第一种形式是第二种形式的特例，它等价于 <code>BinaryPredicate p</code> 为连续两元素相等性判断时的第二种形式：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt; <span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span>,</span></span><br><span class="line"><span class="class">          <span class="title">class</span> <span class="title">BinaryPredicate</span> =</span></span><br><span class="line"><span class="class">            <span class="title">std</span>:</span>:function&lt;<span class="keyword">bool</span>(<span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp;,</span><br><span class="line">              <span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp;)&gt;</span><br><span class="line"><span class="function">ForwardIt <span class="title">unique</span><span class="params">( ForwardIt first, ForwardIt last,</span></span></span><br><span class="line"><span class="function"><span class="params">            BinaryPredicate p = [](<span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp; lhs,</span></span></span><br><span class="line"><span class="function"><span class="params">                                   <span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp; rhs) &#123;</span></span></span><br><span class="line"><span class="function"><span class="params">                                        <span class="keyword">return</span> lhs == rhs; &#125;)</span></span>;</span><br></pre></td></tr></table></figure>
+
 <p>这也就是说，第一种形式的 <code>std::unique</code> 会找到每个连续重复的区间，而后保留这些区间的首个元素，最后返回新序列逻辑上的尾后迭代器。例如，<code>aabbccaa</code> 经过 <code>std::unique</code> 处理之后得到：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">abca????</span><br><span class="line">    ↑</span><br></pre></td></tr></table></figure>
+
 <p>这里用箭头标出的位置，即是 <code>std::unique</code> 的返回值所指向的位置。需要注意的是，经过 <code>std::unique</code> 处理之后，容器的实际大小没有发生改变，甚至逻辑尾后迭代器到容器实际尾后迭代器之间的左闭右开区间内的迭代器仍然是可解引用的（dereferenceable）。但这部分区间内的元素的值是不确定的。因此，在使用 <code>std::unqiue</code> 之后，往往会调用容器的 <code>erase</code> 函数成员，删除逻辑尾后迭代器开始的所有元素。例如：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;string&gt;</span></span><br><span class="line"><span class="comment">// #include &lt;algorithm&gt;</span></span><br><span class="line"><span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">source</span><span class="params">(<span class="string">"aabbccaa"</span>)</span></span>;</span><br><span class="line">source.erase(<span class="built_in">std</span>::unique(source.begin(), source.end()), source.end());</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; source &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;  <span class="comment">// expect result: abca</span></span><br></pre></td></tr></table></figure>
+
 <h2 id="只对特定内容进行-std-unique-操作"><a href="#只对特定内容进行-std-unique-操作" class="headerlink" title="只对特定内容进行 std::unique 操作"></a>只对特定内容进行 <code>std::unique</code> 操作</h2><p>回到最开始的问题。我们需要的功能，是针对分隔符 <code>sep</code> 进行操作，将连续出现的 <code>sep</code> 压缩成一个。<code>std::unique</code> 的默认行为则不然，它会将所有连续出现的元素都压缩成一个——不光是 <code>sep</code>。为此，我们需要实现自己的 <code>BinaryPredicate</code>。首先，由于我们要指定具体需要被 <code>std::unique</code> 压缩的元素，我们必然要将其作为函数参数传入函数。于是我们有以下实现：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;functional&gt;</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">AreConsecutiveElements</span><span class="params">(<span class="keyword">const</span> T&amp; target, <span class="keyword">const</span> T&amp; lhs, <span class="keyword">const</span> T&amp; rhs)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> (lhs == rhs) <span class="keyword">and</span> (lhs == target);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p><code>std::unique</code> 要求一个二元谓词（<code>BinaryPredicate</code>），但此处我们实现的是三元谓词。于是，好在 <code>target</code> 总是应当预先给出的，所以我们可以利用 <code>std::bind</code> 将 <code>target</code> 绑定在 <code>AreConsecutiveElements</code> 的第一个参数上，产生一个二元谓词。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;functional&gt;</span></span><br><span class="line"><span class="comment">// using namespace std::placeholders;</span></span><br><span class="line"><span class="comment">// #include &lt;string&gt;</span></span><br><span class="line"><span class="comment">// #include &lt;algorithm&gt;</span></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">char</span> target = <span class="string">'b'</span></span><br><span class="line"><span class="keyword">auto</span> binp = <span class="built_in">std</span>::bind(AreConsecutiveElements, target, _1, _2);</span><br><span class="line"><span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">source</span><span class="params">(<span class="string">"aabbccaa"</span>)</span></span>;</span><br><span class="line">source.erase(<span class="built_in">std</span>::unique(source.begin(), source.end(), binp), source.end());</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; source &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;  <span class="comment">// expect result: aabccaa</span></span><br></pre></td></tr></table></figure>
+
 <p>这里，我们将 <code>&#39;b&#39;</code> 作为压缩目标，并将其与 <code>AreConsecutiveElements</code> 绑定在一起，产生一个新的二元谓词。最终输出期待的结果。</p>
 <hr>
 <h2 id="附：std-unique-的一个可能实现"><a href="#附：std-unique-的一个可能实现" class="headerlink" title="附：std::unique 的一个可能实现"></a>附：<code>std::unique</code> 的一个可能实现</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span>, <span class="title">class</span> <span class="title">BinaryPredicate</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">ForwardIt</span> <span class="title">unique</span>(<span class="title">ForwardIt</span> <span class="title">first</span>, <span class="title">ForwardIt</span> <span class="title">last</span>, <span class="title">BinaryPredicate</span> <span class="title">p</span>) &#123;</span></span><br><span class="line">  <span class="keyword">if</span> (first == last) &#123;</span><br><span class="line">    <span class="keyword">return</span> last;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  ForwardIt result = first;</span><br><span class="line">  <span class="keyword">while</span> (++first != last) &#123;</span><br><span class="line">    <span class="keyword">if</span> (!p(*result, *first) &amp;&amp; ++result != first) &#123;</span><br><span class="line">      *result = <span class="built_in">std</span>::move(*first);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> ++result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <!-- 今天是老女人邢坤悦的 28 岁生日。但邢坤悦是个婊子，我肏烂她全家女性的骚屄。 -->
 
     </div>
@@ -2020,12 +2028,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2206,19 +2214,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2238,6 +2233,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

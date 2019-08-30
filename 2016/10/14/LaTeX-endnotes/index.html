@@ -441,6 +441,7 @@
 </ul>
 <p>这些不太寻常的注释会导致 LaTeX 标注文档类没有办法很好地处理脚注。这里，后者可以通过 <code>footmisc</code> 宏包的 <code>para</code> 选项来挽救，但是前者就没有什么好办法了。于是，我们想到了尾注。</p>
 <a id="more"></a>
+
 <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>尾注，即将注释与标记分离，写在文档的末尾。LaTeX 标准文档类没有提供尾注的功能，而由 <code>endnotes</code> 宏包提供。</p>
 <p>尾注的用法和脚注基本相同，只需要</p>
 <ul>
@@ -449,10 +450,12 @@
 </ul>
 <h2 id="给尾注加上类似-footnote-的横线"><a href="#给尾注加上类似-footnote-的横线" class="headerlink" title="给尾注加上类似 \footnote 的横线"></a>给尾注加上类似 <code>\footnote</code> 的横线</h2><p>默认的尾注标题，只有一个光秃秃的 <code>Notes</code> 字样，和默认的脚注样式不太一样。我们可以通过修改 <code>\enoteheading</code> 命令来修改这个样式。这里我们以 <code>book</code> 类为例（<code>article</code> 类应该将 <code>\section*</code> 改为 <code>\subsection*</code>）。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;book&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;endnotes&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">makeatletter</span></span></span><br><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">enoteheading</span><span class="string">&#123;\section*&#123;\notesname</span></span></span><br><span class="line"><span class="tag"><span class="string">  \@mkboth&#123;\MakeUppercase&#123;\notesname&#125;</span></span>&#125;&#123;<span class="tag">\<span class="name">MakeUppercase</span><span class="string">&#123;\notesname&#125;</span></span>&#125;&#125;<span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">mbox</span><span class="string">&#123;&#125;</span></span><span class="tag">\<span class="name">par</span></span><span class="tag">\<span class="name">vskip</span></span>-2.3<span class="tag">\<span class="name">baselineskip</span></span><span class="tag">\<span class="name">noindent</span></span><span class="tag">\<span class="name">rule</span><span class="string">&#123;.5\textwidth&#125;</span><span class="string">&#123;0.4pt&#125;</span></span><span class="tag">\<span class="name">par</span></span><span class="tag">\<span class="name">vskip</span></span><span class="tag">\<span class="name">baselineskip</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">makeatother</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">chapter</span><span class="string">&#123;First&#125;</span></span></span><br><span class="line">Testing.<span class="tag">\<span class="name">endnote</span><span class="string">&#123;First test.&#125;</span></span> Hello <span class="tag">\<span class="name">LaTeX</span><span class="string">&#123;&#125;</span></span>.<span class="tag">\<span class="name">endnote</span><span class="string">&#123;LaTeX&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">theendnotes</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p><img alt data-src="/uploads/images/LaTeX/endnotes_01.png"></p>
 <h2 id="在每个章节后输出尾注"><a href="#在每个章节后输出尾注" class="headerlink" title="在每个章节后输出尾注"></a>在每个章节后输出尾注</h2><p>不难发现，其实尾注输出的位置取决于 <code>\theendnotes</code> 命令的位置。因此我们只需要在每个 <code>\chapter</code> 命令之前（<code>book</code> 类，<code>article</code> 类是 <code>\section</code> 命令）加上 <code>\theendnotes</code> 命令就好了。</p>
 <p>不过，由于 <code>\endnote</code> 是在全文范围内编号的，如果希望尾注的编号在输出章节尾注后重新开始，那么我们需要在调用 <code>\theendnotes</code> 之后将计数器置零——当然你也可以使用 <code>\counterwithin</code> 之类的命令来实现。这里我们用 <code>etoolbox</code> 提供的 <code>\csappto</code> 命令来实现这个效果。</p>
 <figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;book&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;endnotes&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;etoolbox&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">makeatletter</span></span></span><br><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">enoteheading</span><span class="string">&#123;\section*&#123;\notesname</span></span></span><br><span class="line"><span class="tag"><span class="string">  \@mkboth&#123;\MakeUppercase&#123;\notesname&#125;</span></span>&#125;&#123;<span class="tag">\<span class="name">MakeUppercase</span><span class="string">&#123;\notesname&#125;</span></span>&#125;&#125;<span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">mbox</span><span class="string">&#123;&#125;</span></span><span class="tag">\<span class="name">par</span></span><span class="tag">\<span class="name">vskip</span></span>-2.3<span class="tag">\<span class="name">baselineskip</span></span><span class="tag">\<span class="name">noindent</span></span><span class="tag">\<span class="name">rule</span><span class="string">&#123;.5\textwidth&#125;</span><span class="string">&#123;0.4pt&#125;</span></span><span class="tag">\<span class="name">par</span></span><span class="tag">\<span class="name">vskip</span></span><span class="tag">\<span class="name">baselineskip</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">makeatother</span></span></span><br><span class="line"><span class="tag">\<span class="name">csappto</span><span class="string">&#123;theendnotes&#125;</span><span class="string">&#123;\setcounter&#123;endnote&#125;</span><span class="string">&#123;0&#125;</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">chapter</span><span class="string">&#123;First&#125;</span></span></span><br><span class="line">Testing.<span class="tag">\<span class="name">endnote</span><span class="string">&#123;First test.&#125;</span></span> Hello <span class="tag">\<span class="name">LaTeX</span><span class="string">&#123;&#125;</span></span>.<span class="tag">\<span class="name">endnote</span><span class="string">&#123;LaTeX&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">theendnotes</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">chapter</span><span class="string">&#123;Next&#125;</span></span></span><br><span class="line">Again.<span class="tag">\<span class="name">endnote</span><span class="string">&#123;Second test.&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">theendnotes</span></span></span><br><span class="line"></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+
 <p><img alt data-src="/uploads/images/LaTeX/endnotes_02.png"></p>
 
     </div>
@@ -2008,12 +2011,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2194,19 +2197,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2226,6 +2216,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

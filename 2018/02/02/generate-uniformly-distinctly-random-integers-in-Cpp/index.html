@@ -60,18 +60,18 @@
   };
 </script>
 
-  <meta name="description" content="前文介绍了梅森旋转算法；该算法可用于产生高质量的长周期随机数。不过，随机数生成算法并不保证在一定连续长度内产生的随机数都是不重复的。即，有可能出现这样的随机数序列： 11 1 2 8 6 ... 实际生产中，我们也会需要有能力生成不重复的均匀随机整数。此篇用 C++ 实现，做一个简单的记录。">
+  <meta name="description" content="前文介绍了梅森旋转算法；该算法可用于产生高质量的长周期随机数。不过，随机数生成算法并不保证在一定连续长度内产生的随机数都是不重复的。即，有可能出现这样的随机数序列： 11 1 2 8 6 ...  实际生产中，我们也会需要有能力生成不重复的均匀随机整数。此篇用 C++ 实现，做一个简单的记录。">
 <meta name="keywords" content="Random,Dinstinct,Uniform">
 <meta property="og:type" content="article">
 <meta property="og:title" content="产生不重复的均匀随机整数">
 <meta property="og:url" content="https://liam.page/2018/02/02/generate-uniformly-distinctly-random-integers-in-Cpp/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="前文介绍了梅森旋转算法；该算法可用于产生高质量的长周期随机数。不过，随机数生成算法并不保证在一定连续长度内产生的随机数都是不重复的。即，有可能出现这样的随机数序列： 11 1 2 8 6 ... 实际生产中，我们也会需要有能力生成不重复的均匀随机整数。此篇用 C++ 实现，做一个简单的记录。">
+<meta property="og:description" content="前文介绍了梅森旋转算法；该算法可用于产生高质量的长周期随机数。不过，随机数生成算法并不保证在一定连续长度内产生的随机数都是不重复的。即，有可能出现这样的随机数序列： 11 1 2 8 6 ...  实际生产中，我们也会需要有能力生成不重复的均匀随机整数。此篇用 C++ 实现，做一个简单的记录。">
 <meta property="og:locale" content="zh-CN">
 <meta property="og:updated_time" content="2019-08-27T09:43:08.865Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="产生不重复的均匀随机整数">
-<meta name="twitter:description" content="前文介绍了梅森旋转算法；该算法可用于产生高质量的长周期随机数。不过，随机数生成算法并不保证在一定连续长度内产生的随机数都是不重复的。即，有可能出现这样的随机数序列： 11 1 2 8 6 ... 实际生产中，我们也会需要有能力生成不重复的均匀随机整数。此篇用 C++ 实现，做一个简单的记录。">
+<meta name="twitter:description" content="前文介绍了梅森旋转算法；该算法可用于产生高质量的长周期随机数。不过，随机数生成算法并不保证在一定连续长度内产生的随机数都是不重复的。即，有可能出现这样的随机数序列： 11 1 2 8 6 ...  实际生产中，我们也会需要有能力生成不重复的均匀随机整数。此篇用 C++ 实现，做一个简单的记录。">
   <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <link rel="canonical" href="https://liam.page/2018/02/02/generate-uniformly-distinctly-random-integers-in-Cpp/">
 
@@ -436,10 +436,13 @@
       
         <p><a href="/2018/01/12/Mersenne-twister/">前文</a>介绍了梅森旋转算法；该算法可用于产生高质量的长周期随机数。不过，随机数生成算法并不保证在一定连续长度内产生的随机数都是不重复的。即，有可能出现这样的随机数序列：</p>
 <figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1 1 2 8 6 ...</span><br></pre></td></tr></table></figure>
+
 <p>实际生产中，我们也会需要有能力生成不重复的均匀随机整数。此篇用 C++ 实现，做一个简单的记录。</p>
 <a id="more"></a>
+
 <h2 id="不考虑不重复性"><a href="#不考虑不重复性" class="headerlink" title="不考虑不重复性"></a>不考虑不重复性</h2><p>在 C++ 中，不考虑不重复性，标准库（C++ 11 及以上）提供的设施已足够完成任务。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;random&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::random_device rd;                        <span class="comment">// 1.</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="function">mt19937 <span class="title">gen</span><span class="params">(rd())</span></span>;                       <span class="comment">// 2.</span></span><br><span class="line">    <span class="built_in">std</span>::uniform_int_distribution&lt;&gt; dis(<span class="number">1</span>, <span class="number">100</span>);  <span class="comment">// 3.</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> n = <span class="number">0</span>; n != <span class="number">10</span>; ++n)</span><br><span class="line">        <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; dis(gen) &lt;&lt; <span class="string">' '</span>;             <span class="comment">// 4.</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">'\n'</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>这里，(1) 是一个由实现决定的非确定性随机数生成器（一般与硬件有关）；(2) 借由 <code>rd</code> 产生的随机数种子，初始化了标准的梅森旋转生成器；(3) 则定义了 <code>[1, 6]</code> 之间的均匀整数分布。最后，(4) 将梅森旋转生成器输出的随机数转换为均匀整数分布。</p>
 <h2 id="加入不重复性"><a href="#加入不重复性" class="headerlink" title="加入不重复性"></a>加入不重复性</h2><p>保证不重复性有两种解决方案：</p>
 <ul>
@@ -448,9 +451,11 @@
 </ul>
 <p>对于高质量随机数生成器来说，保证一定连续数量的随机结果不重复会严重影响周期性。因此第一种方案实际上是不可取的。于是，我们需要第二个方案。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unordered_set&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;random&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> IntType = <span class="keyword">int</span>&gt;</span><br><span class="line">class distinct_uniform_int_distribution &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">using</span> result_type = IntType;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">using</span> set_type    = <span class="built_in">std</span>::<span class="built_in">unordered_set</span>&lt;result_type&gt;;</span><br><span class="line">  <span class="keyword">using</span> distr_type  = <span class="built_in">std</span>::uniform_int_distribution&lt;result_type&gt;;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  distinct_uniform_int_distribution(result_type inf, result_type sup) :  <span class="comment">// 1.</span></span><br><span class="line">    inf_(inf),</span><br><span class="line">    sup_(sup),</span><br><span class="line">    range_(sup_ - inf_ + <span class="number">1</span>),                                             <span class="comment">// 2.</span></span><br><span class="line">    distr_(inf_, sup_)</span><br><span class="line">    &#123;&#125;</span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">reset</span><span class="params">()</span> </span>&#123;                                                         <span class="comment">// 3.</span></span><br><span class="line">    uset_.clear();</span><br><span class="line">    distr_.reset();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> Generator&gt;</span><br><span class="line">  <span class="function">result_type <span class="title">operator</span><span class="params">()</span><span class="params">(Generator&amp; engine)</span> </span>&#123;                            <span class="comment">// 4.</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">not</span>(uset_.size() &lt; range_)) &#123; <span class="built_in">std</span>::terminate(); &#125;                <span class="comment">// *.</span></span><br><span class="line">    result_type res;</span><br><span class="line">    <span class="keyword">do</span> &#123; res = distr_(engine); &#125; <span class="keyword">while</span> (uset_.count(res) &gt; <span class="number">0</span>);           <span class="comment">// 5.</span></span><br><span class="line">    uset_.insert(res);</span><br><span class="line">    <span class="keyword">return</span> res;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">result_type <span class="title">min</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123; <span class="keyword">return</span> inf_; &#125;</span><br><span class="line">  <span class="function">result_type <span class="title">max</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123; <span class="keyword">return</span> sup_; &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">const</span> result_type inf_;</span><br><span class="line">  <span class="keyword">const</span> result_type sup_;</span><br><span class="line">  <span class="keyword">const</span> <span class="keyword">size_t</span>      range_;</span><br><span class="line">  distr_type        distr_;</span><br><span class="line">  set_type          uset_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
 <p>首先，(1) 处在构造时必须要知道生成的整数范围是多少。而后，由于我们希望分布产生不重复的随机数，故而能产生这样的随机数是有上限的，我们于 (2) 处将这个范围保存在 <code>range_</code> 中。仿照 <code>std::uniform_int_distribution</code>，(3) 也给出了用于清理内部状态的函数 <code>reset</code>：一方面将计数集合 <code>uset_</code> 清空，另一方面重置内部 <code>distr_type</code> 的状态。(4) 重载了函数调用运算符，它是一个函数模板，接受一个随机数生成器。由于我们需要知道产生的随机数是否已经出现过，所以我们必须维护一个集合，用于保存已经输出过的整数。(5) 借助这个集合，保证了输出的不重复性。特别地，(*) 处检查了已输出不重复随机整数的数量，避免 (5) 处陷入死循环。</p>
 <p>对它的调用也很简单，与 <code>std::uniform_int_distribution</code> 基本一致。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;random&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::random_device rd;                            <span class="comment">// 1.</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="function">mt19937 <span class="title">gen</span><span class="params">(rd())</span></span>;                           <span class="comment">// 2.</span></span><br><span class="line">    distinct_uniform_int_distribution&lt;&gt; dis(<span class="number">1</span>, <span class="number">100</span>);  <span class="comment">// 3.</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> n = <span class="number">0</span>; n != <span class="number">10</span>; ++n)</span><br><span class="line">        <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; dis(gen) &lt;&lt; <span class="string">' '</span>;                 <span class="comment">// 4.</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">'\n'</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 
     </div>
 
@@ -2009,12 +2014,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2195,19 +2200,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2227,6 +2219,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

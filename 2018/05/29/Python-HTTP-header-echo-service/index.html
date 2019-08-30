@@ -437,13 +437,17 @@
         <p><a href="/2018/05/29/Fuse-QRCodes-together-Alipay-WeChat-and-QQ-wallet/">前作</a>实现了收款码多合一的功能，这是基于我们能够正确识别不同 App 的不同 UserAgent 特征字段之上的。前作没有解说我们是如何获取相应 UA 的。通过嗅探抓包当然是一个解决方案，在计算机上运行模拟器也可行。但这些方法都太重量级了。</p>
 <p>本文用 Python 实现一个简单的 HTTP 报文头回声服务；这个服务什么也不干，就只是把发向服务的请求中的 HTTP 报文头返回。</p>
 <a id="more"></a>
+
 <h2 id="Python-代码"><a href="#Python-代码" class="headerlink" title="Python 代码"></a>Python 代码</h2><p>代码位于 <a href="https://github.com/Liam0205/Tools/blob/master/Python/HTTP_header_echo_server.py" target="_blank" rel="noopener">GitHub Repository</a>。核心功能实现在 <code>RequestHandler</code> 类的 <code>do_GET</code> 方法中。该方法将受到的 HTTP 请求的报文头写入响应正文，而后打印在本地标准输出上。此外，HTTP 中其它三种请求方法的处理与 <code>GET</code> 完全相同。可谓一目了然。</p>
 <p>实际我们只需执行 <code>python HTTP_header_echo_service.py</code> 即可在 8080 端口运行服务。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python</span></span><br><span class="line"><span class="comment"># Reflects the requests from HTTP methods GET, POST, PUT, and DELETE</span></span><br><span class="line"><span class="comment"># Author: Liam Huang (Yuuki) &lt;liamhuang0205@gmail.com&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">try</span>:</span><br><span class="line">    <span class="keyword">from</span> http.server <span class="keyword">import</span> HTTPServer, BaseHTTPRequestHandler</span><br><span class="line"><span class="keyword">except</span>:</span><br><span class="line">    <span class="keyword">from</span> BaseHTTPServer <span class="keyword">import</span> HTTPServer, BaseHTTPRequestHandler</span><br><span class="line"><span class="keyword">from</span> optparse <span class="keyword">import</span> OptionParser</span><br><span class="line"><span class="keyword">import</span> json</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">RequestHandler</span><span class="params">(BaseHTTPRequestHandler)</span>:</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">do_GET</span><span class="params">(self)</span>:</span></span><br><span class="line">        request_path = self.path</span><br><span class="line"></span><br><span class="line">        self.send_response(<span class="number">200</span>)</span><br><span class="line">        self.send_header(<span class="string">'Content-Type'</span>, <span class="string">'application/json'</span>)</span><br><span class="line">        self.end_headers()</span><br><span class="line">        json_string = json.dumps(dict(self.headers))</span><br><span class="line">        self.wfile.write(json_string)</span><br><span class="line"></span><br><span class="line">        print(<span class="string">'%sBegin of Headers%s'</span> % (<span class="string">'-'</span> * <span class="number">5</span>, <span class="string">'-'</span> * <span class="number">5</span>))</span><br><span class="line">        <span class="keyword">for</span> k, v <span class="keyword">in</span> self.headers.items():</span><br><span class="line">            print(<span class="string">'%s: %s'</span> % (k, v))</span><br><span class="line">        print(<span class="string">'%sEnd of Headers%s'</span> % (<span class="string">'-'</span> * <span class="number">5</span>, <span class="string">'-'</span> * <span class="number">5</span>))</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">None</span></span><br><span class="line"></span><br><span class="line">    do_POST   = do_GET</span><br><span class="line">    do_PUT    = do_GET</span><br><span class="line">    do_DELETE = do_GET</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">main</span><span class="params">()</span>:</span></span><br><span class="line">    port = <span class="number">8080</span></span><br><span class="line">    print(<span class="string">'Listening on all interfaces:%s'</span> % port)</span><br><span class="line">    server = HTTPServer((<span class="string">''</span>, port), RequestHandler)</span><br><span class="line">    server.serve_forever()</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    parser = OptionParser()</span><br><span class="line">    parser.usage = (<span class="string">"Creates an HTTP-header-echo-server."</span>)</span><br><span class="line">    (options, args) = parser.parse_args()</span><br><span class="line">    main()</span><br></pre></td></tr></table></figure>
+
 <h2 id="实际运行看看"><a href="#实际运行看看" class="headerlink" title="实际运行看看"></a>实际运行看看</h2><p>执行 <code>python HTTP_header_echo_service.py</code> 后，服务会监听本机 8080 端口。在浏览器中访问 <code>http://localhost:8080</code> 得到返回结果：</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">"accept-language"</span>: <span class="string">"zh-CN,zh;q=0.8,en-US;q=0.6,en;q=0.4"</span>,</span><br><span class="line">    <span class="attr">"accept-encoding"</span>: <span class="string">"gzip, deflate"</span>,</span><br><span class="line">    <span class="attr">"host"</span>: <span class="string">"localhost:8080"</span>,</span><br><span class="line">    <span class="attr">"accept"</span>: <span class="string">"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8"</span>,</span><br><span class="line">    <span class="attr">"user-agent"</span>: <span class="string">"Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.113 Safari/537.36"</span>,</span><br><span class="line">    <span class="attr">"dnt"</span>: <span class="string">"1"</span>,</span><br><span class="line">    <span class="attr">"connection"</span>: <span class="string">"keep-alive"</span>,</span><br><span class="line">    <span class="attr">"cookie"</span>: <span class="string">"cna=k8yHEPvog1oCAdoedAmhk3yz; l=AoGB/bWp8ixmk2ng-8I0OpNAEcebrvWg; __guid=242983815.4140311236197044700.1504064960140.7058; HULK_TD=t%3D1511410881%26s%3D2cb9fedc6e59ac22bbc416f796970add%26a%3D1; HULK_QD=u%3Duhnatpurapurat%26m%3Duhnatpurapurat%2540360.pa%26d%3D%25E9%25BB%2584%25E6%2599%25A8%25E6%2588%2590; TD=t%3D1511410881%26s%3Da97b7edff5f3e6e7a0920ae7ee326d88%26a%3D1; QD=u%3Duhnatpurapurat%26m%3Duhnatpurapurat%2540360.pa; Prif_66de_st_t=0%7C1522123196%7C06e665a5949159cee56367609a66caaf; Prif_66de_auth=ec018ze%2FGmPt4LA3C3BcDLxQ4Pov3O1HlZIv0EnN%2BBthlGx4IKvidZKtxA; Prif_66de_smile=1D1; Prif_66de_lip=10.18.120.109%2C1522123532; Prif_66de_ulastactivity=9b2dELqg1p%2F6AAzSO8dz8XylvfWBBj748PyquvcqvdLlGncXc5Dy; Prif_66de_saltkey=kRuuho96; Prif_66de_lastvisit=1526726055; Prif_66de_st_p=0%7C1527160289%7C7bae096d1c2d9c2271f9ad539cafc6e4; Prif_66de_visitedfid=106; Prif_66de_viewid=tid_30518"</span>,</span><br><span class="line">    <span class="attr">"upgrade-insecure-requests"</span>: <span class="string">"1"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>以内网 IP <code>192.168.0.101</code> 生成二维码，用微信扫描后，访问得到结果中可见微信的特征字段：「MicroMessenger」。</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">&#123;</span><br><span class="line">    <span class="attr">"accept-language"</span>: <span class="string">"zh-cn"</span>,</span><br><span class="line">    <span class="attr">"accept-encoding"</span>: <span class="string">"gzip, deflate"</span>,</span><br><span class="line">    <span class="attr">"connection"</span>: <span class="string">"keep-alive"</span>,</span><br><span class="line">    <span class="attr">"accept"</span>: <span class="string">"text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"</span>,</span><br><span class="line">    <span class="attr">"user-agent"</span>: <span class="string">"Mozilla/5.0 (iPhone; CPU iPhone OS 11_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E302 MicroMessenger/6.6.6 NetType/WIFI Language/zh_CN"</span>,</span><br><span class="line">    <span class="attr">"host"</span>: <span class="string">"192.168.0.101:8080"</span>,</span><br><span class="line">    <span class="attr">"upgrade-insecure-requests"</span>: <span class="string">"1"</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
 <p>以上。</p>
 
     </div>
@@ -2003,12 +2007,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2189,19 +2193,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2221,6 +2212,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>

@@ -436,9 +436,11 @@
       
         <p>在工作中，时不时会遇到需要将中文数字或者全角数字转换为半角阿拉伯数字的情形，于是写了一个简单的脚本来处理这样的情况。</p>
 <a id="more"></a>
+
 <p>脚本很简单，唯一需要思考一下的是，为什么「万」和「亿」不能与「千」、「百」、「十」放在一起处理。这个问题想通了，代码也就好理解了。</p>
 <p>不多说，上代码。</p>
 <figure class="highlight python"><figcaption><span>convertChineseDigitsToArabic.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">chs_arabic_map = &#123;<span class="string">u'零'</span>:<span class="number">0</span>, <span class="string">u'一'</span>:<span class="number">1</span>, <span class="string">u'二'</span>:<span class="number">2</span>, <span class="string">u'三'</span>:<span class="number">3</span>, <span class="string">u'四'</span>:<span class="number">4</span>,</span><br><span class="line">        <span class="string">u'五'</span>:<span class="number">5</span>, <span class="string">u'六'</span>:<span class="number">6</span>, <span class="string">u'七'</span>:<span class="number">7</span>, <span class="string">u'八'</span>:<span class="number">8</span>, <span class="string">u'九'</span>:<span class="number">9</span>,</span><br><span class="line">        <span class="string">u'十'</span>:<span class="number">10</span>, <span class="string">u'百'</span>:<span class="number">100</span>, <span class="string">u'千'</span>:<span class="number">10</span> ** <span class="number">3</span>, <span class="string">u'万'</span>:<span class="number">10</span> ** <span class="number">4</span>,</span><br><span class="line">        <span class="string">u'〇'</span>:<span class="number">0</span>, <span class="string">u'壹'</span>:<span class="number">1</span>, <span class="string">u'贰'</span>:<span class="number">2</span>, <span class="string">u'叁'</span>:<span class="number">3</span>, <span class="string">u'肆'</span>:<span class="number">4</span>,</span><br><span class="line">        <span class="string">u'伍'</span>:<span class="number">5</span>, <span class="string">u'陆'</span>:<span class="number">6</span>, <span class="string">u'柒'</span>:<span class="number">7</span>, <span class="string">u'捌'</span>:<span class="number">8</span>, <span class="string">u'玖'</span>:<span class="number">9</span>,</span><br><span class="line">        <span class="string">u'拾'</span>:<span class="number">10</span>, <span class="string">u'佰'</span>:<span class="number">100</span>, <span class="string">u'仟'</span>:<span class="number">10</span> ** <span class="number">3</span>, <span class="string">u'萬'</span>:<span class="number">10</span> ** <span class="number">4</span>,</span><br><span class="line">        <span class="string">u'亿'</span>:<span class="number">10</span> ** <span class="number">8</span>, <span class="string">u'億'</span>:<span class="number">10</span> ** <span class="number">8</span>, <span class="string">u'幺'</span>: <span class="number">1</span>,</span><br><span class="line">        <span class="string">u'０'</span>:<span class="number">0</span>, <span class="string">u'１'</span>:<span class="number">1</span>, <span class="string">u'２'</span>:<span class="number">2</span>, <span class="string">u'３'</span>:<span class="number">3</span>, <span class="string">u'４'</span>:<span class="number">4</span>,</span><br><span class="line">        <span class="string">u'５'</span>:<span class="number">5</span>, <span class="string">u'６'</span>:<span class="number">6</span>, <span class="string">u'７'</span>:<span class="number">7</span>, <span class="string">u'８'</span>:<span class="number">8</span>, <span class="string">u'９'</span>:<span class="number">9</span>&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">convertChineseDigitsToArabic</span> <span class="params">(chinese_digits, encoding=<span class="string">"utf-8"</span>)</span>:</span></span><br><span class="line">    <span class="keyword">if</span> isinstance (chinese_digits, str):</span><br><span class="line">        chinese_digits = chinese_digits.decode (encoding)</span><br><span class="line"></span><br><span class="line">    result  = <span class="number">0</span></span><br><span class="line">    tmp     = <span class="number">0</span></span><br><span class="line">    hnd_mln = <span class="number">0</span></span><br><span class="line">    <span class="keyword">for</span> count <span class="keyword">in</span> range(len(chinese_digits)):</span><br><span class="line">        curr_char  = chinese_digits[count]</span><br><span class="line">        curr_digit = chs_arabic_map.get(curr_char, <span class="keyword">None</span>)</span><br><span class="line">        <span class="comment"># meet 「亿」 or 「億」</span></span><br><span class="line">        <span class="keyword">if</span> curr_digit == <span class="number">10</span> ** <span class="number">8</span>:</span><br><span class="line">            result  = result + tmp</span><br><span class="line">            result  = result * curr_digit</span><br><span class="line">            <span class="comment"># get result before 「亿」 and store it into hnd_mln</span></span><br><span class="line">            <span class="comment"># reset `result`</span></span><br><span class="line">            hnd_mln = hnd_mln * <span class="number">10</span> ** <span class="number">8</span> + result</span><br><span class="line">            result  = <span class="number">0</span></span><br><span class="line">            tmp     = <span class="number">0</span></span><br><span class="line">        <span class="comment"># meet 「万」 or 「萬」</span></span><br><span class="line">        <span class="keyword">elif</span> curr_digit == <span class="number">10</span> ** <span class="number">4</span>:</span><br><span class="line">            result = result + tmp</span><br><span class="line">            result = result * curr_digit</span><br><span class="line">            tmp    = <span class="number">0</span></span><br><span class="line">        <span class="comment"># meet 「十」, 「百」, 「千」 or their traditional version</span></span><br><span class="line">        <span class="keyword">elif</span> curr_digit &gt;= <span class="number">10</span>:</span><br><span class="line">            tmp    = <span class="number">1</span> <span class="keyword">if</span> tmp == <span class="number">0</span> <span class="keyword">else</span> tmp</span><br><span class="line">            result = result + curr_digit * tmp</span><br><span class="line">            tmp    = <span class="number">0</span></span><br><span class="line">        <span class="comment"># meet single digit</span></span><br><span class="line">        <span class="keyword">elif</span> curr_digit <span class="keyword">is</span> <span class="keyword">not</span> <span class="keyword">None</span>:</span><br><span class="line">            tmp = tmp * <span class="number">10</span> + curr_digit</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">return</span> result</span><br><span class="line">    result = result + tmp</span><br><span class="line">    result = result + hnd_mln</span><br><span class="line">    <span class="keyword">return</span> result</span><br></pre></td></tr></table></figure>
+
 <p>完整版见：<a href="https://github.com/Liam0205/py-tools/blob/master/convertChineseDigitsToArabic.py" target="_blank" rel="noopener">GitHub Repo</a></p>
 <p>测试用例来自：<a href="http://fayaa.com/code/view/37/" target="_blank" rel="noopener">fayaa</a></p>
 
@@ -1999,12 +2001,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.1m</span>
+    <span title="站点总字数">1.2m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">34:48</span>
+    <span title="站点阅读时长">34:51</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0</div>
   <span class="post-meta-divider">|</span>
@@ -2185,19 +2187,6 @@ document.addEventListener('visibilitychange', function () {
 
   
 
-  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
-  <script>
-      pbOptions = {};
-        pbOptions.iconStyle = "default";
-      
-        pbOptions.boxForm = "horizontal";
-      
-        pbOptions.position = "topCenter";
-      
-        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
-      new needShareButton('#needsharebutton-postbottom', pbOptions);
-  </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
 
 <script>
@@ -2217,6 +2206,19 @@ document.addEventListener('visibilitychange', function () {
   }, window.Gitalk);
 </script>
 
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
     </div>
 </body>
 </html>
