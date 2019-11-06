@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2019-11-06T06:20:39.910Z</updated>
+  <updated>2019-11-06T08:48:56.269Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,32 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>一种基于 Beta 分布的推荐方法示例</title>
+    <link href="https://liam.page/2019/11/06/a-Beta-Distribution-based-recommendation-realia-method/"/>
+    <id>https://liam.page/2019/11/06/a-Beta-Distribution-based-recommendation-realia-method/</id>
+    <published>2019-11-06T08:05:19.000Z</published>
+    <updated>2019-11-06T08:48:56.269Z</updated>
+    
+    <content type="html"><![CDATA[<p>因为一直在做推荐系统和点击率预估排序相关工作，所以一直想用一种粗糙但直观的方式来做一个推荐系统的示例，如果能有一定的工程实现价值就更好。最近突然有了这样一个基于 Beta 分布的想法，所以记录下来。当然，这个想法可能不是我的专利，可能已经有人想到过了。</p><a id="more"></a><h2 id="Beta-分布的直观理解"><a href="#Beta-分布的直观理解" class="headerlink" title="Beta 分布的直观理解"></a>Beta 分布的直观理解</h2><p><a href="https://zh.wikipedia.org/wiki/%CE%92%E5%88%86%E5%B8%83" target="_blank" rel="noopener">Beta 分布</a> 是一组定义在 $(0, 1)$ 之间的连续概率分布，有两个参数 <code>$\alpha, \beta &gt; 0$</code>。随机变量 <code>$X$</code> 服从参数为 <code>$\alpha$</code>, <code>$\beta$</code> 的 Beta 分布通常记作 <code>$X \sim \text{Be}(\alpha, \beta)$</code>。</p><p>在理解 Beta 分布之前，我们先回顾一下二项分布。</p><p>二项分布说的是 $n$ 个 i.i.d 的二项伯努利试验中成功次数的离散概率分布。根据二项分布，我们可以用似然的办法，通过有限次的实验，推断伯努利实验成功的概率。比如有一枚多少有些不均匀的硬币，我们多次抛硬币，将硬币呈现正面记为成功，要求成功的概率，就可以用似然的办法结合二项分布来求解。现在的问题是，在只有很少次数的实验时，利用二项分布估计的概率可能会很不准。一个极端的例子，如果我们只做了一次实验，硬币落下后呈现正面。那么根据二项分布估计出来的概率将会是 <code>$P = 1$</code>。这显然是不对的。</p><p>这时候，Beta 分布就该出场了。Beta 分布可以看做是二项分布概率的概率分布。怎么理解呢？我们来继续看抛硬币的例子。</p><p>我们知道，虽然每一枚硬币都多少有些不均匀，但是总体上，硬币落下呈现正面的概率是 <code>$0.5$</code> 左右。因此，不论如何，一枚多少有些不均匀的硬币，抛硬币得到正面的概率应该和 <code>$0.5$</code> 相去不远。具体到多次 i.i.d 的二项伯努利试验上，就是当 <code>$N$</code> 足够大时，<code>$2N$</code> 次二项伯努利试验中，得到正面的次数应该接近 <code>$N$</code>。我们假设 <code>$N = 1000$</code>，这意味着，在 <code>$2000$</code> 次二项伯努利试验中，大约会获得 <code>$A = 1000$</code> 次正面和 <code>$B = 1000$</code> 次反面。于是，我们初始化 Beta 分布 <code>$\text{Be}(A, B) = \text{Be}(1000, 1000)$</code>。接着，我们用这枚多少有些不均匀的硬币开始若干次二项伯努利试验，比如说 50 次。在 50 次试验中，我们得到了 <code>$a = 19$</code> 次正面，<code>$b = 31$</code> 次反面。于是我们更新 Beta 分布的参数 <code>$\alpha \gets A + a$</code> 以及 <code>$\beta \gets B + b$</code>，于是得到新的 Beta 分布 <code>$\text{Be}(1019, 1031)$</code>。该 Beta 分布的均值是</p><p><code>$$ \frac{\alpha}{\alpha + \beta} = \frac{1019}{1019 + 1031} = \frac{1019}{2050} \approx 0.407. $$</code></p><p>于是我们说，这枚多少有些不均匀的硬币在二项伯努利试验中得到正面的概率是 <code>$P = 0.497$</code>；与此同时，就这 50 次试验，根据二项分布推算出来的概率是 <code>$P = 0.38$</code>。显然，根据 Beta 分布均值推算出来的概率相对根据二项分布推算出来的概率要显著接近 <code>$P = 0.5$</code> 的先验值。</p><p>总结一下，Beta 分布可以看做是二项分布概率的概率分布。当我们对二项分布概率已经有一个相对比较靠谱的先验知识的时候，我们可以据此设定 Beta 的参数，然后在后续 i.i.d 的二项伯努利试验过程中，依赖 Beta 分布共轭先验的特性，对 Beta 分布的参数进行更新，最后以 Beta 分布均值作为二项分布概率的估计。</p><h2 id="基于-Beta-分布的用户画像"><a href="#基于-Beta-分布的用户画像" class="headerlink" title="基于 Beta 分布的用户画像"></a>基于 Beta 分布的用户画像</h2><p>推荐系统的一侧是用户，描述用户的方法是用户画像。我们可以用 Beta 用户来做基于 Tag 的用户画像。在这里，对于某个用户来说：</p><ul><li>Beta 分布中的 <code>$\alpha_i$</code> 是用户在编号为 <code>$i$</code> 的 Tag 下的点击次数的反映；</li><li>相应地，<code>$\beta_i$</code> 则是用户在编号为 <code>$i$</code> 的 Tag 下展示未点击次数的反应。</li></ul><p>于是，用户画像的策略可以简单叙述如下：</p><ul><li>对于某个用户，使用先验知识（比如，全体用户的平均兴趣），对 <code>$\{(\alpha_i, \beta_i)\}$</code> 序列进行初始化。</li><li>根据用户的行为（展示和点击），更新该序列<ul><li>用户点击了具有编号为 <code>$i$</code>, <code>$j$</code>, <code>$k$</code> Tag 的物品进行了点击，则对 <code>$\alpha_i$</code>, <code>$\alpha_j$</code>, <code>$\alpha_k$</code> 分别自增 1；</li><li>用户展示未点击具有编号为 <code>$i$</code>, <code>$j$</code>, <code>$k$</code> Tag 的物品进行了点击，则对 <code>$\beta_i$</code>, <code>$\beta_j$</code>, <code>$\beta_k$</code> 分别自增 1。</li></ul></li></ul><h2 id="基于-Beta-分布的点击率预估"><a href="#基于-Beta-分布的点击率预估" class="headerlink" title="基于 Beta 分布的点击率预估"></a>基于 Beta 分布的点击率预估</h2><p>对于具有画像 <code>$\{(\alpha_i, \beta_i)\}$</code> 的用户进行推荐时，我们要对待推荐的物品进行点击率预估。假设某物品同时具有编号为 <code>$i$</code>, <code>$j$</code>, <code>$k$</code> 的 Tag，假设各个 Tag 对点击行为的贡献都相同——这是一个很强的假设，但对于示例方案来说无关紧要，则用户对该物品的点击概率可以预估为：</p><p><code>$$P_{\text{click}} = 1 - \frac{\beta_i}{\alpha_i + \beta_i} + \frac{\beta_j}{\alpha_j + \beta_j} + \frac{\beta_k}{\alpha_k + \beta_k}.$$</code></p><p>而后，我们可以根据各个物品的预估点击率对物品进行排序，然后推荐给用户。</p><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这是一个近乎「儿戏」的推荐方案，但在实践上并非完全无用。说它儿戏，是因为它只考虑了单个用户的历史行为，而没有考虑其他所有对推荐有帮助的因素——比如其他用户的行为（可做协同过滤），比如推荐结果多样性。但是，在没有这些其他因素的情况下，这种方案可以起到过渡方案的作用。对，我说的就是在新用户、新物品冷启动的时候，这种方案简单易实现，值得一试。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;因为一直在做推荐系统和点击率预估排序相关工作，所以一直想用一种粗糙但直观的方式来做一个推荐系统的示例，如果能有一定的工程实现价值就更好。最近突然有了这样一个基于 Beta 分布的想法，所以记录下来。当然，这个想法可能不是我的专利，可能已经有人想到过了。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Algorithm and Computer Science" scheme="https://liam.page/categories/Algorithm-and-Computer-Science/"/>
+    
+    
+      <category term="Beta Distribution" scheme="https://liam.page/tags/Beta-Distribution/"/>
+    
+      <category term="Recommendation System" scheme="https://liam.page/tags/Recommendation-System/"/>
+    
+      <category term="Realia" scheme="https://liam.page/tags/Realia/"/>
+    
+  </entry>
   
   <entry>
     <title>一篇关于大公司病的魔幻现实主义文章的读后感</title>
@@ -280,9 +306,9 @@
       <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
     
     
-      <category term="Disk" scheme="https://liam.page/tags/Disk/"/>
-    
       <category term="Linux" scheme="https://liam.page/tags/Linux/"/>
+    
+      <category term="Disk" scheme="https://liam.page/tags/Disk/"/>
     
   </entry>
   
@@ -489,9 +515,9 @@
     
       <category term="Factorization Machine" scheme="https://liam.page/tags/Factorization-Machine/"/>
     
-      <category term="CTR" scheme="https://liam.page/tags/CTR/"/>
-    
       <category term="Variants" scheme="https://liam.page/tags/Variants/"/>
+    
+      <category term="CTR" scheme="https://liam.page/tags/CTR/"/>
     
   </entry>
   
@@ -519,36 +545,6 @@
       <category term="Gradient Descent" scheme="https://liam.page/tags/Gradient-Descent/"/>
     
       <category term="Stochastic Gradient Descent" scheme="https://liam.page/tags/Stochastic-Gradient-Descent/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>在 Windows 下批量将 Markdown 文档转为 Word 文档</title>
-    <link href="https://liam.page/2019/05/17/markdown-convert-to-docx-batch/"/>
-    <id>https://liam.page/2019/05/17/markdown-convert-to-docx-batch/</id>
-    <published>2019-05-17T10:34:52.000Z</published>
-    <updated>2019-10-22T08:18:16.174Z</updated>
-    
-    <content type="html"><![CDATA[<p>转换本身需要通过开源的 Pandoc 来进行。因此，你首先需要<a href="https://pandoc.org/installing.html" target="_blank" rel="noopener">安装 Pandoc</a>。</p><p>而后，可以仿照<a href="/2014/08/21/bitmap-convert-to-eps-batch/">前作</a>的做法，批量转换。</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@echo off</span><br><span class="line"></span><br><span class="line">for /f &quot;tokens=* delims=&quot; %%i in (&apos;dir /b *.md&apos;) do (</span><br><span class="line">  @echo %%i</span><br><span class="line">  pandoc -f markdown -t docx -o &quot;%%~ni.docx&quot; &quot;%%i&quot;</span><br><span class="line">  @echo Finished</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">pause &gt; nul</span><br></pre></td></tr></table></figure><p>具体操作路径：</p><ul><li><a href="https://pandoc.org/installing.html" target="_blank" rel="noopener">安装 Pandoc</a>（按需）。</li><li>将<a href="https://tar.cat/uploads/bat_scripts/md2docx.bat" target="_blank" rel="noopener">脚本</a>保存在某个目录（例如桌面）。</li><li>将需要转换的 Markdown 文件也保存在该目录。</li><li>双击执行脚本。</li><li>收获一堆 Word 文档。</li></ul>]]></content>
-    
-    <summary type="html">
-    
-      
-      
-        &lt;p&gt;转换本身需要通过开源的 Pandoc 来进行。因此，你首先需要&lt;a href=&quot;https://pandoc.org/installing.html&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;安装 Pandoc&lt;/a&gt;。&lt;/p&gt;
-&lt;p&gt;而后，可以仿照&lt;
-      
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="Pandoc" scheme="https://liam.page/tags/Pandoc/"/>
-    
-      <category term="Markdown" scheme="https://liam.page/tags/Markdown/"/>
-    
-      <category term="Word" scheme="https://liam.page/tags/Word/"/>
     
   </entry>
   
