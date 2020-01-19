@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+
+
+
+
+
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=7.4.2">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=7.4.2">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=7.4.2" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+
+
+<script id="hexo-configurations">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    root: '/',
+    scheme: 'Gemini',
+    version: '7.4.2',
+    exturl: false,
+    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    copycode: {"enable":true,"show_result":false,"style":null},
+    back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
+    bookmark: {"enable":false,"color":"#222","save":"auto"},
+    fancybox: false,
+    mediumzoom: true,
+    lazyload: true,
+    pangu: false,
+    algolia: {
+      appID: '',
+      apiKey: '',
+      indexName: '',
+      hits: {"per_page":10},
+      labels: {"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}
+    },
+    localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
+    path: 'search.xml',
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
+    translation: {
+      copy_button: '复制',
+      copy_success: '复制成功',
+      copy_failure: '复制失败'
+    },
+    sidebarPadding: 40
+  };
+</script>
+
+  <meta name="description" content="早些年，第一次使用 USB 3.0 硬盘的时候，我就发现了它对 Wi-Fi 网络信号的影响。为了解决这个问题，当时投资几百块，换了 NetGear 的路由器，并启用其 5GHz 的 Wi-Fi 信号。最近，在结合 rMBP 使用无线鼠标时，我发现鼠标经常出现跳帧的现象。因为距离上一次踩坑的时间已经过去六七年的时间，一时完全没想到可能是 USB 3.0 带来的问题。在经历了一系列折腾之后，才突然想起">
+<meta name="keywords" content="USB,USB3.0,Wireless">
+<meta property="og:type" content="article">
+<meta property="og:title" content="USB 3.0 射频噪声对 2.4GHz 无线设备的干扰">
+<meta property="og:url" content="https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="早些年，第一次使用 USB 3.0 硬盘的时候，我就发现了它对 Wi-Fi 网络信号的影响。为了解决这个问题，当时投资几百块，换了 NetGear 的路由器，并启用其 5GHz 的 Wi-Fi 信号。最近，在结合 rMBP 使用无线鼠标时，我发现鼠标经常出现跳帧的现象。因为距离上一次踩坑的时间已经过去六七年的时间，一时完全没想到可能是 USB 3.0 带来的问题。在经历了一系列折腾之后，才突然想起">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-01-19T03:49:03.024Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="USB 3.0 射频噪声对 2.4GHz 无线设备的干扰">
+<meta name="twitter:description" content="早些年，第一次使用 USB 3.0 硬盘的时候，我就发现了它对 Wi-Fi 网络信号的影响。为了解决这个问题，当时投资几百块，换了 NetGear 的路由器，并启用其 5GHz 的 Wi-Fi 信号。最近，在结合 rMBP 使用无线鼠标时，我发现鼠标经常出现跳帧的现象。因为距离上一次踩坑的时间已经过去六七年的时间，一时完全没想到可能是 USB 3.0 带来的问题。在经历了一系列折腾之后，才突然想起">
+  <link rel="canonical" href="https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true,
+    isPage: false,
+    isArchive: false
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>USB 3.0 射频噪声对 2.4GHz 无线设备的干扰 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script pjax>
+      var host = window.location.hostname;
+      if (host !== "localhost" || !true) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+  
+
+
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">始终</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <h1 class="site-subtitle" itemprop="description">不忘初心</h1>
+      
+  </div>
+
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+      
+      
+        
+        
+        <li class="menu-item menu-item-home">
+      
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-archives">
+      
+    
+      
+      
+        
+          
+        
+      
+        
+      
+        
+      
+    
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">321</span></a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-categories">
+      
+    
+      
+      
+        
+      
+        
+          
+        
+      
+        
+      
+    
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">12</span></a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-tags">
+      
+    
+      
+      
+        
+      
+        
+      
+        
+          
+        
+      
+    
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">631</span></a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-系列">
+      
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+
+    <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-札记-&-留言板">
+      
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-英文">
+      
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+
+    <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+      
+    
+      
+      
+        
+        
+        <li class="menu-item menu-item-about">
+      
+    
+      
+      
+        
+      
+        
+      
+        
+      
+    
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      
+    
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger">
+          <i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+    
+  </ul>
+
+</nav>
+  <div class="site-search">
+    <div class="popup search-popup">
+    <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocorrect="off" autocapitalize="none"
+           placeholder="搜索..." spellcheck="false"
+           type="text" id="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result"></div>
+
+</div>
+<div class="search-pop-overlay"></div>
+
+  </div>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+            
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="不忘初心，方得始终。">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            USB 3.0 射频噪声对 2.4GHz 无线设备的干扰
+            
+
+          
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              
+                
+              
+
+              <time title="创建时间：2020 年 01 月 19 日 10:34:48 / 修改时间：11:49:03" itemprop="dateCreated datePublished" datetime="2020-01-19T10:34:48+08:00">2020 年 01 月 19 日</time>
+            </span>
+          
+            
+
+            
+          
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Computer-Skills/" itemprop="url" rel="index">
+                    <span itemprop="name">Computer Skills</span>
+                  </a>
+                </span>
+
+                
+                
+              
+            </span>
+          
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span>
+          
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">本文字数：</span>
+              
+              <span>1.6k</span>
+            </span>
+          
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+              
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              
+              <span>3 分钟</span>
+            </span>
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>早些年，第一次使用 USB 3.0 硬盘的时候，我就发现了它对 Wi-Fi 网络信号的影响。为了解决这个问题，当时投资几百块，换了 NetGear 的路由器，并启用其 5GHz 的 Wi-Fi 信号。最近，在结合 rMBP 使用无线鼠标时，我发现鼠标经常出现跳帧的现象。因为距离上一次踩坑的时间已经过去六七年的时间，一时完全没想到可能是 USB 3.0 带来的问题。在经历了一系列折腾之后，才突然想起这个坑。特此记录。</p>
+<a id="more"></a>
+
+<h2 id="向外辐射的电磁波"><a href="#向外辐射的电磁波" class="headerlink" title="向外辐射的电磁波"></a>向外辐射的电磁波</h2><p>有高中物理电磁知识的人都应该知道一个基本事实：任何未经完全屏蔽的非直流电流，都会向外辐射电磁波。在高中物理中，它的基本形式就是 <a href="https://zh.wikipedia.org/wiki/LC%E7%94%B5%E8%B7%AF" target="_blank" rel="noopener">LC 谐振电路</a>。但另一方面，向外辐射电磁波的另一个条件是电路开路。也就是说，在连续的电路中，一般来说很难产生足以干扰其他设备的射频信号。此外，线缆通常也会考虑屏蔽电磁辐射。因此，一般来说，产生电磁射频噪声的干扰源，通常是电路的连接点，例如接头、引脚处。</p>
+<h2 id="USB-3-0-的射频噪声"><a href="#USB-3-0-的射频噪声" class="headerlink" title="USB 3.0 的射频噪声"></a>USB 3.0 的射频噪声</h2><p>根据 Intel 于 2012 年发布的<a href="https://usb.org/sites/default/files/327216.pdf" target="_blank" rel="noopener">白皮书</a>，从 USB 3.0 的 <a href="https://zh.wikipedia.org/wiki/Sinc%E5%87%BD%E6%95%B0" target="_blank" rel="noopener"><code>sinc</code> 函数</a>来看，USB 3.0 的频谱很宽，从直流一直到 5GHz 都有所涉及。</p>
+<p><img alt data-src="/uploads/images/computer-skills/usb3-sinc.jpg"></p>
+<p>直接在笔记本上测量 USB 3.0 线对（transmit-pair）上的频谱则有如下分布。</p>
+<p><img alt data-src="/uploads/images/computer-skills/usb3-noise-power-over-frequence.jpg"></p>
+<p>于是，不难想见，USB 3.0 的接头处，在非常广的频谱上，都会向外辐射无线电干扰。那么射频干扰主要集中在什么频段呢？Intel 以实验说话，发现射频干扰主要集中在 2.4GHz -- 2.5GHz 之间。</p>
+<p><img alt data-src="/uploads/images/computer-skills/usb3-noise-HDD.jpg"></p>
+<h2 id="信噪比与干扰"><a href="#信噪比与干扰" class="headerlink" title="信噪比与干扰"></a>信噪比与干扰</h2><p>无线信号接收器是否能够正确解析无线信号，不仅取决于无线信号的强度，还取决于接收器所处环境的无线噪声强度。并不是说无线信号强度大，就一定能正确解析无线信号。假设有一个 -20 dBm（分贝毫瓦，对数能量单位）的信号，已经算很强了；但若环境中有一个 -20dBm 的同频率干扰信号，则原信号依然是不可辨别的。</p>
+<p>因此，人们定义了信噪比（Signal-to-Noise ratio）这个概念。信噪比的单位也是分贝（dB）。</p>
+<p>$$\text{SNR} = 10 \log_{10}\Bigl(\frac{P_{\text{signal}}}{P_{\text{noise}}}\Bigr).$$</p>
+<p>为了能够正确解调无线信号，无线信号接收器都会有一个最低限度的信噪比要求。当无线信号过于衰弱，或是无线噪声过于强大时，信噪比就可能低于无线信号接收器所需的最低信噪比。如此一来，无线信号接收器就无法正常工作了。</p>
+<h2 id="2-4GHz"><a href="#2-4GHz" class="headerlink" title="2.4GHz"></a>2.4GHz</h2><p>无线电信号频段是有限的资源。在大多数主要国家，都有相应的法律法规，来约束和限制无线电信号频段的使用。2.4GHz 是国际通用的不受约束的频段（当然，这里的不受约束，指的是你可以使用，但功率不能太大）。因此，大多数无线设备，都在这一频段工作。常见的有 Wi-Fi、无线鼠标、无线键盘、蓝牙等外设。</p>
+<p>不巧的是，USB 3.0 的射频干扰主要集中在 2.4GHz 和 2.5GHz 之间，正好与这一通用频段重合。于是，USB 3.0 设备干扰 Wi-Fi、无线鼠标等，也就不奇怪了。</p>
+<h2 id="解决办法"><a href="#解决办法" class="headerlink" title="解决办法"></a>解决办法</h2><p>解决办法很简单。</p>
+<ol>
+<li>屏蔽：使用金属箔纸，将 USB 3.0 的连接处和电缆包裹起来，起到无线屏蔽的作用。当然，这对动手能力要求很高。</li>
+<li>远离：由于无线信号强度随着信号源的距离的增加而快速衰减（平方衰减），因此，使用 USB 2.0 延长线，将无线信号接收器（如果有）远离 USB 3.0 的设备和借口，即可避免这一问题。</li>
+<li>换频：由于 USB 3.0 的射频干扰主要集中在 2.4GHz 至 2.5GHz 之间，那么换成不在 2.4GHz 频段工作的设备即可。例如，可以更换成 5(.8) GHz 的设备。</li>
+<li>有线：开历史倒车，从无线设备切换回到有线设备，彻底绕开无线干扰这个问题。</li>
+</ol>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        
+      
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+
+    
+      
+      
+        
+        
+          
+        
+        <div style="display: inline-block;">
+          <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+          <p>微信支付</p>
+        </div>
+      
+    
+      
+      
+        
+        
+          
+        
+        <div style="display: inline-block;">
+          <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+          <p>支付宝</p>
+        </div>
+      
+    
+      
+      
+    
+      
+      
+    
+
+    
+      <div id="paypal" style="display: inline-block;">
+        <img id="paypal_form">
+          <form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top">
+          <input type="hidden" name="cmd" value="_donations" />
+          <input type="hidden" name="business" value="3EKTTVF2FF5EQ" />
+          <input type="hidden" name="item_name" value="If you like my blog, please consider to buy a cup of coffee for me. Thanks!" />
+          <input type="hidden" name="currency_code" value="USD" />
+          <input type="image" src="/images/reward/paypal-btn_donateCC_LG.gif" border="0" name="submit" />
+          </form>
+        </img>
+        <p>PayPal</p>
+      </div>
+    
+
+  </div>
+</div>
+
+      
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/" title="USB 3.0 射频噪声对 2.4GHz 无线设备的干扰">https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+      
+
+      <footer class="post-footer">
+          
+            
+          
+          <div class="post-tags">
+            
+              <a href="/tags/USB/" rel="tag"># USB</a>
+            
+              <a href="/tags/USB3-0/" rel="tag"># USB3.0</a>
+            
+              <a href="/tags/Wireless/" rel="tag"># Wireless</a>
+            
+          </div>
+        
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-next post-nav-item">
+              
+                <a href="/2020/01/10/the-states-of-processes-on-Linux/" rel="next" title="程序员的自我修养（⑨）：Linux 系统里的进程状态">
+                  <i class="fa fa-chevron-left"></i> 程序员的自我修养（⑨）：Linux 系统里的进程状态
+                </a>
+              
+            </div>
+
+            <span class="post-nav-divider"></span>
+
+            <div class="post-nav-prev post-nav-item">
+              
+            </div>
+          </div>
+        
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+    
+    <div class="comments" id="gitalk-container"></div>
+  
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+        
+        
+        
+        
+      
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#向外辐射的电磁波"><span class="nav-number">1.</span> <span class="nav-text">向外辐射的电磁波</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#USB-3-0-的射频噪声"><span class="nav-number">2.</span> <span class="nav-text">USB 3.0 的射频噪声</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#信噪比与干扰"><span class="nav-number">3.</span> <span class="nav-text">信噪比与干扰</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-4GHz"><span class="nav-number">4.</span> <span class="nav-text">2.4GHz</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#解决办法"><span class="nav-number">5.</span> <span class="nav-text">解决办法</span></a></li></ol></div>
+        
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image"
+      src="/images/avatar/avatar.webp"
+      alt="Liam Huang">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">不忘初心，方得始终。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+        
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">321</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-categories">
+        
+          
+            <a href="/categories/">
+          
+        
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">分类</span>
+        </a>
+      </div>
+    
+      
+      
+      <div class="site-state-item site-state-tags">
+        
+          
+            <a href="/tags/">
+          
+        
+        <span class="site-state-item-count">631</span>
+        <span class="site-state-item-name">标签</span>
+        </a>
+      </div>
+    
+  </nav>
+</div>
+  <div class="feed-link motion-element">
+    <a href="/atom.xml" rel="alternate">
+      <i class="fa fa-rss"></i>RSS
+    </a>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    
+  
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://xixiaoyao.github.io/" title="https://xixiaoyao.github.io/" rel="noopener" target="_blank">Xiyao</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.jellythink.com/" title="http://www.jellythink.com/" rel="noopener" target="_blank">JellyThink</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+      
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+      
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.2m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">37:03</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.4.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+  
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js?v=3.1.0"></script>
+  <script src="/lib/pjax/pjax.min.js?v=0.2.8"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
+  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
+<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
+<script src="/js/schemes/pisces.js?v=7.4.2"></script>
+
+<script src="/js/next-boot.js?v=7.4.2"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.getAttribute('pjax') !== null) {
+      element.setAttribute('pjax', '');
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+  <script src="/js/local-search.js?v=7.4.2"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+
+  
+
+  
+    
+      
+<script type="text/x-mathjax-config">
+
+  MathJax.Hub.Config({
+    tex2jax: {
+      inlineMath: [ ['$', '$'], ['\\(', '\\)'] ],
+      processEscapes: true,
+      skipTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+    },
+    TeX: {
+      
+        extensions: ["AMSmath.js", "AMSsymbols.js", "autobold.js"],
+      
+      equationNumbers: {
+        autoNumber: 'AMS'
+      }
+    }
+  });
+
+  MathJax.Hub.Register.StartupHook('TeX Jax Ready', function() {
+    MathJax.InputJax.TeX.prefilterHooks.Add(function(data) {
+      if (data.display) {
+        var next = data.script.nextSibling;
+        while (next && next.nodeName.toLowerCase() === '#text') {
+          next = next.nextSibling;
+        }
+        if (next && next.nodeName.toLowerCase() === 'br') {
+          next.parentNode.removeChild(next);
+        }
+      }
+    });
+  });
+
+  MathJax.Hub.Queue(function() {
+    var all = MathJax.Hub.getAllJax(), i;
+    for (i = 0; i < all.length; i += 1) {
+      element = document.getElementById(all[i].inputID + '-Frame').parentNode;
+      if (element.nodeName.toLowerCase() == 'li') {
+        element = element.parentNode;
+      }
+      element.classList.add('has-jax');
+    }
+  });
+</script>
+<script>
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/mathjax@2/MathJax.js?config=TeX-AMS-MML_HTMLorMML', () => {
+    // window.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('code').forEach(code => {
+      const text = code.innerHTML;
+      is_inline_math = /^\$(.*)\$$/.exec(text);
+      is_display_math = /^\$\$(.*)\$\$$/ms.exec(text) || /^\\begin\{.+\}(.*)\\end\{.+\}/ms.exec(text);
+      if (is_inline_math || is_display_math) {
+        code.parentElement.classList.add('has-jax');
+        if (is_inline_math) {
+          code.outerHTML = "<span class=yuuki_mathjax_inline>" + text + "</span>";
+        } else {
+          code.outerHTML = "<span class=yuuki_mathjax_display>" + text + "</span>";
+        }
+        // MathJax.Hub.Queue(["Typeset", MathJax.Hub, code]);
+      }
+    });
+    // });
+    MathJax.Hub.Typeset();
+  }, window.MathJax);
+</script>
+
+    
+  
+
+  
+    <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+    <script>
+      
+        window.addEventListener('load', () => {
+      
+        quicklink({
+          timeout: 3000,
+          priority: true,
+          ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/',]
+        });
+      
+        });
+      
+    </script>
+  
+
+  
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+      
+        pbOptions.boxForm = "horizontal";
+      
+        pbOptions.position = "topCenter";
+      
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID: 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo: 'liam0205.github.io',
+      owner: 'Liam0205',
+      admin: ['Liam0205'],
+      id: '2496eac58cd78c68508671e40337b680',
+        language: 'zh-CN',
+      
+      distractionFreeMode: 'true'
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+</script>
+
+    </div>
+</body>
+</html>
