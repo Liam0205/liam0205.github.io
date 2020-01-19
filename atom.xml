@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-01-19T04:06:07.523Z</updated>
+  <updated>2020-01-19T15:15:15.425Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,46 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>泥潭挣扎记：Linuxbrew 里的 Glibc</title>
+    <link href="https://liam.page/2020/01/19/struggle-with-Glibc-and-Linuxbrew/"/>
+    <id>https://liam.page/2020/01/19/struggle-with-Glibc-and-Linuxbrew/</id>
+    <published>2020-01-19T10:10:52.000Z</published>
+    <updated>2020-01-19T15:15:15.425Z</updated>
+    
+    <content type="html"><![CDATA[<p>本着 Homebrew 真香的原则，我尝试在 CentOS 上安装 Linuxbrew。至于不用 Yum 的原因，请看刚才提到的真香原则。</p><p>但随即，我就陷入到了 Glibc 的泥潭。这个泥潭是一个需要自举（bootstrap）的循环依赖；这个泥潭长这样：</p><ul><li>Linuxbrew 安装任何东西都依赖 <code>curl</code> 和 <code>git</code>，而且它不想用系统中自带的 <code>curl</code> 和 <code>git</code>。</li><li><code>curl</code> 和 <code>git</code> 都直接或间接依赖 Glibc。</li><li>Linuxbrew 里的 Glibc 版本比较高，目前是 2.23，因此依赖高版本的 GCC（<code>&gt;= 4.7</code>），以及因为 Linuxbrew 的缘故依赖 <code>curl</code> 和 <code>git</code>。</li><li>系统里的 GCC 版本较低，因此 Linuxbrew 安装 Glibc 失败；而通过 Linuxbrew 安装高版本的 GCC 又再次依赖 Glibc。</li></ul><p>泥潭里有两个循环依赖：</p><ul><li>Glibc 和 <code>curl</code> 及 <code>git</code> 等基础工具相互依赖；</li><li>Glibc 和 GCC 相互依赖。</li><li><a id="more"></a></li></ul><h2 id="寻找突破口，解决-Glibc-的存在性问题"><a href="#寻找突破口，解决-Glibc-的存在性问题" class="headerlink" title="寻找突破口，解决 Glibc 的存在性问题"></a>寻找突破口，解决 Glibc 的存在性问题</h2><p>两个循环都涉及到 Glibc，因此必须想办法从 Glibc 这里突破。考虑到 Glibc 基础库的地位，很多依赖它的模块，都是硬编码 Glibc 的位置。因此 Glibc 必须从源码编译安装，无法直接服用编译好的二进制文件。所以 Glibc 无论如何都得依赖 GCC。既然高版本的 Glibc 依赖高版本的 GCC，那么就只能想办法安装较低版本的 Glibc——首先解决有没有（Linuxbrew 中的）Glibc 的问题，再去解决 Glibc 版本的问题。</p><p>为了安装低版本的 Glibc，我们要用到 <code>brew</code> 直接从 <code>tap</code> 中安装的特性：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">""</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">"1"</span> \</span><br><span class="line">brew install --verbose --ignore-dependencies https://raw.githubusercontent.com/Linuxbrew/homebrew-core/6fb5dfd50895416bea3d00628b8d3b41fa1f4f32/Formula/glibc.rb  <span class="comment"># Glibc 2.20</span></span><br></pre></td></tr></table></figure><p>讲一下这里的黑魔法。</p><p><code>MAKEFLAGS</code> 和 <code>HOMEBREW_MAKE_JOBS</code> 的设定，都是为了让编译 Glibc 的过程中使用非并行编译。这是因为并行编译 Glibc 2.20 时，因为 Makefile 依赖没写好，会产生一些问题。</p><p><code>--verbose</code> 参数的意义是让 <code>brew</code> 打印尽可能多的调试信息。<code>--ignore-dependencies</code> 则是无奈之举，因为 Glibc 依赖的东西反过来又会依赖 Glibc，于是 Linuxbrew 会尝试去安装高版本 Glibc，这就毁了。</p><p>执行这条命令，Linuxbrew 首先还是会去尝试安装 <code>curl</code> 和 <code>git</code>。而它们又依赖 Glibc，所以又会尝试安装高版本的 Glibc，依然会失败。这没办法，由着他们失败去。等它们失败之后，就会尝试安装 Glibc 2.20。</p><h2 id="解决-GCC-的问题"><a href="#解决-GCC-的问题" class="headerlink" title="解决 GCC 的问题"></a>解决 GCC 的问题</h2><p>接下来要解决的是 GCC 的问题。因为但凡碰到要编译的，都离不开它。于是我们有：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install --verbose --ignore-dependencies xz gmp mpfr libmpc isl gcc</span><br></pre></td></tr></table></figure><p>这里安装 <code>xz</code>, <code>gmp</code>, <code>mpfr</code>, <code>libmpc</code>, <code>isl</code> 的原因是 GCC 自身就依赖他们——哪怕你不使用 Linuxbrew，手动编译 GCC 时，你也得安装它们。</p><h2 id="安装-curl-和-git"><a href="#安装-curl-和-git" class="headerlink" title="安装 curl 和 git"></a>安装 <code>curl</code> 和 <code>git</code></h2><p>有了 Glibc 和 GCC，安装 <code>curl</code> 和 <code>git</code> 就不成问题了。我们有：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">brew install --verbose curl git</span><br><span class="line">brew update  --verbose --force</span><br></pre></td></tr></table></figure><h2 id="升级-Glibc"><a href="#升级-Glibc" class="headerlink" title="升级 Glibc"></a>升级 Glibc</h2><p>之前我们安装的是 Glibc 2.20，现在我们来升级它。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">""</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">"1"</span> \</span><br><span class="line">brew upgrade glibc --verbose</span><br></pre></td></tr></table></figure><h2 id="重新安装-GCC"><a href="#重新安装-GCC" class="headerlink" title="重新安装 GCC"></a>重新安装 GCC</h2><p>因为 GCC 依赖的 Glibc 发生了变化，这导致 GCC 不可用。因此我们要做一些调整。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew postinstall gcc</span><br></pre></td></tr></table></figure><p>如此，万事 okay~</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;本着 Homebrew 真香的原则，我尝试在 CentOS 上安装 Linuxbrew。至于不用 Yum 的原因，请看刚才提到的真香原则。&lt;/p&gt;
+&lt;p&gt;但随即，我就陷入到了 Glibc 的泥潭。这个泥潭是一个需要自举（bootstrap）的循环依赖；这个泥潭长这样：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Linuxbrew 安装任何东西都依赖 &lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt;，而且它不想用系统中自带的 &lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt; 都直接或间接依赖 Glibc。&lt;/li&gt;
+&lt;li&gt;Linuxbrew 里的 Glibc 版本比较高，目前是 2.23，因此依赖高版本的 GCC（&lt;code&gt;&amp;gt;= 4.7&lt;/code&gt;），以及因为 Linuxbrew 的缘故依赖 &lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;系统里的 GCC 版本较低，因此 Linuxbrew 安装 Glibc 失败；而通过 Linuxbrew 安装高版本的 GCC 又再次依赖 Glibc。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;泥潭里有两个循环依赖：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Glibc 和 &lt;code&gt;curl&lt;/code&gt; 及 &lt;code&gt;git&lt;/code&gt; 等基础工具相互依赖；&lt;/li&gt;
+&lt;li&gt;Glibc 和 GCC 相互依赖。&lt;/li&gt;
+&lt;li&gt;
+    
+    </summary>
+    
+      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
+    
+    
+      <category term="Homebrew" scheme="https://liam.page/tags/Homebrew/"/>
+    
+      <category term="Linuxbrew" scheme="https://liam.page/tags/Linuxbrew/"/>
+    
+      <category term="brwe" scheme="https://liam.page/tags/brwe/"/>
+    
+      <category term="Glibc" scheme="https://liam.page/tags/Glibc/"/>
+    
+  </entry>
   
   <entry>
     <title>USB 3.0 射频噪声对 2.4GHz 无线设备的干扰</title>
@@ -491,39 +531,6 @@
       <category term="Windows 7" scheme="https://liam.page/tags/Windows-7/"/>
     
       <category term="Windows Update" scheme="https://liam.page/tags/Windows-Update/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>在 Windows 中抹除磁盘上所有已删除文件的痕迹</title>
-    <link href="https://liam.page/2019/09/16/safe-clean-all-data-on-disks-in-Windows/"/>
-    <id>https://liam.page/2019/09/16/safe-clean-all-data-on-disks-in-Windows/</id>
-    <published>2019-09-16T09:59:24.000Z</published>
-    <updated>2019-11-10T10:05:53.000Z</updated>
-    
-    <content type="html"><![CDATA[<p>我们知道，在电脑上删除文件时，并不会真的删除数据，而仅仅是在文件系统中将相应文件的索引删除。哪怕是格式化，在「快速格式化」的情况下，也不会删除磁盘上的数据。这种删除/格式化的操作，有歹心的人是有可能恢复数据的。</p><p>因此，在某些情况下——例如归还借用的电脑时——我们会希望能够真正地「粉碎」文件，避免被人恢复敏感数据。</p><p>市面上有不少「粉碎文件」的工具。但：</p><ul><li>为了信息安全这件事情，专门安装第三方工具，这件事情本身就很吊诡；</li><li>如果要粉碎大量文件，同时保证全盘没有遗漏，这些第三方工具往往不可靠。</li></ul><p>这篇介绍用 Windows 自带的工具解决这个问题。</p><a id="more"></a><h2 id="CIPHER"><a href="#CIPHER" class="headerlink" title="CIPHER"></a><code>CIPHER</code></h2><p>Windows 自带有名为 <a href="https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/cipher" target="_blank" rel="noopener"><code>CIPHER</code></a> 的工具。这个工具本身是用来在 NTFS 格式的磁盘上加密磁盘或磁盘上的文件的。不过，我们这里要用到它的 <code>/w</code> 参数。以下是这个参数的作用：</p><blockquote><p>Removes data from available unused disk space on the entire volume. If you use the /w parameter, all other parameters are ignored. The directory specified can be located anywhere in a local volume. If it is a mount point or points to a directory in another volume, the data on that volume is removed.</p></blockquote><p>翻译：<code>cipher /w:&lt;directory&gt;</code> 移除卷上所有未使用的空间并忽略所有其他参数。这里，<code>&lt;directory&gt;</code> 可以是卷上的任意目录。如果该目录是其他卷的挂载点，则 <code>cipher</code> 将会移除被挂载的卷上的数据。</p><p>这个介绍有一点没介绍明白：具体怎样移除卷上的所有空间呢？作为一个用于加密的工具，「移除」的方法当然是很安全的啦。实际上，<code>cipher /w:&lt;directory&gt;</code> 会在磁盘上所有可用空间上，先全部写入 <code>0x00</code>，再全部写入 <code>0xFF</code>，再全部写入随机值。如此一来，磁盘上空闲空间里的内容，就变得难以恢复了。</p><h2 id="批处理"><a href="#批处理" class="headerlink" title="批处理"></a>批处理</h2><p>今天写了一个 Windows 批处理脚本，利用 <code>cipher /w</code> 在所有磁盘的空闲空间上抹除数据。</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">@echo off</span><br><span class="line"></span><br><span class="line">for %%i in (A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z) do (</span><br><span class="line">  if exist %%i:\ (</span><br><span class="line">    echo &quot;will start to cipher %%i&quot;</span><br><span class="line">    cipher /w:%%i:\</span><br><span class="line">  )</span><br><span class="line">)</span><br></pre></td></tr></table></figure><p>在桌面上新建一个文本文件 <code>cipher_disks.txt</code>，将这些内容粘贴上去，而后修改后缀名为 <code>.bat</code>，即改名为 <code>cipher_disks.bat</code>。如此一来，只需双击该批处理脚本，即可抹除所有磁盘上的空闲空间中的数据了。</p><p>于是，在归还电脑时，只需先将个人数据/敏感文件全部删除，然后执行该批处理脚本即可。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;我们知道，在电脑上删除文件时，并不会真的删除数据，而仅仅是在文件系统中将相应文件的索引删除。哪怕是格式化，在「快速格式化」的情况下，也不会删除磁盘上的数据。这种删除/格式化的操作，有歹心的人是有可能恢复数据的。&lt;/p&gt;
-&lt;p&gt;因此，在某些情况下——例如归还借用的电脑时——我们会希望能够真正地「粉碎」文件，避免被人恢复敏感数据。&lt;/p&gt;
-&lt;p&gt;市面上有不少「粉碎文件」的工具。但：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;为了信息安全这件事情，专门安装第三方工具，这件事情本身就很吊诡；&lt;/li&gt;
-&lt;li&gt;如果要粉碎大量文件，同时保证全盘没有遗漏，这些第三方工具往往不可靠。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;这篇介绍用 Windows 自带的工具解决这个问题。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="Windows" scheme="https://liam.page/tags/Windows/"/>
-    
-      <category term="Disks" scheme="https://liam.page/tags/Disks/"/>
-    
-      <category term="Cipher" scheme="https://liam.page/tags/Cipher/"/>
     
   </entry>
   
