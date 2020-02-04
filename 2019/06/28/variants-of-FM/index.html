@@ -1,40 +1,35 @@
 <!DOCTYPE html>
-
-
-
-
-
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
 <meta name="generator" content="Hexo 3.9.0">
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=7.4.2">
-  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=7.4.2" color="#222">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
   <link rel="manifest" href="/images/favicon/site.webmanifest">
   <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
-  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <meta http-equiv="Cache-Control" content="no-transform">
   <meta http-equiv="Cache-Control" content="no-siteapp">
   <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
 
-<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+<link rel="stylesheet" href="/css/main.css">
 
 
-<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
 
 
 <script id="hexo-configurations">
   var NexT = window.NexT || {};
   var CONFIG = {
+    hostname: new URL('https://liam.page').hostname,
     root: '/',
     scheme: 'Gemini',
-    version: '7.4.2',
+    version: '7.7.1',
     exturl: false,
-    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
     copycode: {"enable":true,"show_result":false,"style":null},
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
@@ -42,6 +37,7 @@
     mediumzoom: true,
     lazyload: true,
     pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
     algolia: {
       appID: '',
       apiKey: '',
@@ -51,13 +47,7 @@
     },
     localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
     path: 'search.xml',
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
-    translation: {
-      copy_button: '复制',
-      copy_success: '复制成功',
-      copy_failure: '复制失败'
-    },
-    sidebarPadding: 40
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
   };
 </script>
 
@@ -69,11 +59,12 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="先前我们从 LR 开始，讨论了因子分解机（FM）模型。FM 解决了稀疏数据场景下的自动特征组合问题，因而在广告、推荐等具有高维稀疏特征的领域被广泛使用。因其简单、可解释性强、效果好，FM 模型通常会被作为业务初期快速取得收益的首选。 这里将 FM 模型家族至今为止的演进做一个整理总结。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-10T10:05:53.000Z">
+<meta property="og:updated_time" content="2020-02-04T07:57:06.012Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="谈谈因子分解机模型的各种变体">
 <meta name="twitter:description" content="先前我们从 LR 开始，讨论了因子分解机（FM）模型。FM 解决了稀疏数据场景下的自动特征组合问题，因而在广告、推荐等具有高维稀疏特征的领域被广泛使用。因其简单、可解释性强、效果好，FM 模型通常会被作为业务初期快速取得收益的首选。 这里将 FM 模型家族至今为止的演进做一个整理总结。">
-  <link rel="canonical" href="https://liam.page/2019/06/28/variants-of-FM/">
+
+<link rel="canonical" href="https://liam.page/2019/06/28/variants-of-FM/">
 
 
 <script id="page-configurations">
@@ -81,9 +72,7 @@
   CONFIG.page = {
     sidebar: "",
     isHome: false,
-    isPost: true,
-    isPage: false,
-    isArchive: false
+    isPost: true
   };
 </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
@@ -104,17 +93,13 @@
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
     <script pjax>
-      var host = window.location.hostname;
-      if (host !== "localhost" || !true) {
+      if (CONFIG.hostname === location.hostname) {
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'UA-44836433-1');
       }
     </script>
-  
-
-
 
 
 
@@ -178,194 +163,50 @@
 <nav class="site-nav">
   
   <ul id="menu" class="menu">
-      
-      
-        
-        
         <li class="menu-item menu-item-home">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-archives">
-      
-    
-      
-      
-        
-          
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">322</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-categories">
-      
-    
-      
-      
-        
-      
-        
-          
-        
-      
-        
-      
-    
 
     <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">12</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-tags">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-          
-        
-      
-    
 
     <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">634</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-系列">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-札记-&-留言板">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-英文">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-about">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
 
   </li>
-      
-    
       <li class="menu-item menu-item-search">
-        <a role="button" class="popup-trigger">
-          <i class="fa fa-search fa-fw"></i>搜索
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
         </a>
       </li>
-    
   </ul>
 
 </nav>
@@ -403,7 +244,7 @@
     <main class="main">
       <div class="main-inner">
         <div class="content-wrap">
-            
+          
 
           <div class="content">
             
@@ -416,9 +257,9 @@
     <link itemprop="mainEntityOfPage" href="https://liam.page/2019/06/28/variants-of-FM/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
       <meta itemprop="name" content="Liam Huang">
       <meta itemprop="description" content="不忘初心，方得始终。">
-      <meta itemprop="image" content="/images/avatar/avatar.webp">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -426,11 +267,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          
-            谈谈因子分解机模型的各种变体
-            
-
-          
+          谈谈因子分解机模型的各种变体
         </h2>
 
         <div class="post-meta">
@@ -440,42 +277,26 @@
               </span>
               <span class="post-meta-item-text">发表于</span>
 
-              
-                
-              
-
               <time title="创建时间：2019 年 06 月 28 日 10:56:41" itemprop="dateCreated datePublished" datetime="2019-06-28T10:56:41+08:00">2019 年 06 月 28 日</time>
             </span>
-          
-            
-
-            
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019 年 11 月 10 日 18:05:53" itemprop="dateModified" datetime="2019-11-10T18:05:53+08:00">2019 年 11 月 10 日</time>
+                <time title="修改时间：2020 年 02 月 04 日 15:57:06" itemprop="dateModified" datetime="2020-02-04T15:57:06+08:00">2020 年 02 月 04 日</time>
               </span>
-            
-          
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
               </span>
               <span class="post-meta-item-text">分类于</span>
-              
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
                   <a href="/categories/Big-Data-and-Machine-Learning/" itemprop="url" rel="index">
                     <span itemprop="name">Big Data and Machine Learning</span>
                   </a>
                 </span>
-
-                
-                
-              
             </span>
-          
 
           
             <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
@@ -484,29 +305,21 @@
               </span>
               <span class="post-meta-item-text">阅读次数：</span>
               <span id="busuanzi_value_page_pv"></span>
-            </span>
-          
-          <br>
+            </span><br>
             <span class="post-meta-item" title="本文字数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-file-word-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">本文字数：</span>
-              
               <span>5.5k</span>
             </span>
-          
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              
               <span>10 分钟</span>
             </span>
-          
 
         </div>
       </header>
@@ -536,7 +349,7 @@
 <p><a href="https://arxiv.org/pdf/1708.04617v1.pdf" target="_blank" rel="noopener">https://arxiv.org/pdf/1708.04617v1.pdf</a></p>
 </blockquote>
 <p>AFM 是浙大（Jun Xiao, Hao Ye, Fei Wu）和新加坡国大（Xiangnan He, Hanwang Zhang, Tat-Seng Chua）几位同学提出来的模型。AFM 首先对 FM 做了神经网络改造，而后加入了注意力机制，为不同特征的二阶组合分配不同的权重。</p>
-<p><img alt data-src="/uploads/images/MachineLearning/attention-fm.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/attention-fm.png" alt></p>
 <p><code>$$\hat y = f(\vec x) = w_0 + \sum_{i = 1}^{n}w_ix_i + \sum_{0 &lt; i &lt; j &lt;= n}\alpha_{ij}\big\langle \vec p, (\vec v_i \odot \vec v_j)\big\rangle x_ix_j.$$</code></p>
 <p>这里，<code>$\alpha_{ij}$</code> 是通过注意力机制学习得到的特征 $i$ 和特征 $j$ 组合的权重，$\vec p$ 是对隐向量每个维度学习得到的权重，<code>$\vec v_i \odot \vec v_j$</code> 表示向量 <code>$\vec v_i$</code> 和 <code>$\vec v_j$</code> 逐项相乘得到的新向量。显然，当 <code>$\alpha_{ij} \equiv 1$</code> 且 $\vec p = \vec 1$ 时，AFM 退化为标准的 FM 模型。</p>
 <p>AFM 和 FFM 都是从「特征和不同特征进行组合时，表征应该稍有差异」这个点出发，尝试对 FM 进行改进的。FFM 是基于 field 的概念，使得特征对不同 field 里的特征采取不同的表征，同时特征对不同 field 特征里的表征互不关联。AFM 是基于 attention 机制的，对不同特征的表征仅有权重（<code>$\alpha_{ij}$</code>）上的不同。从参数数量来说，AFM 会远小于 FFM。从这个角度说，AFM 在业界的应用前景应该比 FFM 更好。</p>
@@ -556,7 +369,7 @@
 <p><a href="https://arxiv.org/pdf/1708.05027v1.pdf" target="_blank" rel="noopener">https://arxiv.org/pdf/1708.05027v1.pdf</a></p>
 </blockquote>
 <p>DeepFM 是用 Wide &amp; Deep 框架，在 FM 旁边加了一个 NN，最后一并 sigmoid 输出。NFM 的做法则是利用隐向量逐项相乘得到的向量作为 MLP 的输入，构建的 FM + NN 模型。</p>
-<p><img alt data-src="/uploads/images/MachineLearning/nfm.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/nfm.png" alt></p>
 <p><code>$$\hat y = f(\vec x) = w_0 + \sum_{i = 1}^{n}w_ix_i + f(\vec x).$$</code></p>
 <p>如图所示的是上述第三项 $f(\vec x)$ 的结构。Embedding 层中的向量即是传统 FM 模型中的 <code>$x_i\vec v_i$</code>；Bi-interaction 池化层则是将特征两两交叉后，逐项向量相乘再做向量加法，即池化层的输出是一个与隐向量长度相同的向量：</p>
 <p><code>$$\sum_{0 &lt; i &lt; j &lt;= n} x_ix_j(\vec v_i \odot \vec v_j).$$</code></p>
@@ -606,11 +419,9 @@
         </span>
       </div>
     </div>
-        
-      
         <div class="reward-container">
   <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
-  <button disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
     打赏
   </button>
   <div id="qr" style="display: none;">
@@ -665,7 +476,6 @@
   </div>
 </div>
 
-      
         
 
 <div>
@@ -683,47 +493,29 @@
 </ul>
 </div>
 
-      
 
       <footer class="post-footer">
-          
-            
-          
           <div class="post-tags">
-            
               <a href="/tags/Ranking/" rel="tag"># Ranking</a>
-            
               <a href="/tags/Factorization-Machine/" rel="tag"># Factorization Machine</a>
-            
               <a href="/tags/CTR/" rel="tag"># CTR</a>
-            
               <a href="/tags/Variants/" rel="tag"># Variants</a>
-            
           </div>
-        
 
         
 
-          <div class="post-nav">
-            <div class="post-nav-next post-nav-item">
-              
-                <a href="/2019/06/18/OCD-needs-stochastic-gradient-descent/" rel="next" title="强迫症患者也需要随机梯度下降">
-                  <i class="fa fa-chevron-left"></i> 强迫症患者也需要随机梯度下降
-                </a>
-              
-            </div>
 
-            <span class="post-nav-divider"></span>
-
-            <div class="post-nav-prev post-nav-item">
-              
-                <a href="/2019/07/04/unpack-vector-as-parameters-for-functions/" rel="prev" title="在 C++ 中解包 std::vector 作为函数参数">
-                  在 C++ 中解包 std::vector 作为函数参数 <i class="fa fa-chevron-right"></i>
-                </a>
-              
-            </div>
-          </div>
         
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/18/OCD-needs-stochastic-gradient-descent/" rel="prev" title="强迫症患者也需要随机梯度下降">
+      <i class="fa fa-chevron-left"></i> 强迫症患者也需要随机梯度下降
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/04/unpack-vector-as-parameters-for-functions/" rel="next" title="在 C++ 中解包 std::vector 作为函数参数">
+      在 C++ 中解包 std::vector 作为函数参数 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
       </footer>
     
   </article>
@@ -737,6 +529,28 @@
           </div>
           
 
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
         </div>
           
   
@@ -748,11 +562,6 @@
 
   <aside class="sidebar">
     <div class="sidebar-inner">
-        
-        
-        
-        
-      
 
       <ul class="sidebar-nav motion-element">
         <li class="sidebar-nav-toc">
@@ -766,65 +575,45 @@
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
           <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#FM"><span class="nav-number">1.</span> <span class="nav-text">FM</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#在特征交叉方向上的改进"><span class="nav-number">2.</span> <span class="nav-text">在特征交叉方向上的改进</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#FFM-Field-aware-FM"><span class="nav-number">2.1.</span> <span class="nav-text">FFM (Field-aware FM)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AFM-Attentional-FM"><span class="nav-number">2.2.</span> <span class="nav-text">AFM (Attentional FM)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FwFM-Field-weighted-FM"><span class="nav-number">2.3.</span> <span class="nav-text">FwFM (Field-weighted FM)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#引入深度神经网络"><span class="nav-number">3.</span> <span class="nav-text">引入深度神经网络</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#DeepFM"><span class="nav-number">3.1.</span> <span class="nav-text">DeepFM</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#NFM-Neural-FM"><span class="nav-number">3.2.</span> <span class="nav-text">NFM (Neural FM)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#利用偏序概率，迁移到-rank-任务上"><span class="nav-number">4.</span> <span class="nav-text">利用偏序概率，迁移到 rank 任务上</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Pairwise-FM"><span class="nav-number">4.1.</span> <span class="nav-text">Pairwise FM</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LambdaFM"><span class="nav-number">4.2.</span> <span class="nav-text">LambdaFM</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#其他魔改"><span class="nav-number">5.</span> <span class="nav-text">其他魔改</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#加入-FTRL-框架"><span class="nav-number">5.1.</span> <span class="nav-text">加入 FTRL 框架</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DFM-Discrete-FM"><span class="nav-number">5.2.</span> <span class="nav-text">DFM (Discrete FM)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#RFM-Robust-FM"><span class="nav-number">5.3.</span> <span class="nav-text">RFM (Robust FM)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#小结"><span class="nav-number">6.</span> <span class="nav-text">小结</span></a></li></ol></div>
-        
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <img class="site-author-image" itemprop="image"
-      src="/images/avatar/avatar.webp"
-      alt="Liam Huang">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
   <p class="site-author-name" itemprop="name">Liam Huang</p>
   <div class="site-description" itemprop="description">不忘初心，方得始终。</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
-        
           <a href="/archives/">
         
           <span class="site-state-item-count">322</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-categories">
-        
-          
             <a href="/categories/">
           
-        
         <span class="site-state-item-count">12</span>
-        <span class="site-state-item-name">分类</span>
-        </a>
+        <span class="site-state-item-name">分类</span></a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-tags">
-        
-          
             <a href="/tags/">
           
-        
         <span class="site-state-item-count">634</span>
-        <span class="site-state-item-name">标签</span>
-        </a>
+        <span class="site-state-item-name">标签</span></a>
       </div>
-    
   </nav>
 </div>
-  <div class="feed-link motion-element">
-    <a href="/atom.xml" rel="alternate">
-      <i class="fa fa-rss"></i>RSS
-    </a>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
-    
-  
     <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
   </div>
 
@@ -838,51 +627,39 @@
         <li class="links-of-blogroll-item">
           <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://xixiaoyao.github.io/" title="https://xixiaoyao.github.io/" rel="noopener" target="_blank">Xiyao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.jellythink.com/" title="http://www.jellythink.com/" rel="noopener" target="_blank">JellyThink</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
         </li>
-      
     </ul>
   </div>
 
@@ -901,6 +678,7 @@
         
 
 <div class="copyright">
+  
   &copy; 2013 – 
   <span itemprop="copyrightYear">2020</span>
   <span class="with-love">
@@ -921,7 +699,7 @@
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0
   </div>
   <span class="post-meta-divider">|</span>
-  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.4.2
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
   </div>
 
         
@@ -935,7 +713,6 @@
         <span id="busuanzi_value_site_pv"></span>
       </span>
     </span>
-  
 </div>
 
 
@@ -966,26 +743,20 @@
 
 
 
-
-
-
-
-        
       </div>
     </footer>
   </div>
 
   
-  <script src="/lib/anime.min.js?v=3.1.0"></script>
-  <script src="/lib/pjax/pjax.min.js?v=0.2.8"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
-  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
-<script src="/js/schemes/pisces.js?v=7.4.2"></script>
-
-<script src="/js/next-boot.js?v=7.4.2"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -1024,7 +795,7 @@ window.addEventListener('pjax:success', () => {
       script.async = false;
     }
     if (element.getAttribute('pjax') !== null) {
-      element.setAttribute('pjax', '');
+      script.setAttribute('pjax', '');
     }
     if (code !== '') {
       script.appendChild(document.createTextNode(code));
@@ -1036,6 +807,7 @@ window.addEventListener('pjax:success', () => {
   if (CONFIG.motion.enable) {
     NexT.motion.integrator
       .init()
+      .add(NexT.motion.middleWares.subMenu)
       .add(NexT.motion.middleWares.postList)
       .bootstrap();
   }
@@ -1051,12 +823,7 @@ window.addEventListener('pjax:success', () => {
 
 
 
-
-
-
-
-  <script src="/js/local-search.js?v=7.4.2"></script>
-
+  <script src="/js/local-search.js"></script>
 
 
 
@@ -1096,11 +863,9 @@ document.addEventListener('visibilitychange', function () {
 
 
     <div id="pjax">
-
   
 
   
-    
       
 <script type="text/x-mathjax-config">
 
@@ -1168,38 +933,26 @@ document.addEventListener('visibilitychange', function () {
 </script>
 
     
-  
 
   
-    <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
-    <script>
-      
-        window.addEventListener('load', () => {
-      
-        quicklink({
-          timeout: 3000,
-          priority: true,
-          ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2019/06/28/variants-of-FM/',]
-        });
-      
-        });
-      
-    </script>
-  
-
-  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout: 3000,
+        priority: true,
+        ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2019/06/28/variants-of-FM/',]
+      });
+      });
+  </script>
 
   <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
   <script>
       pbOptions = {};
         pbOptions.iconStyle = "default";
-      
         pbOptions.boxForm = "horizontal";
-      
         pbOptions.position = "topCenter";
-      
         pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
       new needShareButton('#needsharebutton-postbottom', pbOptions);
   </script>
     </div>

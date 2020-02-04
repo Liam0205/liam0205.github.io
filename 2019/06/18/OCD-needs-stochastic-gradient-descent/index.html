@@ -1,40 +1,35 @@
 <!DOCTYPE html>
-
-
-
-
-
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
 <meta name="generator" content="Hexo 3.9.0">
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=7.4.2">
-  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=7.4.2" color="#222">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
   <link rel="manifest" href="/images/favicon/site.webmanifest">
   <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
-  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <meta http-equiv="Cache-Control" content="no-transform">
   <meta http-equiv="Cache-Control" content="no-siteapp">
   <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
 
-<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+<link rel="stylesheet" href="/css/main.css">
 
 
-<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
 
 
 <script id="hexo-configurations">
   var NexT = window.NexT || {};
   var CONFIG = {
+    hostname: new URL('https://liam.page').hostname,
     root: '/',
     scheme: 'Gemini',
-    version: '7.4.2',
+    version: '7.7.1',
     exturl: false,
-    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
     copycode: {"enable":true,"show_result":false,"style":null},
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
@@ -42,6 +37,7 @@
     mediumzoom: true,
     lazyload: true,
     pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
     algolia: {
       appID: '',
       apiKey: '',
@@ -51,13 +47,7 @@
     },
     localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
     path: 'search.xml',
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
-    translation: {
-      copy_button: '复制',
-      copy_success: '复制成功',
-      copy_failure: '复制失败'
-    },
-    sidebarPadding: 40
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
   };
 </script>
 
@@ -69,11 +59,12 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="作为一个强迫症（OCD）患者，曾经我一直对随机梯度下降（Stochastic Gradient Descent）表示怀疑。毕竟，每次只选择少量样本计算梯度，这靠谱吗？强迫症患者心里泛起了浓浓的怀疑。然而经年的实践经验结合理论分析表明，强迫症患者也需要随机梯度下降。 这篇文章尝试尽可能用少的数学公式，讲一讲这个问题。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-10T10:05:53.000Z">
+<meta property="og:updated_time" content="2020-02-04T07:57:06.011Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="强迫症患者也需要随机梯度下降">
 <meta name="twitter:description" content="作为一个强迫症（OCD）患者，曾经我一直对随机梯度下降（Stochastic Gradient Descent）表示怀疑。毕竟，每次只选择少量样本计算梯度，这靠谱吗？强迫症患者心里泛起了浓浓的怀疑。然而经年的实践经验结合理论分析表明，强迫症患者也需要随机梯度下降。 这篇文章尝试尽可能用少的数学公式，讲一讲这个问题。">
-  <link rel="canonical" href="https://liam.page/2019/06/18/OCD-needs-stochastic-gradient-descent/">
+
+<link rel="canonical" href="https://liam.page/2019/06/18/OCD-needs-stochastic-gradient-descent/">
 
 
 <script id="page-configurations">
@@ -81,9 +72,7 @@
   CONFIG.page = {
     sidebar: "",
     isHome: false,
-    isPost: true,
-    isPage: false,
-    isArchive: false
+    isPost: true
   };
 </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
@@ -104,17 +93,13 @@
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
     <script pjax>
-      var host = window.location.hostname;
-      if (host !== "localhost" || !true) {
+      if (CONFIG.hostname === location.hostname) {
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'UA-44836433-1');
       }
     </script>
-  
-
-
 
 
 
@@ -178,194 +163,50 @@
 <nav class="site-nav">
   
   <ul id="menu" class="menu">
-      
-      
-        
-        
         <li class="menu-item menu-item-home">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-archives">
-      
-    
-      
-      
-        
-          
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">322</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-categories">
-      
-    
-      
-      
-        
-      
-        
-          
-        
-      
-        
-      
-    
 
     <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">12</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-tags">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-          
-        
-      
-    
 
     <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">634</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-系列">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-札记-&-留言板">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-英文">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-about">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
 
   </li>
-      
-    
       <li class="menu-item menu-item-search">
-        <a role="button" class="popup-trigger">
-          <i class="fa fa-search fa-fw"></i>搜索
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
         </a>
       </li>
-    
   </ul>
 
 </nav>
@@ -403,7 +244,7 @@
     <main class="main">
       <div class="main-inner">
         <div class="content-wrap">
-            
+          
 
           <div class="content">
             
@@ -416,9 +257,9 @@
     <link itemprop="mainEntityOfPage" href="https://liam.page/2019/06/18/OCD-needs-stochastic-gradient-descent/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
       <meta itemprop="name" content="Liam Huang">
       <meta itemprop="description" content="不忘初心，方得始终。">
-      <meta itemprop="image" content="/images/avatar/avatar.webp">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -426,11 +267,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          
-            强迫症患者也需要随机梯度下降
-            
-
-          
+          强迫症患者也需要随机梯度下降
         </h2>
 
         <div class="post-meta">
@@ -440,42 +277,26 @@
               </span>
               <span class="post-meta-item-text">发表于</span>
 
-              
-                
-              
-
               <time title="创建时间：2019 年 06 月 18 日 14:52:18" itemprop="dateCreated datePublished" datetime="2019-06-18T14:52:18+08:00">2019 年 06 月 18 日</time>
             </span>
-          
-            
-
-            
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019 年 11 月 10 日 18:05:53" itemprop="dateModified" datetime="2019-11-10T18:05:53+08:00">2019 年 11 月 10 日</time>
+                <time title="修改时间：2020 年 02 月 04 日 15:57:06" itemprop="dateModified" datetime="2020-02-04T15:57:06+08:00">2020 年 02 月 04 日</time>
               </span>
-            
-          
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
               </span>
               <span class="post-meta-item-text">分类于</span>
-              
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
                   <a href="/categories/Big-Data-and-Machine-Learning/" itemprop="url" rel="index">
                     <span itemprop="name">Big Data and Machine Learning</span>
                   </a>
                 </span>
-
-                
-                
-              
             </span>
-          
 
           
             <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
@@ -484,29 +305,21 @@
               </span>
               <span class="post-meta-item-text">阅读次数：</span>
               <span id="busuanzi_value_page_pv"></span>
-            </span>
-          
-          <br>
+            </span><br>
             <span class="post-meta-item" title="本文字数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-file-word-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">本文字数：</span>
-              
               <span>2.6k</span>
             </span>
-          
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              
               <span>5 分钟</span>
             </span>
-          
 
         </div>
       </header>
@@ -525,7 +338,7 @@
 <p><code>$$\vec{\theta}^{*} = \mathop{\arg\min}_{\vec{\theta}}\text{Obj}\bigl(h(\vec x;\vec{\theta})\bigr).$$</code></p>
 <p>这里，<code>$h(\vec x;\vec{\theta})$</code> 是目标模型，其中 <code>$\vec x$</code> 是输入特征向量，<code>$\vec{\theta}$</code> 是模型的参数，<code>$\text{Obj}(\cdot)$</code> 是目标函数。</p>
 <p>在样本集给定时，可将 <code>$\text{Obj}\bigl(h(\vec x;\vec{\theta})\bigr)$</code> 看做是 <code>$\vec\theta$</code> 的函数——不妨将其记为 <code>$f(\vec\theta)$</code>，则我们的目标就是要找到该函数等高线中的最低谷位置对应的 <code>$\vec\theta$</code> 的取值。</p>
-<p><img alt="只有两维参数时目标函数的图像" data-src="/uploads/images/MachineLearning/objective_function.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/objective_function.png" alt="只有两维参数时目标函数的图像"></p>
 <!--
 import numpy as np
 import matplotlib.pyplot as plt
@@ -553,7 +366,7 @@ plt.show()
 <h2 id="梯度下降"><a href="#梯度下降" class="headerlink" title="梯度下降"></a>梯度下降</h2><h3 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h3><p>既然要找到目标函数的「山谷」，那我们就要想办法「下山」。在数学上，上升最快的方向是函数的梯度方向，于是梯度方向的反方向就是下降最快的方向。于是有参数更新</p>
 <p><code>$$\vec \theta_{n + 1} \gets \vec\theta_{n} - \eta\nabla f(\vec\theta_{n}).$$</code></p>
 <p>这里，<code>$\vec\theta_{n}$</code> 是第 $n$ 轮迭代后的参数；<code>$\nabla f(\vec\theta_{n})$</code> 则是第 $n$ 轮迭代后目标函数的梯度；<code>$\eta$</code> 是学习率，也就是梯度下降的步长。</p>
-<p><img alt="只有两维参数时目标函数的梯度下降" data-src="/uploads/images/MachineLearning/gradient_descent.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/gradient_descent.png" alt="只有两维参数时目标函数的梯度下降"></p>
 <!--
 import numpy as np
 import matplotlib.pyplot as plt
@@ -590,7 +403,7 @@ plt.show()
 <h3 id="问题-1"><a href="#问题-1" class="headerlink" title="问题"></a>问题</h3><p>梯度下降优美、清晰、明确。但梯度下降也有它的问题。</p>
 <p>第一个问题是效率低。梯度下降法需要处理计算所有样本，而在工程中我们面对的样本集合往往非常大。这样一来，处理所有样本就会变得效率非常低，缓慢得不可接受。</p>
 <p>第二个问题是缺乏跳出陷阱的能力。这里的陷阱指得是诸如鞍点、局部最优点之类的梯度为零的点。</p>
-<p><img alt="鞍点" data-src="/uploads/images/MachineLearning/saddle_point.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/saddle_point.png" alt="鞍点"></p>
 <!--
 import numpy as np
 import matplotlib.pyplot as plt
@@ -675,7 +488,7 @@ plt.plot(x, y, 'o-', color = 'green')
 plt.show()
  -->
 
-<p><img alt data-src="/uploads/images/MachineLearning/stochastic_gradient_descent.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/stochastic_gradient_descent.png" alt></p>
 <h3 id="效率的提升"><a href="#效率的提升" class="headerlink" title="效率的提升"></a>效率的提升</h3><p>显而易见，随机梯度下降想要收敛，需要更多的迭代步骤。但是，由于每次只需要少量样本来计算随机梯度，实际上的效率会提升很多。试想，若训练数据集有 100 万个样本点，每次我们取其中的 100 个计算随机梯度。这样，在计算梯度的时候，效率就提升了 1 万倍。如此一来，哪怕多迭代几倍甚至十几倍，总体来说效率也是提升了。</p>
 <h3 id="效果的提升"><a href="#效果的提升" class="headerlink" title="效果的提升"></a>效果的提升</h3><p>虽然强迫症肯定会怀疑，随机梯度下降每次只用部分样本，这样的随机性和噪声靠谱吗？但实际上，哪怕梯度下降的训练时间比随机梯度下降多千百倍，但实际效果却远不如随机梯度下降得到的模型。</p>
 <p>这里蕴含着两层含义：</p>
@@ -711,11 +524,9 @@ plt.show()
         </span>
       </div>
     </div>
-        
-      
         <div class="reward-container">
   <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
-  <button disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
     打赏
   </button>
   <div id="qr" style="display: none;">
@@ -770,7 +581,6 @@ plt.show()
   </div>
 </div>
 
-      
         
 
 <div>
@@ -788,45 +598,28 @@ plt.show()
 </ul>
 </div>
 
-      
 
       <footer class="post-footer">
-          
-            
-          
           <div class="post-tags">
-            
               <a href="/tags/Optimizer/" rel="tag"># Optimizer</a>
-            
               <a href="/tags/Gradient-Descent/" rel="tag"># Gradient Descent</a>
-            
               <a href="/tags/Stochastic-Gradient-Descent/" rel="tag"># Stochastic Gradient Descent</a>
-            
           </div>
-        
 
         
 
-          <div class="post-nav">
-            <div class="post-nav-next post-nav-item">
-              
-                <a href="/2019/05/17/markdown-convert-to-docx-batch/" rel="next" title="在 Windows 下批量将 Markdown 文档转为 Word 文档">
-                  <i class="fa fa-chevron-left"></i> 在 Windows 下批量将 Markdown 文档转为 Word 文档
-                </a>
-              
-            </div>
 
-            <span class="post-nav-divider"></span>
-
-            <div class="post-nav-prev post-nav-item">
-              
-                <a href="/2019/06/28/variants-of-FM/" rel="prev" title="谈谈因子分解机模型的各种变体">
-                  谈谈因子分解机模型的各种变体 <i class="fa fa-chevron-right"></i>
-                </a>
-              
-            </div>
-          </div>
         
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/05/17/markdown-convert-to-docx-batch/" rel="prev" title="在 Windows 下批量将 Markdown 文档转为 Word 文档">
+      <i class="fa fa-chevron-left"></i> 在 Windows 下批量将 Markdown 文档转为 Word 文档
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/06/28/variants-of-FM/" rel="next" title="谈谈因子分解机模型的各种变体">
+      谈谈因子分解机模型的各种变体 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
       </footer>
     
   </article>
@@ -840,6 +633,28 @@ plt.show()
           </div>
           
 
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
         </div>
           
   
@@ -851,11 +666,6 @@ plt.show()
 
   <aside class="sidebar">
     <div class="sidebar-inner">
-        
-        
-        
-        
-      
 
       <ul class="sidebar-nav motion-element">
         <li class="sidebar-nav-toc">
@@ -869,65 +679,45 @@ plt.show()
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
           <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#问题"><span class="nav-number">1.</span> <span class="nav-text">问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#梯度下降"><span class="nav-number">2.</span> <span class="nav-text">梯度下降</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#概述"><span class="nav-number">2.1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#问题-1"><span class="nav-number">2.2.</span> <span class="nav-text">问题</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#随机梯度下降"><span class="nav-number">3.</span> <span class="nav-text">随机梯度下降</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#概述-1"><span class="nav-number">3.1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#效率的提升"><span class="nav-number">3.2.</span> <span class="nav-text">效率的提升</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#效果的提升"><span class="nav-number">3.3.</span> <span class="nav-text">效果的提升</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
-        
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <img class="site-author-image" itemprop="image"
-      src="/images/avatar/avatar.webp"
-      alt="Liam Huang">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
   <p class="site-author-name" itemprop="name">Liam Huang</p>
   <div class="site-description" itemprop="description">不忘初心，方得始终。</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
-        
           <a href="/archives/">
         
           <span class="site-state-item-count">322</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-categories">
-        
-          
             <a href="/categories/">
           
-        
         <span class="site-state-item-count">12</span>
-        <span class="site-state-item-name">分类</span>
-        </a>
+        <span class="site-state-item-name">分类</span></a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-tags">
-        
-          
             <a href="/tags/">
           
-        
         <span class="site-state-item-count">634</span>
-        <span class="site-state-item-name">标签</span>
-        </a>
+        <span class="site-state-item-name">标签</span></a>
       </div>
-    
   </nav>
 </div>
-  <div class="feed-link motion-element">
-    <a href="/atom.xml" rel="alternate">
-      <i class="fa fa-rss"></i>RSS
-    </a>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
-    
-  
     <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
   </div>
 
@@ -941,51 +731,39 @@ plt.show()
         <li class="links-of-blogroll-item">
           <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://xixiaoyao.github.io/" title="https://xixiaoyao.github.io/" rel="noopener" target="_blank">Xiyao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.jellythink.com/" title="http://www.jellythink.com/" rel="noopener" target="_blank">JellyThink</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
         </li>
-      
     </ul>
   </div>
 
@@ -1004,6 +782,7 @@ plt.show()
         
 
 <div class="copyright">
+  
   &copy; 2013 – 
   <span itemprop="copyrightYear">2020</span>
   <span class="with-love">
@@ -1024,7 +803,7 @@ plt.show()
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0
   </div>
   <span class="post-meta-divider">|</span>
-  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.4.2
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
   </div>
 
         
@@ -1038,7 +817,6 @@ plt.show()
         <span id="busuanzi_value_site_pv"></span>
       </span>
     </span>
-  
 </div>
 
 
@@ -1069,26 +847,20 @@ plt.show()
 
 
 
-
-
-
-
-        
       </div>
     </footer>
   </div>
 
   
-  <script src="/lib/anime.min.js?v=3.1.0"></script>
-  <script src="/lib/pjax/pjax.min.js?v=0.2.8"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
-  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
-<script src="/js/schemes/pisces.js?v=7.4.2"></script>
-
-<script src="/js/next-boot.js?v=7.4.2"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -1127,7 +899,7 @@ window.addEventListener('pjax:success', () => {
       script.async = false;
     }
     if (element.getAttribute('pjax') !== null) {
-      element.setAttribute('pjax', '');
+      script.setAttribute('pjax', '');
     }
     if (code !== '') {
       script.appendChild(document.createTextNode(code));
@@ -1139,6 +911,7 @@ window.addEventListener('pjax:success', () => {
   if (CONFIG.motion.enable) {
     NexT.motion.integrator
       .init()
+      .add(NexT.motion.middleWares.subMenu)
       .add(NexT.motion.middleWares.postList)
       .bootstrap();
   }
@@ -1154,12 +927,7 @@ window.addEventListener('pjax:success', () => {
 
 
 
-
-
-
-
-  <script src="/js/local-search.js?v=7.4.2"></script>
-
+  <script src="/js/local-search.js"></script>
 
 
 
@@ -1199,11 +967,9 @@ document.addEventListener('visibilitychange', function () {
 
 
     <div id="pjax">
-
   
 
   
-    
       
 <script type="text/x-mathjax-config">
 
@@ -1271,38 +1037,26 @@ document.addEventListener('visibilitychange', function () {
 </script>
 
     
-  
 
   
-    <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
-    <script>
-      
-        window.addEventListener('load', () => {
-      
-        quicklink({
-          timeout: 3000,
-          priority: true,
-          ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2019/06/18/OCD-needs-stochastic-gradient-descent/',]
-        });
-      
-        });
-      
-    </script>
-  
-
-  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout: 3000,
+        priority: true,
+        ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2019/06/18/OCD-needs-stochastic-gradient-descent/',]
+      });
+      });
+  </script>
 
   <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
   <script>
       pbOptions = {};
         pbOptions.iconStyle = "default";
-      
         pbOptions.boxForm = "horizontal";
-      
         pbOptions.position = "topCenter";
-      
         pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
       new needShareButton('#needsharebutton-postbottom', pbOptions);
   </script>
     </div>

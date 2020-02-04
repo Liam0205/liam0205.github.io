@@ -1,40 +1,35 @@
 <!DOCTYPE html>
-
-
-
-
-
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
 <meta name="generator" content="Hexo 3.9.0">
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=7.4.2">
-  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=7.4.2" color="#222">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
   <link rel="manifest" href="/images/favicon/site.webmanifest">
   <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
-  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <meta http-equiv="Cache-Control" content="no-transform">
   <meta http-equiv="Cache-Control" content="no-siteapp">
   <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
 
-<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+<link rel="stylesheet" href="/css/main.css">
 
 
-<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
 
 
 <script id="hexo-configurations">
   var NexT = window.NexT || {};
   var CONFIG = {
+    hostname: new URL('https://liam.page').hostname,
     root: '/',
     scheme: 'Gemini',
-    version: '7.4.2',
+    version: '7.7.1',
     exturl: false,
-    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
     copycode: {"enable":true,"show_result":false,"style":null},
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
@@ -42,6 +37,7 @@
     mediumzoom: true,
     lazyload: true,
     pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
     algolia: {
       appID: '',
       apiKey: '',
@@ -51,13 +47,7 @@
     },
     localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
     path: 'search.xml',
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
-    translation: {
-      copy_button: '复制',
-      copy_success: '复制成功',
-      copy_failure: '复制失败'
-    },
-    sidebarPadding: 40
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
   };
 </script>
 
@@ -69,11 +59,12 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-10T10:05:53.000Z">
+<meta property="og:updated_time" content="2020-02-04T07:57:05.973Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="程序员的自我修养（六）：保护线程间的共享数据">
 <meta name="twitter:description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
-  <link rel="canonical" href="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/">
+
+<link rel="canonical" href="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/">
 
 
 <script id="page-configurations">
@@ -81,9 +72,7 @@
   CONFIG.page = {
     sidebar: "",
     isHome: false,
-    isPost: true,
-    isPage: false,
-    isArchive: false
+    isPost: true
   };
 </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
@@ -104,17 +93,13 @@
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
     <script pjax>
-      var host = window.location.hostname;
-      if (host !== "localhost" || !true) {
+      if (CONFIG.hostname === location.hostname) {
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'UA-44836433-1');
       }
     </script>
-  
-
-
 
 
 
@@ -178,194 +163,50 @@
 <nav class="site-nav">
   
   <ul id="menu" class="menu">
-      
-      
-        
-        
         <li class="menu-item menu-item-home">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-archives">
-      
-    
-      
-      
-        
-          
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">322</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-categories">
-      
-    
-      
-      
-        
-      
-        
-          
-        
-      
-        
-      
-    
 
     <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">12</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-tags">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-          
-        
-      
-    
 
     <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">634</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-系列">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-札记-&-留言板">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-英文">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-about">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
 
   </li>
-      
-    
       <li class="menu-item menu-item-search">
-        <a role="button" class="popup-trigger">
-          <i class="fa fa-search fa-fw"></i>搜索
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
         </a>
       </li>
-    
   </ul>
 
 </nav>
@@ -403,7 +244,7 @@
     <main class="main">
       <div class="main-inner">
         <div class="content-wrap">
-            
+          
 
           <div class="content">
             
@@ -416,9 +257,9 @@
     <link itemprop="mainEntityOfPage" href="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
       <meta itemprop="name" content="Liam Huang">
       <meta itemprop="description" content="不忘初心，方得始终。">
-      <meta itemprop="image" content="/images/avatar/avatar.webp">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -426,11 +267,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          
-            程序员的自我修养（六）：保护线程间的共享数据
-            
-
-          
+          程序员的自我修养（六）：保护线程间的共享数据
         </h2>
 
         <div class="post-meta">
@@ -440,42 +277,26 @@
               </span>
               <span class="post-meta-item-text">发表于</span>
 
-              
-                
-              
-
               <time title="创建时间：2017 年 06 月 10 日 19:59:19" itemprop="dateCreated datePublished" datetime="2017-06-10T19:59:19+08:00">2017 年 06 月 10 日</time>
             </span>
-          
-            
-
-            
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019 年 11 月 10 日 18:05:53" itemprop="dateModified" datetime="2019-11-10T18:05:53+08:00">2019 年 11 月 10 日</time>
+                <time title="修改时间：2020 年 02 月 04 日 15:57:05" itemprop="dateModified" datetime="2020-02-04T15:57:05+08:00">2020 年 02 月 04 日</time>
               </span>
-            
-          
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
               </span>
               <span class="post-meta-item-text">分类于</span>
-              
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
                   <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index">
                     <span itemprop="name">Algorithm and Computer Science</span>
                   </a>
                 </span>
-
-                
-                
-              
             </span>
-          
 
           
             <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
@@ -484,29 +305,21 @@
               </span>
               <span class="post-meta-item-text">阅读次数：</span>
               <span id="busuanzi_value_page_pv"></span>
-            </span>
-          
-          <br>
+            </span><br>
             <span class="post-meta-item" title="本文字数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-file-word-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">本文字数：</span>
-              
               <span>21k</span>
             </span>
-          
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              
               <span>39 分钟</span>
             </span>
-          
 
         </div>
       </header>
@@ -839,11 +652,9 @@
         </span>
       </div>
     </div>
-        
-      
         <div class="reward-container">
   <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
-  <button disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
     打赏
   </button>
   <div id="qr" style="display: none;">
@@ -898,7 +709,6 @@
   </div>
 </div>
 
-      
         
 
 <div>
@@ -916,49 +726,30 @@
 </ul>
 </div>
 
-      
 
       <footer class="post-footer">
-          
-            
-          
           <div class="post-tags">
-            
               <a href="/tags/C-11/" rel="tag"># C++11</a>
-            
               <a href="/tags/Multithread/" rel="tag"># Multithread</a>
-            
               <a href="/tags/Race-Conditions/" rel="tag"># Race Conditions</a>
-            
               <a href="/tags/Lock/" rel="tag"># Lock</a>
-            
               <a href="/tags/Mutex/" rel="tag"># Mutex</a>
-            
           </div>
-        
 
         
 
-          <div class="post-nav">
-            <div class="post-nav-next post-nav-item">
-              
-                <a href="/2017/05/27/tutorial-to-GDB-taking-ncurses-as-an-example/" rel="next" title="GDB 入门教程：调试 ncurses 相关 bug 的完整范例">
-                  <i class="fa fa-chevron-left"></i> GDB 入门教程：调试 ncurses 相关 bug 的完整范例
-                </a>
-              
-            </div>
 
-            <span class="post-nav-divider"></span>
-
-            <div class="post-nav-prev post-nav-item">
-              
-                <a href="/2017/06/30/understanding-yield-in-python/" rel="prev" title="Python 中的黑暗角落（一）：理解 yield 关键字">
-                  Python 中的黑暗角落（一）：理解 yield 关键字 <i class="fa fa-chevron-right"></i>
-                </a>
-              
-            </div>
-          </div>
         
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/05/27/tutorial-to-GDB-taking-ncurses-as-an-example/" rel="prev" title="GDB 入门教程：调试 ncurses 相关 bug 的完整范例">
+      <i class="fa fa-chevron-left"></i> GDB 入门教程：调试 ncurses 相关 bug 的完整范例
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/06/30/understanding-yield-in-python/" rel="next" title="Python 中的黑暗角落（一）：理解 yield 关键字">
+      Python 中的黑暗角落（一）：理解 yield 关键字 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
       </footer>
     
   </article>
@@ -972,6 +763,28 @@
           </div>
           
 
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
         </div>
           
   
@@ -983,11 +796,6 @@
 
   <aside class="sidebar">
     <div class="sidebar-inner">
-        
-        
-        
-        
-      
 
       <ul class="sidebar-nav motion-element">
         <li class="sidebar-nav-toc">
@@ -1001,65 +809,45 @@
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
           <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#在线程间共享数据的问题"><span class="nav-number">1.</span> <span class="nav-text">在线程间共享数据的问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#引子"><span class="nav-number">1.1.</span> <span class="nav-text">引子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#不变量"><span class="nav-number">1.2.</span> <span class="nav-text">不变量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#竞争状态"><span class="nav-number">1.3.</span> <span class="nav-text">竞争状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#避免恶性数据竞争"><span class="nav-number">1.4.</span> <span class="nav-text">避免恶性数据竞争</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用互斥量保护数据"><span class="nav-number">2.</span> <span class="nav-text">使用互斥量保护数据</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#在-C-中使用互斥量"><span class="nav-number">2.1.</span> <span class="nav-text">在 C++ 中使用互斥量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#限制被保护数据的使用范围"><span class="nav-number">2.2.</span> <span class="nav-text">限制被保护数据的使用范围</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#死锁及其解法"><span class="nav-number">2.3.</span> <span class="nav-text">死锁及其解法</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#当-std-lock-解决不了死锁的时候"><span class="nav-number">2.4.</span> <span class="nav-text">当 std::lock 解决不了死锁的时候</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#奇行种，以及一些其他问题"><span class="nav-number">3.</span> <span class="nav-text">奇行种，以及一些其他问题</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#层次锁"><span class="nav-number">3.1.</span> <span class="nav-text">层次锁</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#允许额外上锁的-RAII-容器：std-unique-lock"><span class="nav-number">3.2.</span> <span class="nav-text">允许额外上锁的 RAII 容器：std::unique_lock</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#锁的粒度"><span class="nav-number">3.3.</span> <span class="nav-text">锁的粒度</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#读写锁与-std-shared-mutex-和-std-shared-lock"><span class="nav-number">3.4.</span> <span class="nav-text">读写锁与 std::shared_mutex 和 std::shared_lock</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#保护数据的初始化过程"><span class="nav-number">3.5.</span> <span class="nav-text">保护数据的初始化过程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#锁解决不了的竞争状态"><span class="nav-number">4.</span> <span class="nav-text">锁解决不了的竞争状态</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#接口固有的竞争状态"><span class="nav-number">4.1.</span> <span class="nav-text">接口固有的竞争状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#top-和-pop-分离的原因"><span class="nav-number">4.2.</span> <span class="nav-text">top() 和 pop() 分离的原因</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#修改接口，实现线程安全"><span class="nav-number">4.3.</span> <span class="nav-text">修改接口，实现线程安全</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#小结"><span class="nav-number">5.</span> <span class="nav-text">小结</span></a></li></ol></div>
-        
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <img class="site-author-image" itemprop="image"
-      src="/images/avatar/avatar.webp"
-      alt="Liam Huang">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
   <p class="site-author-name" itemprop="name">Liam Huang</p>
   <div class="site-description" itemprop="description">不忘初心，方得始终。</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
-        
           <a href="/archives/">
         
           <span class="site-state-item-count">322</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-categories">
-        
-          
             <a href="/categories/">
           
-        
         <span class="site-state-item-count">12</span>
-        <span class="site-state-item-name">分类</span>
-        </a>
+        <span class="site-state-item-name">分类</span></a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-tags">
-        
-          
             <a href="/tags/">
           
-        
         <span class="site-state-item-count">634</span>
-        <span class="site-state-item-name">标签</span>
-        </a>
+        <span class="site-state-item-name">标签</span></a>
       </div>
-    
   </nav>
 </div>
-  <div class="feed-link motion-element">
-    <a href="/atom.xml" rel="alternate">
-      <i class="fa fa-rss"></i>RSS
-    </a>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
-    
-  
     <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
   </div>
 
@@ -1073,51 +861,39 @@
         <li class="links-of-blogroll-item">
           <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://xixiaoyao.github.io/" title="https://xixiaoyao.github.io/" rel="noopener" target="_blank">Xiyao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.jellythink.com/" title="http://www.jellythink.com/" rel="noopener" target="_blank">JellyThink</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
         </li>
-      
     </ul>
   </div>
 
@@ -1136,6 +912,7 @@
         
 
 <div class="copyright">
+  
   &copy; 2013 – 
   <span itemprop="copyrightYear">2020</span>
   <span class="with-love">
@@ -1156,7 +933,7 @@
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0
   </div>
   <span class="post-meta-divider">|</span>
-  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.4.2
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
   </div>
 
         
@@ -1170,7 +947,6 @@
         <span id="busuanzi_value_site_pv"></span>
       </span>
     </span>
-  
 </div>
 
 
@@ -1201,26 +977,20 @@
 
 
 
-
-
-
-
-        
       </div>
     </footer>
   </div>
 
   
-  <script src="/lib/anime.min.js?v=3.1.0"></script>
-  <script src="/lib/pjax/pjax.min.js?v=0.2.8"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
-  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
-<script src="/js/schemes/pisces.js?v=7.4.2"></script>
-
-<script src="/js/next-boot.js?v=7.4.2"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -1259,7 +1029,7 @@ window.addEventListener('pjax:success', () => {
       script.async = false;
     }
     if (element.getAttribute('pjax') !== null) {
-      element.setAttribute('pjax', '');
+      script.setAttribute('pjax', '');
     }
     if (code !== '') {
       script.appendChild(document.createTextNode(code));
@@ -1271,6 +1041,7 @@ window.addEventListener('pjax:success', () => {
   if (CONFIG.motion.enable) {
     NexT.motion.integrator
       .init()
+      .add(NexT.motion.middleWares.subMenu)
       .add(NexT.motion.middleWares.postList)
       .bootstrap();
   }
@@ -1286,12 +1057,7 @@ window.addEventListener('pjax:success', () => {
 
 
 
-
-
-
-
-  <script src="/js/local-search.js?v=7.4.2"></script>
-
+  <script src="/js/local-search.js"></script>
 
 
 
@@ -1331,11 +1097,9 @@ document.addEventListener('visibilitychange', function () {
 
 
     <div id="pjax">
-
   
 
   
-    
       
 <script type="text/x-mathjax-config">
 
@@ -1403,38 +1167,26 @@ document.addEventListener('visibilitychange', function () {
 </script>
 
     
-  
 
   
-    <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
-    <script>
-      
-        window.addEventListener('load', () => {
-      
-        quicklink({
-          timeout: 3000,
-          priority: true,
-          ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2017/06/10/protecting-data-sharing-between-threads/',]
-        });
-      
-        });
-      
-    </script>
-  
-
-  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout: 3000,
+        priority: true,
+        ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2017/06/10/protecting-data-sharing-between-threads/',]
+      });
+      });
+  </script>
 
   <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
   <script>
       pbOptions = {};
         pbOptions.iconStyle = "default";
-      
         pbOptions.boxForm = "horizontal";
-      
         pbOptions.position = "topCenter";
-      
         pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
       new needShareButton('#needsharebutton-postbottom', pbOptions);
   </script>
     </div>

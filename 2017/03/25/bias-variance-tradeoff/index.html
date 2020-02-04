@@ -1,40 +1,35 @@
 <!DOCTYPE html>
-
-
-
-
-
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
 <meta name="generator" content="Hexo 3.9.0">
-  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png?v=7.4.2">
-  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png?v=7.4.2">
-  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg?v=7.4.2" color="#222">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
   <link rel="manifest" href="/images/favicon/site.webmanifest">
   <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
-  <link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
   <meta http-equiv="Cache-Control" content="no-transform">
   <meta http-equiv="Cache-Control" content="no-siteapp">
   <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
 
-<link rel="stylesheet" href="/css/main.css?v=7.4.2">
+<link rel="stylesheet" href="/css/main.css">
 
 
-<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css?v=4.7.0">
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
 
 
 <script id="hexo-configurations">
   var NexT = window.NexT || {};
   var CONFIG = {
+    hostname: new URL('https://liam.page').hostname,
     root: '/',
     scheme: 'Gemini',
-    version: '7.4.2',
+    version: '7.7.1',
     exturl: false,
-    sidebar: {"position":"left","display":"post","offset":12,"onmobile":false},
+    sidebar: {"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},
     copycode: {"enable":true,"show_result":false,"style":null},
     back2top: {"enable":true,"sidebar":false,"scrollpercent":false},
     bookmark: {"enable":false,"color":"#222","save":"auto"},
@@ -42,6 +37,7 @@
     mediumzoom: true,
     lazyload: true,
     pangu: false,
+    comments: {"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},
     algolia: {
       appID: '',
       apiKey: '',
@@ -51,13 +47,7 @@
     },
     localsearch: {"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},
     path: 'search.xml',
-    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},
-    translation: {
-      copy_button: '复制',
-      copy_success: '复制成功',
-      copy_failure: '复制失败'
-    },
-    sidebarPadding: 40
+    motion: {"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}
   };
 </script>
 
@@ -69,11 +59,12 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="准确是两个概念。准是 bias 小，确是 variance 小。准确是相对概念，因为 bias-variance tradeoff。——Liam Huang  在机器学习领域，人们总是希望使自己的模型尽可能准确地描述数据背后的真实规律。通俗所言的「准确」，其实就是误差小。在领域中，排除人为失误，人们一般会遇到三种误差来源：随机误差、偏差和方差。偏差和方差又与「欠拟合」及「过拟合」紧紧联系在一起。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-11-10T10:05:53.000Z">
+<meta property="og:updated_time" content="2020-02-04T07:57:05.927Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="谈谈 Bias-Variance Tradeoff">
 <meta name="twitter:description" content="准确是两个概念。准是 bias 小，确是 variance 小。准确是相对概念，因为 bias-variance tradeoff。——Liam Huang  在机器学习领域，人们总是希望使自己的模型尽可能准确地描述数据背后的真实规律。通俗所言的「准确」，其实就是误差小。在领域中，排除人为失误，人们一般会遇到三种误差来源：随机误差、偏差和方差。偏差和方差又与「欠拟合」及「过拟合」紧紧联系在一起。">
-  <link rel="canonical" href="https://liam.page/2017/03/25/bias-variance-tradeoff/">
+
+<link rel="canonical" href="https://liam.page/2017/03/25/bias-variance-tradeoff/">
 
 
 <script id="page-configurations">
@@ -81,9 +72,7 @@
   CONFIG.page = {
     sidebar: "",
     isHome: false,
-    isPost: true,
-    isPage: false,
-    isArchive: false
+    isPost: true
   };
 </script>
 <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
@@ -104,17 +93,13 @@
   
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
     <script pjax>
-      var host = window.location.hostname;
-      if (host !== "localhost" || !true) {
+      if (CONFIG.hostname === location.hostname) {
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         gtag('js', new Date());
         gtag('config', 'UA-44836433-1');
       }
     </script>
-  
-
-
 
 
 
@@ -178,194 +163,50 @@
 <nav class="site-nav">
   
   <ul id="menu" class="menu">
-      
-      
-        
-        
         <li class="menu-item menu-item-home">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-archives">
-      
-    
-      
-      
-        
-          
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">322</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-categories">
-      
-    
-      
-      
-        
-      
-        
-          
-        
-      
-        
-      
-    
 
     <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">12</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-tags">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-          
-        
-      
-    
 
     <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">634</span></a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-系列">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-札记-&-留言板">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-英文">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
 
   </li>
-      
-    
-      
-      
-        
-        
         <li class="menu-item menu-item-about">
-      
-    
-      
-      
-        
-      
-        
-      
-        
-      
-    
 
     <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
 
   </li>
-      
-    
       <li class="menu-item menu-item-search">
-        <a role="button" class="popup-trigger">
-          <i class="fa fa-search fa-fw"></i>搜索
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
         </a>
       </li>
-    
   </ul>
 
 </nav>
@@ -403,7 +244,7 @@
     <main class="main">
       <div class="main-inner">
         <div class="content-wrap">
-            
+          
 
           <div class="content">
             
@@ -416,9 +257,9 @@
     <link itemprop="mainEntityOfPage" href="https://liam.page/2017/03/25/bias-variance-tradeoff/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
       <meta itemprop="name" content="Liam Huang">
       <meta itemprop="description" content="不忘初心，方得始终。">
-      <meta itemprop="image" content="/images/avatar/avatar.webp">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -426,11 +267,7 @@
     </span>
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
-          
-            谈谈 Bias-Variance Tradeoff
-            
-
-          
+          谈谈 Bias-Variance Tradeoff
         </h2>
 
         <div class="post-meta">
@@ -440,42 +277,26 @@
               </span>
               <span class="post-meta-item-text">发表于</span>
 
-              
-                
-              
-
               <time title="创建时间：2017 年 03 月 25 日 11:33:41" itemprop="dateCreated datePublished" datetime="2017-03-25T11:33:41+08:00">2017 年 03 月 25 日</time>
             </span>
-          
-            
-
-            
               <span class="post-meta-item">
                 <span class="post-meta-item-icon">
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2019 年 11 月 10 日 18:05:53" itemprop="dateModified" datetime="2019-11-10T18:05:53+08:00">2019 年 11 月 10 日</time>
+                <time title="修改时间：2020 年 02 月 04 日 15:57:05" itemprop="dateModified" datetime="2020-02-04T15:57:05+08:00">2020 年 02 月 04 日</time>
               </span>
-            
-          
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
               </span>
               <span class="post-meta-item-text">分类于</span>
-              
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
                   <a href="/categories/Big-Data-and-Machine-Learning/" itemprop="url" rel="index">
                     <span itemprop="name">Big Data and Machine Learning</span>
                   </a>
                 </span>
-
-                
-                
-              
             </span>
-          
 
           
             <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
@@ -484,29 +305,21 @@
               </span>
               <span class="post-meta-item-text">阅读次数：</span>
               <span id="busuanzi_value_page_pv"></span>
-            </span>
-          
-          <br>
+            </span><br>
             <span class="post-meta-item" title="本文字数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-file-word-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">本文字数：</span>
-              
               <span>5.4k</span>
             </span>
-          
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
-              
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              
               <span>10 分钟</span>
             </span>
-          
 
         </div>
       </header>
@@ -542,7 +355,7 @@
 \end{equation}</code></p>
 <h3 id="直观的图示"><a href="#直观的图示" class="headerlink" title="直观的图示"></a>直观的图示</h3><p>下图将机器学习任务描述为一个「打靶」的活动：根据相同算法、不同数据集训练出的模型，对同一个样本进行预测；每个模型作出的预测相当于是一次打靶。</p>
 <blockquote>
-<p><img alt data-src="/uploads/images/MachineLearning/bias-and-variance.png"><br><a href="http://scott.fortmann-roe.com/docs/BiasVariance.html" target="_blank" rel="noopener">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
+<p><img data-src="/uploads/images/MachineLearning/bias-and-variance.png" alt><br><a href="http://scott.fortmann-roe.com/docs/BiasVariance.html" target="_blank" rel="noopener">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
 </blockquote>
 <p>左上角的示例是理想状况：偏差和方差都非常小。如果有无穷的训练数据，以及完美的模型算法，我们是有办法达成这样的情况的。然而，现实中的工程问题，通常数据量是有限的，而模型也是不完美的。因此，这只是一个理想状况。</p>
 <p>右上角的示例表示偏差小而方差大。靶纸上的落点都集中分布在红心周围，它们的期望落在红心之内，因此偏差较小。另外一方面，落点虽然集中在红心周围，但是比较分散，这是方差大的表现。</p>
@@ -558,7 +371,7 @@
 <p>这里，对于 <code>prop</code>，我们采用了一阶的多项式函数（线性模型）去拟合数据；对于 <code>overf</code>，我们采用了 15 阶的多项式函数（多项式模型）去拟合数据。如此，我们可以把拟合效果绘制成图。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt</span><br><span class="line"></span><br><span class="line">_ = plt.figure(figsize = (<span class="number">14</span>, <span class="number">6</span>))</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">prop_e  = np.mean((y_train - np.polyval(prop, x_train)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_train - np.polyval(overf, x_train)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(<span class="number">-2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_train, y_train, <span class="string">'.'</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">'-'</span>, label = <span class="string">'proper, err: %.3f'</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">'--'</span>, label = <span class="string">'overfit, err: %.3f'</span> % (overf_e))</span><br><span class="line">plt.ylim(<span class="number">-5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">'train set'</span>)</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>)</span><br><span class="line">prop_e  = np.mean((y_valid - np.polyval(prop,  x_valid)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_valid - np.polyval(overf, x_valid)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(<span class="number">-2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_valid, y_valid, <span class="string">'.'</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">'-'</span>, label = <span class="string">'proper, err: %.3f'</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">'--'</span>, label = <span class="string">'overfit, err: %.3f'</span> % (overf_e))</span><br><span class="line">plt.ylim(<span class="number">-5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">'validation set'</span>)</span><br></pre></td></tr></table></figure>
 
-<p><img alt="多项式拟合结果" data-src="/uploads/images/MachineLearning/polyfit.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/polyfit.png" alt="多项式拟合结果"></p>
 <p>以训练集上的结果来说，线性模型的误差要明显高于多项式模型。站在人类观察者的角度来说，这似乎是显而易见的：数据是围绕一个近似线性的函数附近抖动的，那么用简单的线性模型，自然就无法准确地拟合数据；但是，高阶的多项式函数可以进行各种「扭曲」，以便将训练集的数据拟合得更好。</p>
 <p>这种情况，我们说线性模型在训练集上欠拟合（underfitting），并且它的偏差（bias）要高于多项式模型的偏差。</p>
 <p>但这并不意味着线性模型在这个问题里，要弱于多项式模型。我们看到，在验证集上，线性模型的误差要小于多项式模型的误差。并且，线性模型在训练集和验证集上的误差相对接近，而多项式模型在两个数据集上的误差，差距就很大了。</p>
@@ -578,7 +391,7 @@
 <p>也就是说，在整个过程中，我们固定训练样本，改变模型的描述能力（模型复杂度）。不难理解，随着模型复杂度的增加，其描述能力也就会增加；此时，模型在验证集上的表现，偏差会倾向于减小而方差会倾向于增大。而在相反方向，随着模型复杂度的降低，其描述能力也就会降低；此时，模型在验证集上的表现，偏差会倾向于增大而方差会倾向于减小。</p>
 <p>考虑到，模型误差是偏差与方差的加和，因此我们可以绘制出这样的图像。</p>
 <blockquote>
-<p><img alt="偏差与误差的变化趋势" data-src="/uploads/images/MachineLearning/bias-variance-tend.png"><br><a href="http://scott.fortmann-roe.com/docs/BiasVariance.html" target="_blank" rel="noopener">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
+<p><img data-src="/uploads/images/MachineLearning/bias-variance-tend.png" alt="偏差与误差的变化趋势"><br><a href="http://scott.fortmann-roe.com/docs/BiasVariance.html" target="_blank" rel="noopener">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
 </blockquote>
 <p>图中的最优位置，实际上是 total error 曲线的拐点。我们知道，连续函数的拐点意味着此处一阶导数的值为 0。考虑到 total error 是偏差与方差的加和，所以我们有，在拐点处：</p>
 <p><code>\begin{equation}
@@ -591,7 +404,7 @@
 <p>同样地，在有限的训练数据集中，不断增加模型的复杂度，意味着模型会尽可能多地降低在训练集上的误差。因此，在训练集上，不断增加模型的复杂度，训练集上的误差会一直下降。</p>
 <p>因此，我们可以绘制出这样的图像。</p>
 <blockquote>
-<p><img alt="训练集和验证集上的误差变化" data-src="/uploads/images/MachineLearning/error-curve.png"><br><a href="http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/" target="_blank" rel="noopener">http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/</a></p>
+<p><img data-src="/uploads/images/MachineLearning/error-curve.png" alt="训练集和验证集上的误差变化"><br><a href="http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/" target="_blank" rel="noopener">http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/</a></p>
 </blockquote>
 <p>因此，</p>
 <ul>
@@ -600,7 +413,7 @@
 </ul>
 <h2 id="处理欠拟合与过拟合"><a href="#处理欠拟合与过拟合" class="headerlink" title="处理欠拟合与过拟合"></a>处理欠拟合与过拟合</h2><p>有了这些分析，我们就能比较容易地判断模型所处的拟合状态。接下来，我们就可以参考 Andrew Ng 博士提供的处理模型欠拟合/过拟合的一般方法了。</p>
 <blockquote>
-<p><img alt="机器学习调试的一般流程" data-src="/uploads/images/MachineLearning/Machine-Learning-Workflow.png"></p>
+<p><img data-src="/uploads/images/MachineLearning/Machine-Learning-Workflow.png" alt="机器学习调试的一般流程"></p>
 </blockquote>
 <h3 id="欠拟合"><a href="#欠拟合" class="headerlink" title="欠拟合"></a>欠拟合</h3><p>当模型处于欠拟合状态时，根本的办法是增加模型复杂度。我们一般有以下一些办法：</p>
 <ul>
@@ -627,11 +440,9 @@
         </span>
       </div>
     </div>
-        
-      
         <div class="reward-container">
   <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
-  <button disable="enable" onclick="var qr = document.getElementById(&quot;qr&quot;); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
     打赏
   </button>
   <div id="qr" style="display: none;">
@@ -686,7 +497,6 @@
   </div>
 </div>
 
-      
         
 
 <div>
@@ -704,43 +514,27 @@
 </ul>
 </div>
 
-      
 
       <footer class="post-footer">
-          
-            
-          
           <div class="post-tags">
-            
               <a href="/tags/Machine-Learning/" rel="tag"># Machine Learning</a>
-            
               <a href="/tags/Tradeoff/" rel="tag"># Tradeoff</a>
-            
           </div>
-        
 
         
 
-          <div class="post-nav">
-            <div class="post-nav-next post-nav-item">
-              
-                <a href="/2017/03/22/floats-in-LaTeX-handle-overfull-floats/" rel="next" title="LaTeX 中的浮动体：处理超宽问题">
-                  <i class="fa fa-chevron-left"></i> LaTeX 中的浮动体：处理超宽问题
-                </a>
-              
-            </div>
 
-            <span class="post-nav-divider"></span>
-
-            <div class="post-nav-prev post-nav-item">
-              
-                <a href="/2017/03/30/L1-and-L2-regularizer/" rel="prev" title="谈谈 L1 与 L2-正则项">
-                  谈谈 L1 与 L2-正则项 <i class="fa fa-chevron-right"></i>
-                </a>
-              
-            </div>
-          </div>
         
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2017/03/22/floats-in-LaTeX-handle-overfull-floats/" rel="prev" title="LaTeX 中的浮动体：处理超宽问题">
+      <i class="fa fa-chevron-left"></i> LaTeX 中的浮动体：处理超宽问题
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2017/03/30/L1-and-L2-regularizer/" rel="next" title="谈谈 L1 与 L2-正则项">
+      谈谈 L1 与 L2-正则项 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
       </footer>
     
   </article>
@@ -754,6 +548,28 @@
           </div>
           
 
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
         </div>
           
   
@@ -765,11 +581,6 @@
 
   <aside class="sidebar">
     <div class="sidebar-inner">
-        
-        
-        
-        
-      
 
       <ul class="sidebar-nav motion-element">
         <li class="sidebar-nav-toc">
@@ -783,65 +594,45 @@
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
           <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#定义"><span class="nav-number">1.</span> <span class="nav-text">定义</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#数学上定义"><span class="nav-number">1.1.</span> <span class="nav-text">数学上定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#直观的图示"><span class="nav-number">1.2.</span> <span class="nav-text">直观的图示</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#举个栗子"><span class="nav-number">2.</span> <span class="nav-text">举个栗子</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#权衡之术"><span class="nav-number">3.</span> <span class="nav-text">权衡之术</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#克服-OCD"><span class="nav-number">3.1.</span> <span class="nav-text">克服 OCD</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#最佳平衡点的数学表述"><span class="nav-number">3.2.</span> <span class="nav-text">最佳平衡点的数学表述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#过拟合与欠拟合的外在表现"><span class="nav-number">3.3.</span> <span class="nav-text">过拟合与欠拟合的外在表现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#处理欠拟合与过拟合"><span class="nav-number">4.</span> <span class="nav-text">处理欠拟合与过拟合</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#欠拟合"><span class="nav-number">4.1.</span> <span class="nav-text">欠拟合</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#过拟合"><span class="nav-number">4.2.</span> <span class="nav-text">过拟合</span></a></li></ol></li></ol></div>
-        
       </div>
       <!--/noindex-->
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
-    <img class="site-author-image" itemprop="image"
-      src="/images/avatar/avatar.webp"
-      alt="Liam Huang">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
   <p class="site-author-name" itemprop="name">Liam Huang</p>
   <div class="site-description" itemprop="description">不忘初心，方得始终。</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
-        
           <a href="/archives/">
         
           <span class="site-state-item-count">322</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-categories">
-        
-          
             <a href="/categories/">
           
-        
         <span class="site-state-item-count">12</span>
-        <span class="site-state-item-name">分类</span>
-        </a>
+        <span class="site-state-item-name">分类</span></a>
       </div>
-    
-      
-      
       <div class="site-state-item site-state-tags">
-        
-          
             <a href="/tags/">
           
-        
         <span class="site-state-item-count">634</span>
-        <span class="site-state-item-name">标签</span>
-        </a>
+        <span class="site-state-item-name">标签</span></a>
       </div>
-    
   </nav>
 </div>
-  <div class="feed-link motion-element">
-    <a href="/atom.xml" rel="alternate">
-      <i class="fa fa-rss"></i>RSS
-    </a>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
-    
-  
     <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
   </div>
 
@@ -855,51 +646,39 @@
         <li class="links-of-blogroll-item">
           <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://xixiaoyao.github.io/" title="https://xixiaoyao.github.io/" rel="noopener" target="_blank">Xiyao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://yemengying.com/" title="http://yemengying.com/" rel="noopener" target="_blank">Giraffe</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.jellythink.com/" title="http://www.jellythink.com/" rel="noopener" target="_blank">JellyThink</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://jiayu.lu/" title="http://jiayu.lu/" rel="noopener" target="_blank">Jiayu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.shuang0420.com" title="http://www.shuang0420.com" rel="noopener" target="_blank">AhengXu</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
         </li>
-      
         <li class="links-of-blogroll-item">
           <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
         </li>
-      
     </ul>
   </div>
 
@@ -918,6 +697,7 @@
         
 
 <div class="copyright">
+  
   &copy; 2013 – 
   <span itemprop="copyrightYear">2020</span>
   <span class="with-love">
@@ -938,7 +718,7 @@
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v3.9.0
   </div>
   <span class="post-meta-divider">|</span>
-  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.4.2
+  <div class="theme-info">主题 – <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
   </div>
 
         
@@ -952,7 +732,6 @@
         <span id="busuanzi_value_site_pv"></span>
       </span>
     </span>
-  
 </div>
 
 
@@ -983,26 +762,20 @@
 
 
 
-
-
-
-
-        
       </div>
     </footer>
   </div>
 
   
-  <script src="/lib/anime.min.js?v=3.1.0"></script>
-  <script src="/lib/pjax/pjax.min.js?v=0.2.8"></script>
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
-  <script src="/lib/velocity/velocity.min.js?v=1.2.1"></script>
-  <script src="/lib/velocity/velocity.ui.min.js?v=1.2.1"></script>
-<script src="/js/utils.js?v=7.4.2"></script><script src="/js/motion.js?v=7.4.2"></script>
-<script src="/js/schemes/pisces.js?v=7.4.2"></script>
-
-<script src="/js/next-boot.js?v=7.4.2"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -1041,7 +814,7 @@ window.addEventListener('pjax:success', () => {
       script.async = false;
     }
     if (element.getAttribute('pjax') !== null) {
-      element.setAttribute('pjax', '');
+      script.setAttribute('pjax', '');
     }
     if (code !== '') {
       script.appendChild(document.createTextNode(code));
@@ -1053,6 +826,7 @@ window.addEventListener('pjax:success', () => {
   if (CONFIG.motion.enable) {
     NexT.motion.integrator
       .init()
+      .add(NexT.motion.middleWares.subMenu)
       .add(NexT.motion.middleWares.postList)
       .bootstrap();
   }
@@ -1068,12 +842,7 @@ window.addEventListener('pjax:success', () => {
 
 
 
-
-
-
-
-  <script src="/js/local-search.js?v=7.4.2"></script>
-
+  <script src="/js/local-search.js"></script>
 
 
 
@@ -1113,11 +882,9 @@ document.addEventListener('visibilitychange', function () {
 
 
     <div id="pjax">
-
   
 
   
-    
       
 <script type="text/x-mathjax-config">
 
@@ -1185,38 +952,26 @@ document.addEventListener('visibilitychange', function () {
 </script>
 
     
-  
 
   
-    <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
-    <script>
-      
-        window.addEventListener('load', () => {
-      
-        quicklink({
-          timeout: 3000,
-          priority: true,
-          ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2017/03/25/bias-variance-tradeoff/',]
-        });
-      
-        });
-      
-    </script>
-  
-
-  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout: 3000,
+        priority: true,
+        ignores: [uri => uri.includes('#'),uri => uri == 'https://liam.page/2017/03/25/bias-variance-tradeoff/',]
+      });
+      });
+  </script>
 
   <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
   <script>
       pbOptions = {};
         pbOptions.iconStyle = "default";
-      
         pbOptions.boxForm = "horizontal";
-      
         pbOptions.position = "topCenter";
-      
         pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
-      
       new needShareButton('#needsharebutton-postbottom', pbOptions);
   </script>
     </div>
