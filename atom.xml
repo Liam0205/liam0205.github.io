@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-02-04T07:57:06.016Z</updated>
+  <updated>2020-02-12T13:36:56.241Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,32 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>有感于 2020 年初的疫情</title>
+    <link href="https://liam.page/2020/02/12/pray-for-the-nation-against-COVID-19/"/>
+    <id>https://liam.page/2020/02/12/pray-for-the-nation-against-COVID-19/</id>
+    <published>2020-02-12T13:29:47.000Z</published>
+    <updated>2020-02-12T13:36:56.241Z</updated>
+    
+    <content type="html"><![CDATA[<p>希望若干年后的史书，会这样记载 2020 年初的疫情。</p><a id="more"></a><blockquote><p>己亥末庚子初，荆楚大疫。又一旬，波及全国，染者以万计。一时间，举国闭户，风烟四起。<br>有国士者，南山也。衣白袍者，医护也。辛劳不辞，艰险不畏。又有商贾布衣无算，捐千金货，出万分力，立雷火于华胥。<br>月余，疫去而风烟定。时人记之，曰：SARS-CoV-2 莫自牢，千病万疫避白袍。</p><p>Liam Huang, 2020-02-12 于北京</p></blockquote><p>🙏</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;希望若干年后的史书，会这样记载 2020 年初的疫情。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Miscellaneous" scheme="https://liam.page/categories/Miscellaneous/"/>
+    
+    
+      <category term="2019-nCoV" scheme="https://liam.page/tags/2019-nCoV/"/>
+    
+      <category term="SARS-CoV-2" scheme="https://liam.page/tags/SARS-CoV-2/"/>
+    
+      <category term="COVID-19" scheme="https://liam.page/tags/COVID-19/"/>
+    
+  </entry>
   
   <entry>
     <title>泥潭挣扎记：Linuxbrew 里的 Glibc</title>
@@ -507,30 +533,6 @@
       <category term="Scala" scheme="https://liam.page/tags/Scala/"/>
     
       <category term="Underscore" scheme="https://liam.page/tags/Underscore/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>解决公司 Win7 更新时的 0x80092004 错误</title>
-    <link href="https://liam.page/2019/10/18/0x80092004-error-on-Windows-7/"/>
-    <id>https://liam.page/2019/10/18/0x80092004-error-on-Windows-7/</id>
-    <published>2019-10-18T07:57:06.000Z</published>
-    <updated>2020-02-04T07:57:05.993Z</updated>
-    
-    <content type="html"><![CDATA[<p>从大概 8 月份开始，公司配发的电脑（Windows 7 系统）就总是提示有更新，但每次更新都安装失败。不断提示更新很打扰工作思路，于是下决心解决。</p><a id="more"></a><p>经检查，问题出在 KB4512506/KB4516065（Windows 7 月安全质量汇总更新）上，尝试安装该更新时，系统会提示 <code>0x80092004</code> 错误。上网检查后确认，该错误代码与 <code>CRYPT_E_NOT_FOUND</code> 有关。也就是说，Windows Update 发现更新文件的散列值不匹配，于是拒绝安装。</p><p><img data-src="/uploads/images/computer-skills/kb4516065.png" alt="`0x80092004` 错误"></p><p>进一步检查发现，微软在给 Windows 7 和 Windows Server 2008 R2 的更新中修改了散列值签名方式，而 19 年 8 月发布的 7 月安全质量汇总更新，正是新签名方式第一次生效的时候。具体来说，原先会使用 SHA-1 和 SHA-2 同时签名；但因为众所周知的安全问题，微软放弃了 SHA-1 签名转而仅使用 SHA-2 签名。但如果 Windows 7 上的 Windows Update 依旧检查 SHA-1 签名，则会发现更新文件的散列值不匹配，于是拒绝安装，并报错 <code>0x80092004</code>。</p><p>为解决这一问题，微软先期发布了两个相关更新：</p><ul><li><a href="https://support.microsoft.com/en-us/help/4474419/sha-2-code-signing-support-update" target="_blank" rel="noopener">KB4474419</a>：用于在 Windows 7 等系统上支持 SHA-2 签名。</li><li><a href="https://support.microsoft.com/en-us/help/4490628/servicing-stack-update-for-windows-7-sp1-and-windows-server-2008-r2" target="_blank" rel="noopener">KB4490628</a>：服务堆栈更新，解决了安装仅使用 SHA-2 哈希算法签名的更新时服务堆栈中的问题。</li></ul><p>安装 KB4512506 前，系统必须安装好这两个前置依赖，否则就会因签名问题报错 <code>0x80092004</code>。</p><p>经检查，我的系统里安装了 KB4474419，但是没有安装 KB4490628。那么这就是导致问题的直接原因了。</p><p>那么根本原因在哪里呢？答案是：公司电脑的组策略配置决定了 Windows Update 由公司 IT 管理员来管理。公司 IT 可能没有正确配置安装 KB4490628，于是有后续问题。更加无奈的是，因为组策略配置的限制，我无法在 Windows Update 中搜索安装 KB4490628。幸运的是，我在<a href="http://catalog.update.microsoft.com/v7/site/search.aspx?q=4490628" target="_blank" rel="noopener">微软 Update Catalog</a> 当中找到了 KB4490628 的独立安装包。下载安装 KB4490628 的过程一切顺利。</p><p>安装完 KB4490628 之后，再次打开 Windows Update，尝试安装 KB4516065 则一切顺利。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;从大概 8 月份开始，公司配发的电脑（Windows 7 系统）就总是提示有更新，但每次更新都安装失败。不断提示更新很打扰工作思路，于是下决心解决。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="Windows 7" scheme="https://liam.page/tags/Windows-7/"/>
-    
-      <category term="Windows Update" scheme="https://liam.page/tags/Windows-Update/"/>
     
   </entry>
   
