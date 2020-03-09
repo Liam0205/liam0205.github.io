@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-02-27T14:23:15.100Z</updated>
+  <updated>2020-03-09T03:40:06.441Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,30 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Hive SQL 中的 LATERAL VIEW</title>
+    <link href="https://liam.page/2020/03/09/LATERAL-VIEW-in-Hive-SQL/"/>
+    <id>https://liam.page/2020/03/09/LATERAL-VIEW-in-Hive-SQL/</id>
+    <published>2020-03-09T03:04:13.000Z</published>
+    <updated>2020-03-09T03:40:06.441Z</updated>
+    
+    <content type="html"><![CDATA[<p>这些天使用 Hive 的过程中遇到新的知识点，于是将 <code>LATERAL VIEW</code> 的使用方法记录下来。</p><a id="more"></a><h2 id="UDTF"><a href="#UDTF" class="headerlink" title="UDTF"></a>UDTF</h2><p>UDTF 是 User-Defined Table-Generating Functions 的缩写，即用户定义的表生成函数。UDTF 用来解决从原始表中的一行生成多行数据的问题。典型的 UDTF 有 <code>EXPLODE</code> 函数，它能将 <code>array</code> 或者 <code>map</code> 展开。例如：</p><p>考虑以下名为 <code>pageAds</code> 的原始表，它有两列：<code>pageid</code>（网页名称）和 <code>adid_list</code>（网页上显示的广告数组）：</p><table><thead><tr><th>名称</th><th>类型</th></tr></thead><tbody><tr><td><code>pageid</code></td><td><code>STRING</code></td></tr><tr><td><code>adid_list</code></td><td><code>Array&lt;int&gt;</code></td></tr></tbody></table><p>假设其中有以下两行：</p><table><thead><tr><th><code>pageid</code></th><th><code>adid_list</code></th></tr></thead><tbody><tr><td><code>contact_page</code></td><td><code>[3, 4, 5]</code></td></tr><tr><td><code>front_page</code></td><td><code>[1, 2, 3]</code></td></tr></tbody></table><p>使用 <code>EXPLODE</code> 函数可以展开 <code>adid_list</code> 这一列，也就是说，SQL 语句的结果如下所示：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  EXPLODE(adid_list)</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">  pageAds;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- possible result:</span></span><br><span class="line"><span class="comment">-- 1</span></span><br><span class="line"><span class="comment">-- 2</span></span><br><span class="line"><span class="comment">-- 3</span></span><br><span class="line"><span class="comment">-- 3</span></span><br><span class="line"><span class="comment">-- 4</span></span><br><span class="line"><span class="comment">-- 5</span></span><br></pre></td></tr></table></figure><p>不过，UDTF 有一个限制，它出现在 <code>SELECT</code> 子句中的时候，不能与其它列共同出现。也就是说下列 SQL 语句会报语法错误：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  pageid, EXPLODE(adid_list) <span class="keyword">AS</span> adid</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">  pageAds;</span><br></pre></td></tr></table></figure><p>为了解决这个问题，我们就需要引入 <code>LATERAL VIEW</code>。</p><h2 id="LATERAL-VIEW"><a href="#LATERAL-VIEW" class="headerlink" title="LATERAL VIEW"></a><code>LATERAL VIEW</code></h2><p><code>LATERAL VIEW</code> 的语法如下：</p><figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- lateralView:</span></span><br><span class="line">LATERAL VIEW udtf(expression) tableAlias AS columnAlias (',' columnAlias)*</span><br><span class="line"><span class="comment">--fromClause:</span></span><br><span class="line">FROM baseTable (lateralView)*  -- 允许联用多个 LATERAL VIEW 子句</span><br></pre></td></tr></table></figure><p>这里，<code>udtf(expression)</code> 表示诸如 <code>EXPLODE</code> 之类的 UDTF 的表达式。<code>LATERAL VIEW</code> 对遇到的每一行，首先会按 UDTF 表达式进行处理，展开成若干行（可能是零行），然后将这些输出行与输入行 <code>INNER JOIN</code>。如果要保留输出为零的行，则需使用 <code>LATERAL VIEW OUTER</code> 执行 <code>OUTER JOIN</code>。</p><p>继续以上述名为 <code>pageAds</code> 的原始表为例，为了同时 <code>SELECT</code> 出 <code>pageid</code> 和 <code>adid</code>，我们需要使用 <code>LATERAL VIEW</code>：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  pageid, adid</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">  pageAds</span><br><span class="line">  LATERAL <span class="keyword">VIEW</span></span><br><span class="line">    EXPLODE(adid_list) tmp <span class="keyword">AS</span> adid;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- possible result:</span></span><br><span class="line"><span class="comment">-- front_page1</span></span><br><span class="line"><span class="comment">-- front_page2</span></span><br><span class="line"><span class="comment">-- front_page3</span></span><br><span class="line"><span class="comment">-- contact_page3</span></span><br><span class="line"><span class="comment">-- contact_page4</span></span><br><span class="line"><span class="comment">-- contact_page5</span></span><br></pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;这些天使用 Hive 的过程中遇到新的知识点，于是将 &lt;code&gt;LATERAL VIEW&lt;/code&gt; 的使用方法记录下来。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Big Data and Machine Learning" scheme="https://liam.page/categories/Big-Data-and-Machine-Learning/"/>
+    
+    
+      <category term="Hive" scheme="https://liam.page/tags/Hive/"/>
+    
+      <category term="SQL" scheme="https://liam.page/tags/SQL/"/>
+    
+  </entry>
   
   <entry>
     <title>英语语法之五：非谓语动词</title>
@@ -286,9 +310,9 @@
       <category term="Big Data and Machine Learning" scheme="https://liam.page/categories/Big-Data-and-Machine-Learning/"/>
     
     
-      <category term="Classification" scheme="https://liam.page/tags/Classification/"/>
-    
       <category term="Binary" scheme="https://liam.page/tags/Binary/"/>
+    
+      <category term="Classification" scheme="https://liam.page/tags/Classification/"/>
     
       <category term="Evaluation" scheme="https://liam.page/tags/Evaluation/"/>
     
@@ -514,33 +538,6 @@
       <category term="HDFS" scheme="https://liam.page/tags/HDFS/"/>
     
       <category term="Hive" scheme="https://liam.page/tags/Hive/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>在 macOS 上对单个文件取消「来自互联网的应用」之限制</title>
-    <link href="https://liam.page/2019/10/29/How-to-fix-This-is-an-application-downloaded-from-the-Internet/"/>
-    <id>https://liam.page/2019/10/29/How-to-fix-This-is-an-application-downloaded-from-the-Internet/</id>
-    <published>2019-10-29T09:35:07.000Z</published>
-    <updated>2020-02-04T07:57:05.993Z</updated>
-    
-    <content type="html"><![CDATA[<p>macOS 上有对未正确签名的应用程序进行<a href="https://support.apple.com/zh-cn/HT202491" target="_blank" rel="noopener">隔离</a>的设定。具体来说，如果用户下载了一个来自互联网的应用，但该应用没有使用 Apple 认可的签名，则 Apple 会在用户尝试执行应用程序时提示「应用程序来自互联网」，要求用户确认后才能执行。</p><p>中文网络上对这种情况的解决办法，一般都是进入系统偏好设置，在安全性设置中允许来自任意位置的应用。这其实是取消了 macOS 的隔离功能，无疑会降低系统安全性。特别地，对于某些特定的程序，我们确切知道它是无害的，于是我们希望 macOS 对它打开绿灯，但对其它来自互联网的应用程序仍保持必要的隔离措施。这时，整个儿取消 macOS 的隔离功能就不合适了。</p><a id="more"></a><p>为解决这一问题，我们需要使用命令行工具 <code>xattr</code>。这是一个 macOS 下用来展示和修改文件（包括目录、符号链接）扩展属性的功能。「是否隔离」正是 macOS 的一项文件扩展属性。其用法如下：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">Syntax</span><br><span class="line">   List attributes</span><br><span class="line">      xattr [-lrsvx] file ...</span><br><span class="line"></span><br><span class="line">   Print the value associated with the given attribute:</span><br><span class="line">      xattr -p [-lrsvx] attr_name file ...</span><br><span class="line"></span><br><span class="line">   Write a given attribute name with a value:</span><br><span class="line">      xattr -w [-rsx] attr_name attr_value file ...</span><br><span class="line"></span><br><span class="line">   Delete the given attribute from file:</span><br><span class="line">      xattr -d [-rsv] attr_name file ...</span><br><span class="line"></span><br><span class="line">   Clear all attributes including their associated values:</span><br><span class="line">      xattr -c [-rsv] file ...</span><br><span class="line"></span><br><span class="line">   Display help:</span><br><span class="line">      xattr -h | --help</span><br><span class="line"></span><br><span class="line">Key</span><br><span class="line">   -c  CLear all Atrributes.</span><br><span class="line"></span><br><span class="line">   -d  Delete the given attribute.</span><br><span class="line"></span><br><span class="line">   -h  Help.</span><br><span class="line"></span><br><span class="line">   -l  By default, the first two command forms either display just the attribute names or</span><br><span class="line">       values, respectively. The -l option causes both the attribute names and corresponding</span><br><span class="line">       values to be displayed. For hex display of values, the output is preceeded with the hex</span><br><span class="line">       offset values and followed by ASCII display, enclosed by &apos;|&apos;.</span><br><span class="line"></span><br><span class="line">   -p  Print the value associated with the given attribute.</span><br><span class="line"></span><br><span class="line">   -r  If a file argument is a directory, act as if the entire contents of the directory</span><br><span class="line">       recursively were also specified (so that every file in the directory tree is acted upon).</span><br><span class="line"></span><br><span class="line">   -s  If a file argument is a symbolic link, act on the symbolic link itself, rather than</span><br><span class="line">       the file that the symbolic link points at.</span><br><span class="line"></span><br><span class="line">   -v  Force the the file name to be displayed, even for a single file.</span><br><span class="line"></span><br><span class="line">   -w  Write a given attribute name with a value.</span><br><span class="line"></span><br><span class="line">   -x  Force the attribute value to be displayed in the hexadecimal representation.</span><br></pre></td></tr></table></figure><p>这里，我们需要在终端里，执行 <code>xattr -d com.apple.quarantine /path/to/quarantined/file</code> 来移除加在 <code>/path/to/quarantined/file</code> 上的隔离属性。而后在执行相应应用程序，就不会被 macOS 的隔离机制限制了。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;macOS 上有对未正确签名的应用程序进行&lt;a href=&quot;https://support.apple.com/zh-cn/HT202491&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;隔离&lt;/a&gt;的设定。具体来说，如果用户下载了一个来自互联网的应用，但该应用没有使用 Apple 认可的签名，则 Apple 会在用户尝试执行应用程序时提示「应用程序来自互联网」，要求用户确认后才能执行。&lt;/p&gt;
-&lt;p&gt;中文网络上对这种情况的解决办法，一般都是进入系统偏好设置，在安全性设置中允许来自任意位置的应用。这其实是取消了 macOS 的隔离功能，无疑会降低系统安全性。特别地，对于某些特定的程序，我们确切知道它是无害的，于是我们希望 macOS 对它打开绿灯，但对其它来自互联网的应用程序仍保持必要的隔离措施。这时，整个儿取消 macOS 的隔离功能就不合适了。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="macOS" scheme="https://liam.page/tags/macOS/"/>
-    
-      <category term="xattr" scheme="https://liam.page/tags/xattr/"/>
-    
-      <category term="quarantine" scheme="https://liam.page/tags/quarantine/"/>
     
   </entry>
   
