@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-04-27T12:31:47.832Z</updated>
+  <updated>2020-04-28T11:56:04.837Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,29 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>嘿嘿嘿使 TeX 爆炸</title>
+    <link href="https://liam.page/2020/04/28/hhh-explodes-TeX/"/>
+    <id>https://liam.page/2020/04/28/hhh-explodes-TeX/</id>
+    <published>2020-04-28T11:48:31.000Z</published>
+    <updated>2020-04-28T11:56:04.837Z</updated>
+    
+    <content type="html"><![CDATA[<p>TeX 里有 <code>\leavevmode</code> 用来从竖直模式中切出去，那么有没有 <code>\leavehmode</code> 呢？一定会有好奇宝宝好奇这个奇怪的问题的。</p><p>答案是：<del>嘿嘿嘿使 TeX 爆炸</del>不存在。</p><a id="more"></a><p>TeX 总是从竖直模式开始，然后一旦遇到水平命令时，就会离开竖直模式，然后开始构建段落。除非结束这个段落，TeX 是不会离开水平模式的。</p><p>怎么结束这个段落？当然是你熟知的 <code>\par</code> 命令。实际上，任何会导致 TeX 离开水平模式的命令，都会调用 <code>\par</code> 这个命令——这里的 <code>\par</code> 是最原始到那个 <code>\par</code> 原语。如果你把 <code>\par</code> 定义成了一个不包含原语版的 <code>\par</code> 的时候，所有导致 TeX 离开水平模式的命令都会导致死循环。比如下面代码：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">par</span><span class="string">&#123;&#125;</span></span></span><br><span class="line">x<span class="tag">\<span class="name">vskip</span></span> 1pt</span><br></pre></td></tr></table></figure><p>（你看，让 TeX 死循环就这么简单）</p><p>所以，不存在 <code>\leavehmode</code> 这种东西。能让 TeX 离开水平模式的只有 <code>\par</code>。</p><p>不过，存在一种情况下，TeX 可以部分地离开模式——<code>\vadjust</code> 命令。在水平模式中遇到 <code>\vadjust</code> 时，TeX 会把它的参数中的所有竖直元素打包在一起暂存，然后等到断行成段之后，TeX 再把 <code>\vadjust</code> 里的内容插入到 <code>\vadjust</code> 存在的那一行之后。比如：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;zhlipsum&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line">嘿嘿嘿<span class="tag">\<span class="name">vadjust</span><span class="string">&#123;\vskip 3ex&#125;</span></span><span class="tag">\<span class="name">zhlipsum</span><span class="string">[3]</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/vadjust.jpg" alt></p><hr><p>那么为什么「嘿嘿嘿使 TeX 爆炸」呢？因为当你把 <code>\par</code> 定义成「嘿嘿嘿」的时候，TeX 就会因为陷入死循环而不断地把「嘿嘿嘿」塞入内存，然后就炸掉了。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">par</span><span class="string">&#123;嘿嘿嘿&#125;</span></span></span><br><span class="line">x<span class="tag">\<span class="name">vskip</span></span> 1pt</span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure><p>日志如下：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">(./ltxtest.aux) ABD: EverySelectfont initializing macros</span><br><span class="line">! TeX capacity exceeded, sorry [main memory size=5000000].</span><br><span class="line">&lt;to be read again&gt;</span><br><span class="line">                   \vskip</span><br><span class="line">l.4 x\vskip</span><br><span class="line">            1pt</span><br><span class="line">No pages of output.</span><br><span class="line">Transcript written on ltxtest.log.</span><br></pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;TeX 里有 &lt;code&gt;\leavevmode&lt;/code&gt; 用来从竖直模式中切出去，那么有没有 &lt;code&gt;\leavehmode&lt;/code&gt; 呢？一定会有好奇宝宝好奇这个奇怪的问题的。&lt;/p&gt;
+&lt;p&gt;答案是：&lt;del&gt;嘿嘿嘿使 TeX 爆炸&lt;/del&gt;不存在。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="LaTeX" scheme="https://liam.page/categories/LaTeX/"/>
+    
+    
+      <category term="Mode" scheme="https://liam.page/tags/Mode/"/>
+    
+  </entry>
   
   <entry>
     <title>macOS 上 Bash 中的主机名</title>
@@ -535,31 +558,6 @@
     <summary type="html">
     
       &lt;p&gt;假设有本地 Git 仓库 A，而后在本地自 A 克隆仓库 B（即，在 B 的视角，A 是远程仓库，只不过物理位置在本机）。若从 B 向 A 推送提交，则 Git 可能会报错。这是因为，A 默认是 non-bare 的仓库，粗略理解即是工作区不为空；此时，从 B 向 A 推送的话，A 仓库中的内容可能和 A 工作区内容不一致。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="Git" scheme="https://liam.page/tags/Git/"/>
-    
-      <category term="SVN" scheme="https://liam.page/tags/SVN/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>跳过冗余 revisions 以加速 git svn fetch</title>
-    <link href="https://liam.page/2020/01/09/speed-up-git-svn-fetch-by-skipping-reduntant-revisions/"/>
-    <id>https://liam.page/2020/01/09/speed-up-git-svn-fetch-by-skipping-reduntant-revisions/</id>
-    <published>2020-01-09T11:41:55.000Z</published>
-    <updated>2020-02-04T07:57:06.017Z</updated>
-    
-    <content type="html"><![CDATA[<p>众所周知，Git 相较 SVN 的一个优势在于它会将版本库的所有历史信息下载到本地，但它的背面则是：如果版本库很大，则 <code>git clone</code> 会消耗很长时间。使用 <code>git svn</code> 桥接 SVN 仓库时，如果 SVN 仓库很大（例如有超过 100,000 次修订），则 <code>git svn fetch</code> 会花费很长时间（可能超过 24 hours）。</p><p>如果你觉得，<code>git svn fetch</code> 这么多修订只是一次性的工作，因此勉强能够忍受。那我只能说，能有这种想法，还是「太年轻」。</p><a id="more"></a><p>SVN 相较 Git 的一个优势在于它可以针对仓库里的各个子路径进行权限设置。于是，我们可以假设这样一种场景：</p><ul><li>SVN 仓库中，有例如 100,000 次修订。</li><li>你使用 <code>git svn clone -s &lt;uri of svn repository&gt;</code> 将这 10 万次修订都下载到本地，行程了一个 Git 本地仓库。</li><li>在开发的过程中，你发现你缺少某些子路径的权限，于是你找到 SVN 管理员，为你授权了这些子路径。</li><li>而后，你会使用 <code>git svn fetch</code> 来更新你的本地仓库。这时，你会发现报错 <code>&lt;file&gt; was not found in commit &lt;hash&gt;</code>。其原因在于，由于之前你的权限缺失，导致前次 <code>git svn clone</code> 以及历次 <code>git svn fetch</code> 的过程中，这些路径在 <code>git-svn</code> 看来是「空的」；但在这次 <code>git svn fetch</code> 时，这些路径突然有了东西，但是缺少相应的历史。</li><li>为了修正这个问题，有以下一些解决办法：<ul><li>干掉整个本地仓库，从头再 <code>git svn clone -s &lt;uri of svn repository&gt;</code> 一次。这相当于从 <code>r1</code> 开始重新 <code>git svn fetch</code> 一次。</li><li>使用 <code>git svn reset -p &lt;revision&gt;</code> 将本地仓库回退到一个早先的版本，然后从该版本 <code>git svn fetch</code>。需要注意的是，涉及到权限缺失的路径，必须在该 <code>&lt;revision&gt;</code> 之后创建。定位这个 <code>&lt;revision&gt;</code> 本身就很困难，更不用说若是这些路径有过移动的话，又会有一系列的问题。因此，虽然该方案相当于从 <code>&lt;revision&gt;</code> 开始重新 <code>git svn fetch</code>；能省下 <code>r1 -- &lt;revision&gt;</code> 之间的修订，但仍然十分麻烦。</li></ul></li></ul><p>在这种情况下，从头再来，似乎是唯一的选择了。而后，你终于不得不承认曾经的自己「太年轻」。</p><p>为了解决这个困局，我们不得不做一次 trade-off。既然问题的根源在于 Git 会将所有历史信息下载到本地，若是我们能舍弃一些过早的历史信息，只下载较近的历史，就能够绕过这个问题。为此，我们需要：</p><ul><li><code>rm -rf &lt;local repo&gt;</code>：删掉已经「失真」的本地仓库。</li><li><code>mkdir &lt;local repo&gt;</code>：建立一个空的目录。</li><li><code>cd &lt;local repo&gt;</code>：进入刚创立的目录。</li><li><code>git svn init -s &lt;uri of svn repository&gt;</code>：以 <code>git svn</code> 初始化该仓库，但不立即 <code>clone</code>。</li><li><code>git svn fetch -r &lt;revision&gt;</code>：从 <code>&lt;revision&gt;</code> 开始，拉取仓库版本信息；即舍弃从 <code>r1</code> 开始到 <code>&lt;revision&gt;</code> 结束的所有历史信息。</li></ul><p>唯独需要注意的是，如果涉及到分支操作，你必须保证你会用到的分支，都在上述 <code>&lt;revision&gt;</code> 之后创建。</p><p>如此一来，只要 <code>&lt;revision&gt;</code> 选得好，代码开始写的早。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;众所周知，Git 相较 SVN 的一个优势在于它会将版本库的所有历史信息下载到本地，但它的背面则是：如果版本库很大，则 &lt;code&gt;git clone&lt;/code&gt; 会消耗很长时间。使用 &lt;code&gt;git svn&lt;/code&gt; 桥接 SVN 仓库时，如果 SVN 仓库很大（例如有超过 100,000 次修订），则 &lt;code&gt;git svn fetch&lt;/code&gt; 会花费很长时间（可能超过 24 hours）。&lt;/p&gt;
-&lt;p&gt;如果你觉得，&lt;code&gt;git svn fetch&lt;/code&gt; 这么多修订只是一次性的工作，因此勉强能够忍受。那我只能说，能有这种想法，还是「太年轻」。&lt;/p&gt;
     
     </summary>
     
