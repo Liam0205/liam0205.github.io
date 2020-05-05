@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-04-30T07:27:29.774Z</updated>
+  <updated>2020-05-05T11:55:00.485Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,35 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>using oneof to generate has_xxx in pb3</title>
+    <link href="https://liam.page/2020/05/05/using-oneof-to-generate-has-xxx-in-pb3/"/>
+    <id>https://liam.page/2020/05/05/using-oneof-to-generate-has-xxx-in-pb3/</id>
+    <published>2020-05-05T11:38:42.000Z</published>
+    <updated>2020-05-05T11:55:00.485Z</updated>
+    
+    <content type="html"><![CDATA[<p>Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化/反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 <code>required</code> 和 <code>optional</code> 字段。与此同时，在 pb2 中针对 <code>optional</code> 基本类型字段设计的 <code>[default = foobar]</code> 的默认值功能和 <code>has_xxx()</code> 的借口也随之消失。这样引出来一个问题，即：</p><ul><li>在多数场景下，「未设置」和「取值为 <code>0</code>/<code>0.0</code>/<code>&quot;&quot;</code>/<code>false</code>」等价；但是</li><li>在某些场景下，「未设置」和上述取值不等价。</li></ul><p>特别地，在序列化 - 反序列化之后，如果拿到一个零值，你无法得知这个值是确实为零值，还是说因为没有显示设置而得到的零值。本文在 C++ 场景下来解决这个问题。</p><a id="more"></a><h2 id="oneof"><a href="#oneof" class="headerlink" title="oneof"></a><code>oneof</code></h2><p>Protobuf 提供了 <code>oneof</code> 功能（见<a href="https://developers.google.com/protocol-buffers/docs/reference/cpp-generated#oneof" target="_blank" rel="noopener">文档</a>）。其本意是想实现 C/C++ 当中 <code>union</code> 的功能，即多个不同类型共享存储空间，但同一时间只有一个类型有实际值。但在实现的过程中，Protobuf 做了一些妥协。例如，对于下面这样定义的 <code>message</code> 来说，</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">message FooMessage &#123;</span><br><span class="line">  string id = 1;</span><br><span class="line">  oneof oneof_name &#123;</span><br><span class="line">    int32 bar = 2;</span><br><span class="line">    int64 baz = 3;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>在生成的类当中，会有一个名为 <code>OneofNameCase</code> 的枚举类型来标记 <code>oneof_name</code> 字段的设置状态——你可以用 <code>oneof_name_case()</code> 接口来获取该状态。若状态取 <code>ONEOF_NAME_NOT_SET</code> 说明 <code>oneof_name</code> 未设置，若状态取 <code>kBar</code>/<code>kBaz</code> 其意义不言自明。</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">enum</span> OneofNameCase &#123;</span><br><span class="line">  kBar = <span class="number">2</span>,</span><br><span class="line">  kBaz = <span class="number">3</span>,</span><br><span class="line">  ONEOF_NAME_NOT_SET = <span class="number">0</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h2 id="文档未注明的特性"><a href="#文档未注明的特性" class="headerlink" title="文档未注明的特性"></a>文档未注明的特性</h2><p>对比开发文档和 pb3 的源码，我们发现 pb3 会为 <code>oneof</code> 字段生成一个 <code>has_xxx()</code> 的接口，其实现正式内联了 <code>return xxx_case() != XXX_NOT_SET;</code>。</p><p>注意到其命名策略，我们只需定义一个<strong>只含有一个字段的同名 <code>oneof</code></strong>就能方便地判断了。例如：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">message FooMessage &#123;</span><br><span class="line">  string id = 1;</span><br><span class="line">  oneof bar &#123;</span><br><span class="line">    int32 bar = 2;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>此时，Protobuf 会生成 <code>has_bar()</code> 这个接口。于是，利用这一特性，我们就可以在反序列化之后来判断字段是否有设置过了。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化/反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 &lt;code&gt;required&lt;/code&gt; 和 &lt;code&gt;optional&lt;/code&gt; 字段。与此同时，在 pb2 中针对 &lt;code&gt;optional&lt;/code&gt; 基本类型字段设计的 &lt;code&gt;[default = foobar]&lt;/code&gt; 的默认值功能和 &lt;code&gt;has_xxx()&lt;/code&gt; 的借口也随之消失。这样引出来一个问题，即：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;在多数场景下，「未设置」和「取值为 &lt;code&gt;0&lt;/code&gt;/&lt;code&gt;0.0&lt;/code&gt;/&lt;code&gt;&amp;quot;&amp;quot;&lt;/code&gt;/&lt;code&gt;false&lt;/code&gt;」等价；但是&lt;/li&gt;
+&lt;li&gt;在某些场景下，「未设置」和上述取值不等价。&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;特别地，在序列化 - 反序列化之后，如果拿到一个零值，你无法得知这个值是确实为零值，还是说因为没有显示设置而得到的零值。本文在 C++ 场景下来解决这个问题。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Algorithm and Computer Science" scheme="https://liam.page/categories/Algorithm-and-Computer-Science/"/>
+    
+    
+      <category term="Protobuf" scheme="https://liam.page/tags/Protobuf/"/>
+    
+      <category term="Protobuf 3" scheme="https://liam.page/tags/Protobuf-3/"/>
+    
+  </entry>
   
   <entry>
     <title>在 CTeX 套装附带的 WinEdt 中自由切换发行版</title>
@@ -36,9 +65,9 @@
       <category term="LaTeX" scheme="https://liam.page/categories/LaTeX/"/>
     
     
-      <category term="TeX Live" scheme="https://liam.page/tags/TeX-Live/"/>
-    
       <category term="CTeX" scheme="https://liam.page/tags/CTeX/"/>
+    
+      <category term="TeX Live" scheme="https://liam.page/tags/TeX-Live/"/>
     
       <category term="MiKTeX" scheme="https://liam.page/tags/MiKTeX/"/>
     
@@ -548,32 +577,6 @@
       <category term="brwe" scheme="https://liam.page/tags/brwe/"/>
     
       <category term="Glibc" scheme="https://liam.page/tags/Glibc/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>USB 3.0 射频噪声对 2.4GHz 无线设备的干扰</title>
-    <link href="https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/"/>
-    <id>https://liam.page/2020/01/19/USB-3-0-Radio-Frequency-Interference-Impact-on-2-4-GHz-Wireless-Devices/</id>
-    <published>2020-01-19T02:34:48.000Z</published>
-    <updated>2020-02-12T09:53:30.611Z</updated>
-    
-    <content type="html"><![CDATA[<p>早些年，第一次使用 USB 3.0 硬盘的时候，我就发现了它对 Wi-Fi 网络信号的影响。为了解决这个问题，当时投资几百块，换了 NetGear 的路由器，并启用其 5GHz 的 Wi-Fi 信号。最近，在结合 rMBP 使用无线鼠标时，我发现鼠标经常出现跳帧的现象。因为距离上一次踩坑的时间已经过去六七年的时间，一时完全没想到可能是 USB 3.0 带来的问题。在经历了一系列折腾之后，才突然想起这个坑。特此记录。</p><a id="more"></a><h2 id="向外辐射的电磁波"><a href="#向外辐射的电磁波" class="headerlink" title="向外辐射的电磁波"></a>向外辐射的电磁波</h2><p>有高中物理电磁知识的人都应该知道一个基本事实：任何未经完全屏蔽的非直流电流，都会向外辐射电磁波。在高中物理中，它的基本形式就是 <a href="https://zh.wikipedia.org/wiki/LC%E7%94%B5%E8%B7%AF" target="_blank" rel="noopener">LC 谐振电路</a>。但另一方面，向外辐射电磁波的另一个条件是电路开路。也就是说，在连续的电路中，一般来说很难产生足以干扰其他设备的射频信号。此外，线缆通常也会考虑屏蔽电磁辐射。因此，一般来说，产生电磁射频噪声的干扰源，通常是电路的连接点，例如接头、引脚处。</p><h2 id="USB-3-0-的射频噪声"><a href="#USB-3-0-的射频噪声" class="headerlink" title="USB 3.0 的射频噪声"></a>USB 3.0 的射频噪声</h2><p>根据 Intel 于 2012 年发布的<a href="https://usb.org/sites/default/files/327216.pdf" target="_blank" rel="noopener">白皮书</a>，从 USB 3.0 的 <a href="https://zh.wikipedia.org/wiki/Sinc%E5%87%BD%E6%95%B0" target="_blank" rel="noopener"><code>sinc</code> 函数</a>来看，USB 3.0 的频谱很宽，从直流一直到 5GHz 都有所涉及。</p><p><img data-src="/uploads/images/computer-skills/usb3-sinc.jpg" alt></p><p>直接在笔记本上测量 USB 3.0 线对（transmit-pair）上的频谱则有如下分布。</p><p><img data-src="/uploads/images/computer-skills/usb3-noise-power-over-frequence.jpg" alt></p><p>于是，不难想见，USB 3.0 的接头处，在非常广的频谱上，都会向外辐射无线电干扰。那么射频干扰主要集中在什么频段呢？Intel 以实验说话，发现射频干扰主要集中在 2.4GHz -- 2.5GHz 之间。</p><p><img data-src="/uploads/images/computer-skills/usb3-noise-HDD.jpg" alt></p><p>那么为什么射频干扰主要集中在 2.4GHz -- 2.5GHz 之间呢？USB 3.0 是以 NRZ-I 方式进行编码的。因此，在一个时钟周期里，随着电平的两次翻转，可以传递出 2bit 的信息。考虑到 USB 3.0 的比特率是 5Gbps，即，每秒传输 5Gb。因此，它的电平周期是 2.5GHz。这就是 USB 3.0 设备产生的射频干扰集中在 2.5GHz 附近的原因。</p><h2 id="信噪比与干扰"><a href="#信噪比与干扰" class="headerlink" title="信噪比与干扰"></a>信噪比与干扰</h2><p>无线信号接收器是否能够正确解析无线信号，不仅取决于无线信号的强度，还取决于接收器所处环境的无线噪声强度。并不是说无线信号强度大，就一定能正确解析无线信号。假设有一个 -20 dBm（分贝毫瓦，对数能量单位）的信号，已经算很强了；但若环境中有一个 -20dBm 的同频率干扰信号，则原信号依然是不可辨别的。</p><p>因此，人们定义了信噪比（Signal-to-Noise ratio）这个概念。信噪比的单位也是分贝（dB）。</p><p><code>$$\text{SNR} = 10 \log_{10}\Bigl(\frac{P_{\text{signal}}}{P_{\text{noise}}}\Bigr).$$</code></p><p>为了能够正确解调无线信号，无线信号接收器都会有一个最低限度的信噪比要求。当无线信号过于衰弱，或是无线噪声过于强大时，信噪比就可能低于无线信号接收器所需的最低信噪比。如此一来，无线信号接收器就无法正常工作了。</p><h2 id="2-4GHz"><a href="#2-4GHz" class="headerlink" title="2.4GHz"></a>2.4GHz</h2><p>无线电信号频段是有限的资源。在大多数主要国家，都有相应的法律法规，来约束和限制无线电信号频段的使用。2.4GHz 是国际通用的不受约束的频段（当然，这里的不受约束，指的是你可以使用，但功率不能太大）。因此，大多数无线设备，都在这一频段工作。常见的有 Wi-Fi、无线鼠标、无线键盘、蓝牙等外设。</p><p>不巧的是，USB 3.0 的射频干扰主要集中在 2.4GHz 和 2.5GHz 之间，正好与这一通用频段重合。于是，USB 3.0 设备干扰 Wi-Fi、无线鼠标等，也就不奇怪了。</p><h2 id="解决办法"><a href="#解决办法" class="headerlink" title="解决办法"></a>解决办法</h2><p>解决办法很简单。</p><ol><li>屏蔽：使用金属箔纸，将 USB 3.0 的连接处和电缆包裹起来，起到无线屏蔽的作用。当然，这对动手能力要求很高。</li><li>远离：由于无线信号强度随着信号源的距离的增加而快速衰减（平方衰减），因此，使用 USB 2.0 延长线，将无线信号接收器（如果有）远离 USB 3.0 的设备和借口，即可避免这一问题。</li><li>换频：由于 USB 3.0 的射频干扰主要集中在 2.4GHz 至 2.5GHz 之间，那么换成不在 2.4GHz 频段工作的设备即可。例如，可以更换成 5(.8) GHz 的设备。</li><li>有线：开历史倒车，从无线设备切换回到有线设备，彻底绕开无线干扰这个问题。<code>XD</code></li></ol>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;早些年，第一次使用 USB 3.0 硬盘的时候，我就发现了它对 Wi-Fi 网络信号的影响。为了解决这个问题，当时投资几百块，换了 NetGear 的路由器，并启用其 5GHz 的 Wi-Fi 信号。最近，在结合 rMBP 使用无线鼠标时，我发现鼠标经常出现跳帧的现象。因为距离上一次踩坑的时间已经过去六七年的时间，一时完全没想到可能是 USB 3.0 带来的问题。在经历了一系列折腾之后，才突然想起这个坑。特此记录。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="USB" scheme="https://liam.page/tags/USB/"/>
-    
-      <category term="USB3.0" scheme="https://liam.page/tags/USB3-0/"/>
-    
-      <category term="Wireless" scheme="https://liam.page/tags/Wireless/"/>
     
   </entry>
   
