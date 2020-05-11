@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-05-06T16:14:39.328Z</updated>
+  <updated>2020-05-11T15:20:24.956Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,31 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>使用 TRANSFORM 在 Hive 中调用用户自定义的脚本</title>
+    <link href="https://liam.page/2020/05/11/TRANSFORM-in-Hive/"/>
+    <id>https://liam.page/2020/05/11/TRANSFORM-in-Hive/</id>
+    <published>2020-05-11T14:57:50.000Z</published>
+    <updated>2020-05-11T15:20:24.956Z</updated>
+    
+    <content type="html"><![CDATA[<p>在实际工作一个典型的机器学习任务中，我们在线上和线下都要对特征数据进行处理。线上处理的目的是为了推理预测，线下处理的目的则是为了准备训练数据。显然，因为处理区分线上线下，数据一致性就会成为非常关键的问题。</p><p>然而，数据一致性是挺烫手的山芋。因为，如果尝试在线上线下先后两次实现同样的功能，不论如何小心，都有出错的可能。更不用说，如果使用不同语言，那对于数据处理上的些微不同最终都可能破坏数据一致性。</p><p>因此，保证数据一致性最好的办法就是用一份代码在两个地方干同样的事情。我们线上服务是用 C++ 编写的，因此我们可以将特征 ETL 抽象成单独的模块，分别链接到线上服务以及离线特征处理程序中。这样，二者对于特征的 ETL 的行为就完全一致了。</p><p>剩下的问题就是：离线数据通过 Kafka 落在 Hive 表当中，我们需要在 Hive 处理数据的过程中，嵌入我们自己编写的特征处理程序。</p><a id="more"></a><p>经过简单的检索，我发现 Hive SQL 的 <code>TRANSFORM</code> 语法可以很方便地完成这一工作。</p><p>首先，我们需要使用 <code>ADD FILE</code> 将可执行程序以及可能的其他资源文件加入 Hive 豪华套餐。</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ADD FILE hdfs://path/to/feature_etl;</span><br><span class="line">ADD FILE hdfs://path/to/feature_etl.cfg;</span><br></pre></td></tr></table></figure><p>而后，我们就可以将 <code>TRANSFORM</code> 语句嵌入在 <code>SELECT</code> 子句当中了：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  TRANSFORM (column1, column2)</span><br><span class="line">    <span class="keyword">USING</span> <span class="string">'./feature_etl --config_file=./feature_etl.cfg'</span></span><br><span class="line">    <span class="keyword">AS</span> (out_column1 <span class="keyword">STRING</span>, out_column2 <span class="built_in">BIGINT</span>)</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">  db_name.tb_name</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">  conds;</span><br></pre></td></tr></table></figure><p>这里：</p><ul><li><code>column1</code> 和 <code>column2</code> 是原始表 <code>db_name.tb_name</code> 中的列名字。</li><li><code>TRANSFORM</code> 子句表示 Hive 会将 <code>column1</code> 和 <code>column2</code> 以制表符 <code>\t</code> 分割拼成一个字符串传给用户指定的程序。<ul><li>注意，如果 <code>column1</code> 或者 <code>column2</code> 当中包含制表符，则用户需要自行处理，Hive 对此不负责。</li></ul></li><li><code>USING</code> 子句指示使用什么命令来处理输入。这里我们用 <code>./feature_etl --config_file=./feature_etl.cfg</code>。<ul><li>注意，使用 <code>ADD FILE</code> 导入的文件就在「当前目录」中。</li><li>另外，Hive 会像 Hadoop Streaming 任务那样，将数据通过标准输入传给用户指定的程序，并从标准输出读取输出。</li></ul></li><li><code>AS</code> 子句指示用户程序的输出都有哪些列。<ul><li>注意，用户程序的输出也应当是以制表符 <code>\t</code> 分割拼成的字符串；如果输出字符串中包含换行符，则会被 Hive 视作是输出了多条数据（一行变多行）。</li><li>另外，<code>AS</code> 子句当中可以指定列数据的类型，若不指定则默认都是字符串。Hive 会和往常一样去解析数据类型。</li></ul></li></ul><p>另外，Hive 也提供了 <code>MAP</code> 和 <code>REDUCE</code> 子句，同样可以使用用户自定程序处理数据。但是 <code>MAP</code> 和 <code>REDUCE</code> 其实只是 <code>TRANSFORM</code> 的别称，使用 <code>MAP</code> 并不一定会在 MapReduce 的 Map 阶段进行处理，使用 <code>REDUCE</code> 也是一样。因此，使用这两个子句难免有误导之嫌，不如不用，统一转向 <code>TRANSFORM</code>。</p><p><code>TRANSFORM</code> 子句还有其他一些细节，可参考 <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Transform" target="_blank" rel="noopener">Apache 的 wiki 页</a>。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;在实际工作一个典型的机器学习任务中，我们在线上和线下都要对特征数据进行处理。线上处理的目的是为了推理预测，线下处理的目的则是为了准备训练数据。显然，因为处理区分线上线下，数据一致性就会成为非常关键的问题。&lt;/p&gt;
+&lt;p&gt;然而，数据一致性是挺烫手的山芋。因为，如果尝试在线上线下先后两次实现同样的功能，不论如何小心，都有出错的可能。更不用说，如果使用不同语言，那对于数据处理上的些微不同最终都可能破坏数据一致性。&lt;/p&gt;
+&lt;p&gt;因此，保证数据一致性最好的办法就是用一份代码在两个地方干同样的事情。我们线上服务是用 C++ 编写的，因此我们可以将特征 ETL 抽象成单独的模块，分别链接到线上服务以及离线特征处理程序中。这样，二者对于特征的 ETL 的行为就完全一致了。&lt;/p&gt;
+&lt;p&gt;剩下的问题就是：离线数据通过 Kafka 落在 Hive 表当中，我们需要在 Hive 处理数据的过程中，嵌入我们自己编写的特征处理程序。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Big Data and Machine Learning" scheme="https://liam.page/categories/Big-Data-and-Machine-Learning/"/>
+    
+    
+      <category term="Hive" scheme="https://liam.page/tags/Hive/"/>
+    
+  </entry>
   
   <entry>
     <title>利用 Protobuf 中 oneof 的特性生成 has_xxx 接口</title>
@@ -537,46 +562,6 @@
       <category term="SARS-CoV-2" scheme="https://liam.page/tags/SARS-CoV-2/"/>
     
       <category term="COVID-19" scheme="https://liam.page/tags/COVID-19/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>泥潭挣扎记：Linuxbrew 里的 Glibc</title>
-    <link href="https://liam.page/2020/01/19/struggle-with-Glibc-and-Linuxbrew/"/>
-    <id>https://liam.page/2020/01/19/struggle-with-Glibc-and-Linuxbrew/</id>
-    <published>2020-01-19T10:10:52.000Z</published>
-    <updated>2020-03-02T14:20:07.827Z</updated>
-    
-    <content type="html"><![CDATA[<p>本着 Homebrew 真香的原则，我尝试在 CentOS 上安装 Linuxbrew。至于不用 Yum 的原因，请看刚才提到的真香原则。</p><p>但随即，我就陷入到了 Glibc 的泥潭。这个泥潭是一个需要自举（bootstrap）的循环依赖；这个泥潭长这样：</p><ul><li>Linuxbrew 安装任何东西都依赖 <code>curl</code> 和 <code>git</code>，而且它不想用系统中自带的 <code>curl</code> 和 <code>git</code>。</li><li><code>curl</code> 和 <code>git</code> 都直接或间接依赖 Glibc。</li><li>Linuxbrew 里的 Glibc 版本比较高，目前是 2.23，因此依赖高版本的 GCC（<code>&gt;= 4.7</code>），以及因为 Linuxbrew 的缘故依赖 <code>curl</code> 和 <code>git</code>。</li><li>系统里的 GCC 版本较低，因此 Linuxbrew 安装 Glibc 失败；而通过 Linuxbrew 安装高版本的 GCC 又再次依赖 Glibc。</li></ul><p>泥潭里有两个循环依赖：</p><ul><li>Glibc 和 <code>curl</code> 及 <code>git</code> 等基础工具相互依赖；</li><li>Glibc 和 GCC 相互依赖。</li></ul><a id="more"></a><h2 id="寻找突破口，解决-Glibc-的存在性问题"><a href="#寻找突破口，解决-Glibc-的存在性问题" class="headerlink" title="寻找突破口，解决 Glibc 的存在性问题"></a>寻找突破口，解决 Glibc 的存在性问题</h2><p>两个循环都涉及到 Glibc，因此必须想办法从 Glibc 这里突破。考虑到 Glibc 基础库的地位，很多依赖它的模块，都是硬编码 Glibc 的位置。因此 Glibc 必须从源码编译安装，无法直接服用编译好的二进制文件。所以 Glibc 无论如何都得依赖 GCC。既然高版本的 Glibc 依赖高版本的 GCC，那么就只能想办法安装较低版本的 Glibc——首先解决有没有（Linuxbrew 中的）Glibc 的问题，再去解决 Glibc 版本的问题。</p><p>为了安装低版本的 Glibc，我们要用到 <code>brew</code> 直接从 <code>tap</code> 中安装的特性：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">""</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">"1"</span> \</span><br><span class="line">brew install --verbose --ignore-dependencies https://raw.githubusercontent.com/Linuxbrew/homebrew-core/6fb5dfd50895416bea3d00628b8d3b41fa1f4f32/Formula/glibc.rb  <span class="comment"># Glibc 2.20</span></span><br></pre></td></tr></table></figure><p>讲一下这里的黑魔法。</p><p><code>MAKEFLAGS</code> 和 <code>HOMEBREW_MAKE_JOBS</code> 的设定，都是为了让编译 Glibc 的过程中使用非并行编译。这是因为并行编译 Glibc 2.20 时，因为 Makefile 依赖没写好，会产生一些问题。</p><p><code>--verbose</code> 参数的意义是让 <code>brew</code> 打印尽可能多的调试信息。<code>--ignore-dependencies</code> 则是无奈之举，因为 Glibc 依赖的东西反过来又会依赖 Glibc，于是 Linuxbrew 会尝试去安装高版本 Glibc，这就毁了。</p><p>执行这条命令，Linuxbrew 首先还是会去尝试安装 <code>curl</code> 和 <code>git</code>。而它们又依赖 Glibc，所以又会尝试安装高版本的 Glibc，依然会失败。这没办法，由着他们失败去。等它们失败之后，就会尝试安装 Glibc 2.20。</p><h2 id="解决-GCC-的问题"><a href="#解决-GCC-的问题" class="headerlink" title="解决 GCC 的问题"></a>解决 GCC 的问题</h2><p>接下来要解决的是 GCC 的问题。因为但凡碰到要编译的，都离不开它。于是我们有：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew install --verbose --ignore-dependencies xz gmp mpfr libmpc isl gcc</span><br></pre></td></tr></table></figure><p>这里安装 <code>xz</code>, <code>gmp</code>, <code>mpfr</code>, <code>libmpc</code>, <code>isl</code> 的原因是 GCC 自身就依赖他们——哪怕你不使用 Linuxbrew，手动编译 GCC 时，你也得安装它们。</p><h2 id="安装-curl-和-git"><a href="#安装-curl-和-git" class="headerlink" title="安装 curl 和 git"></a>安装 <code>curl</code> 和 <code>git</code></h2><p>有了 Glibc 和 GCC，安装 <code>curl</code> 和 <code>git</code> 就不成问题了。我们有：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">brew install --verbose curl git</span><br><span class="line">brew update  --verbose --force</span><br></pre></td></tr></table></figure><h2 id="升级-Glibc"><a href="#升级-Glibc" class="headerlink" title="升级 Glibc"></a>升级 Glibc</h2><p>之前我们安装的是 Glibc 2.20，现在我们来升级它。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">""</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">"1"</span> \</span><br><span class="line">brew upgrade glibc --verbose</span><br></pre></td></tr></table></figure><h2 id="重新安装-GCC"><a href="#重新安装-GCC" class="headerlink" title="重新安装 GCC"></a>重新安装 GCC</h2><p>因为 GCC 依赖的 Glibc 发生了变化，这导致 GCC 不可用。因此我们要做一些调整。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew postinstall gcc</span><br></pre></td></tr></table></figure><p>如此，万事 okay~</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;本着 Homebrew 真香的原则，我尝试在 CentOS 上安装 Linuxbrew。至于不用 Yum 的原因，请看刚才提到的真香原则。&lt;/p&gt;
-&lt;p&gt;但随即，我就陷入到了 Glibc 的泥潭。这个泥潭是一个需要自举（bootstrap）的循环依赖；这个泥潭长这样：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Linuxbrew 安装任何东西都依赖 &lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt;，而且它不想用系统中自带的 &lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;&lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt; 都直接或间接依赖 Glibc。&lt;/li&gt;
-&lt;li&gt;Linuxbrew 里的 Glibc 版本比较高，目前是 2.23，因此依赖高版本的 GCC（&lt;code&gt;&amp;gt;= 4.7&lt;/code&gt;），以及因为 Linuxbrew 的缘故依赖 &lt;code&gt;curl&lt;/code&gt; 和 &lt;code&gt;git&lt;/code&gt;。&lt;/li&gt;
-&lt;li&gt;系统里的 GCC 版本较低，因此 Linuxbrew 安装 Glibc 失败；而通过 Linuxbrew 安装高版本的 GCC 又再次依赖 Glibc。&lt;/li&gt;
-&lt;/ul&gt;
-&lt;p&gt;泥潭里有两个循环依赖：&lt;/p&gt;
-&lt;ul&gt;
-&lt;li&gt;Glibc 和 &lt;code&gt;curl&lt;/code&gt; 及 &lt;code&gt;git&lt;/code&gt; 等基础工具相互依赖；&lt;/li&gt;
-&lt;li&gt;Glibc 和 GCC 相互依赖。&lt;/li&gt;
-&lt;/ul&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="Homebrew" scheme="https://liam.page/tags/Homebrew/"/>
-    
-      <category term="Linuxbrew" scheme="https://liam.page/tags/Linuxbrew/"/>
-    
-      <category term="brwe" scheme="https://liam.page/tags/brwe/"/>
-    
-      <category term="Glibc" scheme="https://liam.page/tags/Glibc/"/>
     
   </entry>
   
