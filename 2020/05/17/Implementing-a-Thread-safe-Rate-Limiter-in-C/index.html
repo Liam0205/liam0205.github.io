@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="很早以前，在学习使用 Python 的 deque 容器时，我实现了一个玩具版的频率限制器。最近需要压测线上服务的性能，又不愿意总是在 QA 那边排队，于是需要自己写一个压测用的客户端。其中一个核心需求就是要实现 QPS 限制。 于是，终究逃不开要在 C++ 中实现一个线程安全的频率限制器。">
+<meta name="keywords" content="C++,QPS,Rate Limiter,Thread-safe">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在 C++ 中实现一个线程安全的频率限制器">
+<meta property="og:url" content="https://liam.page/2020/05/17/Implementing-a-Thread-safe-Rate-Limiter-in-C/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="很早以前，在学习使用 Python 的 deque 容器时，我实现了一个玩具版的频率限制器。最近需要压测线上服务的性能，又不愿意总是在 QA 那边排队，于是需要自己写一个压测用的客户端。其中一个核心需求就是要实现 QPS 限制。 于是，终究逃不开要在 C++ 中实现一个线程安全的频率限制器。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-05-17T11:39:36.792Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="在 C++ 中实现一个线程安全的频率限制器">
+<meta name="twitter:description" content="很早以前，在学习使用 Python 的 deque 容器时，我实现了一个玩具版的频率限制器。最近需要压测线上服务的性能，又不愿意总是在 QA 那边排队，于是需要自己写一个压测用的客户端。其中一个核心需求就是要实现 QPS 限制。 于是，终究逃不开要在 C++ 中实现一个线程安全的频率限制器。">
+
+<link rel="canonical" href="https://liam.page/2020/05/17/Implementing-a-Thread-safe-Rate-Limiter-in-C/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>在 C++ 中实现一个线程安全的频率限制器 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">344</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">12</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">666</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2020/05/17/Implementing-a-Thread-safe-Rate-Limiter-in-C/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          在 C++ 中实现一个线程安全的频率限制器
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2020 年 05 月 17 日 16:41:10 / 修改时间：19:39:36" itemprop="dateCreated datePublished" datetime="2020-05-17T16:41:10+08:00">2020 年 05 月 17 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>7.6k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>14 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>很早以前，在学习使用 Python 的 <code>deque</code> 容器时，我<a href="/2016/09/23/using-deque-to-implement-marquee-and-rate-limiter/">实现了一个玩具版的频率限制器</a>。最近需要压测线上服务的性能，又不愿意总是在 QA 那边排队，于是需要自己写一个压测用的客户端。其中一个核心需求就是要实现 QPS 限制。</p>
+<p>于是，终究逃不开要在 C++ 中实现一个线程安全的频率限制器。</p>
+<a id="more"></a>
+
+<h2 id="设计思路"><a href="#设计思路" class="headerlink" title="设计思路"></a>设计思路</h2><p>所谓频率限制，就是要在一个时间段（inteval）中，限制操作的次数（limit）。这又可以引出两种强弱不同的表述：</p>
+<ul>
+<li>强表述：在任意一个长度等于设定的时间段（interval）的滑动窗口中，频率限制器放行的操作次数（count）都不高于限制次数（limit）。</li>
+<li>弱表述：在一组长度等于设定的时间段（interval）且紧密相连的固定窗口中，每一个窗口里频率限制器放行的操作次数（count）都不高于限制次数（limit）。</li>
+</ul>
+<p>不难发现，强表述通过「滑动窗口」的方式，不仅限制了频率，还要求了操作在时间上的均匀性。前作的频率限制器，实际上对应了这里的强表述。但实际工程中，我们通常只需要实现弱表述的频率限制器就足够使用了。</p>
+<p>对于弱表述，实现起来主要思路如下：</p>
+<ul>
+<li>当操作计数（count）小于限制（limit）时直接放行；</li>
+<li>当操作计数（count）不小于限制（limit）时，继续判断当前时间与上一次记录时间戳（timestamp）的差值。<ul>
+<li>若差值不小于设定的时间段（interval），则更新记录时间戳、将计数重置为 <code>1</code> 并放行；</li>
+<li>否则拒绝操作。</li>
+</ul>
+</li>
+</ul>
+<h2 id="单线程实现"><a href="#单线程实现" class="headerlink" title="单线程实现"></a>单线程实现</h2><p>在不考虑线程安全时，不难给出这样的实现。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">ms_clock</span> &#123;</span></span><br><span class="line">  <span class="keyword">using</span> rep        = <span class="built_in">std</span>::chrono::milliseconds::rep;</span><br><span class="line">  <span class="keyword">using</span> period     = <span class="built_in">std</span>::chrono::milliseconds::period;</span><br><span class="line">  <span class="keyword">using</span> duration   = <span class="built_in">std</span>::chrono::duration&lt;rep, period&gt;;</span><br><span class="line">  <span class="keyword">using</span> time_point = <span class="built_in">std</span>::chrono::time_point&lt;ms_clock, duration&gt;;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">static</span></span><br><span class="line">  <span class="function">time_point <span class="title">now</span><span class="params">()</span> <span class="keyword">noexcept</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> time_point(<span class="built_in">std</span>::chrono::duration_cast&lt;duration&gt;(</span><br><span class="line">                  <span class="built_in">std</span>::chrono::steady_clock::now().time_since_epoch()));</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line">&#125;  <span class="comment">// namespace __details</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">RateLimiter</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">using</span> clock    = __details::ms_clock;  <span class="comment">// 1.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">const</span> <span class="keyword">uint64_t</span>        limit_;</span><br><span class="line">  <span class="keyword">const</span> clock::duration interval_;</span><br><span class="line">  <span class="keyword">const</span> clock::rep      interval_count_;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">mutable</span> <span class="keyword">uint64_t</span>   count_&#123;<span class="built_in">std</span>::numeric_limits&lt;<span class="keyword">uint64_t</span>&gt;::max()&#125;;  <span class="comment">// 2.a.</span></span><br><span class="line">  <span class="keyword">mutable</span> clock::rep timestamp_&#123;<span class="number">0</span>&#125;;                                 <span class="comment">// 2.b.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  constexpr RateLimiter(uint64_t limit, clock::duration interval) :</span><br><span class="line">    limit_(limit), interval_(interval), interval_count_(interval_.count()) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  RateLimiter(<span class="keyword">const</span> RateLimiter&amp;) = <span class="keyword">delete</span>;             <span class="comment">// 3.a.</span></span><br><span class="line">  RateLimiter&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> RateLimiter&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 3.b.</span></span><br><span class="line">  RateLimiter(RateLimiter&amp;&amp;) = <span class="keyword">delete</span>;                  <span class="comment">// 3.c.</span></span><br><span class="line">  RateLimiter&amp; <span class="keyword">operator</span>=(RateLimiter&amp;&amp;) = <span class="keyword">delete</span>;       <span class="comment">// 3.d.</span></span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">operator</span><span class="params">()</span><span class="params">()</span> <span class="keyword">const</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">double</span> <span class="title">qps</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1000.0</span> * <span class="keyword">this</span>-&gt;limit_ / <span class="keyword">this</span>-&gt;interval_count_;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">bool</span> RateLimiter::<span class="keyword">operator</span>()() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count_++;</span><br><span class="line">  <span class="keyword">if</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_) &#123;  <span class="comment">// 4.</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">auto</span> ts  = <span class="keyword">this</span>-&gt;timestamp_;</span><br><span class="line">    <span class="keyword">auto</span> now = clock::now().time_since_epoch().count();</span><br><span class="line">    <span class="keyword">if</span> (now - ts &lt; <span class="keyword">this</span>-&gt;interval_count_) &#123;  <span class="comment">// 5.</span></span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">this</span>-&gt;timestamp_ = now;</span><br><span class="line">    <span class="keyword">this</span>-&gt;count_     = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里，</p>
+<ul>
+<li>(1) 表明频率限制器使用单位为毫秒的时钟。在实际使用时，也可以按需改成微妙甚至纳秒。</li>
+<li>(2) 使用 <code>mutable</code> 修饰内部状态 <code>count_</code> 和 <code>timestamp_</code>。这是因为两个 <code>limit_</code> 和 <code>interval_</code> 相同的频率限制器，在逻辑上是等价的，但他们的内部状态却不一定相同。因此，为了让 <code>const</code> 成员函数能够修改内部状态（而不改变逻辑等价），我们要给内部状态数据成员加上 <code>mutable</code> 修饰。<ul>
+<li>(2.a) 处将 <code>count_</code> 设置为类型可表示的最大值是为了让 (4) 的判断失败，而对 <code>timestamp_</code> 进行初始化。</li>
+<li>(2.b) 处将 <code>timestamp_</code> 设置为 <code>0</code> 则是基于同样的原因，让 (5) 的判断失败。</li>
+<li>(2.a) 和 (2.b) 处通过巧妙的初值设计，将初始化状态与后续正常工作状态的逻辑统一了起来，而无须丑陋的判断。</li>
+</ul>
+</li>
+<li>(3) 禁止了对象的拷贝和移动。这是因为一个频率限制器应绑定一组操作，而不应由两组或更多组操作共享（对于拷贝的情形），或是中途失效（对于移动的情形）。</li>
+</ul>
+<p>如此一来，函数调用运算符就忠实地实现了前述逻辑。</p>
+<h2 id="多线程改造"><a href="#多线程改造" class="headerlink" title="多线程改造"></a>多线程改造</h2><h3 id="第一步改造"><a href="#第一步改造" class="headerlink" title="第一步改造"></a>第一步改造</h3><p>当有多线程同时调用 <code>RateLimiter::operator()</code> 时，显而易见，在 <code>count_</code> 和 <code>timestamp_</code> 上会产生竞争。我们有两种办法解决这个问题：要不然加锁，要不然把 <code>count_</code> 和 <code>timestamp_</code> 设为原子变量然后用原子操作解决问题。于是，对函数调用运算符，我们有如下第一步的改造。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">RateLimiter</span> &#123;</span></span><br><span class="line">  <span class="comment">// 其余保持不变</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">mutable</span> <span class="built_in">std</span>::atomic&lt;<span class="keyword">uint64_t</span>&gt;   count_&#123;<span class="built_in">std</span>::numeric_limits&lt;<span class="keyword">uint64_t</span>&gt;::max()&#125;;  <span class="comment">// 1.a.</span></span><br><span class="line">  <span class="keyword">mutable</span> <span class="built_in">std</span>::atomic&lt;clock::rep&gt; timestamp_&#123;<span class="number">0</span>&#125;;                                 <span class="comment">// 1.b.</span></span><br><span class="line">  <span class="comment">// 其余保持不变</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">bool</span> RateLimiter::<span class="keyword">operator</span>()() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count_.fetch_add(<span class="number">1U</span>L);  <span class="comment">// 2.</span></span><br><span class="line">  <span class="keyword">if</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">auto</span> ts  = <span class="keyword">this</span>-&gt;timestamp_.load();  <span class="comment">// 3.</span></span><br><span class="line">    <span class="keyword">auto</span> now = clock::now().time_since_epoch().count();</span><br><span class="line">    <span class="keyword">if</span> (now - ts &lt; <span class="keyword">this</span>-&gt;interval_count_) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">this</span>-&gt;timestamp_.store(now);  <span class="comment">// 4.</span></span><br><span class="line">    <span class="keyword">this</span>-&gt;count_.store(<span class="number">1U</span>L);  <span class="comment">// 5.</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里，</p>
+<ul>
+<li>(1) 将 <code>count_</code> 和 <code>timestamp_</code> 声明为原子的，从而方便后续进行原子操作。</li>
+<li>(2) -- (5) 则将原有操作分别改为对应的原子操作。</li>
+</ul>
+<p>这样看起来很完美，但其实是有 bug 的。我们重点关注 (4) 这里。(4) 的本意是更新 <code>timestamp_</code>，以备下一次 <code>orig_count &gt;= this-&gt;limit_</code> 时进行判断。准确设置这一 <code>timestamp</code> 是频率限制器正确工作的基石。但是，<strong>如果有两个（或更多）线程，同时走到了 (4)</strong> 会发生什么？</p>
+<ul>
+<li>因为原子操作的存在，两个线程会先后执行 (4)。于是 <code>timestamp_</code> 的值究竟是什么，我们完全不可预期。</li>
+<li>此外，两个线程会先后执行 (5)，即原子地将 <code>count_</code> 置为 <code>1</code>。但是你想，频率限制器先后放行了两次操作，但为什么 <code>count_</code> 是 <code>1</code> 呢？这是不是就「偷跑」了一次操作？</li>
+</ul>
+<p>为此，我们要保证只有一个线程会真正设置 <code>timestamp_</code>，而拒绝其他同样走到 (4) 位置的线程的操作，以避免其重复设置 <code>timestamp_</code> 以及错误地将 <code>count_</code> 再次置为 <code>1</code>。</p>
+<h3 id="第二步改进"><a href="#第二步改进" class="headerlink" title="第二步改进"></a>第二步改进</h3><p>于是有以下改进。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">bool</span> RateLimiter::<span class="keyword">operator</span>()() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count_.fetch_add(<span class="number">1U</span>L);  <span class="comment">// 3.</span></span><br><span class="line">  <span class="keyword">if</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_) &#123;  <span class="comment">// 4.</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">auto</span> ts  = <span class="keyword">this</span>-&gt;timestamp_.load();</span><br><span class="line">    <span class="keyword">auto</span> now = clock::now().time_since_epoch().count();</span><br><span class="line">    <span class="keyword">if</span> (now - ts &lt; <span class="keyword">this</span>-&gt;interval_count_) &#123;  <span class="comment">// 5.</span></span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">not</span> <span class="keyword">this</span>-&gt;timestamp_.compare_and_exchange_strong(ts, now)) &#123;  <span class="comment">// 1.</span></span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">this</span>-&gt;count_.store(<span class="number">1U</span>L);  <span class="comment">// 2.</span></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里，(1) 是一个 CAS 原子操作。它会原子地比较 <code>timestamp_</code> 和 <code>ts</code> 的值（Compare）：若他们相等，则将 <code>now</code> 的值写入 <code>timestamp_</code>（Swap），并返回 <code>true</code>；若他们不相等，则将 <code>timestamp_</code> 的值写入 <code>ts</code>，并返回 <code>false</code>。如果没有其他线程抢先修改 <code>timestamp_</code> 的值，那么 CAS 操作应该成功并返回 <code>true</code>，继续执行后面的代码；否则，说明其他线程已经抢先修改了 <code>timestamp_</code>，当前线程的操作被记入上一个周期而被频率限制器拒绝。</p>
+<p>现在要考虑 (2)。如果执行完 (1) 之后立即立刻马上没有任何延迟地执行 (2)，那么当然一切大吉。但如果这时候当前线程被切出去，会发生什么？我们要分情况讨论。</p>
+<ul>
+<li><p>如果 <code>ts == 0</code>，也就是「当前线程」是频率限制器第一次修改 <code>timestamp_</code>。于是，当前线程可能会在 (3) 处将 <code>count_</code> （溢出地）自增为 <code>0</code>，从而可能有其他线程通过 (4)。此时，当前线程在当前分片有可能应当被拒绝操作。为此，我们需要在 (1) 和 (2) 之间做额外的判断。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (ts == <span class="number">0</span>) &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count.fetch_add(<span class="number">1U</span>L);</span><br><span class="line">  <span class="keyword">return</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>如果 <code>ts != 0</code>，也就是「当前线程」并非频率限制器第一次修改 <code>timestamp_</code>。那么其他线程在 (4) 处必然判断失败，但在 (5) 处的判断可能成功，从而可能继续成功执行 (1)，从而接连两次执行 (2)。但这不影响正确性。因为通过 (5) 表明相对当前线程填入的 <code>timestamp_</code>，已经由过了一个时间段（interval），而在这个时间段里，只有当前线程的一次操作会被接受。</p>
+</li>
+</ul>
+<h3 id="第三次改进"><a href="#第三次改进" class="headerlink" title="第三次改进"></a>第三次改进</h3><p>由此，我们得到：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">bool</span> RateLimiter::<span class="keyword">operator</span>()() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count_.fetch_add(<span class="number">1U</span>L);</span><br><span class="line">  <span class="keyword">if</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">auto</span> ts  = <span class="keyword">this</span>-&gt;timestamp_.load();</span><br><span class="line">    <span class="keyword">auto</span> now = clock::now().time_since_epoch().count();</span><br><span class="line">    <span class="keyword">if</span> (now - ts &lt; <span class="keyword">this</span>-&gt;interval_count_) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">not</span> <span class="keyword">this</span>-&gt;timestamp_.compare_and_exchange_strong(ts, now)) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (ts == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count.fetch_add(<span class="number">1U</span>L);</span><br><span class="line">      <span class="keyword">return</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">this</span>-&gt;count_.store(<span class="number">1U</span>L);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>至此，我们的代码在逻辑上已经成立了，接下来要做一些性能方面的优化。</p>
+<p>原子操作默认采用 <code>std::memory_order_seq_cst</code> 的内存模型。这是 C++ 中最严格的内存模型，它有两个保证：</p>
+<ul>
+<li>程序指令和源码顺序一致；</li>
+<li>所有线程的所有操作都有一致的顺序。</li>
+</ul>
+<p>为了实现顺序一致性（sequential consistency），编译器会使用很多对抗编译器优化和 CPU 乱序执行（Out-of-Order Execution）的手段，因而性能较差。对于此处的 <code>count_</code>，我们无需顺序一致性模型，只需要获取释放模型（Aquire-Release）模型就足够了。</p>
+<h3 id="第四次改进"><a href="#第四次改进" class="headerlink" title="第四次改进"></a>第四次改进</h3><p>于是有第四次改进：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">bool</span> RateLimiter::<span class="keyword">operator</span>()() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count_.fetch_add(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_acq_rel);</span><br><span class="line">  <span class="keyword">if</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">auto</span> ts  = <span class="keyword">this</span>-&gt;timestamp_.load();</span><br><span class="line">    <span class="keyword">auto</span> now = clock::now().time_since_epoch().count();</span><br><span class="line">    <span class="keyword">if</span> (now - ts &lt; <span class="keyword">this</span>-&gt;interval_count_) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">not</span> <span class="keyword">this</span>-&gt;timestamp_.compare_and_exchange_strong(ts, now)) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (ts == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count.fetch_add(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_acq_rel);</span><br><span class="line">      <span class="keyword">return</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">this</span>-&gt;count_.store(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_release);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>至此，我们就完整实现了一个频率限制器，可以愉快地开始拉 QPS 压测了！</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2020/05/17/Implementing-a-Thread-safe-Rate-Limiter-in-C/" title="在 C++ 中实现一个线程安全的频率限制器">https://liam.page/2020/05/17/Implementing-a-Thread-safe-Rate-Limiter-in-C/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/QPS/" rel="tag"># QPS</a>
+              <a href="/tags/Rate-Limiter/" rel="tag"># Rate Limiter</a>
+              <a href="/tags/Thread-safe/" rel="tag"># Thread-safe</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/05/14/remove-duplicate-entries-in-Hive-SQL/" rel="prev" title="删除 Hive SQL 查询结果中的重复内容">
+      <i class="fa fa-chevron-left"></i> 删除 Hive SQL 查询结果中的重复内容
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#设计思路"><span class="nav-number">1.</span> <span class="nav-text">设计思路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#单线程实现"><span class="nav-number">2.</span> <span class="nav-text">单线程实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#多线程改造"><span class="nav-number">3.</span> <span class="nav-text">多线程改造</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#第一步改造"><span class="nav-number">3.1.</span> <span class="nav-text">第一步改造</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第二步改进"><span class="nav-number">3.2.</span> <span class="nav-text">第二步改进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第三次改进"><span class="nav-number">3.3.</span> <span class="nav-text">第三次改进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#第四次改进"><span class="nav-number">3.4.</span> <span class="nav-text">第四次改进</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">344</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">12</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">666</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.3m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">39:06</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2020/05/17/Implementing-a-Thread-safe-Rate-Limiter-in-C/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'b3317ca09010009390d355c0e9361889',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
