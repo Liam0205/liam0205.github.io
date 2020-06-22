@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-05-30T09:36:25.906Z</updated>
+  <updated>2020-06-22T13:14:17.803Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,37 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>gperftools 中 CPU Profiler 不工作问题的解法</title>
+    <link href="https://liam.page/2020/06/22/CPU-Profiler-in-gperftools-not-working/"/>
+    <id>https://liam.page/2020/06/22/CPU-Profiler-in-gperftools-not-working/</id>
+    <published>2020-06-22T13:01:30.000Z</published>
+    <updated>2020-06-22T13:14:17.803Z</updated>
+    
+    <content type="html"><![CDATA[<p>为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按<a href="https://gperftools.github.io/gperftools/cpuprofile.html" target="_blank" rel="noopener">官网介绍</a>，以下三种方式之一，可开启 CPU Profiler。</p><ol><li>运行时，用 <code>LD_PRELOAD</code> 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 <code>env LD_PRELOAD=&quot;/usr/lib/libprofiler.so&quot; /path/to/elf_bin</code>。</li><li>链接时，加上 <code>-lproflier</code>（或者 <code>-ltcmalloc_and_profiler</code>，如果还需要 TCMalloc 的话），而后在运行时通过 <code>env CPUPROFILE=foo.prof /path/to/elf_bin</code> 将性能分析文件写入 <code>foo.prof</code>。</li><li>在加上链接参数 <code>-lproflier</code> 的基础上，在代码内引入头文件 <code>#include &lt;gperftools/profiler.h&gt;</code>，而后在需要分析性能的代码块前后加上 <code>ProfilerStart(&quot;/path/to/foo.prof&quot;)</code> 及 <code>ProfilerStop()</code>。</li></ol><p>这里 (1) 不需要重新编译，但是一看就很山寨；(3) 在分析特定代码片块的性能时很有效，但在意图分析整个程序的性能时就很鸡肋。目光集中在 (2) 上面。</p><p>尝试 (2) 时，遇到一个问题。不管如何设置 <code>CPUPROFILE</code>，程序都不会将性能分析文件转储出来。</p><a id="more"></a><p>经过分析，原因水落石出。链接器在链接 <code>libprofiler</code> 时，会根据程序中的符号引用情况，将未被引用的符号都删掉。由于我们的代码里，没有引用任何 CPU Profiler 的函数，相当于整个 <code>libprofiler</code> 其实没有被链入程序当中。</p><p>为解决这个问题，最标准的解法，是在 <code>-lprofiler</code> 前后加上链接器参数，抑制这种行为：<code>--no-as-needed</code> 和 <code>--as-needed</code>。</p><p>如果因为种种原因，无法给链接器传参，则可考虑在 <code>main</code> 函数返回之前，加入这段代码：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">volatile</span> <span class="keyword">bool</span> tmp = <span class="literal">false</span>;</span><br><span class="line"><span class="keyword">if</span> (tmp) ProfilerStop();</span><br></pre></td></tr></table></figure><p>这里，布尔变量 <code>tmp</code> 被 <code>volatile</code> 修饰，因而编译器不会将其优化掉。而因为我们没有机会改变 <code>tmp</code> 的值，所以 <code>ProfilerStop()</code> 没有机会被执行。但是，虽然我们知道这一点，但编译器并不知道。因此，在得到的目标文件之中，会有针对 <code>ProfilerStop</code> 及相关符号的引用。这样，哪怕不加 <code>--no-as-needed</code> 和 <code>--as-needed</code> 参数，链接器也会将需要的符号链入程序当中。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按&lt;a href=&quot;https://gperftools.github.io/gperftools/cpuprofile.html&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;官网介绍&lt;/a&gt;，以下三种方式之一，可开启 CPU Profiler。&lt;/p&gt;
+&lt;ol&gt;
+&lt;li&gt;运行时，用 &lt;code&gt;LD_PRELOAD&lt;/code&gt; 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 &lt;code&gt;env LD_PRELOAD=&amp;quot;/usr/lib/libprofiler.so&amp;quot; /path/to/elf_bin&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;链接时，加上 &lt;code&gt;-lproflier&lt;/code&gt;（或者 &lt;code&gt;-ltcmalloc_and_profiler&lt;/code&gt;，如果还需要 TCMalloc 的话），而后在运行时通过 &lt;code&gt;env CPUPROFILE=foo.prof /path/to/elf_bin&lt;/code&gt; 将性能分析文件写入 &lt;code&gt;foo.prof&lt;/code&gt;。&lt;/li&gt;
+&lt;li&gt;在加上链接参数 &lt;code&gt;-lproflier&lt;/code&gt; 的基础上，在代码内引入头文件 &lt;code&gt;#include &amp;lt;gperftools/profiler.h&amp;gt;&lt;/code&gt;，而后在需要分析性能的代码块前后加上 &lt;code&gt;ProfilerStart(&amp;quot;/path/to/foo.prof&amp;quot;)&lt;/code&gt; 及 &lt;code&gt;ProfilerStop()&lt;/code&gt;。&lt;/li&gt;
+&lt;/ol&gt;
+&lt;p&gt;这里 (1) 不需要重新编译，但是一看就很山寨；(3) 在分析特定代码片块的性能时很有效，但在意图分析整个程序的性能时就很鸡肋。目光集中在 (2) 上面。&lt;/p&gt;
+&lt;p&gt;尝试 (2) 时，遇到一个问题。不管如何设置 &lt;code&gt;CPUPROFILE&lt;/code&gt;，程序都不会将性能分析文件转储出来。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Algorithm and Computer Science" scheme="https://liam.page/categories/Algorithm-and-Computer-Science/"/>
+    
+    
+      <category term="gperftools" scheme="https://liam.page/tags/gperftools/"/>
+    
+      <category term="CPU Profiler" scheme="https://liam.page/tags/CPU-Profiler/"/>
+    
+  </entry>
   
   <entry>
     <title>得年、享年、享寿</title>
@@ -537,34 +568,6 @@
       <category term="English" scheme="https://liam.page/tags/English/"/>
     
       <category term="Listening" scheme="https://liam.page/tags/Listening/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>使用 WITH ... AS ... 语句增强 SQL 查询的可读性</title>
-    <link href="https://liam.page/2020/03/13/the-WITH-AS-clause-in-Hive-SQL/"/>
-    <id>https://liam.page/2020/03/13/the-WITH-AS-clause-in-Hive-SQL/</id>
-    <published>2020-03-13T10:36:46.000Z</published>
-    <updated>2020-03-13T10:54:30.503Z</updated>
-    
-    <content type="html"><![CDATA[<p>最近在读各种 Hive SQL，发现一个可读性问题，让我很无奈。这里记录一下，希望看到的读者能够写出可读性更好的代码。</p><p>因为业务比较复杂，所以大家经常会用到各种子查询（sub-query）。于是会写成类似这样：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  t1.foo,</span><br><span class="line">  t2.bar,</span><br><span class="line">  t3.baz</span><br><span class="line"><span class="keyword">FROM</span> (</span><br><span class="line">    <span class="keyword">SELECT</span></span><br><span class="line">      foo,</span><br><span class="line">      bar</span><br><span class="line">    <span class="keyword">FROM</span></span><br><span class="line">      tb1</span><br><span class="line">    <span class="keyword">WHERE</span></span><br><span class="line">      &lt;conds&gt;</span><br><span class="line">  ) <span class="keyword">AS</span> t1 <span class="keyword">INNER</span> <span class="keyword">JOIN</span> (</span><br><span class="line">    <span class="keyword">SELECT</span></span><br><span class="line">      baz</span><br><span class="line">    <span class="keyword">FROM</span></span><br><span class="line">      tb2</span><br><span class="line">    <span class="keyword">WHERE</span></span><br><span class="line">      &lt;conds&gt;</span><br><span class="line">  ) <span class="keyword">AS</span> t2 <span class="keyword">ON</span> &lt;conds&gt;</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">  &lt;conds&gt;;</span><br></pre></td></tr></table></figure><p>这样写子查询会有两个问题。一是子查询的结果如果要在多个不同地方用到，那么就要复制粘贴多次，实际执行的时候也可能执行多次。二是当子查询或/和 JOIN 特别多的时候，整个查询就会变得无比复杂，可读性极差。为解决问题，可用视图（VIEW）解决，也可用 <code>WITH ... AS ...</code> 子句来解决。</p><a id="more"></a><p><code>WITH &lt;temprary_table_name&gt; AS (SELECT ... FROM &lt;table_name&gt; WHERE &lt;conds&gt;)</code>  和视图类似，可以创建一个临时表，供之后使用。按上述例子，改用 <code>WITH ... AS ...</code> 子句可以写成这样：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">WITH</span> t1 <span class="keyword">AS</span> (</span><br><span class="line">  <span class="keyword">SELECT</span></span><br><span class="line">    foo,</span><br><span class="line">    bar</span><br><span class="line">  <span class="keyword">FROM</span></span><br><span class="line">    tb1</span><br><span class="line">  <span class="keyword">WHERE</span></span><br><span class="line">    &lt;conds&gt;</span><br><span class="line">),</span><br><span class="line">t2 <span class="keyword">AS</span> (</span><br><span class="line">  <span class="keyword">SELECT</span></span><br><span class="line">    baz</span><br><span class="line">  <span class="keyword">FROM</span></span><br><span class="line">    tb2</span><br><span class="line">  <span class="keyword">WHERE</span></span><br><span class="line">    &lt;conds&gt;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  t1.foo,</span><br><span class="line">  t2.bar,</span><br><span class="line">  t3.baz</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">  t1 <span class="keyword">INNER</span> <span class="keyword">JOIN</span> t2 <span class="keyword">ON</span> &lt;conds&gt;</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">  &lt;conds&gt;;</span><br></pre></td></tr></table></figure><p>很明显，这样写起来可读性会强很多。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;最近在读各种 Hive SQL，发现一个可读性问题，让我很无奈。这里记录一下，希望看到的读者能够写出可读性更好的代码。&lt;/p&gt;
-&lt;p&gt;因为业务比较复杂，所以大家经常会用到各种子查询（sub-query）。于是会写成类似这样：&lt;/p&gt;
-&lt;figure class=&quot;highlight sql&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;1&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;2&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;3&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;4&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;5&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;6&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;7&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;8&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;9&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;10&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;11&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;12&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;13&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;14&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;15&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;16&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;17&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;18&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;19&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;20&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;21&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;22&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;SELECT&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;  t1.foo,&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;  t2.bar,&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;  t3.baz&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;FROM&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    &lt;span class=&quot;keyword&quot;&gt;SELECT&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;      foo,&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;      bar&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    &lt;span class=&quot;keyword&quot;&gt;FROM&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;      tb1&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    &lt;span class=&quot;keyword&quot;&gt;WHERE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;      &amp;lt;conds&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;  ) &lt;span class=&quot;keyword&quot;&gt;AS&lt;/span&gt; t1 &lt;span class=&quot;keyword&quot;&gt;INNER&lt;/span&gt; &lt;span class=&quot;keyword&quot;&gt;JOIN&lt;/span&gt; (&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    &lt;span class=&quot;keyword&quot;&gt;SELECT&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;      baz&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    &lt;span class=&quot;keyword&quot;&gt;FROM&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;      tb2&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;    &lt;span class=&quot;keyword&quot;&gt;WHERE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;      &amp;lt;conds&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;  ) &lt;span class=&quot;keyword&quot;&gt;AS&lt;/span&gt; t2 &lt;span class=&quot;keyword&quot;&gt;ON&lt;/span&gt; &amp;lt;conds&amp;gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;WHERE&lt;/span&gt;&lt;/span&gt;&lt;br&gt;&lt;span class=&quot;line&quot;&gt;  &amp;lt;conds&amp;gt;;&lt;/span&gt;&lt;br&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
-
-&lt;p&gt;这样写子查询会有两个问题。一是子查询的结果如果要在多个不同地方用到，那么就要复制粘贴多次，实际执行的时候也可能执行多次。二是当子查询或/和 JOIN 特别多的时候，整个查询就会变得无比复杂，可读性极差。为解决问题，可用视图（VIEW）解决，也可用 &lt;code&gt;WITH ... AS ...&lt;/code&gt; 子句来解决。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Big Data and Machine Learning" scheme="https://liam.page/categories/Big-Data-and-Machine-Learning/"/>
-    
-    
-      <category term="Hive" scheme="https://liam.page/tags/Hive/"/>
-    
-      <category term="SQL" scheme="https://liam.page/tags/SQL/"/>
     
   </entry>
   
