@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-06-23T07:52:17.600Z</updated>
+  <updated>2020-06-29T12:42:49.755Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,35 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>解决钉钉（DingTalk）在 macOS 上的权限问题</title>
+    <link href="https://liam.page/2020/06/29/Issues-of-Dingtalk-on-macOS/"/>
+    <id>https://liam.page/2020/06/29/Issues-of-Dingtalk-on-macOS/</id>
+    <published>2020-06-29T10:19:55.000Z</published>
+    <updated>2020-06-29T12:42:49.755Z</updated>
+    
+    <content type="html"><![CDATA[<p>最近，因为各种原因，我先后两次需要给<a href="https://anyi.im/" target="_blank" rel="noopener">悠悠</a>在 macOS 上安装钉钉。但是，先后两次安装钉钉，悠悠都反应钉钉和别人语音、视频会议的时候，别人看不见她、听不见她、无法共享屏幕等问题。</p><p>归根究底，这都是钉钉在 macOS 上权限控制的问题。</p><a id="more"></a><h2 id="权限管理在哪里"><a href="#权限管理在哪里" class="headerlink" title="权限管理在哪里"></a>权限管理在哪里</h2><p>GUI 里，macOS 的权限控制位于：<code>系统偏好设置</code> -&gt; <code>安全性与隐私</code> -&gt; <code>隐私</code>。</p><p><img data-src="/uploads/images/computer-skills/macOS-Privacy.jpg" alt></p><p>在隐私标签页中，我们可以看到有若干项涉及到隐私的权限控制。比如有</p><ul><li>定位服务</li><li>通讯录</li><li>日历</li><li>提醒事项</li><li>照片</li><li>摄像头</li><li>麦克风</li><li>辅助功能</li><li>磁盘完全访问权限</li><li>屏幕录制</li><li>……</li></ul><h2 id="钉钉都要什么权限"><a href="#钉钉都要什么权限" class="headerlink" title="钉钉都要什么权限"></a>钉钉都要什么权限</h2><p>钉钉在语音会议时，会申请麦克风权限；在视频会议时，还会额外申请摄像头权限；在共享屏幕时，还会额外申请屏幕录制权限。</p><p>理论上，只要在安全性与隐私里的隐私标签页的相应项目中，勾上钉钉，它就能够正常工作。但因为某些不明的原因（——我猜这个锅得由钉钉的开发与测试来背），你可能会遇到：</p><ul><li>勾上了，但仍然某项功能仍然无法正常工作；</li><li>没勾上，但是相应项目中也没有钉钉这个候选项，所以想勾也勾不上。</li></ul><h2 id="重置相应权限"><a href="#重置相应权限" class="headerlink" title="重置相应权限"></a>重置相应权限</h2><p>macOS 提供了 <code>ttcutil</code> 这个命令行程序来重置隐私设置。为此，你需要首先退出钉钉，并将其更新到官网的最新版本；而后打开终端（Terminal），然后键入命令：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo ttcutil reset Microphone</span><br><span class="line">sudo ttcutil reset Camera</span><br><span class="line">sudo ttcutil reset ScreenCapture</span><br></pre></td></tr></table></figure><p>这里，<code>sudo</code> 是为了获取系统最高权限——<code>root</code> 用户权限。这是因为，隐私设置的数据库，默认不允许普通用户访问。这里我们通过 <code>ttcutil reset</code> 依次重置了麦克风、摄像头、屏幕录制的隐私设置。</p><p>此时，再打开钉钉，发起视频会议，钉钉就会弹窗申请麦克风和摄像头的权限。你只需要在弹出的对话框中点击「好」，就能自动赋予钉钉相应权限。</p><p>共享桌面所需的屏幕录制权限，则有些复杂。当你在视频会议状态，选择共享桌面时，钉钉确实会发起权限申请。但你不能直接点击「好」，而需要打开系统偏好设置，进入安全性与隐私的隐私标签页，找到屏幕录制，再给钉钉打上勾。但不幸的是，就算你这样操作，钉钉仍然没有该项权限。</p><p>实验后，我发现正确的做法，不是通过视频会议的共享桌面功能触发权限申请，而是通过另一个同样需要该项权限的功能——截图——来触发权限申请。你只需要找到任意联系人，进入对话状态后，点击小剪刀进行截图，然后再赋予权限，即可正常机会钉钉的屏幕录制权限。</p><p>做完这些之后，你只需要重启钉钉，就应该能正常使用语音、视频会议，并且能够正常地在会议中共享桌面了。</p><h2 id="万一操作失误了怎么办"><a href="#万一操作失误了怎么办" class="headerlink" title="万一操作失误了怎么办"></a>万一操作失误了怎么办</h2><p>请继续在终端当中执行下列命令，然后重新赋予权限：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo ttcutil reset Microphone</span><br><span class="line">sudo ttcutil reset Camera</span><br><span class="line">sudo ttcutil reset ScreenCapture</span><br></pre></td></tr></table></figure>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;最近，因为各种原因，我先后两次需要给&lt;a href=&quot;https://anyi.im/&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;悠悠&lt;/a&gt;在 macOS 上安装钉钉。但是，先后两次安装钉钉，悠悠都反应钉钉和别人语音、视频会议的时候，别人看不见她、听不见她、无法共享屏幕等问题。&lt;/p&gt;
+&lt;p&gt;归根究底，这都是钉钉在 macOS 上权限控制的问题。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
+    
+    
+      <category term="macOS" scheme="https://liam.page/tags/macOS/"/>
+    
+      <category term="DingTalk" scheme="https://liam.page/tags/DingTalk/"/>
+    
+      <category term="tccutil" scheme="https://liam.page/tags/tccutil/"/>
+    
+      <category term="Privacy Control" scheme="https://liam.page/tags/Privacy-Control/"/>
+    
+  </entry>
   
   <entry>
     <title>gperftools 中 CPU Profiler 不工作问题的解法</title>
@@ -543,31 +572,6 @@
       <category term="Package" scheme="https://liam.page/tags/Package/"/>
     
       <category term="Markdown" scheme="https://liam.page/tags/Markdown/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>英语听力之五步精听法</title>
-    <link href="https://liam.page/2020/03/29/five-step-training-method-for-English-listening/"/>
-    <id>https://liam.page/2020/03/29/five-step-training-method-for-English-listening/</id>
-    <published>2020-03-29T13:06:10.000Z</published>
-    <updated>2020-03-29T13:10:50.486Z</updated>
-    
-    <content type="html"><![CDATA[<p>这里是凭回忆记录的赵东坡老师的「五步精听法」。这个方法是我很多年前在上 TOEFL iBT 培训时，从赵东坡老师处习得。</p><p>本文先讲怎么训练，然后解释为什么要这样训练。</p><a id="more"></a><h2 id="五步精听法"><a href="#五步精听法" class="headerlink" title="五步精听法"></a>五步精听法</h2><p>训练分为 5 步，需要的内容有两个：听力材料，听力材料对应的准确原文。</p><ol><li>播放一遍听力材料，不看原文，认真听；</li><li>打开听力原文，查找不认识的词和短语；</li><li>逐字句地翻译原文——必须成文，可以写在纸上或者打字放在电脑里，但不能口头翻译（「大概是这样就行了」是不行的）；</li><li>对照原文和译文，播放听力材料，落后听力原文三个单词做「影子跟读」，直到可以不看原文脱稿跟读；</li><li>在当天时间内（不一定要即时，但是要当天完成），认真听材料 20 遍，尝试根据听到的声音直接反应出对应的含义。</li></ol><h2 id="方法背后的原理"><a href="#方法背后的原理" class="headerlink" title="方法背后的原理"></a>方法背后的原理</h2><p>听力的最终目的是「听到声音就知道意思」。这就包括了两个步骤。首先是听到声音直到对方在说什么（英语，目标语言），这属于「听得清」的范畴；其次是知道对方说什么之后反应出对应的意思（中文，母语，思维语言）。</p><p>此外，因为听力是一个连续的过程，对这两个步骤还有「快」的要求。因为如果不够快，对方哗啦啦已经说到下一个话题了，可能我们还在反应上一个话题的内容。而「快」就要求对应于有一个比较大块的「意义反应单元」。什么意思呢？先以中文举例：当我们听到「我今天要去游泳」，我们理解的是整个句子，而不是逐词地理解「我、今天、要、去、游泳」。而放在英文中，非母语学生如果不经特别的训练，理解听力中说话人的语义往往是逐词进行的——就像后面那个例子一样。可以想见，这样去理解意思，是怎么都快不起来的。</p><p>可见，如果只是做听写练习，或者以美剧或者 VOA 之类的材料做泛听，是不够的。前者只解决了「辨音」的问题，而且效率低下；后者只是在不断地重复强化熟悉的句式和表达方式在脑海中的印象，不熟悉的内容还是不行。</p><p>这五步的精听练习中，第一步是模拟实际的环境（因为实际情况我们就只能听对方说一遍），第二步是辅助，第三步是建立英语到汉语的对应，第四步解决辨音的问题，第五步是在强化「声音 - 语义」的直接连接。这就是五步精听法背后的原理。</p><h2 id="推荐材料"><a href="#推荐材料" class="headerlink" title="推荐材料"></a>推荐材料</h2><ul><li>老托 93 篇听力练习</li><li>推荐的材料是科学美国人节目的「一分钟科学（Sixty Second Science）」</li></ul>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;这里是凭回忆记录的赵东坡老师的「五步精听法」。这个方法是我很多年前在上 TOEFL iBT 培训时，从赵东坡老师处习得。&lt;/p&gt;
-&lt;p&gt;本文先讲怎么训练，然后解释为什么要这样训练。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="English" scheme="https://liam.page/categories/English/"/>
-    
-    
-      <category term="English" scheme="https://liam.page/tags/English/"/>
-    
-      <category term="Listening" scheme="https://liam.page/tags/Listening/"/>
     
   </entry>
   
