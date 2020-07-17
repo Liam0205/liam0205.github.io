@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-07-14T03:43:24.816Z</updated>
+  <updated>2020-07-17T13:42:05.187Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,41 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>Linux top 命令里的内存相关字段（VIRT, RES, SHR, CODE, DATA）</title>
+    <link href="https://liam.page/2020/07/17/memory-stat-in-TOP/"/>
+    <id>https://liam.page/2020/07/17/memory-stat-in-TOP/</id>
+    <published>2020-07-17T07:30:36.000Z</published>
+    <updated>2020-07-17T13:42:05.187Z</updated>
+    
+    <content type="html"><![CDATA[<p>Linux 系统中，著名的 <code>top</code> 命令可列出各个进程对系统资源的利用情况。其中有 <code>VIRT</code>, <code>RES</code>, <code>SHR</code>, <code>CODE</code>, <code>DATA</code> 等几个字段，用来描述进程对内存的使用情况。（后二者默认不展示，需要按下 F 键，将相关字段调出来）。</p><p>但它们究竟表示什么含义呢？</p><a id="more"></a><h2 id="top-命令的文档"><a href="#top-命令的文档" class="headerlink" title="top 命令的文档"></a><code>top</code> 命令的文档</h2><p>执行 <code>man top</code> 可查看 <code>top</code> 命令的手册。可见这些字段的含义：</p><ul><li><code>VIRT</code> Virtual Memory Size (KiB)：进程使用的所有虚拟内存；包括代码（code）、数据（data）、共享库（shared libraries），以及被换出（swap out）到交换区和映射了（map）但尚未使用（未载入实体内存）的部分。</li><li><code>RES</code> Resident Memory Size (KiB)：进程所占用的所有实体内存（physical memory），不包括被换出到交换区的部分。</li><li><code>SHR</code> Shared Memory Size (KiB)：进程可读的全部共享内存，并非所有部分都包含在 <code>RES</code> 中。它反映了可能被其他进程共享的内存部分。</li><li><code>CODE</code> Code Size (KiB)：进程所占用的实体内存中，可执行代码所占用的内存大小。此项亦称为驻存代码集合（Text Resident Set, TRS）。</li><li><code>DATA</code> Data + Stack Size (KiB)：进程所占用的实体内存中，除去可执行代码所占用部分之外的内存大小。此项亦称为驻存数据集合（Data Resident Set, DRS）。</li></ul><p>但是，真的这样吗？</p><p><img data-src="/uploads/images/captures/top.jpg" alt></p><p>按照 <code>top</code> 命令的手册，应有等式 <code>CODE + DATA = RES</code> 成立。但这里，进程号为 22 的进程，<code>CODE</code> 为 59,984KiB，<code>DATA</code> 为 42.076GiB，<code>RES</code> 为 5.348GiB。显然不满足上述等式。</p><h2 id="top-命令的数据源"><a href="#top-命令的数据源" class="headerlink" title="top 命令的数据源"></a><code>top</code> 命令的数据源</h2><p>经查，<code>top</code> 命令读取的是 <code>/proc/&lt;pid&gt;/statm</code> 当中的数据。</p><blockquote><p>你可以通过 <code>cat /proc/&lt;pid&gt;/statm</code> 来查看。它有 7 列，分别是以内存页计算的 <code>VIRT</code>, <code>RES</code>, <code>SHR</code>, <code>CODE</code>, LRS, <code>DATA</code>, DIRTY。其中 LRS 和 DIRTY 自 Linux 2.6 开始不再使用。内存页的大小是 4KiB，因此，将内存页的数量乘以 4，就是以 KiB 计算的内存占用大小。</p></blockquote><p>而 <code>/proc/&lt;pid&gt;/statm</code> 当中的数据，是经过内核函数 <code>task_statm</code> 读取而后由 <code>procfs</code> 写入的。</p><p>我们来看看<a href="https://github.com/torvalds/linux/blob/a5ad5742f671de906adbf29fbedf0a04705cebad/fs/proc/task_mmu.c#L87-L98" target="_blank" rel="noopener">内核函数 <code>task_statm</code></a> 是怎样定义的：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="title">task_statm</span><span class="params">(struct mm_struct *mm,</span></span></span><br><span class="line"><span class="function"><span class="params">       <span class="keyword">unsigned</span> <span class="keyword">long</span> *shared, <span class="keyword">unsigned</span> <span class="keyword">long</span> *text,</span></span></span><br><span class="line"><span class="function"><span class="params">       <span class="keyword">unsigned</span> <span class="keyword">long</span> *data, <span class="keyword">unsigned</span> <span class="keyword">long</span> *resident)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  *shared = get_mm_counter(mm, MM_FILEPAGES) +</span><br><span class="line">      get_mm_counter(mm, MM_SHMEMPAGES);</span><br><span class="line">  *text = (PAGE_ALIGN(mm-&gt;end_code) - (mm-&gt;start_code &amp; PAGE_MASK))</span><br><span class="line">                &gt;&gt; PAGE_SHIFT;</span><br><span class="line">  *data = mm-&gt;data_vm + mm-&gt;stack_vm;</span><br><span class="line">  *resident = *shared + get_mm_counter(mm, MM_ANONPAGES);</span><br><span class="line">  <span class="keyword">return</span> mm-&gt;total_vm;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>这里 <code>get_mm_counter</code> 实际啥也没干，就是保证读取计数器的原子性——这是因为读取的是实体内存占用情况。</p><p>由此可知，并不一定有等式 <code>CODE + DATA = RES</code> 成立，但一定成立等式 <code>ANON = RES - SHR</code>。这里 <code>ANON</code> 表示在堆上分配的内存。</p><blockquote><p><a href="https://github.com/torvalds/linux/blob/a5ad5742f671de906adbf29fbed.f0a04705cebad/include/linux/mm.h#L1843-L1856" target="_blank" rel="noopener"><code>get_mm_counter</code> 在 <code>mm.h</code> 中定义</a>：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">&gt; <span class="function"><span class="keyword">static</span> <span class="keyword">inline</span> <span class="keyword">unsigned</span> <span class="keyword">long</span> <span class="title">get_mm_counter</span><span class="params">(struct mm_struct *mm, <span class="keyword">int</span> member)</span></span></span><br><span class="line">&gt; &#123;</span><br><span class="line">&gt;   <span class="keyword">long</span> val = atomic_long_read(&amp;mm-&gt;rss_stat.count[member]);</span><br><span class="line">&gt;</span><br><span class="line">&gt; <span class="meta">#<span class="meta-keyword">ifdef</span> SPLIT_RSS_COUNTING</span></span><br><span class="line">&gt;   <span class="comment">/*</span></span><br><span class="line"><span class="comment">&gt;    * counter is updated in asynchronous manner and may go to minus.</span></span><br><span class="line"><span class="comment">&gt;    * But it's never be expected number for users.</span></span><br><span class="line"><span class="comment">&gt;    */</span></span><br><span class="line">&gt;   <span class="keyword">if</span> (val &lt; <span class="number">0</span>)</span><br><span class="line">&gt;     val = <span class="number">0</span>;</span><br><span class="line">&gt; <span class="meta">#<span class="meta-keyword">endif</span></span></span><br><span class="line">&gt;   <span class="keyword">return</span> (<span class="keyword">unsigned</span> <span class="keyword">long</span>)val;</span><br><span class="line">&gt; &#125;</span><br><span class="line">&gt;</span><br></pre></td></tr></table></figure></blockquote><blockquote><p>可见 <code>get_mm_counter</code> 其实啥也没干，就是保证读取计数器的原子性。</p></blockquote><!--* <https://github.com/torvalds/linux/blob/cbafe18c71028d5e0ee1626b4776fea5d5824a78/include/linux/mm_types_task.h>* <https://github.com/torvalds/linux/blob/a5ad5742f671de906adbf29fbedf0a04705cebad/include/linux/mm_types.h#L384-L548> --><p>从代码可见</p><ul><li><code>shared</code> 是共享文件和动态库占用实体内存页（memory page）之和；它对应 <code>SHR</code>。</li><li><code>text</code> 是代码段占用内存页；它对应 <code>CODE</code>。</li><li><code>data</code> 是 <code>VM_WRITE &amp; ~VM_SHARED &amp; ~VM_STACK</code> 与 <code>VM_STACK</code> 占用内存页之和，也就是所有非栈内存中可写但非共享内存页与栈内存页之和；它对应 <code>DATA</code>。</li><li><code>resident</code> 是 <code>shared</code> 和实体匿名内存页（memory page）之和；它对应 <code>RES</code>。</li><li>return value 是整个虚拟内存的内存页；它对应 <code>VIRT</code>。</li></ul><p>从代码来看，<code>VIRT</code>, <code>SHR</code>, <code>CODE</code>, <code>RES</code> 与 <code>top</code> 命令的手册吻合，区别在于 <code>DATA</code> 这个字段——从我们观察到的现象，也确实在 <code>DATA</code> 上有明显的问题。</p><h2 id="DATA-之谜"><a href="#DATA-之谜" class="headerlink" title="DATA 之谜"></a><code>DATA</code> 之谜</h2><p>在<a href="/2016/05/01/Introduction-to-Memory-Addressing/#%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5">老文</a>中，我们谈到了虚拟内存和物理内存（实体内存）之间的差别与联系。在 Linux 中，进程能直接看到的，都是虚拟内存。</p><p>对于每一个虚拟内存页，根据其是否有对应的实体内存帧对应，有三种状态：</p><ol><li>该页没有实体内存帧与之对应；记为 vm_unmapped。</li><li>该页有实体内存帧与之对应，且未被换出到交换区；记为 vm_physic。</li><li>该页有实体内存帧与之对应，但已被换出到交换区；记为 vm_swap。</li></ol><p>在本文讨论的五个字段当中，按照是否有强调为 vm_physic，记录如下：</p><table><thead><tr><th></th><th><code>top</code> 手册</th><th>内核代码</th></tr></thead><tbody><tr><td><code>VIRT</code></td><td>x</td><td>x</td></tr><tr><td><code>RES</code></td><td>y</td><td>y</td></tr><tr><td><code>SHR</code></td><td>x</td><td>y</td></tr><tr><td><code>CODE</code></td><td>y</td><td>y</td></tr><tr><td><code>DATA</code></td><td>y</td><td>x</td></tr></tbody></table><p>可见，比较明确的是 <code>VIRT</code>, <code>RES</code> 和 <code>CODE</code>。<code>SHR</code> 的情况也比较好理解，内核代码可以明确是只包含实体内存部分，而 <code>top</code> 手册里则没有说明，因此我们也将其理解为只包含实体内存部分。</p><p>现在，需要确认的，就是 <code>DATA</code> 了。我们看一下 <code>DATA</code> 的实现：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">*data = mm-&gt;data_vm + mm-&gt;stack_vm;</span><br></pre></td></tr></table></figure><p>其中 <code>mm</code> 是 Linux 的内存描述符，它定义在 <a href="https://github.com/torvalds/linux/blob/a5ad5742f671de906adbf29fbedf0a04705cebad/include/linux/mm_types.h#L384-L548" target="_blank" rel="noopener"><code>linux/mm_types.h</code></a> 当中，是一个相当大的结构体。其中 <code>data_vm</code> 和 <code>stack_vm</code> 的定义如下：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">unsigned</span> <span class="keyword">long</span> data_vm;     <span class="comment">/* VM_WRITE &amp; ~VM_SHARED &amp; ~VM_STACK */</span></span><br><span class="line"><span class="keyword">unsigned</span> <span class="keyword">long</span> stack_vm;     <span class="comment">/* VM_STACK */</span></span><br></pre></td></tr></table></figure><p>这里，显然后缀 <code>vm</code> 表示虚拟内存（Virtual Memory），因此 <code>DATA</code> 表示的不只是实体内存占用，这一点是显然的了。接下来的问题是，这里的注释表示什么呢？<code>VM_WRITE</code> 等宏，定义在 <a href="https://github.com/torvalds/linux/blob/a5ad5742f671de906adbf29fbedf0a04705cebad/include/linux/mm.h#L240-L391" target="_blank" rel="noopener"><code>linux/mm.h</code></a> 当中。这些宏表示虚拟内存区域（Virtual Memory Area, <code>vm_area</code>）的属性，由一些 one-hot 的整数来表示。于是，<code>VM_WRITE &amp; ~VM_SHARED &amp; ~VM_STACK</code> 表示非栈且非共享的可写虚拟内存区域。因此 <code>DATA</code> 字段表达的是虚拟内存中，栈区域与非栈区域中非共享可写区域之和。</p><p>这也就能解释，为什么 <code>DATA</code> 看起来远远大于 <code>RES</code> 了。因为 <code>RES</code> 是实际占用的实体内存大小，而 <code>DATA</code> 计算的是数据部分占用虚拟内存的大小。后者可能包含了大量实际没有与实体内存帧映射的虚拟内存页，从而导致看起来虚高。</p><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul><li><code>VIRT</code> Virtual Memory Size (KiB)：进程使用的所有<strong>虚拟内存</strong>；包括代码（code）、数据（data）、共享库（shared libraries），以及被换出（swap out）到交换区和映射了（map）但尚未使用（未载入实体内存）的部分。</li><li><code>RES</code> Resident Memory Size (KiB)：进程所占用的所有<strong>实体内存</strong>（physical memory），不包括被换出到交换区的部分。</li><li><code>SHR</code> Shared Memory Size (KiB)：进程可读的全部共享<strong>实体内存</strong>，并非所有部分都包含在 <code>RES</code> 中。它反映了可能被其他进程共享的内存部分。</li><li><code>CODE</code> Code Size (KiB)：进程所占用的<strong>实体内存</strong>中，可执行代码所占用的内存大小。此项亦称为驻存代码集合（Text Resident Set, TRS）。</li><li><code>DATA</code> Data + Stack Size (KiB)：进程所占用的<strong>虚拟内存</strong>中，栈区域与非栈区域中非共享可写区域之和。</li></ul><p>不一定有等式 <code>CODE + DATA = RES</code> 成立，但一定成立等式 <code>ANON = RES - SHR</code> 及不等式 <code>ANON &lt;= DATA (vm_physic) &lt;= DATA</code>。如果观察到程序稳定运行时 <code>RES - SHR</code> 不断增长，则可能预示着程序存在内存泄漏现象。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;Linux 系统中，著名的 &lt;code&gt;top&lt;/code&gt; 命令可列出各个进程对系统资源的利用情况。其中有 &lt;code&gt;VIRT&lt;/code&gt;, &lt;code&gt;RES&lt;/code&gt;, &lt;code&gt;SHR&lt;/code&gt;, &lt;code&gt;CODE&lt;/code&gt;, &lt;code&gt;DATA&lt;/code&gt; 等几个字段，用来描述进程对内存的使用情况。（后二者默认不展示，需要按下 F 键，将相关字段调出来）。&lt;/p&gt;
+&lt;p&gt;但它们究竟表示什么含义呢？&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Algorithm and Computer Science" scheme="https://liam.page/categories/Algorithm-and-Computer-Science/"/>
+    
+    
+      <category term="Linux" scheme="https://liam.page/tags/Linux/"/>
+    
+      <category term="Kernel" scheme="https://liam.page/tags/Kernel/"/>
+    
+      <category term="VIRT" scheme="https://liam.page/tags/VIRT/"/>
+    
+      <category term="RES" scheme="https://liam.page/tags/RES/"/>
+    
+      <category term="SHR" scheme="https://liam.page/tags/SHR/"/>
+    
+      <category term="CODE" scheme="https://liam.page/tags/CODE/"/>
+    
+      <category term="DATA" scheme="https://liam.page/tags/DATA/"/>
+    
+  </entry>
   
   <entry>
     <title>PS 技巧：分频磨皮法</title>
@@ -538,34 +573,6 @@
       <category term="step-by-step" scheme="https://liam.page/tags/step-by-step/"/>
     
       <category term="macTeX" scheme="https://liam.page/tags/macTeX/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>利用 Excel 当中的 MATCH 和 XLOOKUP 函数实现集合与字典（映射）访问</title>
-    <link href="https://liam.page/2020/04/09/match-and-xlookup-in-excel/"/>
-    <id>https://liam.page/2020/04/09/match-and-xlookup-in-excel/</id>
-    <published>2020-04-09T07:39:09.000Z</published>
-    <updated>2020-04-09T08:43:11.570Z</updated>
-    
-    <content type="html"><![CDATA[<p>集合与字典（映射）是程序设计当中常见的两种容器类型。在 C++ 的标准模板库中，它们的实现分别是 <code>std::set</code>/<code>std::multiset</code> 与 <code>std::map</code>/<code>std::multimap</code>。（分别还有利用哈希表实现的 <code>unordered</code> 版本）其中，字典（映射）的键（Keys）可视作组成一个相应类型的集合。</p><p>对于集合或字典的读取，经典操作有两个：判断目标元素是否在集合当中、根据目标键获取相应值。</p><p>这篇文章讲讲在 Excel 中如何实现这两个功能。</p><a id="more"></a><h2 id="MATCH-函数"><a href="#MATCH-函数" class="headerlink" title="MATCH 函数"></a><code>MATCH</code> 函数</h2><p>Excel 中的 <code>MATCH</code> 函数原型是 <code>MATCH(lookup_value, lookup_array, [match_type])</code>。函数可接受 3 个参数，其中前两个为必选参数，第三个为可选参数。第一个参数表示要被查找的值，第二个参数表示要在哪个范围查找，第三个参数表示如何匹配（<code>0</code> 表示相等，<code>-1</code> 表示小于，<code>1</code> 表示大于）。如果匹配成功，则函数返回目标值在范围内的索引，否则报错。</p><p>假设有下图所示的 <code>namebook</code> 表。</p><p><img data-src="/uploads/images/Excel/namebook.jpg" alt></p><p>现在我们要看看下列人物是否登记在册。</p><p><img data-src="/uploads/images/Excel/register-question.jpg" alt></p><p>对于 B2 单元格，我们可以用这样的函数 <code>=NOT(ISERROR(MATCH(A2,namebook!$A$2:$A$4,0)))</code>。这里核心是刚才介绍的 <code>MATCH</code> 函数。我们利用 <code>ISERROR</code> 函数判断 <code>MATCH</code> 函数是否报错——若报错说明查无此人，否则说明登记在册。最后，再用 <code>NOT</code> 函数反转上述真值。如此则有如下图所示的结果。</p><p><img data-src="/uploads/images/Excel/register-answer.jpg" alt></p><p>如此，我们就利用 <code>MATCH</code> 函数（搭配 <code>ISERROR</code> 和 <code>NOT</code> 两个函数）实现了判断目标元素是否在集合当中的功能。</p><h2 id="XLOOKUP-函数"><a href="#XLOOKUP-函数" class="headerlink" title="XLOOKUP 函数"></a><code>XLOOKUP</code> 函数</h2><p>Excel 中的 <code>XLOOKUP</code> 函数原型是 <code>XLOOKUP(lookup_value, lookup_array, return_array, [if_not_found], [match_mode], [search_mode])</code>。函数可接受 6 个参数，其中前 3 个为必选参数，后 3 个为可选参数。第一个参数表示要被查找的值，第二个参数表示要在哪个范围（数组）查找，第三个参数表示返回的值在哪个范围（数组），第四个参数表示若未找到返回什么。最后两个参数是高级功能，参见<a href="https://support.office.com/en-us/article/xlookup-function-b7fd680e-6d10-43e6-84f9-88eae8bf5929" target="_blank" rel="noopener">微软的文档</a>。如果匹配成功，假设目标值在待查数组中的索引为 <code>i</code>，则函数返回返回值数组下标 <code>i</code> 的单元格内容，否则报错或填入 <code>if_not_found</code> 内容。</p><p>还是看刚才的 <code>namebook</code> 表。</p><p><img data-src="/uploads/images/Excel/namebook.jpg" alt></p><p>现在我们要看看下列人物是否登记在册，若登记在册的话登记身高是多少。对于 B2 单元格，我们可以用这样的函数 <code>=XLOOKUP(A2,namebook!$A$2:$A$4,namebook!$B$2:$B$4,&quot;未登记在册&quot;)</code>。</p><p><img data-src="/uploads/images/Excel/height-solution.png" alt></p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;集合与字典（映射）是程序设计当中常见的两种容器类型。在 C++ 的标准模板库中，它们的实现分别是 &lt;code&gt;std::set&lt;/code&gt;/&lt;code&gt;std::multiset&lt;/code&gt; 与 &lt;code&gt;std::map&lt;/code&gt;/&lt;code&gt;std::multimap&lt;/code&gt;。（分别还有利用哈希表实现的 &lt;code&gt;unordered&lt;/code&gt; 版本）其中，字典（映射）的键（Keys）可视作组成一个相应类型的集合。&lt;/p&gt;
-&lt;p&gt;对于集合或字典的读取，经典操作有两个：判断目标元素是否在集合当中、根据目标键获取相应值。&lt;/p&gt;
-&lt;p&gt;这篇文章讲讲在 Excel 中如何实现这两个功能。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
-    
-    
-      <category term="Excel" scheme="https://liam.page/tags/Excel/"/>
-    
-      <category term="MATCH" scheme="https://liam.page/tags/MATCH/"/>
-    
-      <category term="XLOOKUP" scheme="https://liam.page/tags/XLOOKUP/"/>
     
   </entry>
   
