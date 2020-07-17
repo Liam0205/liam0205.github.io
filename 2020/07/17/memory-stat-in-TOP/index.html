@@ -33,7 +33,7 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="Linux 系统中，著名的 top 命令可列出各个进程对系统资源的利用情况。其中有 VIRT, RES, SHR, CODE, DATA 等几个字段，用来描述进程对内存的使用情况。（后二者默认不展示，需要按下 F 键，将相关字段调出来）。 但它们究竟表示什么含义呢？">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-07-17T13:42:05.187Z">
+<meta property="og:updated_time" content="2020-07-17T13:50:41.130Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Linux top 命令里的内存相关字段（VIRT, RES, SHR, CODE, DATA）">
 <meta name="twitter:description" content="Linux 系统中，著名的 top 命令可列出各个进程对系统资源的利用情况。其中有 VIRT, RES, SHR, CODE, DATA 等几个字段，用来描述进程对内存的使用情况。（后二者默认不展示，需要按下 F 键，将相关字段调出来）。 但它们究竟表示什么含义呢？">
@@ -261,7 +261,7 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2020 年 07 月 17 日 15:30:36 / 修改时间：21:42:05" itemprop="dateCreated datePublished" datetime="2020-07-17T15:30:36+08:00">2020 年 07 月 17 日</time>
+              <time title="创建时间：2020 年 07 月 17 日 15:30:36 / 修改时间：21:50:41" itemprop="dateCreated datePublished" datetime="2020-07-17T15:30:36+08:00">2020 年 07 月 17 日</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -402,7 +402,8 @@
 
 <p>这里，显然后缀 <code>vm</code> 表示虚拟内存（Virtual Memory），因此 <code>DATA</code> 表示的不只是实体内存占用，这一点是显然的了。接下来的问题是，这里的注释表示什么呢？<code>VM_WRITE</code> 等宏，定义在 <a href="https://github.com/torvalds/linux/blob/a5ad5742f671de906adbf29fbedf0a04705cebad/include/linux/mm.h#L240-L391" target="_blank" rel="noopener"><code>linux/mm.h</code></a> 当中。这些宏表示虚拟内存区域（Virtual Memory Area, <code>vm_area</code>）的属性，由一些 one-hot 的整数来表示。于是，<code>VM_WRITE &amp; ~VM_SHARED &amp; ~VM_STACK</code> 表示非栈且非共享的可写虚拟内存区域。因此 <code>DATA</code> 字段表达的是虚拟内存中，栈区域与非栈区域中非共享可写区域之和。</p>
 <p>这也就能解释，为什么 <code>DATA</code> 看起来远远大于 <code>RES</code> 了。因为 <code>RES</code> 是实际占用的实体内存大小，而 <code>DATA</code> 计算的是数据部分占用虚拟内存的大小。后者可能包含了大量实际没有与实体内存帧映射的虚拟内存页，从而导致看起来虚高。</p>
-<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><ul>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p><code>top</code> 的手册关于 <code>DATA</code> 的说明是错的，有 bug。更新如下：</p>
+<ul>
 <li><code>VIRT</code> Virtual Memory Size (KiB)：进程使用的所有<strong>虚拟内存</strong>；包括代码（code）、数据（data）、共享库（shared libraries），以及被换出（swap out）到交换区和映射了（map）但尚未使用（未载入实体内存）的部分。</li>
 <li><code>RES</code> Resident Memory Size (KiB)：进程所占用的所有<strong>实体内存</strong>（physical memory），不包括被换出到交换区的部分。</li>
 <li><code>SHR</code> Shared Memory Size (KiB)：进程可读的全部共享<strong>实体内存</strong>，并非所有部分都包含在 <code>RES</code> 中。它反映了可能被其他进程共享的内存部分。</li>
