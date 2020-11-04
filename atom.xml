@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2020-10-28T07:42:25.553Z</updated>
+  <updated>2020-11-04T03:46:58.971Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,39 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>让 Vim 在保存文件时自动格式化代码</title>
+    <link href="https://liam.page/2020/11/04/Vim-auto-format-codes-on-save/"/>
+    <id>https://liam.page/2020/11/04/Vim-auto-format-codes-on-save/</id>
+    <published>2020-11-04T02:45:15.000Z</published>
+    <updated>2020-11-04T03:46:58.971Z</updated>
+    
+    <content type="html"><![CDATA[<p>写代码时，遵循一定的代码风格是很有必要的。对于这种机械性的工作，我们的主张是要寻找自动化的解决方案。</p><p>对于 Vim 和 C++ 的组合，这里推荐以下搭配，并辅以适当配置：</p><ul><li><code>clang-format</code></li><li><a href="https://github.com/Chiel92/vim-autoformat" target="_blank" rel="noopener"><code>vim-autoformat</code> 插件</a></li></ul><p>配置分为两部分。一是实现在保存文件时自动格式化代码；二是实现在 visual 模式下格式化部分代码。</p><figure class="highlight vim"><figcaption><span>在保存文件时自动格式化代码</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">autocmd</span> FileType <span class="keyword">c</span>,cpp <span class="keyword">autocmd</span> BufWritePre * :Autoformat</span><br></pre></td></tr></table></figure><p>这里对 C 和 C++ 代码，在保存文件之前，自动执行 <code>:Autoformat</code>，以便使用 <code>vim-autoformat</code> 插件调用 <code>clang-format</code> 格式化代码。</p><figure class="highlight vim"><figcaption><span>在 visual 模式下格式化部分代码</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">" autoformat</span></span><br><span class="line"><span class="keyword">nnoremap</span> <span class="symbol">&lt;leader&gt;</span>ff :<span class="keyword">call</span> FormatCode(<span class="string">""</span>, <span class="string">"file"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"><span class="keyword">vnoremap</span> <span class="symbol">&lt;leader&gt;</span>ff :<span class="keyword">call</span> FormatCode(<span class="built_in">visualmode</span>(), <span class="string">"file"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"><span class="keyword">nnoremap</span> <span class="symbol">&lt;leader&gt;</span>gf :<span class="keyword">call</span> FormatCode(<span class="string">""</span>, <span class="string">"Google"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"><span class="keyword">vnoremap</span> <span class="symbol">&lt;leader&gt;</span>gf :<span class="keyword">call</span> FormatCode(<span class="built_in">visualmode</span>(), <span class="string">"Google"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"><span class="keyword">nnoremap</span> <span class="symbol">&lt;leader&gt;</span><span class="keyword">cf</span> :<span class="keyword">call</span> FormatCode(<span class="string">""</span>, <span class="string">"Chromium"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"><span class="keyword">vnoremap</span> <span class="symbol">&lt;leader&gt;</span><span class="keyword">cf</span> :<span class="keyword">call</span> FormatCode(<span class="built_in">visualmode</span>(), <span class="string">"Chromium"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"><span class="keyword">nnoremap</span> <span class="symbol">&lt;leader&gt;</span><span class="keyword">lf</span> :<span class="keyword">call</span> FormatCode(<span class="string">""</span>, <span class="string">"LLVM"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"><span class="keyword">vnoremap</span> <span class="symbol">&lt;leader&gt;</span><span class="keyword">lf</span> :<span class="keyword">call</span> FormatCode(<span class="built_in">visualmode</span>(), <span class="string">"LLVM"</span>)<span class="symbol">&lt;CR&gt;</span></span><br><span class="line"></span><br><span class="line">func! FormatCode(exe_mode, style) <span class="built_in">range</span></span><br><span class="line">  <span class="keyword">if</span> <span class="variable">a:exe_mode</span> == <span class="string">""</span></span><br><span class="line">    <span class="keyword">let</span> firstline_no = <span class="number">1</span></span><br><span class="line">    <span class="keyword">let</span> lastline_no = <span class="built_in">line</span>(<span class="string">"$"</span>)</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="keyword">let</span> firstline_no = <span class="variable">a:firstline</span></span><br><span class="line">    <span class="keyword">let</span> lastline_no = <span class="variable">a:lastline</span></span><br><span class="line">  <span class="keyword">endif</span></span><br><span class="line">  <span class="keyword">let</span> <span class="variable">l:save_formatdef</span> = <span class="variable">g:formatdef_clangformat</span></span><br><span class="line">  <span class="keyword">let</span> <span class="variable">l:tmpa</span> = <span class="keyword">join</span>([<span class="string">"clang-format --lines="</span>, firstline_no, <span class="string">":"</span>, lastline_no], <span class="string">""</span>)</span><br><span class="line">  <span class="keyword">let</span> <span class="variable">g:formatdef_clangformat</span> = <span class="string">"'"</span> . <span class="variable">l:tmpa</span> . <span class="string">" --assume-filename=' . bufname('%') . ' -style="</span> . <span class="variable">a:style</span> . <span class="string">"'"</span></span><br><span class="line">  <span class="keyword">let</span> formatcommand = <span class="string">":Autoformat"</span></span><br><span class="line">  exec formatcommand</span><br><span class="line">  <span class="keyword">let</span> <span class="variable">g:formatdef_clangformat</span> = <span class="variable">l:save_formatdef</span></span><br><span class="line">endfunc</span><br></pre></td></tr></table></figure><p>这里利用 range 函数，根据调用时的所在的模式的不同，格式化整个文件，或者是在 Visual 模式下选中的行。</p>]]></content>
+    
+    <summary type="html">
+    
+      
+      
+        &lt;p&gt;写代码时，遵循一定的代码风格是很有必要的。对于这种机械性的工作，我们的主张是要寻找自动化的解决方案。&lt;/p&gt;
+&lt;p&gt;对于 Vim 和 C++ 的组合，这里推荐以下搭配，并辅以适当配置：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;clang-format&lt;/code&gt;&lt;/li&gt;
+
+      
+    
+    </summary>
+    
+      <category term="Computer Skills" scheme="https://liam.page/categories/Computer-Skills/"/>
+    
+    
+      <category term="Format" scheme="https://liam.page/tags/Format/"/>
+    
+      <category term="Vim" scheme="https://liam.page/tags/Vim/"/>
+    
+      <category term="Clang-format" scheme="https://liam.page/tags/Clang-format/"/>
+    
+  </entry>
   
   <entry>
     <title>在 C++ 中实现一个单例类模板</title>
@@ -511,9 +544,9 @@
       <category term="LaTeX" scheme="https://liam.page/categories/LaTeX/"/>
     
     
-      <category term="CTeX" scheme="https://liam.page/tags/CTeX/"/>
-    
       <category term="TeX Live" scheme="https://liam.page/tags/TeX-Live/"/>
+    
+      <category term="CTeX" scheme="https://liam.page/tags/CTeX/"/>
     
       <category term="MiKTeX" scheme="https://liam.page/tags/MiKTeX/"/>
     
@@ -543,29 +576,6 @@
       <category term="minted" scheme="https://liam.page/tags/minted/"/>
     
       <category term="example" scheme="https://liam.page/tags/example/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>嘿嘿嘿使 TeX 爆炸</title>
-    <link href="https://liam.page/2020/04/28/hhh-explodes-TeX/"/>
-    <id>https://liam.page/2020/04/28/hhh-explodes-TeX/</id>
-    <published>2020-04-28T11:48:31.000Z</published>
-    <updated>2020-04-28T11:56:04.000Z</updated>
-    
-    <content type="html"><![CDATA[<p>TeX 里有 <code>\leavevmode</code> 用来从竖直模式中切出去，那么有没有 <code>\leavehmode</code> 呢？一定会有好奇宝宝好奇这个奇怪的问题的。</p><p>答案是：<del>嘿嘿嘿使 TeX 爆炸</del>不存在。</p><a id="more"></a><p>TeX 总是从竖直模式开始，然后一旦遇到水平命令时，就会离开竖直模式，然后开始构建段落。除非结束这个段落，TeX 是不会离开水平模式的。</p><p>怎么结束这个段落？当然是你熟知的 <code>\par</code> 命令。实际上，任何会导致 TeX 离开水平模式的命令，都会调用 <code>\par</code> 这个命令——这里的 <code>\par</code> 是最原始到那个 <code>\par</code> 原语。如果你把 <code>\par</code> 定义成了一个不包含原语版的 <code>\par</code> 的时候，所有导致 TeX 离开水平模式的命令都会导致死循环。比如下面代码：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">par</span><span class="string">&#123;&#125;</span></span></span><br><span class="line">x<span class="tag">\<span class="name">vskip</span></span> 1pt</span><br></pre></td></tr></table></figure><p>（你看，让 TeX 死循环就这么简单）</p><p>所以，不存在 <code>\leavehmode</code> 这种东西。能让 TeX 离开水平模式的只有 <code>\par</code>。</p><p>不过，存在一种情况下，TeX 可以部分地离开模式——<code>\vadjust</code> 命令。在水平模式中遇到 <code>\vadjust</code> 时，TeX 会把它的参数中的所有竖直元素打包在一起暂存，然后等到断行成段之后，TeX 再把 <code>\vadjust</code> 里的内容插入到 <code>\vadjust</code> 存在的那一行之后。比如：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;zhlipsum&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line">嘿嘿嘿<span class="tag">\<span class="name">vadjust</span><span class="string">&#123;\vskip 3ex&#125;</span></span><span class="tag">\<span class="name">zhlipsum</span><span class="string">[3]</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/vadjust.jpg" alt></p><hr><p>那么为什么「嘿嘿嘿使 TeX 爆炸」呢？因为当你把 <code>\par</code> 定义成「嘿嘿嘿」的时候，TeX 就会因为陷入死循环而不断地把「嘿嘿嘿」塞入内存，然后就炸掉了。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">par</span><span class="string">&#123;嘿嘿嘿&#125;</span></span></span><br><span class="line">x<span class="tag">\<span class="name">vskip</span></span> 1pt</span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure><p>日志如下：</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">(./ltxtest.aux) ABD: EverySelectfont initializing macros</span><br><span class="line">! TeX capacity exceeded, sorry [main memory size=5000000].</span><br><span class="line">&lt;to be read again&gt;</span><br><span class="line">                   \vskip</span><br><span class="line">l.4 x\vskip</span><br><span class="line">            1pt</span><br><span class="line">No pages of output.</span><br><span class="line">Transcript written on ltxtest.log.</span><br></pre></td></tr></table></figure>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;TeX 里有 &lt;code&gt;\leavevmode&lt;/code&gt; 用来从竖直模式中切出去，那么有没有 &lt;code&gt;\leavehmode&lt;/code&gt; 呢？一定会有好奇宝宝好奇这个奇怪的问题的。&lt;/p&gt;
-&lt;p&gt;答案是：&lt;del&gt;嘿嘿嘿使 TeX 爆炸&lt;/del&gt;不存在。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="LaTeX" scheme="https://liam.page/categories/LaTeX/"/>
-    
-    
-      <category term="Mode" scheme="https://liam.page/tags/Mode/"/>
     
   </entry>
   
