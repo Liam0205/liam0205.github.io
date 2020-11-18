@@ -33,7 +33,7 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="最近在讨论多线程编程中的一个可能的 false sharing 问题时，有人提出加 volatile 可能可以解决问题。这种错误的认识荼毒多年，促使我写下这篇文章。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-02-04T07:57:06.000Z">
+<meta property="og:updated_time" content="2020-11-18T13:03:35.882Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="谈谈 C&#x2F;C++ 中的 volatile">
 <meta name="twitter:description" content="最近在讨论多线程编程中的一个可能的 false sharing 问题时，有人提出加 volatile 可能可以解决问题。这种错误的认识荼毒多年，促使我写下这篇文章。">
@@ -267,7 +267,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020 年 02 月 04 日 15:57:06" itemprop="dateModified" datetime="2020-02-04T15:57:06+08:00">2020 年 02 月 04 日</time>
+                <time title="修改时间：2020 年 11 月 18 日 21:03:35" itemprop="dateModified" datetime="2020-11-18T21:03:35+08:00">2020 年 11 月 18 日</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -384,7 +384,7 @@
 <p>在上一节代码的基础上，(1) 将 <code>value</code> 声明为 <code>volatile</code>-qualified。因此 (2) 处对两个 <code>volatile</code>-qualified 变量进行访问时，编译器不会交换他们的顺序。看起来就万事大吉了。</p>
 <p>然而，<code>volatile</code> 只作用在编译器上，但我们的代码最终是要运行在 CPU 上的。尽管编译器不会将 (2) 处换序，但 CPU 的乱序执行（out-of-order execution）已是几十年的老技术了；在 CPU 执行时，<code>value</code> 和 <code>flag</code> 的赋值仍有可能是被换序了的（store-store）。</p>
 <blockquote>
-<p>也许有人会说，x86 和 AMD64 架构的 CPU（大多数个人机器和服务器使用这两种架构的 CPU）只允许 sotre-load 乱序，而不会发生 store-store 乱序；或者在诸如 IA64 架构的处理器上，对 <code>volatile</code>-qualified 变量的访问采用了专门的指令。因而，在这些条件下，这段代码是安全的。尽管如此，使用 <code>volatile</code> 会禁止编译器优化相关变量，从而降低性能，所以也不建议依赖 <code>volatile</code> 在这种情况下做线程同步。另一方面，这严重依赖具体的硬件规范，超出了本文的约定讨论范围。</p>
+<p>也许有人会说，x86 和 AMD64 架构的 CPU（大多数个人机器和服务器使用这两种架构的 CPU）只允许 store-load 乱序，而不会发生 store-store 乱序；或者在诸如 IA64 架构的处理器上，对 <code>volatile</code>-qualified 变量的访问采用了专门的指令。因而，在这些条件下，这段代码是安全的。尽管如此，使用 <code>volatile</code> 会禁止编译器优化相关变量，从而降低性能，所以也不建议依赖 <code>volatile</code> 在这种情况下做线程同步。另一方面，这严重依赖具体的硬件规范，超出了本文的约定讨论范围。</p>
 </blockquote>
 <h3 id="到底应该怎样做？"><a href="#到底应该怎样做？" class="headerlink" title="到底应该怎样做？"></a>到底应该怎样做？</h3><p>回顾一下，我们最初遇到的问题其实需要解决两件事情。一是 <code>flag</code> 相关的代码块不能被轻易优化消失，二是要保证线程同步的 happens-before 语义。但本质上，设计使用 <code>flag</code> 本身也就是为了构建 happens-before 语义。这也就是说，两个问题，后者才是核心；如有其他不用 <code>flag</code> 的办法解决问题，那么 <code>flag</code> 就不重要。</p>
 <p>对于当前问题，最简单的办法是使用原子操作。</p>
