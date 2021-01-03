@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="实际工程中，可能会遇见这样的场景： 一个词典，在 C++ 里实现为一个 class。它的生命周期从进程启动开始到进程杀死结束。这个词典很大，所以在多线程工作的时候，希望在全局共享一份。 现在的问题是，进程可能持续跑很长时间，比如跑几个月。在进程执行过程中，这个词典可能会更新。于是我需要重新载入词典。要求线程安全并且高效地做这个重新载入的工作。 今天我们来设计一下，要怎样实现它。">
+<meta name="keywords" content="Thread,Data,Dict,Reloader,Thread-safe">
+<meta property="og:type" content="article">
+<meta property="og:title" content="设计一个线程安全的数据重载器">
+<meta property="og:url" content="https://liam.page/2021/01/03/design-a-thread-safe-data-reloader-in-cxx/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="实际工程中，可能会遇见这样的场景： 一个词典，在 C++ 里实现为一个 class。它的生命周期从进程启动开始到进程杀死结束。这个词典很大，所以在多线程工作的时候，希望在全局共享一份。 现在的问题是，进程可能持续跑很长时间，比如跑几个月。在进程执行过程中，这个词典可能会更新。于是我需要重新载入词典。要求线程安全并且高效地做这个重新载入的工作。 今天我们来设计一下，要怎样实现它。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2021-01-03T02:29:00.114Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="设计一个线程安全的数据重载器">
+<meta name="twitter:description" content="实际工程中，可能会遇见这样的场景： 一个词典，在 C++ 里实现为一个 class。它的生命周期从进程启动开始到进程杀死结束。这个词典很大，所以在多线程工作的时候，希望在全局共享一份。 现在的问题是，进程可能持续跑很长时间，比如跑几个月。在进程执行过程中，这个词典可能会更新。于是我需要重新载入词典。要求线程安全并且高效地做这个重新载入的工作。 今天我们来设计一下，要怎样实现它。">
+
+<link rel="canonical" href="https://liam.page/2021/01/03/design-a-thread-safe-data-reloader-in-cxx/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>设计一个线程安全的数据重载器 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">359</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">13</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">692</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2021/01/03/design-a-thread-safe-data-reloader-in-cxx/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          设计一个线程安全的数据重载器
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021 年 01 月 03 日 09:35:49 / 修改时间：10:29:00" itemprop="dateCreated datePublished" datetime="2021-01-03T09:35:49+08:00">2021 年 01 月 03 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>实际工程中，可能会遇见这样的场景：</p>
+<p>一个词典，在 C++ 里实现为一个 <code>class</code>。它的生命周期从进程启动开始到进程杀死结束。这个词典很大，所以在多线程工作的时候，希望在全局共享一份。</p>
+<p>现在的问题是，进程可能持续跑很长时间，比如跑几个月。在进程执行过程中，这个词典可能会更新。于是我需要重新载入词典。要求线程安全并且高效地做这个重新载入的工作。</p>
+<p>今天我们来设计一下，要怎样实现它。</p>
+<a id="more"></a>
+
+<h2 id="初步讨论"><a href="#初步讨论" class="headerlink" title="初步讨论"></a>初步讨论</h2><p>比较显然的是，这一功能将代码分成了相对独立的两个部分：词典和重载器。词典负责数据的管理，并提供数据查询的功能。重载器负责按照一定规则，触发重载动作，以及负责提供安全的词典访问机制。</p>
+<p>为通用计，我们希望重载器能够管理多种不同的词典。这些词典可能管理不同的数据类型、格式，也可能提供不同的访问接口。就后者而言，这意味着不同词典类可能提供了不同的查询函数签名。</p>
+<p>为解决这个问题，考虑到重载器只需负责触发重载动作，而不需关心查询接口，在 C++ 里大体有两种比较成熟的思路：</p>
+<ul>
+<li>实现一个基类，其名为 <code>Reloadable</code>，并定义一个名为 <code>load</code> 的纯虚函数作为接口。所有词典继承 <code>Reloadable</code>，并实现该接口，而后作为模板类 <code>Reloader</code> 的模板参数，传递给重载器，重载器调用 <code>load</code> 接口。</li>
+<li>无需基类，将词典类多种多样的读取接口，封装成各自的可调用对象（利用 <code>std::bind</code> 之类的工具），而后作为回调函数传递给 <code>Reloader</code>。</li>
+</ul>
+<p>前一种方式是面向对象和模板思路，后一种方式是函数式的思路。两种方式的共同特点，是都可以在少量修改的情况下，应用于已有的词典类。相较而言，后一种方式完全不用修改已有的词典类本身，提供了更大的自由度。</p>
+<p>但在工程中，这种自由度累积起来，往往会泛滥成灾。因此我个人更倾向于使用第一个方案。</p>
+<p>至此，我们需要设计一个 <code>Reloadable</code> 和一个 <code>Reloader</code> 类，来实现这个需求。</p>
+<h2 id="Reloadable"><a href="#Reloadable" class="headerlink" title="Reloadable"></a><code>Reloadable</code></h2><p>按讨论，<code>Reloadable</code> 应该是一个虚基类，其有一个名为 <code>load</code> 的纯虚函数作为接口，负责读入数据。我们将其定义如下。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Reloadable</span> &#123;</span></span><br><span class="line">  Reloadable() = <span class="keyword">default</span>;</span><br><span class="line">  <span class="keyword">virtual</span> ~Reloadable() = <span class="keyword">default</span>;  <span class="comment">// 1.</span></span><br><span class="line"></span><br><span class="line">  Reloadable(<span class="keyword">const</span> Reloadable&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 2.a.</span></span><br><span class="line">  Reloadable&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> Reloadable&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 2.b.</span></span><br><span class="line"></span><br><span class="line">  Reloadable(Reloadable&amp;&amp;) = <span class="keyword">default</span>;  <span class="comment">// 3.a.</span></span><br><span class="line">  Reloadable&amp; <span class="keyword">operator</span>=(Reloadable&amp;&amp;) = <span class="keyword">default</span>;  <span class="comment">// 3.b.</span></span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="keyword">bool</span> <span class="title">load</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; path)</span> </span>= <span class="number">0</span>;  <span class="comment">// 4</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这里，</p>
+<ol>
+<li>我们将析构函数声明为 <code>virtual</code>，是因为显然 <code>Reloadable</code> 会是一个基类。为避免子类析构不完全造成内存泄露，我们都需要将基类的析构函数声明为虚函数。</li>
+<li>由于词典数据往往很大，而又在多线程中共享。那么显然对数据的拷贝是不必要的。于是我们将拷贝构造和拷贝赋值都声明为 <code>delete</code>。</li>
+<li>与 (2) 对应，移动操作是允许的。</li>
+<li>我们将 <code>load</code> 接口声明为纯虚的，它留待子类实现。入参 <code>path</code> 是一个字符串，它通常会是一个路径，指向数据本身，或是词典的配置文件。</li>
+</ol>
+<h2 id="Reloader"><a href="#Reloader" class="headerlink" title="Reloader"></a><code>Reloader</code></h2><p>按讨论，<code>Reloader</code> 应该是一个虚基类模板。它有一个模板参数 <code>Payload</code>，是 <code>Reloadable</code> 的子类。而后提供几个关键接口：</p>
+<ul>
+<li><code>init</code>：负责初始化重载器。由于重载器会在多线程共享，所以初始化应该只执行一次。</li>
+<li><code>inited</code>：负责观察重载器是否已初始化成功。</li>
+<li><code>get</code>：负责返回 <code>Payload</code>，供外部使用。</li>
+<li><code>terminate</code>：负责终止重载器，通常在进程终止时调用它。</li>
+</ul>
+<p>于是我们可以设计 <code>Reloader</code> 的大体框架。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Payload&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Reloader</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">using</span> <span class="keyword">payload_t</span> = Payload;</span><br><span class="line">  <span class="keyword">using</span> <span class="keyword">ptr_t</span> = <span class="built_in">std</span>::<span class="built_in">shared_ptr</span>&lt;<span class="keyword">payload_t</span>&gt;;  <span class="comment">// 1.a.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  Reloader() = <span class="keyword">default</span>;</span><br><span class="line">  <span class="keyword">virtual</span> ~Reloader() = <span class="keyword">default</span>;  <span class="comment">// 2.a.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  Reloader(<span class="keyword">const</span> Reloader&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 2.b.</span></span><br><span class="line">  Reloader&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> Reloader&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 2.c.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// modifiers</span></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">init</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; path)</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">terminate</span><span class="params">()</span> </span>= <span class="number">0</span>;  <span class="comment">// 3.</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// observers</span></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">inited</span><span class="params">()</span> <span class="keyword">const</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">ptr_t</span> get() <span class="keyword">const</span>;  <span class="comment">// 1.b.</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">static_assert</span>(<span class="built_in">std</span>::is_base_of&lt;Reloadable, <span class="keyword">payload_t</span>&gt;::value,  <span class="comment">// 4.</span></span><br><span class="line">                <span class="string">"Payload Type should be Derived From the `Reloadable` Struct!"</span>);</span><br></pre></td></tr></table></figure>
+
+<p>这里，</p>
+<ol>
+<li><code>get</code> 接口的返回类型是 <code>Payload</code> 的智能指针。此处用智能指针，有两个考虑。一是避免值语义，使用引用语义。这样避免了数据的拷贝（实际上 <code>Payload</code> 已经禁止了拷贝，想用值语义必然报错）。二是管理 <code>Payload</code> 的生命周期，避免使用裸指针时，外部通过 <code>get</code> 拿到数据，却为 <code>reload</code> 析构，造成野指针。</li>
+<li>基于类似的理由，我们将 <code>Reloader</code> 的析构函数声明为 <code>virtual</code>，将拷贝动作声明为 <code>delete</code>。</li>
+<li>和 <code>init</code> 不同，<code>terminate</code> 接口被声明为纯虚。这是因为，适应不同的重载方式，其 <code>init</code> 都承担了相同的指责：第一次载入数据；而 <code>terminate</code> 则依据重载方式会有不同的写法。</li>
+<li>这里静态断言，强制保证了模板参数 <code>Payload</code> 是 <code>Reloadable</code>。这保证了 <code>Payload</code> 一定有符合规范的 <code>load</code> 接口。</li>
+</ol>
+<h3 id="inited"><a href="#inited" class="headerlink" title="inited"></a><code>inited</code></h3><p>我们首先考虑观察器 <code>inited</code>。重载器是否初始化，这个状态对于外部，有三种：</p>
+<ul>
+<li>未初始化</li>
+<li>初始化中</li>
+<li>已初始化</li>
+</ul>
+<p>当然，可能还有第四种：初始化失败。我们可将其归结于「未初始化」当中。</p>
+<p>虽有三种状态，但对于外部来说，有意义的只有「是/否」。于是，我们可用一原子变量，来维护初始化状态。于是我们有：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Payload&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Reloader</span> &#123;</span></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="built_in">std</span>::<span class="keyword">atomic_bool</span> inited_&#123;<span class="literal">false</span>&#125;;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// observers</span></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">inited</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> inited_.load();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="get"><a href="#get" class="headerlink" title="get"></a><code>get</code></h3><p>显然，<code>Reloader</code> 应该有一个成员，保存着由其管理的数据的智能指针。当外部调用 <code>get</code> 接口时，我们根据初始化状态，来判断如何返回。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Payload&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Reloader</span> &#123;</span></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">  <span class="keyword">mutable</span> <span class="built_in">std</span>::shared_mutex mtx_;  <span class="comment">// 1.a.</span></span><br><span class="line">  <span class="keyword">ptr_t</span> payload_;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// observers</span></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">  <span class="keyword">ptr_t</span> get() <span class="keyword">const</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (inited()) &#123;  <span class="comment">// 2.</span></span><br><span class="line">      <span class="built_in">std</span>::shared_lock&lt;<span class="built_in">std</span>::shared_mutex&gt; lk(mtx_);  <span class="comment">// 1.b.</span></span><br><span class="line">      <span class="keyword">return</span> payload_;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这里，</p>
+<ol>
+<li>我们用一个读写锁（共享互斥量）来保护智能指针 <code>payload_</code>。这是因为，虽然 <code>std::shared_ptr</code> 当中的引用计数是原子的，但是 <code>std::shared_ptr</code> 本身并无线程安全保证。考虑到我们可能在多线程中同时读写 <code>payload_</code>，因此必须要加锁。此处细节，可参考<a href="https://blog.csdn.net/Solstice/article/details/8547547" target="_blank" rel="noopener">陈硕的雄文</a>。</li>
+<li>这里是对 <code>Reloader</code> 状态的判断。若未初始化，则返回空指针。</li>
+</ol>
+<h3 id="init"><a href="#init" class="headerlink" title="init"></a><code>init</code></h3><p>有了这些铺垫，我们可以来实现修改器 <code>init</code> 了。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Payload&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Reloader</span> &#123;</span></span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line">  <span class="built_in">std</span>::once_flag init_flag_;  <span class="comment">// 1.a.</span></span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">string</span> path_;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// modifiers</span></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">init</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; path)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::call_once(init_flag_, [&amp;]() -&gt; <span class="keyword">void</span> &#123;  <span class="comment">// 1.b.</span></span><br><span class="line">      <span class="keyword">this</span>-&gt;path(path);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (reload()) &#123;  <span class="comment">// 2.a.</span></span><br><span class="line">        launch();  <span class="comment">// 3.a.</span></span><br><span class="line">        inited_.store(<span class="literal">true</span>);  <span class="comment">//4.a.</span></span><br><span class="line">      &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">      &#125;</span><br><span class="line">    &#125;);</span><br><span class="line">    <span class="keyword">return</span> inited();  <span class="comment">// 4.b.</span></span><br><span class="line">  &#125;</span><br><span class="line">  <span class="comment">// ...</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">protected</span>:  <span class="comment">// modifiers</span></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">reload</span><span class="params">()</span> </span>&#123;  <span class="comment">// 2.b.</span></span><br><span class="line">    <span class="keyword">ptr_t</span> tmp = <span class="built_in">std</span>::make_shared&lt;<span class="keyword">payload_t</span>&gt;();  <span class="comment">// 5.a.</span></span><br><span class="line">    <span class="keyword">if</span> (tmp-&gt;load(path_)) &#123;  <span class="comment">// 5.b.</span></span><br><span class="line">      <span class="built_in">std</span>::unique_lock&lt;shared_mutex&gt; lk(mtx_);  <span class="comment">// 6.</span></span><br><span class="line">      payload_ = <span class="built_in">std</span>::move(tmp);</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">path</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; p)</span> </span>&#123;</span><br><span class="line">    path_ = p;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">launch</span><span class="params">()</span> </span>= <span class="number">0</span>;  <span class="comment">// 3.b.</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这里，</p>
+<ol>
+<li>为保证 <code>init</code> 只执行一次，我们使用 C++ 标准中提供的 <code>std::once_flag</code> 和 <code>std::call_once</code>。</li>
+<li><code>reload</code> 接口如其名，每次重载器触发重载动作时，都应调用它。<code>init</code> 实际是第一次重载，当然也会调用它。</li>
+<li><code>launch</code> 是一个纯虚函数，它由子类模板实现。<code>launch</code> 负责初始化重载器的一些细节工作，以便在进程声明周期中循环/监视文件变动，触发重载。</li>
+<li>维护 <code>inited_</code> 原子变量，与 <code>inited</code> 接口遥相呼应。</li>
+<li>重载时，为避免影响正在对外提供服务的 <code>payload_</code> 指针，我们通过临时指针来载入数据。</li>
+<li>若临时指针载入数据成功，我们在读写锁（共享互斥量）的「写入状态」的保护下，更新 <code>payload_</code> 的值。</li>
+</ol>
+<p>至此，<code>Reloader</code> 的主要接口，我们就已实现完备。</p>
+<h2 id="更多"><a href="#更多" class="headerlink" title="更多"></a>更多</h2><p>在现有的 <code>Reloadable</code> 和 <code>Reloader</code> 的基础上，我们可借助<a href="/2020/10/14/implement-a-timed-looper-in-cxx/">前文提到的时间循环器</a>来实现一个基于倒计时轮询的重载器；又可借助<a href="/2020/10/27/implement-a-singleton-class-template-in-cxx/">前文提到的单例模式</a>，让重载器于多线程共享。另附一个<a href="https://github.com/Liam0205/data-reloader" target="_blank" rel="noopener">仓库</a>，供来者学习参考。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2021/01/03/design-a-thread-safe-data-reloader-in-cxx/" title="设计一个线程安全的数据重载器">https://liam.page/2021/01/03/design-a-thread-safe-data-reloader-in-cxx/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Thread/" rel="tag"># Thread</a>
+              <a href="/tags/Data/" rel="tag"># Data</a>
+              <a href="/tags/Dict/" rel="tag"># Dict</a>
+              <a href="/tags/Reloader/" rel="tag"># Reloader</a>
+              <a href="/tags/Thread-safe/" rel="tag"># Thread-safe</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/11/04/Vim-auto-format-codes-on-save/" rel="prev" title="让 Vim 在保存文件时自动格式化代码">
+      <i class="fa fa-chevron-left"></i> 让 Vim 在保存文件时自动格式化代码
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#初步讨论"><span class="nav-number">1.</span> <span class="nav-text">初步讨论</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reloadable"><span class="nav-number">2.</span> <span class="nav-text">Reloadable</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reloader"><span class="nav-number">3.</span> <span class="nav-text">Reloader</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#inited"><span class="nav-number">3.1.</span> <span class="nav-text">inited</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#get"><span class="nav-number">3.2.</span> <span class="nav-text">get</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#init"><span class="nav-number">3.3.</span> <span class="nav-text">init</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#更多"><span class="nav-number">4.</span> <span class="nav-text">更多</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">359</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">692</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.3m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">40:03</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2021/01/03/design-a-thread-safe-data-reloader-in-cxx/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'e0bddfc271402ee49c7002660b30c702',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
