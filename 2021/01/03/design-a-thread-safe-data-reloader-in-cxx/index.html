@@ -26,14 +26,14 @@
   </script>
 
   <meta name="description" content="实际工程中，可能会遇见这样的场景： 一个词典，在 C++ 里实现为一个 class。它的生命周期从进程启动开始到进程杀死结束。这个词典很大，所以在多线程工作的时候，希望在全局共享一份。 现在的问题是，进程可能持续跑很长时间，比如跑几个月。在进程执行过程中，这个词典可能会更新。于是我需要重新载入词典。要求线程安全并且高效地做这个重新载入的工作。 今天我们来设计一下，要怎样实现它。">
-<meta name="keywords" content="Thread,Data,Dict,Reloader,Thread-safe">
+<meta name="keywords" content="Thread,Thread-safe,Data,Dict,Reloader">
 <meta property="og:type" content="article">
 <meta property="og:title" content="设计一个线程安全的数据重载器">
 <meta property="og:url" content="https://liam.page/2021/01/03/design-a-thread-safe-data-reloader-in-cxx/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="实际工程中，可能会遇见这样的场景： 一个词典，在 C++ 里实现为一个 class。它的生命周期从进程启动开始到进程杀死结束。这个词典很大，所以在多线程工作的时候，希望在全局共享一份。 现在的问题是，进程可能持续跑很长时间，比如跑几个月。在进程执行过程中，这个词典可能会更新。于是我需要重新载入词典。要求线程安全并且高效地做这个重新载入的工作。 今天我们来设计一下，要怎样实现它。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2021-01-03T04:49:53.369Z">
+<meta property="og:updated_time" content="2021-01-03T06:11:02.717Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="设计一个线程安全的数据重载器">
 <meta name="twitter:description" content="实际工程中，可能会遇见这样的场景： 一个词典，在 C++ 里实现为一个 class。它的生命周期从进程启动开始到进程杀死结束。这个词典很大，所以在多线程工作的时候，希望在全局共享一份。 现在的问题是，进程可能持续跑很长时间，比如跑几个月。在进程执行过程中，这个词典可能会更新。于是我需要重新载入词典。要求线程安全并且高效地做这个重新载入的工作。 今天我们来设计一下，要怎样实现它。">
@@ -261,7 +261,7 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021 年 01 月 03 日 09:35:49 / 修改时间：12:49:53" itemprop="dateCreated datePublished" datetime="2021-01-03T09:35:49+08:00">2021 年 01 月 03 日</time>
+              <time title="创建时间：2021 年 01 月 03 日 09:35:49 / 修改时间：14:11:02" itemprop="dateCreated datePublished" datetime="2021-01-03T09:35:49+08:00">2021 年 01 月 03 日</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -380,7 +380,7 @@
 </ol>
 <p>至此，<code>Reloader</code> 的主要接口，我们就已实现完备。</p>
 <h2 id="更多"><a href="#更多" class="headerlink" title="更多"></a>更多</h2><p>在现有的 <code>Reloadable</code> 和 <code>Reloader</code> 的基础上，我们可借助<a href="/2020/10/14/implement-a-timed-looper-in-cxx/">前文提到的时间循环器</a>来实现一个基于倒计时轮询的重载器；又可借助<a href="/2020/10/27/implement-a-singleton-class-template-in-cxx/">前文提到的单例模式</a>，让重载器于多线程共享。另附一个<a href="https://github.com/Liam0205/data-reloader" target="_blank" rel="noopener">仓库</a>，供来者学习参考。</p>
-<h2 id="对反对意见的回复"><a href="#对反对意见的回复" class="headerlink" title="对反对意见的回复"></a>对反对意见的回复</h2><p>文章出来已经收到了一些反对意见。此处做一些回复。</p>
+<h2 id="对不同意见的回复"><a href="#对不同意见的回复" class="headerlink" title="对不同意见的回复"></a>对不同意见的回复</h2><p>文章出来已经收到了一些反对意见。此处做一些回复。</p>
 <h3 id="Reloadable-不是必须的，只需实现相同的接口即可。"><a href="#Reloadable-不是必须的，只需实现相同的接口即可。" class="headerlink" title="Reloadable 不是必须的，只需实现相同的接口即可。"></a><code>Reloadable</code> 不是必须的，只需实现相同的接口即可。</h3><p>诚然，若能保证所有用到 <code>Reloader</code> 的类，都实现了相同的接口，那么 <code>Reloadable</code> 及对应的 <code>static_assert</code> 可以去掉。但在实际工程中，这是一个相当高的要求，通常很难达到。这是因为，很可能在实现 <code>Reloader</code> 类模板时，代码库当中已有不少词典、模型类。这些 legacy codes 可能并不遵循现下定义的标准接口。若要使它们为 <code>Reloader</code> 所管理，则需要细致地修改，而后祈祷编译不出错。而若是使它们继承 <code>Reloadable</code>，则编译器会告诉你哪些词典/模型类还未正确修改。——编译器要么提示你，尚有纯虚函数未实现而无法实例化；要么提醒你 <code>Reloader</code> 的 <code>Payload</code> 类并非由 <code>Reloadable</code> 派生而得。</p>
 <p>退一步说，即使能够通过口头/文档约束，达到接口统一的要求；那么，既然你已经在代码上约束大家实现 <code>load</code> 接口了，那么交给编译器去用 <code>static_assert</code> 做一次校验岂非更好？</p>
 <p>因此，我们倾向于保留 <code>Reloadable</code> 及相应的 <code>static_assert</code> 之设计。</p>
@@ -455,10 +455,10 @@
       <footer class="post-footer">
           <div class="post-tags">
               <a href="/tags/Thread/" rel="tag"># Thread</a>
+              <a href="/tags/Thread-safe/" rel="tag"># Thread-safe</a>
               <a href="/tags/Data/" rel="tag"># Data</a>
               <a href="/tags/Dict/" rel="tag"># Dict</a>
               <a href="/tags/Reloader/" rel="tag"># Reloader</a>
-              <a href="/tags/Thread-safe/" rel="tag"># Thread-safe</a>
           </div>
 
         
@@ -530,7 +530,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#初步讨论"><span class="nav-number">1.</span> <span class="nav-text">初步讨论</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reloadable"><span class="nav-number">2.</span> <span class="nav-text">Reloadable</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reloader"><span class="nav-number">3.</span> <span class="nav-text">Reloader</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#inited"><span class="nav-number">3.1.</span> <span class="nav-text">inited</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#get"><span class="nav-number">3.2.</span> <span class="nav-text">get</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#init"><span class="nav-number">3.3.</span> <span class="nav-text">init</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#更多"><span class="nav-number">4.</span> <span class="nav-text">更多</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#对反对意见的回复"><span class="nav-number">5.</span> <span class="nav-text">对反对意见的回复</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Reloadable-不是必须的，只需实现相同的接口即可。"><span class="nav-number">5.1.</span> <span class="nav-text">Reloadable 不是必须的，只需实现相同的接口即可。</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#在-Reloader-类当中，实现一个-lookup-接口，避免通过-get-接口返回词典类，是否更好？"><span class="nav-number">5.2.</span> <span class="nav-text">在 Reloader 类当中，实现一个 lookup 接口，避免通过 get 接口返回词典类，是否更好？</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#初步讨论"><span class="nav-number">1.</span> <span class="nav-text">初步讨论</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reloadable"><span class="nav-number">2.</span> <span class="nav-text">Reloadable</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reloader"><span class="nav-number">3.</span> <span class="nav-text">Reloader</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#inited"><span class="nav-number">3.1.</span> <span class="nav-text">inited</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#get"><span class="nav-number">3.2.</span> <span class="nav-text">get</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#init"><span class="nav-number">3.3.</span> <span class="nav-text">init</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#更多"><span class="nav-number">4.</span> <span class="nav-text">更多</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#对不同意见的回复"><span class="nav-number">5.</span> <span class="nav-text">对不同意见的回复</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Reloadable-不是必须的，只需实现相同的接口即可。"><span class="nav-number">5.1.</span> <span class="nav-text">Reloadable 不是必须的，只需实现相同的接口即可。</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#在-Reloader-类当中，实现一个-lookup-接口，避免通过-get-接口返回词典类，是否更好？"><span class="nav-number">5.2.</span> <span class="nav-text">在 Reloader 类当中，实现一个 lookup 接口，避免通过 get 接口返回词典类，是否更好？</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
