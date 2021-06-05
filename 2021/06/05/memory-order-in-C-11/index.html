@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
+<meta name="keywords" content="Atomics,Memory Model">
+<meta property="og:type" content="article">
+<meta property="og:title" content="程序员的自我修养（十）：C++ 的内存模型">
+<meta property="og:url" content="https://liam.page/2021/06/05/memory-order-in-C-11/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2021-06-05T16:52:37.201Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="程序员的自我修养（十）：C++ 的内存模型">
+<meta name="twitter:description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
+
+<link rel="canonical" href="https://liam.page/2021/06/05/memory-order-in-C-11/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>程序员的自我修养（十）：C++ 的内存模型 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">373</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">13</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">722</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2021/06/05/memory-order-in-C-11/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          程序员的自我修养（十）：C++ 的内存模型
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021 年 06 月 05 日 10:36:41" itemprop="dateCreated datePublished" datetime="2021-06-05T10:36:41+08:00">2021 年 06 月 05 日</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021 年 06 月 06 日 00:52:37" itemprop="dateModified" datetime="2021-06-06T00:52:37+08:00">2021 年 06 月 06 日</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>3.2k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>6 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上<a href="https://en.cppreference.com/w/cpp/language/memory_model" target="_blank" rel="noopener">对应页面</a>的翻译，有删减和补充。</p>
+<a id="more"></a>
+
+<p>内存模型为 C++ 抽象机器定义了计算机内存存储语义。</p>
+<p>C++ 程序可用的内存是一个或多个连续的字节序列。每个字节有自己独有的内存地址。</p>
+<h2 id="字节（Byte）"><a href="#字节（Byte）" class="headerlink" title="字节（Byte）"></a>字节（Byte）</h2><p>字节是内存中的最小可寻址单元，由连续的多个比特组成。C++ 中，<code>char</code>/<code>unsigned char</code>/<code>signed char</code> 的对象存储和<a href="https://en.cppreference.com/w/cpp/language/object" target="_blank" rel="noopener">值表示</a>均使用恰好 1 字节。于是，字节中有多少比特，可以通过 <a href="http://en.cppreference.com/w/cpp/types/numeric_limits" target="_blank" rel="noopener"><code>std::numeric_limits&lt;unsigned char&gt;::digits</code></a>取得。</p>
+<h2 id="内存位置（Memory-Location）"><a href="#内存位置（Memory-Location）" class="headerlink" title="内存位置（Memory Location）"></a>内存位置（Memory Location）</h2><p>内存位置是</p>
+<ul>
+<li><a href="https://en.cppreference.com/w/cpp/language/type" target="_blank" rel="noopener">标量类型</a>（算数类型、指针类型、枚举类型或是 <code>std::nullptr_t</code>）的对象；</li>
+<li>或是，长度不为零的<a href="https://en.cppreference.com/w/cpp/language/bit_field" target="_blank" rel="noopener">位域</a>组成的最长连续序列。</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">S</span> &#123;</span></span><br><span class="line">    <span class="keyword">char</span> a;     <span class="comment">// memory location #1</span></span><br><span class="line">    <span class="keyword">int</span> b : <span class="number">5</span>;  <span class="comment">// memory location #2</span></span><br><span class="line">    <span class="keyword">int</span> c : <span class="number">11</span>, <span class="comment">// memory location #2 (continued)</span></span><br><span class="line">          : <span class="number">0</span>,  <span class="comment">// zero-length, as a delimiter of continued sequence of bit-fields</span></span><br><span class="line">        d : <span class="number">8</span>;  <span class="comment">// memory location #3</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">        <span class="keyword">int</span> ee : <span class="number">8</span>; <span class="comment">// memory location #4</span></span><br><span class="line">    &#125; e;</span><br><span class="line">&#125; obj; <span class="comment">// The object 'obj' consists of 4 separate memory locations</span></span><br></pre></td></tr></table></figure>
+
+<p>注意：语言中的许多特性会引入额外的内存位置。这些内存位置程序无法访问，而是为编译器实现自行管理。这些特性例如：<a href="https://en.cppreference.com/w/cpp/language/reference" target="_blank" rel="noopener">引用</a>和<a href="https://en.cppreference.com/w/cpp/language/virtual" target="_blank" rel="noopener">虚函数</a>。</p>
+<h2 id="线程与数据竞争（Thread-and-data-races）"><a href="#线程与数据竞争（Thread-and-data-races）" class="headerlink" title="线程与数据竞争（Thread and data races）"></a>线程与数据竞争（Thread and data races）</h2><p>程序中的线程是自 <a href="https://en.cppreference.com/w/cpp/thread/thread/thread" target="_blank" rel="noopener"><code>std::thread::thread</code></a>, <a href="https://en.cppreference.com/w/cpp/thread/async" target="_blank" rel="noopener"><code>std::async</code></a> 或者其他方式调用顶层函数开始的控制流。</p>
+<p>任一线程都可能访问程序中的任意对象。其中，原子及<a href="https://en.cppreference.com/w/cpp/language/storage_duration" target="_blank" rel="noopener">线程内部存储</a>亦可能为其它线程通过指针或引用来访问。</p>
+<p>在没有同步或阻塞的情况下，不同线程可并发访问（读/写）不同内存位置。</p>
+<p>若一个表达式求值对某一内存位置进行写操作，而另一求值过程对同一内存位置进行读或写操作，则两个求值过程存在冲突。除非满足下列条件，程序中冲突的求值操作将引发数据竞争：</p>
+<ul>
+<li>存在冲突的求值操作在同一线程中执行，或在同一<a href="https://en.cppreference.com/w/cpp/utility/program/signal#Signal_handler" target="_blank" rel="noopener">信号处理函数</a>中执行；或者</li>
+<li>存在冲突的求值操作均是原子操作（参见 <a href="https://en.cppreference.com/w/cpp/atomic/atomic" target="_blank" rel="noopener"><code>std::atomic</code></a>）；或者</li>
+<li>存在冲突的求值操作，其一<ins>先于（happens-before）</ins>另一发生（参见 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order</code></a>）。</li>
+</ul>
+<p>数据竞争将导致未定义行为。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> cnt = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// undefined behavior</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::atomic&lt;<span class="keyword">int</span>&gt; cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using atomic variable</span></span><br></pre></td></tr></table></figure>
+
+<p>特别地，释放一个 <a href="https://en.cppreference.com/w/cpp/thread/mutex" target="_blank" rel="noopener"><code>std::mutex</code></a> 与在另一线程中获取同一 <code>std::mutex</code> 是<ins>同步的（synchronized-with）</ins>，因此<ins>先于</ins>获取该 <code>std::mutex</code> 发生。因此，可用 <code>std::mutex</code> 来避免数据竞争。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="built_in">std</span>::mutex mtx;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; lk(mtx); cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using mutex to ensure happens-before semantic</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="内存顺序（Memory-Order）"><a href="#内存顺序（Memory-Order）" class="headerlink" title="内存顺序（Memory Order）"></a>内存顺序（Memory Order）</h2><p>线程自某个内存位置取值时，读到的可能是它的初始值，也可能是当前线程写入的值，亦可能是其他线程写入的值。有关内存顺序的细节可参见 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order</code></a>；其中讨论了线程的写入操作在其他线程可见性的问题。</p>
+<h2 id="前向执行（Forward-Progress）"><a href="#前向执行（Forward-Progress）" class="headerlink" title="前向执行（Forward Progress）"></a>前向执行（Forward Progress）</h2><h3 id="无阻塞（Obstruction-freedom）"><a href="#无阻塞（Obstruction-freedom）" class="headerlink" title="无阻塞（Obstruction freedom）"></a>无阻塞（Obstruction freedom）</h3><p>仅有一个未被标准库函数阻塞的线程在执行无锁<a href="https://en.cppreference.com/w/cpp/atomic" target="_blank" rel="noopener">原子函数（atomic function）</a>时，该原子函数必能执行完毕（标准库内所有无锁操作均<a href="obstruction-free">无阻塞</a>）。</p>
+<h3 id="无锁（Lock-freedom）"><a href="#无锁（Lock-freedom）" class="headerlink" title="无锁（Lock freedom）"></a>无锁（Lock freedom）</h3><p>一个或更多无锁原子函数并发执行时，至少其中之一必能执行完毕（标准库内所有无所操作均<a href="https://en.wikipedia.org/wiki/Non-blocking_algorithm#Lock-freedom" target="_blank" rel="noopener">无锁</a>——编译器实现会保证它们不会被一直锁住，例如持续地被窃走缓存行（cache-line stealing；一种因为执行其他线程的 CPU 核心对内存数据做预取而导致当前 CPU 核心缓存行变脏的现象））。</p>
+<h3 id="执行之保证（Progress-guarantee）"><a href="#执行之保证（Progress-guarantee）" class="headerlink" title="执行之保证（Progress guarantee）"></a>执行之保证（Progress guarantee）</h3><p>在正确的 C++ 程序当中，所有线程终将执行到下列情形之一：</p>
+<ul>
+<li>终止；</li>
+<li>调用 I/O 库的函数；</li>
+<li>经由<a href="https://en.cppreference.com/w/cpp/language/cv" target="_blank" rel="noopener">易变（volatile）</a>的左值（lvalue）或者将亡值（xvalue）——拥有内存地址的长寿对象——访问外部设备；</li>
+<li>执行原子操作或是同步操作。</li>
+</ul>
+<p>若一个线程执行上述任一操作（I/O, volatile, 原子操作或是同步操作），或是阻塞在标准库函数当中，亦或是因其他为阻塞线程正在并发执行导致调用一个无锁原子操作却尚未完成，则称该线程<ins>有进展（make progress）</ins>。</p>
+<h3 id="并发前向执行（Concurrent-forward-progress-since-C-17）"><a href="#并发前向执行（Concurrent-forward-progress-since-C-17）" class="headerlink" title="并发前向执行（Concurrent forward progress; since C++17）"></a>并发前向执行（Concurrent forward progress; since C++17）</h3><p>若某线程有<ins>并发前向执行之担保（concurrent forward progress guarantee）</ins>，则在它终止之前，无论其他线程（若有）是否有进展，它都将于有限时间内取得如上定义之<ins>进展（make progress）</ins>。</p>
+<p>C++ 标准鼓励（但并不强求）主线程和其他由 <code>std::thread</code> 启动的线程提供<ins>并发前向执行之担保</ins>。</p>
+<h3 id="并行前向执行（Parallel-forward-progress-since-C-17）"><a href="#并行前向执行（Parallel-forward-progress-since-C-17）" class="headerlink" title="并行前向执行（Parallel forward progress; since C++17）"></a>并行前向执行（Parallel forward progress; since C++17）</h3><p>若某线程有<ins>并行前向执行之担保（parallel forward progress guarantee）</ins>，则</p>
+<ul>
+<li>在它尚未执行任何步骤（I/O, volatile, 原子操作或是同步操作）时，编译器实现不保证它在有限时间内有<ins>进展</ins>；</li>
+<li>而一旦它执行了某一步骤，它提供<ins>并发前向执行之担保</ins>。</li>
+</ul>
+<p>此规则表明，线程池中的线程可以按照任意顺序执行任务。</p>
+<h3 id="弱并行前向执行（Weakly-parallel-forward-progress-since-C-17）"><a href="#弱并行前向执行（Weakly-parallel-forward-progress-since-C-17）" class="headerlink" title="弱并行前向执行（Weakly parallel forward progress; since C++17）"></a>弱并行前向执行（Weakly parallel forward progress; since C++17）</h3><p>若某线程有<ins>弱并行前向执行之担保（weakly parallel forward progress guarantee）</ins>，则无论其他线程是否有<ins>进展</ins>，它都不保证它在有限时间内有<ins>进展</ins>。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2021/06/05/memory-order-in-C-11/" title="程序员的自我修养（十）：C++ 的内存模型">https://liam.page/2021/06/05/memory-order-in-C-11/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Atomics/" rel="tag"># Atomics</a>
+              <a href="/tags/Memory-Model/" rel="tag"># Memory Model</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/23/feature-engineering-in-pxtr-tasks/" rel="prev" title="xTR 预估任务中的特征工程">
+      <i class="fa fa-chevron-left"></i> xTR 预估任务中的特征工程
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#字节（Byte）"><span class="nav-number">1.</span> <span class="nav-text">字节（Byte）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存位置（Memory-Location）"><span class="nav-number">2.</span> <span class="nav-text">内存位置（Memory Location）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程与数据竞争（Thread-and-data-races）"><span class="nav-number">3.</span> <span class="nav-text">线程与数据竞争（Thread and data races）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存顺序（Memory-Order）"><span class="nav-number">4.</span> <span class="nav-text">内存顺序（Memory Order）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#前向执行（Forward-Progress）"><span class="nav-number">5.</span> <span class="nav-text">前向执行（Forward Progress）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#无阻塞（Obstruction-freedom）"><span class="nav-number">5.1.</span> <span class="nav-text">无阻塞（Obstruction freedom）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#无锁（Lock-freedom）"><span class="nav-number">5.2.</span> <span class="nav-text">无锁（Lock freedom）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#执行之保证（Progress-guarantee）"><span class="nav-number">5.3.</span> <span class="nav-text">执行之保证（Progress guarantee）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并发前向执行（Concurrent-forward-progress-since-C-17）"><span class="nav-number">5.4.</span> <span class="nav-text">并发前向执行（Concurrent forward progress; since C++17）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并行前向执行（Parallel-forward-progress-since-C-17）"><span class="nav-number">5.5.</span> <span class="nav-text">并行前向执行（Parallel forward progress; since C++17）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#弱并行前向执行（Weakly-parallel-forward-progress-since-C-17）"><span class="nav-number">5.6.</span> <span class="nav-text">弱并行前向执行（Weakly parallel forward progress; since C++17）</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">373</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">722</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">41:21</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2021/06/05/memory-order-in-C-11/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'b1fca492b8188c453d6f64cf0ebf147c',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
