@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="此篇继前文讨论内存模型，继续讨论 C++ 的内存顺序。类似地，文中内容基本上是 CPP reference 上对应页面术语部分的翻译，有删减和补充。">
+<meta name="keywords" content="Atomics,Memory Model">
+<meta property="og:type" content="article">
+<meta property="og:title" content="程序员的自我修养（⑪）：C++ 的内存顺序·上">
+<meta property="og:url" content="https://liam.page/2021/06/06/memory-order-cpp-01/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="此篇继前文讨论内存模型，继续讨论 C++ 的内存顺序。类似地，文中内容基本上是 CPP reference 上对应页面术语部分的翻译，有删减和补充。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2021-06-06T12:55:12.344Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="程序员的自我修养（⑪）：C++ 的内存顺序·上">
+<meta name="twitter:description" content="此篇继前文讨论内存模型，继续讨论 C++ 的内存顺序。类似地，文中内容基本上是 CPP reference 上对应页面术语部分的翻译，有删减和补充。">
+
+<link rel="canonical" href="https://liam.page/2021/06/06/memory-order-cpp-01/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>程序员的自我修养（⑪）：C++ 的内存顺序·上 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">374</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">13</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">722</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2021/06/06/memory-order-cpp-01/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          程序员的自我修养（⑪）：C++ 的内存顺序·上
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021 年 06 月 06 日 12:16:06 / 修改时间：20:55:12" itemprop="dateCreated datePublished" datetime="2021-06-06T12:16:06+08:00">2021 年 06 月 06 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4.1k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>7 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>此篇继<a href="/2021/06/05/memory-model-cpp/">前文</a>讨论内存模型，继续讨论 C++ 的内存顺序。类似地，文中内容基本上是 CPP reference 上<a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener">对应页面</a>术语部分的翻译，有删减和补充。</p>
+<a id="more"></a>
+
+<p>线程间同步及内存顺序决定表达式的<ins>求值（evaluations）</ins>及其<ins>副作用（side effects）</ins>在不同线程中的顺序。首先有相关术语的定义。</p>
+<h2 id="消费操作（consume-operation）"><a href="#消费操作（consume-operation）" class="headerlink" title="消费操作（consume operation）"></a>消费操作（consume operation）</h2><p>配置了 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order_consume</code></a> 或更强的内存顺序的原子读操作是消费操作（consume operation）。</p>
+<p>注意：<code>std::atomic_thread_fence</code> 引入的同步机制比消费操作更强。</p>
+<h2 id="占有操作（aquire-operation）"><a href="#占有操作（aquire-operation）" class="headerlink" title="占有操作（aquire operation）"></a>占有操作（aquire operation）</h2><p>配置了 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order_acquire</code></a> 或更强的内存顺序的原子读操作是占有操作（aquire operation）。在<a href="https://en.cppreference.com/w/cpp/named_req/Mutex" target="_blank" rel="noopener">互斥量（mutex）</a>上执行 <code>lock()</code> 操作亦属于占有操作。</p>
+<p>注意：<code>std::atomic_thread_fence</code> 引入的同步机制比占有操作更强。</p>
+<h2 id="释放操作（release-operation）"><a href="#释放操作（release-operation）" class="headerlink" title="释放操作（release operation）"></a>释放操作（release operation）</h2><p>配置了 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order_release</code></a> 或更强的内存顺序的原子读操作是释放操作（release operation）。在<a href="https://en.cppreference.com/w/cpp/named_req/Mutex" target="_blank" rel="noopener">互斥量（mutex）</a>上执行 <code>unlock()</code> 操作亦属于释放操作。</p>
+<p>注意：<code>std::atomic_thread_fence</code> 引入的同步机制比释放操作更强。</p>
+<h2 id="表达式求值（evaluations-of-expressions）"><a href="#表达式求值（evaluations-of-expressions）" class="headerlink" title="表达式求值（evaluations of expressions）"></a>表达式求值（evaluations of expressions）</h2><p>对一个表达式<ins>求值（evaluation）</ins>包含以下两个部分：</p>
+<ul>
+<li><ins>值计算（value computations）</ins>：计算表达式的返回值。其中可能涉及到对象的识别（identity of the object；左值求值）或是读取对象中保存的值（右值求值）。前者例如返回某个对象的引用，后者例如返回一个数值。</li>
+<li><ins>副作用（side effect）</ins>：通过一个易变左值访问（读/写）对象；修改对象；调用函数库中的 I/O 函数；或调用包含上述操作的其他函数。</li>
+</ul>
+<h2 id="先序（sequenced-before）关系"><a href="#先序（sequenced-before）关系" class="headerlink" title="先序（sequenced-before）关系"></a>先序（sequenced-before）关系</h2><p>先序关系描述同一个线程中两次求值之间的偏序关系。</p>
+<ul>
+<li>若 A <ins>先序于（sequenced-before）</ins> B，则 A 将在 B 开始执行之前完成。</li>
+<li>若 A 不先序于 B，而 B 先序于 A，则 B 将在 A 开始执行之前完成。</li>
+<li>若 A 不先序于 B 而 B 亦不先序于 A，则有两种可能性<ul>
+<li>A 和 B 的求值不存在序列关系：二者可能以任意顺序求值，并且它们的求值动作在时间上可能重叠（在同一线程中，编译器可能打乱组成 A 和 B 的指令的顺序，使他们相互穿插）。</li>
+<li>A 和 B 的求值序列关系不确定：二者可能以任意顺序求值，但它们的求值动作在时间上不可能重叠。此外，程序再次执行时，二者的执行顺序可能和上一次不同。</li>
+</ul>
+</li>
+</ul>
+<h2 id="带去依赖（Carries-dependency）"><a href="#带去依赖（Carries-dependency）" class="headerlink" title="带去依赖（Carries dependency）"></a>带去依赖（Carries dependency）</h2><p>在同一线程中，若 A <ins>先序于</ins> B，则在下列情况下，A 为 B 带去依赖（即，B 依赖于 A）：</p>
+<ul>
+<li>A 的返回值是 B 的操作数，但下列情形除外：<ul>
+<li>B 是对 <a href="https://en.cppreference.com/w/cpp/atomic/kill_dependency" target="_blank" rel="noopener"><code>std::kill_dependency</code></a> 的调用；</li>
+<li>A 的返回值是内建 <code>&amp;&amp;</code>, <code>||</code>, <code>?:</code> 或是 <code>,</code> 运算符的左操作数。</li>
+</ul>
+</li>
+<li>执行 A 的过程中写入标量 M，而执行 B 的过程读取标量 M。</li>
+<li>A 为 X 带去依赖，而 X 为 B 带去依赖。（即依赖关系具有传递性）</li>
+</ul>
+<h2 id="修改顺序（Modification-Order）"><a href="#修改顺序（Modification-Order）" class="headerlink" title="修改顺序（Modification Order）"></a>修改顺序（Modification Order）</h2><p>对于某个原子变量来说，其全部写入操作组成一个全局修改顺序。</p>
+<p>所有原子操作都保证符合以下四个要求：</p>
+<ol>
+<li>写写一致性：若对原子变量 M 的写入操作 A <ins>先于（happens-before）</ins>对同一原子变量的写入操作 B。则在 M 的<ins>修改顺序（modification order）</ins>中，A 在 B 之前。</li>
+<li>读读一致性：若 A 和 B 的值计算均读取原子变量 M，且 A <ins>先于</ins> B；又假定 A 读到的原子变量 M 的值来自某个对 M 有写操作的表达式 X；则 B 读到的值，要么来自 X 的写入，要么来自在 M 的<ins>修改顺序（modification order）</ins>中晚于 X 的某个写入 Y。</li>
+<li>读写一致性：若 A 的值计算读取原子变量 M 而 B 写入 M，且 A <ins>先于</ins> B；则 A 读到的值来自在 M 的<ins>修改顺序（modification order）</ins>中早于 B 的某个写入 X。</li>
+<li>写读一致性：若 X 对原子变量 M 有写入，而 B 的值计算读取原子变量 M；又假定 X <ins>先于</ins> B；则 B 读到的值要么来自 X 的写入，要么来自在 M 的<ins>修改顺序（modification order）</ins>中晚于 X 的某个写入 Y。</li>
+</ol>
+<h2 id="释放序列（Release-sequence）"><a href="#释放序列（Release-sequence）" class="headerlink" title="释放序列（Release sequence）"></a>释放序列（Release sequence）</h2><p>假定 A 是原子变量 M 上的一个<ins>释放操作（release operation）</ins>。则在 M 的修改顺序中，<strong>位于 A 之后</strong>的由下列操作组成的最长连续子序列被称为以 A 为首的<ins>释放序列（release sequence）</ins>：</p>
+<ol>
+<li>执行 A 的线程中，对 M 的写入操作（until C++20）；</li>
+<li>任意线程对 M 的读-改-写操作（CAS 成功时的操作）。</li>
+</ol>
+<h2 id="依赖顺序上先于（Dependency-ordered-before）"><a href="#依赖顺序上先于（Dependency-ordered-before）" class="headerlink" title="依赖顺序上先于（Dependency-ordered before）"></a>依赖顺序上先于（Dependency-ordered before）</h2><p>满足下列某个情况时，我们称表达式 A 在<ins>依赖顺序上先于（dependency-ordered before）</ins>表达式 B——其中 A 和 B 处于不同线程。</p>
+<ol>
+<li>A 对原子变量 M 执行<ins>释放操作（release operation）</ins>，在另一线程中 B 对同一原子变量 M 执行<ins>消费操作（consume operation）</ins>，且 B 读取的值来自 A（以 A 为首的<ins>释放序列（release sequence）</ins>中的任意部分（until C++20））的写入。</li>
+<li>A 在依赖顺序上先于 X，而 X 为 B 带去依赖。</li>
+</ol>
+<h2 id="线程间先于（Inter-thread-happens-before）"><a href="#线程间先于（Inter-thread-happens-before）" class="headerlink" title="线程间先于（Inter-thread happens-before）"></a>线程间先于（Inter-thread happens-before）</h2><p>若满足下列条件之一，则称对表达式 A 的求值<ins>线程间先于（inter-thread happens-before）</ins>对表达式 B 的求值：</p>
+<ol>
+<li>A 与 B <ins>同步（synchronizes-with）</ins>；</li>
+<li>A <ins>依赖顺序上先于</ins> B；</li>
+<li>A 与某个表达式 X <ins>同步</ins>，而 X <ins>先序于</ins> B；</li>
+<li>A <ins>先序于</ins> 某个表达式 X 的求值，而 X <ins>线程间先于</ins> B；</li>
+<li>A <ins>线程间先于</ins> 某个表达式 X 的求值，而 X <ins>线程间先于</ins> B。</li>
+</ol>
+<h2 id="先于（happens-before）"><a href="#先于（happens-before）" class="headerlink" title="先于（happens-before）"></a>先于（happens-before）</h2><p>无论线程情况如何，若满足下列条件之一，则称对表达式 A 的求值<ins>先于（happens-before）</ins>对表达式 B 的求值：</p>
+<ol>
+<li>A <ins>先序于（sequenced-before）</ins> B；</li>
+<li>A <ins>线程间先于（inter-thread happens-before）</ins> B。</li>
+</ol>
+<p>编译器实现应当引入必要的同步措施，以保证表达式求值之间的先于关系链不成环。（仅当引入消费操作（consume operation）时有此必要；参见 <a href="http://www.cl.cam.ac.uk/~pes20/cpp/popl085ap-sewell.pdf" target="_blank" rel="noopener">Betty 等的论文</a>）</p>
+<p>若某个求值操作修改了一个内存位置（见<a href="/2021/06/05/memory-model-cpp/">前文</a>），另一个求值操作读写同一内存位置，且至少其一不是原子操作，除非二者之间存在<ins>先于</ins>关系，程序行为未定义（程序有数据竞争）。</p>
+<h2 id="简单先于（Simply-happens-before；since-C-20）"><a href="#简单先于（Simply-happens-before；since-C-20）" class="headerlink" title="简单先于（Simply happens-before；since C++20）"></a>简单先于（Simply happens-before；since C++20）</h2><p>无论线程情况如何，若满足下列条件之一，则称对表达式 A 的求值<ins>简单先于（happens-before）</ins>对表达式 B 的求值：</p>
+<ol>
+<li>A <ins>先序于（sequenced-before）</ins> B；</li>
+<li>A 与 B <ins>同步（synchronizes-with）</ins>；</li>
+<li>A <ins>简单先于</ins> 某个表达式 X 的求值，而 X <ins>简单先于</ins> B。</li>
+</ol>
+<p>注：没有消费操作（consume operation）时，简单先于等价于先于。</p>
+<h2 id="强先于（Strongly-happens-before）"><a href="#强先于（Strongly-happens-before）" class="headerlink" title="强先于（Strongly happens-before）"></a>强先于（Strongly happens-before）</h2><p>无论线程情况如何，若满足下列条件之一，则称对表达式 A 的求值<ins>强先于（strongly happens-before）</ins>对表达式 B 的求值：</p>
+<h3 id="until-C-20"><a href="#until-C-20" class="headerlink" title="until C++20"></a>until C++20</h3><ol>
+<li>A <ins>先序于（sequenced-before）</ins> B；</li>
+<li>A 与 B <ins>同步（synchronizes-with）</ins>；</li>
+<li>A <ins>强先于</ins> 某个表达式 X 的求值，而 X <ins>强先于</ins> B。</li>
+</ol>
+<p>注：C++20 之前的强先于，即是 C++20 及之后的简单先于。</p>
+<h3 id="since-C-20"><a href="#since-C-20" class="headerlink" title="since C++20"></a>since C++20</h3><ol>
+<li>A <ins>先序于（sequenced-before）</ins> B；</li>
+<li>A 与 B <ins>同步（synchronizes-with）</ins>，且 A/B 均为顺序一致（sequentially consistent）的原子操作；</li>
+<li>A <ins>先序于（sequenced-before）</ins> X，X <ins>简单先于</ins> Y，Y <ins>先序于（sequenced-before）</ins> B；</li>
+<li>A <ins>强先于</ins> 某个表达式 X 的求值，而 X <ins>强先于</ins> B。</li>
+</ol>
+<p>注：不正式地讲，若 A <ins>强先于（strongly happens-before）</ins> B，则在任何上下文中，A 都先于 B 求值。</p>
+<p>注：强先于关系排除了消费操作（consume operation）。</p>
+<h2 id="可见副作用（Visible-side-effects）"><a href="#可见副作用（Visible-side-effects）" class="headerlink" title="可见副作用（Visible side-effects）"></a>可见副作用（Visible side-effects）</h2><p>若下列条件均成立，则 A 对于标量 M 的副作用（写操作）于在标量 M 上的求值 B（读操作）可见：</p>
+<ol>
+<li>A <ins>先于</ins> B；</li>
+<li>任意满足 A <ins>先于</ins> X 且 X <ins>先于</ins> B 的表达式 X 对标量 M 没有副作用。</li>
+</ol>
+<p>若 A 的副作用对 B 可见，则在 M 的修改顺序当中 B 之前的最长连续副作用子集称之为 B 可见的副作用序列。（B 见到的 M 的值是上述副作用其中之一写入的）</p>
+<p>注：线程间同步本质是要通过建立<ins>先于（happens-before）</ins>关系来避免数据竞争以及定义在哪些条件下哪些副作用可见。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2021/06/06/memory-order-cpp-01/" title="程序员的自我修养（⑪）：C++ 的内存顺序·上">https://liam.page/2021/06/06/memory-order-cpp-01/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Atomics/" rel="tag"># Atomics</a>
+              <a href="/tags/Memory-Model/" rel="tag"># Memory Model</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/05/memory-model-cpp/" rel="prev" title="程序员的自我修养（十）：C++ 的内存模型">
+      <i class="fa fa-chevron-left"></i> 程序员的自我修养（十）：C++ 的内存模型
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#消费操作（consume-operation）"><span class="nav-number">1.</span> <span class="nav-text">消费操作（consume operation）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#占有操作（aquire-operation）"><span class="nav-number">2.</span> <span class="nav-text">占有操作（aquire operation）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#释放操作（release-operation）"><span class="nav-number">3.</span> <span class="nav-text">释放操作（release operation）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#表达式求值（evaluations-of-expressions）"><span class="nav-number">4.</span> <span class="nav-text">表达式求值（evaluations of expressions）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#先序（sequenced-before）关系"><span class="nav-number">5.</span> <span class="nav-text">先序（sequenced-before）关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#带去依赖（Carries-dependency）"><span class="nav-number">6.</span> <span class="nav-text">带去依赖（Carries dependency）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#修改顺序（Modification-Order）"><span class="nav-number">7.</span> <span class="nav-text">修改顺序（Modification Order）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#释放序列（Release-sequence）"><span class="nav-number">8.</span> <span class="nav-text">释放序列（Release sequence）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#依赖顺序上先于（Dependency-ordered-before）"><span class="nav-number">9.</span> <span class="nav-text">依赖顺序上先于（Dependency-ordered before）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程间先于（Inter-thread-happens-before）"><span class="nav-number">10.</span> <span class="nav-text">线程间先于（Inter-thread happens-before）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#先于（happens-before）"><span class="nav-number">11.</span> <span class="nav-text">先于（happens-before）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#简单先于（Simply-happens-before；since-C-20）"><span class="nav-number">12.</span> <span class="nav-text">简单先于（Simply happens-before；since C++20）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#强先于（Strongly-happens-before）"><span class="nav-number">13.</span> <span class="nav-text">强先于（Strongly happens-before）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#until-C-20"><span class="nav-number">13.1.</span> <span class="nav-text">until C++20</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#since-C-20"><span class="nav-number">13.2.</span> <span class="nav-text">since C++20</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#可见副作用（Visible-side-effects）"><span class="nav-number">14.</span> <span class="nav-text">可见副作用（Visible side-effects）</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">374</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">722</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">41:28</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2021/06/06/memory-order-cpp-01/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'bfc6fa8397e09a858e5df3b05de833ca',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
