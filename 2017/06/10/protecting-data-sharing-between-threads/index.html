@@ -26,14 +26,14 @@
   </script>
 
   <meta name="description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
-<meta name="keywords" content="Multithread,C++11,Race Conditions,Lock,Mutex">
+<meta name="keywords" content="C++11,Multithread,Race Conditions,Lock,Mutex">
 <meta property="og:type" content="article">
 <meta property="og:title" content="程序员的自我修养（六）：保护线程间的共享数据">
 <meta property="og:url" content="https://liam.page/2017/06/10/protecting-data-sharing-between-threads/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:updated_time" content="2021-08-10T15:27:12.431Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="程序员的自我修养（六）：保护线程间的共享数据">
 <meta name="twitter:description" content="进入到系列文章的第六篇。 我们在前文中提到，多进程和多线程最本质的区别在于共享和隔离的程度不同。对于多进程方式来说，因为隔离程度高，所以程序员很少需要去担心进程空间的数据被破坏；但是并发任务之间共享数据就变得很困难了。对于多线程方式来说，因为隔离程度低，所以共享数据非常容易；但是，相应地，程序员需要更多地考虑如何在线程之间安全地共享数据。这就引出了所谓的「线程安全」问题。 此篇，我们讨论如何在线程">
@@ -267,7 +267,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020 年 03 月 02 日 22:20:07" itemprop="dateModified" datetime="2020-03-02T22:20:07+08:00">2020 年 03 月 02 日</time>
+                <time title="修改时间：2021 年 08 月 10 日 23:27:12" itemprop="dateModified" datetime="2021-08-10T23:27:12+08:00">2021 年 08 月 10 日</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -450,7 +450,7 @@
 <p>因此，在使用互斥量保护数据的时候，需要注意：</p>
 <ul>
 <li>不能将被保护数据的指针或引用以函数返回值的形式，返回给外部不可控的调用者；</li>
-<li>不能将被保护数据的指针或引用意函数参数的形式，传递给外部不可控的调用者。</li>
+<li>不能将被保护数据的指针或引用以函数参数的形式，传递给外部不可控的调用者。</li>
 </ul>
 <h3 id="死锁及其解法"><a href="#死锁及其解法" class="headerlink" title="死锁及其解法"></a>死锁及其解法</h3><p>回到我们最开始<del>有味道</del>的例子。</p>
 <p>假设现在你给锅、铲都加上了互斥量。这样一来，你希望朋友 A 和朋友 B 不会在同一时间共用锅铲，避免未定义的行为。然而，新的问题又来了。</p>
@@ -506,7 +506,7 @@
 <p>以下示例展示了如何用 <code>std::lock()</code> 函数同时锁住两个互斥量。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">swap</span><span class="params">(DataType&amp; lhs, DataType&amp; rhs)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> DataType&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Container</span> &#123;</span></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">typedef</span> <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; guarded_mutex;</span><br><span class="line">    <span class="built_in">std</span>::mutex mtx_;</span><br><span class="line">    DataType data_;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">    <span class="function"><span class="keyword">friend</span> <span class="keyword">void</span> <span class="title">swap</span><span class="params">(Container&lt;DataType&gt;&amp; lhs, Container&lt;DataType&gt;&amp; rhs)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (&amp;lhs == &amp;rhs) &#123; <span class="keyword">return</span>; &#125;                   <span class="comment">// 1.</span></span><br><span class="line">        <span class="built_in">std</span>::lock(lhs.mtx_, rhs.mtx_);                  <span class="comment">// 2.</span></span><br><span class="line">        <span class="function">guarded_mutex <span class="title">g_lhs</span><span class="params">(lhs.mtx_, <span class="built_in">std</span>::adopt_lock)</span></span>; <span class="comment">// 3.</span></span><br><span class="line">        <span class="function">guarded_mutex <span class="title">g_rhs</span><span class="params">(rhs.mtx_, <span class="built_in">std</span>::adopt_lock)</span></span>; <span class="comment">// 4.</span></span><br><span class="line">        swap(lhs.data_, rhs.data_);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 
-<p>例子中，首先我们在 (1) 处判断传入的两个容器是否不同。这是因为，对同一个 <code>std::mutex</code> 在线程中反复上锁是未定义行为。而后我们在 (2) 处使用 <code>std::lock()</code> 函数，同时锁住 <code>lhs</code> 和 <code>rhs</code> 的互斥量。之后，我们在 (3) 和 (4) 处使用 RAII 容器接管已经上锁的互斥量。主意，这里传入的 <code>std::adopt_lock</code> 表示该互斥量已经上锁，<code>std::lock_guard</code> 只需要接管互斥量的所有权即可，不需要再次上锁。在此之后，我们就可以安心地调用 <code>swap</code> 函数交换两个 <code>DataType</code> 中的内容了。</p>
+<p>例子中，首先我们在 (1) 处判断传入的两个容器是否不同。这是因为，对同一个 <code>std::mutex</code> 在线程中反复上锁是未定义行为。而后我们在 (2) 处使用 <code>std::lock()</code> 函数，同时锁住 <code>lhs</code> 和 <code>rhs</code> 的互斥量。之后，我们在 (3) 和 (4) 处使用 RAII 容器接管已经上锁的互斥量。注意，这里传入的 <code>std::adopt_lock</code> 表示该互斥量已经上锁，<code>std::lock_guard</code> 只需要接管互斥量的所有权即可，不需要再次上锁。在此之后，我们就可以安心地调用 <code>swap</code> 函数交换两个 <code>DataType</code> 中的内容了。</p>
 <h3 id="当-std-lock-解决不了死锁的时候"><a href="#当-std-lock-解决不了死锁的时候" class="headerlink" title="当 std::lock 解决不了死锁的时候"></a>当 <code>std::lock</code> 解决不了死锁的时候</h3><p>对于死锁，<code>std::lock</code> 函数能够保证一次性锁住多把锁，从而在一定程度上解决了问题。之所以说它只是在一定程度上解决问题，是因为还有很多情况，是无法使用 <code>std::lock</code> 的。比如，有一些情况必须要在不同的位置，分别锁上不同的锁。这时候，<code>std::lock</code> 就不适用了。此外，死锁问题并不仅仅是发生在和互斥量相关的情形中，此时使用 <code>std::lock</code> 也解决不了问题——因为根本不存在锁的问题。</p>
 <p>对于 <code>std::lock</code> 解决不了的死锁情况，想要写出不会死锁的代码，就需要靠一些规<del>玄</del>矩<del>学</del>来保证了。对于这些规矩，我们简单罗列如下。</p>
 <ul>
@@ -678,8 +678,8 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/Multithread/" rel="tag"># Multithread</a>
               <a href="/tags/C-11/" rel="tag"># C++11</a>
+              <a href="/tags/Multithread/" rel="tag"># Multithread</a>
               <a href="/tags/Race-Conditions/" rel="tag"># Race Conditions</a>
               <a href="/tags/Lock/" rel="tag"># Lock</a>
               <a href="/tags/Mutex/" rel="tag"># Mutex</a>
