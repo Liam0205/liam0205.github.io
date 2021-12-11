@@ -33,7 +33,7 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2021-06-17T13:05:47.306Z">
+<meta property="og:updated_time" content="2021-12-11T07:15:25.181Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="程序员的自我修养（十）：C++ 的内存模型">
 <meta name="twitter:description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
@@ -267,7 +267,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021 年 06 月 17 日 21:05:47" itemprop="dateModified" datetime="2021-06-17T21:05:47+08:00">2021 年 06 月 17 日</time>
+                <time title="修改时间：2021 年 12 月 11 日 15:15:25" itemprop="dateModified" datetime="2021-12-11T15:15:25+08:00">2021 年 12 月 11 日</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -339,7 +339,7 @@
 
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::atomic&lt;<span class="keyword">int</span>&gt; cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using atomic variable</span></span><br></pre></td></tr></table></figure>
 
-<p>特别地，释放一个 <a href="https://en.cppreference.com/w/cpp/thread/mutex" target="_blank" rel="noopener"><code>std::mutex</code></a> 与在另一线程中获取同一 <code>std::mutex</code> 是<ins>同步的（synchronized-with）</ins>，因此<ins>先于</ins>获取该 <code>std::mutex</code> 发生。因此，可用 <code>std::mutex</code> 来避免数据竞争。</p>
+<p>特别地，对于同一个 <a href="https://en.cppreference.com/w/cpp/thread/mutex" target="_blank" rel="noopener"><code>std::mutex</code></a>，在一个线程中释放它与在另一线程中获取它是<ins>同步的（synchronized-with）</ins>，故而释放动作<ins>先于（happens-before）</ins>获取动作。因此，可用 <code>std::mutex</code> 来避免数据竞争。</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="built_in">std</span>::mutex mtx;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; lk(mtx); cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using mutex to ensure happens-before semantic</span></span><br></pre></td></tr></table></figure>
 
 <h2 id="内存顺序（Memory-Order）"><a href="#内存顺序（Memory-Order）" class="headerlink" title="内存顺序（Memory Order）"></a>内存顺序（Memory Order）</h2><p>线程自某个内存位置取值时，读到的可能是它的初始值，也可能是当前线程写入的值，亦可能是其他线程写入的值。有关内存顺序的细节可参见 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order</code></a>；其中讨论了线程的写入操作在其他线程可见性的问题。</p>
