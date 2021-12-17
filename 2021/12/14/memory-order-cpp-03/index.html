@@ -33,7 +33,7 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="在前三篇文章中，我们捡着重要的部分翻译和扩展了 cppreference 网站上关于内存模型和内存顺序（上、中）的文章。坦率地说，因为涉及内容相对底层，所以通篇相对晦涩。所以它们虽然阐述了相关内容，但不易读。 此篇讨论的内容在前三篇文章中都有讨论，但将从一系列例子出发，从实践的角度去讨论内存模型和内存顺序。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2021-12-14T02:54:37.636Z">
+<meta property="og:updated_time" content="2021-12-17T05:52:08.713Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="程序员的自我修养（⑬）：C++ 的内存顺序·下">
 <meta name="twitter:description" content="在前三篇文章中，我们捡着重要的部分翻译和扩展了 cppreference 网站上关于内存模型和内存顺序（上、中）的文章。坦率地说，因为涉及内容相对底层，所以通篇相对晦涩。所以它们虽然阐述了相关内容，但不易读。 此篇讨论的内容在前三篇文章中都有讨论，但将从一系列例子出发，从实践的角度去讨论内存模型和内存顺序。">
@@ -259,10 +259,16 @@
                 <i class="fa fa-calendar-o"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021 年 12 月 14 日 00:14:42 / 修改时间：10:54:37" itemprop="dateCreated datePublished" datetime="2021-12-14T00:14:42+08:00">2021 年 12 月 14 日</time>
+              <time title="创建时间：2021 年 12 月 14 日 00:14:42" itemprop="dateCreated datePublished" datetime="2021-12-14T00:14:42+08:00">2021 年 12 月 14 日</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021 年 12 月 17 日 13:52:08" itemprop="dateModified" datetime="2021-12-17T13:52:08+08:00">2021 年 12 月 17 日</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
@@ -364,7 +370,7 @@
 <p>前作当中的<a href="/2021/12/11/memory-order-cpp-02/#%E9%A1%BA%E5%BA%8F%E4%B8%80%E8%87%B4%E9%A1%BA%E5%BA%8F%EF%BC%88Sequentially-consistent-ordering%EF%BC%89">例子</a>很好地说明了顺序一致性的效果。</p>
 <!-- This ease of understanding can come at a price, though. On a weakly ordered machine with many processors, it can impose a noticeable performance penalty, because the overall sequence of operations must be kept consistent between the pro- cessors, possibly requiring extensive (and expensive!) synchronization operations between the processors. That said, some processor architectures (such as the common x86 and x86-64 architectures) offer sequential consistency relatively cheaply, so if you’re concerned about the performance implications of using sequentially consis- tent ordering, check the documentation for your target processor architectures. -->
 
-<p>这种便利是有代价的。在默认的顺序保证相对较弱的平台上（如 ARM），顺序一致模型会引入客观的性能代价。这是因为，全局顺序一致需要在 CPU 逻辑核心之间保持一致性，这使得 CPU 逻辑核心之间需要使用代价高昂的同步操作。相较而言，部分处理器架构（例如 x86 和 x86-64）保证顺序一致性的代价较低。为避免这种同步代价，我们需要拥抱非顺序一致性模型。</p>
+<p>这种便利是有代价的。在默认的顺序保证相对较弱的平台上（如 ARM），顺序一致模型会引入可观的性能代价。这是因为，全局顺序一致需要在 CPU 逻辑核心之间保持一致性，这使得 CPU 逻辑核心之间需要使用代价高昂的同步操作。相较而言，部分处理器架构（例如 x86 和 x86-64）保证顺序一致性的代价较低。为避免这种同步代价，我们需要拥抱非顺序一致性模型。</p>
 <hr>
 <p>在处理非顺序一致性模型时，我们就要丢弃脑海中那种简洁漂亮的交替执行的思维模型。<strong>它不存在了</strong>。在没有顺序一致性保障的情况下，各个线程看到的原子操作的顺序并不保证统一。也就是说，虽然依旧是并发（所以穿插执行），但是每个线程看到的穿插的顺序可能是不一样的。在非顺序一致模型下写代码时，要时刻关注这一点。</p>
 <p>不过，也有一致的地方。虽说各个线程观察到的原子操作发生的顺序可能不一致，但是，对于<strong>每一个特定的原子变量</strong>，作用在其上的原子操作的修改顺序（modification-order），在各个线程看来是统一的。</p>
