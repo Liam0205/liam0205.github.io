@@ -33,7 +33,7 @@
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="很早以前，在学习使用 Python 的 deque 容器时，我实现了一个玩具版的频率限制器。最近需要压测线上服务的性能，又不愿意总是在 QA 那边排队，于是需要自己写一个压测用的客户端。其中一个核心需求就是要实现 QPS 限制。 于是，终究逃不开要在 C++ 中实现一个线程安全的频率限制器。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-05-17T11:39:36.000Z">
+<meta property="og:updated_time" content="2021-12-18T11:53:52.772Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="在 C++ 中实现一个线程安全的频率限制器">
 <meta name="twitter:description" content="很早以前，在学习使用 Python 的 deque 容器时，我实现了一个玩具版的频率限制器。最近需要压测线上服务的性能，又不愿意总是在 QA 那边排队，于是需要自己写一个压测用的客户端。其中一个核心需求就是要实现 QPS 限制。 于是，终究逃不开要在 C++ 中实现一个线程安全的频率限制器。">
@@ -259,10 +259,16 @@
                 <i class="fa fa-calendar-o"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2020 年 05 月 17 日 16:41:10 / 修改时间：19:39:36" itemprop="dateCreated datePublished" datetime="2020-05-17T16:41:10+08:00">2020 年 05 月 17 日</time>
+              <time title="创建时间：2020 年 05 月 17 日 16:41:10" itemprop="dateCreated datePublished" datetime="2020-05-17T16:41:10+08:00">2020 年 05 月 17 日</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021 年 12 月 18 日 19:53:52" itemprop="dateModified" datetime="2021-12-18T19:53:52+08:00">2021 年 12 月 18 日</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
@@ -286,7 +292,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>7.6k</span>
+              <span>7.7k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -374,9 +380,9 @@
 <li>程序指令和源码顺序一致；</li>
 <li>所有线程的所有操作都有一致的顺序。</li>
 </ul>
-<p>为了实现顺序一致性（sequential consistency），编译器会使用很多对抗编译器优化和 CPU 乱序执行（Out-of-Order Execution）的手段，因而性能较差。对于此处的 <code>count_</code>，我们无需顺序一致性模型，只需要获取释放模型（Aquire-Release）模型就足够了。</p>
+<p>为了实现顺序一致性（sequential consistency），编译器会使用很多对抗编译器优化和 CPU 乱序执行（Out-of-Order Execution）的手段，因而性能较差。对于此处的 <code>count_</code>，我们无需顺序一致性模型，只需要获取释放-模型（Aquire-Release）模型就足够了。对 <code>count_</code> 施加获取-释放模型之后，<code>timestamp_</code> 就只需宽松模型即可。</p>
 <h3 id="第四次改进"><a href="#第四次改进" class="headerlink" title="第四次改进"></a>第四次改进</h3><p>于是有第四次改进：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">bool</span> RateLimiter::<span class="keyword">operator</span>()() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count_.fetch_add(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_acq_rel);</span><br><span class="line">  <span class="keyword">if</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">auto</span> ts  = <span class="keyword">this</span>-&gt;timestamp_.load();</span><br><span class="line">    <span class="keyword">auto</span> now = clock::now().time_since_epoch().count();</span><br><span class="line">    <span class="keyword">if</span> (now - ts &lt; <span class="keyword">this</span>-&gt;interval_count_) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">not</span> <span class="keyword">this</span>-&gt;timestamp_.compare_and_exchange_strong(ts, now)) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (ts == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count.fetch_add(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_acq_rel);</span><br><span class="line">      <span class="keyword">return</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">this</span>-&gt;count_.store(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_release);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">bool</span> RateLimiter::<span class="keyword">operator</span>()() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count_.fetch_add(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_acq_rel);</span><br><span class="line">  <span class="keyword">if</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_) &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="keyword">auto</span> ts  = <span class="keyword">this</span>-&gt;timestamp_.load(<span class="built_in">std</span>::memory_order_relaxed);</span><br><span class="line">    <span class="keyword">auto</span> now = clock::now().time_since_epoch().count();</span><br><span class="line">    <span class="keyword">if</span> (now - ts &lt; <span class="keyword">this</span>-&gt;interval_count_) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (<span class="keyword">not</span> <span class="keyword">this</span>-&gt;timestamp_.compare_and_exchange_strong(ts, now, <span class="built_in">std</span>::memory_order_relaxed, <span class="built_in">std</span>::memory_order_relaxed)) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (ts == <span class="number">0</span>) &#123;</span><br><span class="line">      <span class="keyword">auto</span> orig_count = <span class="keyword">this</span>-&gt;count.fetch_add(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_acq_rel);</span><br><span class="line">      <span class="keyword">return</span> (orig_count &lt; <span class="keyword">this</span>-&gt;limit_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">this</span>-&gt;count_.store(<span class="number">1U</span>L, <span class="built_in">std</span>::memory_order_release);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>至此，我们就完整实现了一个频率限制器，可以愉快地开始拉 QPS 压测了！</p>
 
@@ -648,7 +654,7 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:13</span>
+    <span title="站点阅读时长">42:14</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
