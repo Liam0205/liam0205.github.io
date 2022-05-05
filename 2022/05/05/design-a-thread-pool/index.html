@@ -25,18 +25,18 @@
     var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。 初步讨论为什么需要线程池？自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 std::thread 来管理一个线程。若是要异步地执行任务，搭配使用 std::async 和 std::future 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？ 众所周知，线程作为一种系统资">
+  <meta name="description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。">
 <meta name="keywords" content="Thread,Threadpool">
 <meta property="og:type" content="article">
 <meta property="og:title" content="设计一个线程池">
 <meta property="og:url" content="https://liam.page/2022/05/05/design-a-thread-pool/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。 初步讨论为什么需要线程池？自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 std::thread 来管理一个线程。若是要异步地执行任务，搭配使用 std::async 和 std::future 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？ 众所周知，线程作为一种系统资">
+<meta property="og:description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2022-05-05T13:54:14.089Z">
+<meta property="og:updated_time" content="2022-05-05T13:57:18.954Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="设计一个线程池">
-<meta name="twitter:description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。 初步讨论为什么需要线程池？自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 std::thread 来管理一个线程。若是要异步地执行任务，搭配使用 std::async 和 std::future 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？ 众所周知，线程作为一种系统资">
+<meta name="twitter:description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。">
 
 <link rel="canonical" href="https://liam.page/2022/05/05/design-a-thread-pool/">
 
@@ -261,7 +261,7 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2022 年 05 月 05 日 20:30:35 / 修改时间：21:54:14" itemprop="dateCreated datePublished" datetime="2022-05-05T20:30:35+08:00">2022 年 05 月 05 日</time>
+              <time title="创建时间：2022 年 05 月 05 日 20:30:35 / 修改时间：21:57:18" itemprop="dateCreated datePublished" datetime="2022-05-05T20:30:35+08:00">2022 年 05 月 05 日</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -306,6 +306,8 @@
 
       
         <p>此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。</p>
+<a id="more"></a>
+
 <h2 id="初步讨论"><a href="#初步讨论" class="headerlink" title="初步讨论"></a>初步讨论</h2><h3 id="为什么需要线程池？"><a href="#为什么需要线程池？" class="headerlink" title="为什么需要线程池？"></a>为什么需要线程池？</h3><p>自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 <code>std::thread</code> 来管理一个线程。若是要异步地执行任务，搭配使用 <code>std::async</code> 和 <code>std::future</code> 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？</p>
 <p>众所周知，线程作为一种系统资源，其创建和销毁是需要时间的。因此，如果创建和销毁线程的时间和执行任务所需的时间处在同一个数量级，那么频繁地创建和销毁线程带来的性能损耗就会变得十分可观。此时，我们就要考虑使用线程池。</p>
 <h3 id="线程池应有哪些特点？"><a href="#线程池应有哪些特点？" class="headerlink" title="线程池应有哪些特点？"></a>线程池应有哪些特点？</h3><p>线程池的本质就是一组待用的线程。在 C++ 中，它可以表示为一个 <code>std::thread</code> 的数组或是向量。在实际工程中，为便于进行可能的扩展，使用 <code>std::vector&lt;std::thread&gt;</code> 显然会更加合适。</p>
