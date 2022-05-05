@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 3.9.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。 初步讨论为什么需要线程池？自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 std::thread 来管理一个线程。若是要异步地执行任务，搭配使用 std::async 和 std::future 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？ 众所周知，线程作为一种系统资">
+<meta name="keywords" content="Thread,Threadpool">
+<meta property="og:type" content="article">
+<meta property="og:title" content="设计一个线程池">
+<meta property="og:url" content="https://liam.page/2022/05/05/design-a-thread-pool/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。 初步讨论为什么需要线程池？自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 std::thread 来管理一个线程。若是要异步地执行任务，搭配使用 std::async 和 std::future 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？ 众所周知，线程作为一种系统资">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2022-05-05T13:54:14.089Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="设计一个线程池">
+<meta name="twitter:description" content="此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。 初步讨论为什么需要线程池？自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 std::thread 来管理一个线程。若是要异步地执行任务，搭配使用 std::async 和 std::future 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？ 众所周知，线程作为一种系统资">
+
+<link rel="canonical" href="https://liam.page/2022/05/05/design-a-thread-pool/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>设计一个线程池 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">379</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">13</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">726</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2022/05/05/design-a-thread-pool/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          设计一个线程池
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022 年 05 月 05 日 20:30:35 / 修改时间：21:54:14" itemprop="dateCreated datePublished" datetime="2022-05-05T20:30:35+08:00">2022 年 05 月 05 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>7.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>14 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>此篇我们通过逐步实现线程池，来探讨线程池中的关键技术。</p>
+<h2 id="初步讨论"><a href="#初步讨论" class="headerlink" title="初步讨论"></a>初步讨论</h2><h3 id="为什么需要线程池？"><a href="#为什么需要线程池？" class="headerlink" title="为什么需要线程池？"></a>为什么需要线程池？</h3><p>自 C++11 起，在 C++ 中使用线程就变得很简单。最基本地，可以用 <code>std::thread</code> 来管理一个线程。若是要异步地执行任务，搭配使用 <code>std::async</code> 和 <code>std::future</code> 也很方便。在有这些基础设施的基础上，我们为什么还需要线程池？或者说，我们什么时候需要线程池？</p>
+<p>众所周知，线程作为一种系统资源，其创建和销毁是需要时间的。因此，如果创建和销毁线程的时间和执行任务所需的时间处在同一个数量级，那么频繁地创建和销毁线程带来的性能损耗就会变得十分可观。此时，我们就要考虑使用线程池。</p>
+<h3 id="线程池应有哪些特点？"><a href="#线程池应有哪些特点？" class="headerlink" title="线程池应有哪些特点？"></a>线程池应有哪些特点？</h3><p>线程池的本质就是一组待用的线程。在 C++ 中，它可以表示为一个 <code>std::thread</code> 的数组或是向量。在实际工程中，为便于进行可能的扩展，使用 <code>std::vector&lt;std::thread&gt;</code> 显然会更加合适。</p>
+<p>对于线程池中的每个线程，它都可能在某个时刻接收到一个任务。而这个任务具体是什么，在线程创建时并不知道。用 C++ 的语言表达就是说，线程池中的线程：</p>
+<ul>
+<li>应当可以执行任意函数——支持任何参数列表，也支持任何返回值类型；</li>
+<li>应当可以将任务的执行结果反馈给任务的发布者；</li>
+<li>应当可以在需要时被唤醒执行任务，而在无需时不占用过多 CPU 资源；</li>
+<li>应当可以被主控线程控制，在适当的时候暂停任务、停止接收任务、丢弃未完成任务等。</li>
+</ul>
+<p>对于第一条，modern C++ 的做法应该是利用 <code>functional</code> 头文件提供的基础设施（<code>std::bind</code>, <code>std::function</code> 等）结合模板参数包来实现。对于第二条，old-fashion 的做法是在发布任务时同时注册回调函数；modern C++ 的做法应该是利用 <code>std::packaged_task</code> 结合 <code>std::future</code> 来实现。对于第三条，若是任务来得不那么频繁，应当考虑使用 <code>std::condition_variable</code> 来实现；若是任务十分频繁，则可以考虑使用 <code>std::this_thread::yield</code>。对于第四条，则可以设置一个内部变量作为标记，让每个工作线程都定期检查该标记来实现。</p>
+<p>我们讨论到了任务。显然，我们会需要一个线程安全的队列来管理其他线程发布的任务。</p>
+<h2 id="线程安全队列"><a href="#线程安全队列" class="headerlink" title="线程安全队列"></a>线程安全队列</h2><p>我们不妨直接从代码入手，逐步分析。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">blocking_queue</span> :</span> <span class="keyword">protected</span> <span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt; &#123;  <span class="comment">// 1.</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">using</span> wlock = <span class="built_in">std</span>::unique_lock&lt;<span class="built_in">std</span>::shared_mutex&gt;;  <span class="comment">// 2.a</span></span><br><span class="line">  <span class="keyword">using</span> rlock = <span class="built_in">std</span>::shared_lock&lt;<span class="built_in">std</span>::shared_mutex&gt;;  <span class="comment">// 2.b</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  blocking_queue() = <span class="keyword">default</span>;</span><br><span class="line">  ~blocking_queue() &#123;</span><br><span class="line">    clear();</span><br><span class="line">  &#125;</span><br><span class="line">  blocking_queue(<span class="keyword">const</span> blocking_queue&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 3.a</span></span><br><span class="line">  blocking_queue(blocking_queue&amp;&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 3.b</span></span><br><span class="line">  blocking_queue&amp; <span class="keyword">operator</span>=(<span class="keyword">const</span> blocking_queue&amp;) = <span class="keyword">delete</span>; <span class="comment">// 3.c</span></span><br><span class="line">  blocking_queue&amp; <span class="keyword">operator</span>=(blocking_queue&amp;&amp;) = <span class="keyword">delete</span>;  <span class="comment">// 3.d</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">empty</span><span class="params">()</span> <span class="keyword">const</span> </span>&#123;</span><br><span class="line">    <span class="function">rlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;  <span class="comment">// 4.a</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::empty();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">size_t</span> size() <span class="keyword">const</span> &#123;</span><br><span class="line">    <span class="function">rlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;  <span class="comment">// 4.b</span></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::size();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">clear</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="function">wlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">    <span class="keyword">while</span> (!<span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::empty()) &#123;</span><br><span class="line">      <span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::pop();</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">push</span><span class="params">(<span class="keyword">const</span> T&amp; obj)</span> </span>&#123;</span><br><span class="line">    <span class="function">wlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;  <span class="comment">// 5.a</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::push(obj);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span>... Args&gt;</span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">emplace</span><span class="params">(Args&amp;&amp;... args)</span> </span>&#123;</span><br><span class="line">    <span class="function">wlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;  <span class="comment">// 5.b</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::emplace(<span class="built_in">std</span>::forward&lt;Args&gt;(args)...);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">pop</span><span class="params">(T&amp; holder)</span> </span>&#123;  <span class="comment">// 6.</span></span><br><span class="line">    <span class="function">wlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::empty()) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      holder = <span class="built_in">std</span>::move(<span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::front());</span><br><span class="line">      <span class="built_in">std</span>::<span class="built_in">queue</span>&lt;T&gt;::pop();</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">mutable</span> <span class="built_in">std</span>::shared_mutex mtx_;  <span class="comment">// 7.</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><code>blocking_queue</code> 继承 <code>std::queue</code>，最基本的队列的实现交给标准库。</li>
+<li>利用 <code>std::shared_mutex</code> 结合 <code>std::unique_lock</code> 和 <code>std::shared_lock</code> 实现读写锁。</li>
+<li>此处我们禁用了拷贝和移动构造函数及对应的赋值运算符。这纯粹是因为在实现线程池的过程中我们用不到它们。如果需要，是可以按需实现的。</li>
+<li>在两个 observers 当中，我们使用了只读锁。</li>
+<li><code>push</code> 和 <code>emplace</code> 是类似的操作，都是在队尾追加元素。他们的区别与联系就和标准库容器的接口一样。注意在 <code>emplace</code> 当中，我们用到了完美转发技术。</li>
+<li>这里的 <code>pop</code> 其实更合适称作 <code>try_pop</code>。因为 <code>pop</code> 动作在此处并不一定成功，在队列为空时，函数返回 <code>false</code> 而不会对队列做任何修改。</li>
+<li>这是一把针对整个队列的粗粒度锁。实际上，因为队列的 push 和 pop 一定程度上是分开的，小心地话，可以实现一个细粒度版本的锁，在 push 和 pop 操作都频繁的情况下会有显著的性能提升。关于这一点，我们之后可以单列一篇文章进行讨论。</li>
+</ol>
+<h2 id="线程池"><a href="#线程池" class="headerlink" title="线程池"></a>线程池</h2><h3 id="接口定义"><a href="#接口定义" class="headerlink" title="接口定义"></a>接口定义</h3><p>按先前的讨论，我们可以整理出线程池的大致模样：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">threadpool</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// 1.</span></span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">init</span><span class="params">(<span class="keyword">int</span> num)</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">terminate</span><span class="params">()</span></span>;  <span class="comment">// stop and process all delegated tasks</span></span><br><span class="line">  <span class="function"><span class="keyword">void</span> <span class="title">cancel</span><span class="params">()</span></span>;     <span class="comment">// stop and drop all tasks remained in queue</span></span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// 2.</span></span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">inited</span><span class="params">()</span> <span class="keyword">const</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">bool</span> <span class="title">is_running</span><span class="params">()</span> <span class="keyword">const</span></span>;</span><br><span class="line">  <span class="function"><span class="keyword">int</span> <span class="title">size</span><span class="params">()</span> <span class="keyword">const</span></span>;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:  <span class="comment">// 3.</span></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">F</span>, <span class="title">class</span>... <span class="title">Args</span>&gt;</span></span><br><span class="line"><span class="class">  <span class="title">auto</span> <span class="title">async</span>(<span class="title">F</span>&amp;&amp; <span class="title">f</span>, <span class="title">Args</span>&amp;&amp;... <span class="title">args</span>) <span class="title">const</span> -&gt; <span class="title">std</span>:</span>:future&lt;<span class="keyword">decltype</span>(f(args...))&gt;;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="built_in">std</span>::thread&gt; workers_;  <span class="comment">// 4.</span></span><br><span class="line">  <span class="keyword">mutable</span> blocking_queue&lt;<span class="built_in">std</span>::function&lt;<span class="keyword">void</span>()&gt;&gt; tasks_;  <span class="comment">// 5.</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>第一组的三个接口是整个线程池的控制接口。<code>init</code> 接口启动线程池，其参数 <code>num</code> 即是线程池中线程的数量。<code>terminate</code> 接口终止线程池，不再接受新的任务，并保证将已接受的任务处理完毕。<code>cancel</code> 与 <code>terminate</code> 类似，但它将丢弃已接受但未处理完毕的任务。</li>
+<li>第二组的三个接口均是 observers。</li>
+<li>第三组中的唯一一个接口是线程池接受外部任务的接口。它和标准库提供的 <code>std::async</code> 几乎一致，接受任意函数，并返回一个 <code>std::future</code>。</li>
+<li>这是线程池本体。</li>
+<li>这是任务队列。</li>
+</ol>
+<h3 id="线程池的控制接口"><a href="#线程池的控制接口" class="headerlink" title="线程池的控制接口"></a>线程池的控制接口</h3><p>接下来我们讨论控制接口的具体实现。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">inline</span> <span class="keyword">void</span> threadpool::init(<span class="keyword">int</span> num) &#123;</span><br><span class="line">  <span class="built_in">std</span>::call_once(once_, [<span class="keyword">this</span>, num]() &#123;  <span class="comment">// 1.</span></span><br><span class="line">    wlock lock(mtx_);  <span class="comment">// 2.</span></span><br><span class="line">    stop_ = <span class="literal">false</span>;</span><br><span class="line">    cancel_ = <span class="literal">false</span>;</span><br><span class="line">    workers_.reserve(num);</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">int</span> i = <span class="number">0</span>; i &lt; num; ++i) &#123;</span><br><span class="line">      workers_.emplace_back(<span class="built_in">std</span>::bind(&amp;threadpool::spawn, <span class="keyword">this</span>));  <span class="comment">// 3.a</span></span><br><span class="line">    &#125;</span><br><span class="line">    inited_ = <span class="literal">true</span>;</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> <span class="keyword">void</span> threadpool::spawn() &#123;  <span class="comment">// 3.b</span></span><br><span class="line">  <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">    <span class="keyword">bool</span> pop = <span class="literal">false</span>;</span><br><span class="line">    <span class="built_in">std</span>::function&lt;<span class="keyword">void</span>()&gt; task;</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="function">wlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">      cond_.wait(lock, [<span class="keyword">this</span>, &amp;pop, &amp;task] &#123;</span><br><span class="line">        pop = tasks_.pop(task);</span><br><span class="line">        <span class="keyword">return</span> cancel_ || stop_ || pop;  <span class="comment">// 4.</span></span><br><span class="line">      &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (cancel_ || (stop_ &amp;&amp; !pop)) &#123;  <span class="comment">// 5.a</span></span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    task();  <span class="comment">// 5.b</span></span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> <span class="keyword">void</span> threadpool::terminate() &#123;  <span class="comment">// 6.a</span></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function">wlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">    <span class="keyword">if</span> (_is_running()) &#123;</span><br><span class="line">      stop_ = <span class="literal">true</span>;  <span class="comment">// 7.a</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  cond_.notify_all();</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">auto</span>&amp; worker : workers_) &#123;</span><br><span class="line">    worker.join();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> <span class="keyword">void</span> threadpool::cancel() &#123;  <span class="comment">// 6.b</span></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function">wlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">    <span class="keyword">if</span> (_is_running()) &#123;</span><br><span class="line">      cancel_ = <span class="literal">true</span>;  <span class="comment">// 7.b</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  tasks_.clear();  <span class="comment">// 8.</span></span><br><span class="line">  cond_.notify_all();</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">auto</span>&amp; worker : workers_) &#123;</span><br><span class="line">    worker.join();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> <span class="keyword">bool</span> threadpool::_is_running() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="keyword">return</span> inited_ &amp;&amp; !stop_ &amp;&amp; !cancel_;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li><code>init</code> 完成的工作，在逻辑上只能进行一次。但我们无法保证用户代码确实如我们所想地这样执行。因此，我们利用 <code>std::call_once</code> 保证相关工作只执行一次。</li>
+<li>因为涉及到修改 <code>threadpool</code> 的状态，所以此处使用写入锁。</li>
+<li><code>spawn</code> 接口是线程函数，也就是线程启动后一直运行的函数。</li>
+<li>当线程被唤醒时（无论是意外唤醒，还是被 <code>notify_*</code> 函数唤醒），若线程池没有被 <code>cancel</code> 或是 <code>terminate</code>，也没能从任务队列中取出任务，则线程应该继续沉眠，否则就应该醒来继续处理。</li>
+<li>如果线程池被 <code>cancel</code>，则不执行当前任务；如果线程池被停止并且没能从任务队列中取出任务，则也不执行当前任务；否则就执行当前任务。</li>
+<li><code>terminate</code> 和 <code>cancel</code> 的实现几乎完全相同；</li>
+<li>唯独 <code>terminate</code> 修改 <code>stop_</code> 变量而 <code>cancel</code> 修改 <code>cancel_</code> 变量。</li>
+<li>此外，<code>cancel</code> 接口显式地清空了任务队列。</li>
+</ol>
+<h3 id="线程池的观察器"><a href="#线程池的观察器" class="headerlink" title="线程池的观察器"></a>线程池的观察器</h3><p>观察器比较简单，唯一值得一提的是这里使用了读取锁。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">inline</span> <span class="keyword">bool</span> threadpool::inited() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="function">rlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">  <span class="keyword">return</span> inited_;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> <span class="keyword">bool</span> threadpool::is_running() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="function">rlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">  <span class="keyword">return</span> _is_running();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> <span class="keyword">int</span> threadpool::size() <span class="keyword">const</span> &#123;</span><br><span class="line">  <span class="function">rlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;</span><br><span class="line">  <span class="keyword">return</span> workers_.size();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="任务接口"><a href="#任务接口" class="headerlink" title="任务接口"></a>任务接口</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="class"><span class="keyword">class</span> <span class="title">F</span>, <span class="title">class</span>... <span class="title">Args</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">auto</span> <span class="title">threadpool</span>:</span>:async(F&amp;&amp; f, Args&amp;&amp;... args) <span class="keyword">const</span></span><br><span class="line">    -&gt; <span class="built_in">std</span>::future&lt;<span class="keyword">decltype</span>(f(args...))&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> <span class="keyword">return_t</span> = <span class="keyword">decltype</span>(f(args...));  <span class="comment">// 1.a</span></span><br><span class="line">  <span class="keyword">using</span> <span class="keyword">future_t</span> = <span class="built_in">std</span>::future&lt;<span class="keyword">return_t</span>&gt;;  <span class="comment">// 1.b</span></span><br><span class="line">  <span class="keyword">using</span> <span class="keyword">task_t</span> = <span class="built_in">std</span>::packaged_task&lt;<span class="keyword">return_t</span>()&gt;;  <span class="comment">// 1.c</span></span><br><span class="line"></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function">rlock <span class="title">lock</span><span class="params">(mtx_)</span></span>;  <span class="comment">// 2.</span></span><br><span class="line">    <span class="keyword">if</span> (stop_ || cancel_)</span><br><span class="line">      <span class="keyword">throw</span> <span class="built_in">std</span>::runtime_error(</span><br><span class="line">          <span class="string">"Delegating task to a threadpool "</span></span><br><span class="line">          <span class="string">"that has been terminated or canceled."</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span> bind_func = <span class="built_in">std</span>::bind(<span class="built_in">std</span>::forward&lt;F&gt;(f), <span class="built_in">std</span>::forward&lt;Args&gt;(args)...);  <span class="comment">// 3.</span></span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">shared_ptr</span>&lt;<span class="keyword">task_t</span>&gt; task = <span class="built_in">std</span>::make_shared&lt;<span class="keyword">task_t</span>&gt;(<span class="built_in">std</span>::move(bind_func));  <span class="comment">// 4.a</span></span><br><span class="line">  <span class="keyword">future_t</span> fut = task-&gt;get_future();  <span class="comment">// 4.b</span></span><br><span class="line">  tasks_.emplace([task]() -&gt; <span class="keyword">void</span> &#123; (*task)(); &#125;);  <span class="comment">// 5.</span></span><br><span class="line">  cond_.notify_one();  <span class="comment">// 6.</span></span><br><span class="line">  <span class="keyword">return</span> fut;  <span class="comment">// 4.c</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>利用 <code>using</code> 定义的三个类型，见文知意。</li>
+<li>这里不涉及对线程池状态的修改，因此只需要读取锁即可。显然，此处我们禁止对已经 <code>terminate</code> 或是 <code>cancel</code> 的线程池继续发布任务。</li>
+<li>由于任务队列只接收 <code>std::function&lt;void()&gt;</code> 的可调用对象，此处我们利用 <code>std::bind</code> 先匹配参数列表。</li>
+<li>此处我们利用 <code>std::packaged_task</code> 将待执行的任务与一个 <code>std::future</code> 关联起来，并将 <code>std::future</code> 返回给外界，以便任务发布者可以在将来取得任务执行结果。</li>
+<li>这里我们利用一个 lambda，既执行了任务，又将返回值抹去（但会被 future 管理），以便匹配 <code>std::function&lt;void()&gt;</code>。</li>
+<li>此处我们通过条件变量唤醒工作线程。</li>
+</ol>
+<h3 id="完整实现"><a href="#完整实现" class="headerlink" title="完整实现"></a>完整实现</h3><p>完整实现可见 <a href="https://github.com/Liam0205/toy-threadpool" target="_blank" rel="noopener">Liam0205/toy-threadpool</a>，其中包括了单元测试和相比 <code>std::async</code> 的性能对比。</p>
+<h2 id="跋"><a href="#跋" class="headerlink" title="跋"></a>跋</h2><p>这里我们实现了一个可看使用的线程池。但如 GitHub 的 repo 名字一样，它还只是个玩具。若要在工程中使用，还可以做一系列优化。例如说：</p>
+<ul>
+<li>对线程安全队列进行优化，使用更细粒度是锁，或者换用无锁实现。</li>
+<li>完善的线程池，除了支持本文提到的几种状态，还可以有暂停、扩张（任务过多时自动扩张）、收缩（空闲线程过多时自动收缩）等能力。</li>
+</ul>
+<p>这些内容都可以继续去深挖、优化。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2022/05/05/design-a-thread-pool/" title="设计一个线程池">https://liam.page/2022/05/05/design-a-thread-pool/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Thread/" rel="tag"># Thread</a>
+              <a href="/tags/Threadpool/" rel="tag"># Threadpool</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2022/04/01/fix-missing-Python2-7-on-macOS-Monterey-12-3/" rel="prev" title="解决 macOS Monterey 12.3 上因缺失 Python 2.7 导致的问题">
+      <i class="fa fa-chevron-left"></i> 解决 macOS Monterey 12.3 上因缺失 Python 2.7 导致的问题
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#初步讨论"><span class="nav-number">1.</span> <span class="nav-text">初步讨论</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#为什么需要线程池？"><span class="nav-number">1.1.</span> <span class="nav-text">为什么需要线程池？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#线程池应有哪些特点？"><span class="nav-number">1.2.</span> <span class="nav-text">线程池应有哪些特点？</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程安全队列"><span class="nav-number">2.</span> <span class="nav-text">线程安全队列</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程池"><span class="nav-number">3.</span> <span class="nav-text">线程池</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#接口定义"><span class="nav-number">3.1.</span> <span class="nav-text">接口定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#线程池的控制接口"><span class="nav-number">3.2.</span> <span class="nav-text">线程池的控制接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#线程池的观察器"><span class="nav-number">3.3.</span> <span class="nav-text">线程池的观察器</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#任务接口"><span class="nav-number">3.4.</span> <span class="nav-text">任务接口</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#完整实现"><span class="nav-number">3.5.</span> <span class="nav-text">完整实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#跋"><span class="nav-number">4.</span> <span class="nav-text">跋</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar.webp">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">379</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">13</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">726</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">42:29</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  <script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2022/05/05/design-a-thread-pool/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '63802d73236828e07e0cee1a62ef9353',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
