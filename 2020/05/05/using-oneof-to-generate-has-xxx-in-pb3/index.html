@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -25,18 +25,19 @@
     var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化/反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 required 和 optional 字段。与此同时，在 pb2 中针对 optional 基本类型字段设计的 [default = foobar] 的默认值功能和 has_xxx() 的接口也随之">
-<meta name="keywords" content="Protobuf,Protobuf 3">
+  <meta name="description" content="Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化&#x2F;反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 required 和 optional 字段。与此同时，在 pb2 中针对 optional 基本类型字段设计的 [default &#x3D; foobar] 的默认值功能和 has_xxx() 的">
 <meta property="og:type" content="article">
 <meta property="og:title" content="利用 Protobuf 中 oneof 的特性生成 has_xxx 接口">
 <meta property="og:url" content="https://liam.page/2020/05/05/using-oneof-to-generate-has-xxx-in-pb3/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化/反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 required 和 optional 字段。与此同时，在 pb2 中针对 optional 基本类型字段设计的 [default = foobar] 的默认值功能和 has_xxx() 的接口也随之">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-05-16T14:25:54.000Z">
+<meta property="og:description" content="Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化&#x2F;反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 required 和 optional 字段。与此同时，在 pb2 中针对 optional 基本类型字段设计的 [default &#x3D; foobar] 的默认值功能和 has_xxx() 的">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-05-05T11:38:42.000Z">
+<meta property="article:modified_time" content="2020-05-16T14:25:54.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Protobuf">
+<meta property="article:tag" content="Protobuf 3">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="利用 Protobuf 中 oneof 的特性生成 has_xxx 接口">
-<meta name="twitter:description" content="Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化/反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 required 和 optional 字段。与此同时，在 pb2 中针对 optional 基本类型字段设计的 [default = foobar] 的默认值功能和 has_xxx() 的接口也随之">
 
 <link rel="canonical" href="https://liam.page/2020/05/05/using-oneof-to-generate-has-xxx-in-pb3/">
 
@@ -311,23 +312,23 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化/反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 <code>required</code> 和 <code>optional</code> 字段。与此同时，在 pb2 中针对 <code>optional</code> 基本类型字段设计的 <code>[default = foobar]</code> 的默认值功能和 <code>has_xxx()</code> 的接口也随之消失。这样引出来一个问题，即：</p>
+        <p>Protobuf（全称 Protocal Buffer，简称 pb）是 Google 开源的序列化&#x2F;反序列化工具，在工业界相当流行。pb3 相比 pb2 的一个显著变化，就是在 pb3 当中不再区分 <code>required</code> 和 <code>optional</code> 字段。与此同时，在 pb2 中针对 <code>optional</code> 基本类型字段设计的 <code>[default = foobar]</code> 的默认值功能和 <code>has_xxx()</code> 的接口也随之消失。这样引出来一个问题，即：</p>
 <ul>
-<li>在多数场景下，「未设置」和「取值为 <code>0</code>/<code>0.0</code>/<code>&quot;&quot;</code>/<code>false</code>」等价；但是</li>
+<li>在多数场景下，「未设置」和「取值为 <code>0</code>&#x2F;<code>0.0</code>&#x2F;<code>&quot;&quot;</code>&#x2F;<code>false</code>」等价；但是</li>
 <li>在某些场景下，「未设置」和上述取值不等价。</li>
 </ul>
 <p>特别地，在序列化 - 反序列化之后，如果拿到一个零值，你无法得知这个值是确实为零值，还是说因为没有显示设置而得到的零值。本文在 C++ 场景下来解决这个问题。</p>
-<a id="more"></a>
+<span id="more"></span>
 
-<h2 id="oneof"><a href="#oneof" class="headerlink" title="oneof"></a><code>oneof</code></h2><p>Protobuf 提供了 <code>oneof</code> 功能（见<a href="https://developers.google.com/protocol-buffers/docs/reference/cpp-generated#oneof" target="_blank" rel="noopener">文档</a>）。其本意是想实现 C/C++ 当中 <code>union</code> 的功能，即多个不同类型共享存储空间，但同一时间只有一个类型有实际值。但在实现的过程中，Protobuf 做了一些妥协。例如，对于下面这样定义的 <code>message</code> 来说，</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">message FooMessage &#123;</span><br><span class="line">  string id = 1;</span><br><span class="line">  oneof oneof_name &#123;</span><br><span class="line">    int32 bar = 2;</span><br><span class="line">    int64 baz = 3;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="oneof"><a href="#oneof" class="headerlink" title="oneof"></a><code>oneof</code></h2><p>Protobuf 提供了 <code>oneof</code> 功能（见<a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/reference/cpp-generated#oneof">文档</a>）。其本意是想实现 C&#x2F;C++ 当中 <code>union</code> 的功能，即多个不同类型共享存储空间，但同一时间只有一个类型有实际值。但在实现的过程中，Protobuf 做了一些妥协。例如，对于下面这样定义的 <code>message</code> 来说，</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">message FooMessage &#123;</span><br><span class="line">  string id = 1;</span><br><span class="line">  oneof oneof_name &#123;</span><br><span class="line">    int32 bar = 2;</span><br><span class="line">    int64 baz = 3;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<p>在生成的类当中，会有一个名为 <code>OneofNameCase</code> 的枚举类型来标记 <code>oneof_name</code> 字段的设置状态——你可以用 <code>oneof_name_case()</code> 接口来获取该状态。若状态取 <code>ONEOF_NAME_NOT_SET</code> 说明 <code>oneof_name</code> 未设置，若状态取 <code>kBar</code>/<code>kBaz</code> 其意义不言自明。</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">enum</span> OneofNameCase &#123;</span><br><span class="line">  kBar = <span class="number">2</span>,</span><br><span class="line">  kBaz = <span class="number">3</span>,</span><br><span class="line">  ONEOF_NAME_NOT_SET = <span class="number">0</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在生成的类当中，会有一个名为 <code>OneofNameCase</code> 的枚举类型来标记 <code>oneof_name</code> 字段的设置状态——你可以用 <code>oneof_name_case()</code> 接口来获取该状态。若状态取 <code>ONEOF_NAME_NOT_SET</code> 说明 <code>oneof_name</code> 未设置，若状态取 <code>kBar</code>&#x2F;<code>kBaz</code> 其意义不言自明。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">enum</span> <span class="title class_">OneofNameCase</span> &#123;</span><br><span class="line">  kBar = <span class="number">2</span>,</span><br><span class="line">  kBaz = <span class="number">3</span>,</span><br><span class="line">  ONEOF_NAME_NOT_SET = <span class="number">0</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <h2 id="文档未注明的特性"><a href="#文档未注明的特性" class="headerlink" title="文档未注明的特性"></a>文档未注明的特性</h2><p>对比开发文档和 pb3 的源码，我们发现 pb3 会为 <code>oneof</code> 字段生成一个 <code>has_xxx()</code> 的接口，其实现正是内联了 <code>return xxx_case() != XXX_NOT_SET;</code>。</p>
-<p>注意到其命名策略，我们只需定义一个<strong>只含有一个字段的同名 <code>oneof</code></strong>就能方便地判断了。例如：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">message FooMessage &#123;</span><br><span class="line">  string id = 1;</span><br><span class="line">  oneof bar &#123;</span><br><span class="line">    int32 bar = 2;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>注意到其命名策略，我们只需定义一个**只含有一个字段的同名 <code>oneof</code>**就能方便地判断了。例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">message FooMessage &#123;</span><br><span class="line">  string id = 1;</span><br><span class="line">  oneof bar &#123;</span><br><span class="line">    int32 bar = 2;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>此时，Protobuf 会生成 <code>has_bar()</code> 这个接口。于是，利用这一特性，我们就可以在反序列化之后来判断字段是否有设置过了。</p>
 
@@ -463,7 +464,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#oneof"><span class="nav-number">1.</span> <span class="nav-text">oneof</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#文档未注明的特性"><span class="nav-number">2.</span> <span class="nav-text">文档未注明的特性</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#oneof"><span class="nav-number">1.</span> <span class="nav-text">oneof</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%87%E6%A1%A3%E6%9C%AA%E6%B3%A8%E6%98%8E%E7%9A%84%E7%89%B9%E6%80%A7"><span class="nav-number">2.</span> <span class="nav-text">文档未注明的特性</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -499,7 +500,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -514,52 +515,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -597,9 +598,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -654,9 +655,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -724,7 +733,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

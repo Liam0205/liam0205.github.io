@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,20 @@
   </script>
 
   <meta name="description" content="本着 Homebrew 真香的原则，我尝试在 CentOS 上安装 Linuxbrew。至于不用 Yum 的原因，请看刚才提到的真香原则。 但随即，我就陷入到了 Glibc 的泥潭。这个泥潭是一个需要自举（bootstrap）的循环依赖；这个泥潭长这样：  Linuxbrew 安装任何东西都依赖 curl 和 git，而且它不想用系统中自带的 curl 和 git。 curl 和 git 都直接或">
-<meta name="keywords" content="Homebrew,Linuxbrew,brwe,Glibc">
 <meta property="og:type" content="article">
 <meta property="og:title" content="泥潭挣扎记：Linuxbrew 里的 Glibc">
 <meta property="og:url" content="https://liam.page/2020/01/19/struggle-with-Glibc-and-Linuxbrew/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="本着 Homebrew 真香的原则，我尝试在 CentOS 上安装 Linuxbrew。至于不用 Yum 的原因，请看刚才提到的真香原则。 但随即，我就陷入到了 Glibc 的泥潭。这个泥潭是一个需要自举（bootstrap）的循环依赖；这个泥潭长这样：  Linuxbrew 安装任何东西都依赖 curl 和 git，而且它不想用系统中自带的 curl 和 git。 curl 和 git 都直接或">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-01-19T10:10:52.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Homebrew">
+<meta property="article:tag" content="Linuxbrew">
+<meta property="article:tag" content="brwe">
+<meta property="article:tag" content="Glibc">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="泥潭挣扎记：Linuxbrew 里的 Glibc">
-<meta name="twitter:description" content="本着 Homebrew 真香的原则，我尝试在 CentOS 上安装 Linuxbrew。至于不用 Yum 的原因，请看刚才提到的真香原则。 但随即，我就陷入到了 Glibc 的泥潭。这个泥潭是一个需要自举（bootstrap）的循环依赖；这个泥潭长这样：  Linuxbrew 安装任何东西都依赖 curl 和 git，而且它不想用系统中自带的 curl 和 git。 curl 和 git 都直接或">
 
 <link rel="canonical" href="https://liam.page/2020/01/19/struggle-with-Glibc-and-Linuxbrew/">
 
@@ -292,7 +295,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>1.8k</span>
+              <span>1.9k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -324,11 +327,11 @@
 <li>Glibc 和 <code>curl</code> 及 <code>git</code> 等基础工具相互依赖；</li>
 <li>Glibc 和 GCC 相互依赖。</li>
 </ul>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="寻找突破口，解决-Glibc-的存在性问题"><a href="#寻找突破口，解决-Glibc-的存在性问题" class="headerlink" title="寻找突破口，解决 Glibc 的存在性问题"></a>寻找突破口，解决 Glibc 的存在性问题</h2><p>两个循环都涉及到 Glibc，因此必须想办法从 Glibc 这里突破。考虑到 Glibc 基础库的地位，很多依赖它的模块，都是硬编码 Glibc 的位置。因此 Glibc 必须从源码编译安装，无法直接服用编译好的二进制文件。所以 Glibc 无论如何都得依赖 GCC。既然高版本的 Glibc 依赖高版本的 GCC，那么就只能想办法安装较低版本的 Glibc——首先解决有没有（Linuxbrew 中的）Glibc 的问题，再去解决 Glibc 版本的问题。</p>
 <p>为了安装低版本的 Glibc，我们要用到 <code>brew</code> 直接从 <code>tap</code> 中安装的特性：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">""</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">"1"</span> \</span><br><span class="line">brew install --verbose --ignore-dependencies https://raw.githubusercontent.com/Linuxbrew/homebrew-core/6fb5dfd50895416bea3d00628b8d3b41fa1f4f32/Formula/glibc.rb  <span class="comment"># Glibc 2.20</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">&quot;&quot;</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">&quot;1&quot;</span> \</span><br><span class="line">brew install --verbose --ignore-dependencies https://raw.githubusercontent.com/Linuxbrew/homebrew-core/6fb5dfd50895416bea3d00628b8d3b41fa1f4f32/Formula/glibc.rb  <span class="comment"># Glibc 2.20</span></span><br></pre></td></tr></table></figure>
 
 <p>讲一下这里的黑魔法。</p>
 <p><code>MAKEFLAGS</code> 和 <code>HOMEBREW_MAKE_JOBS</code> 的设定，都是为了让编译 Glibc 的过程中使用非并行编译。这是因为并行编译 Glibc 2.20 时，因为 Makefile 依赖没写好，会产生一些问题。</p>
@@ -342,7 +345,7 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">brew install --verbose curl git</span><br><span class="line">brew update  --verbose --force</span><br></pre></td></tr></table></figure>
 
 <h2 id="升级-Glibc"><a href="#升级-Glibc" class="headerlink" title="升级 Glibc"></a>升级 Glibc</h2><p>之前我们安装的是 Glibc 2.20，现在我们来升级它。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">""</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">"1"</span> \</span><br><span class="line">brew upgrade glibc --verbose</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">MAKEFLAGS=<span class="string">&quot;&quot;</span> \</span><br><span class="line">HOMEBREW_MAKE_JOBS=<span class="string">&quot;1&quot;</span> \</span><br><span class="line">brew upgrade glibc --verbose</span><br></pre></td></tr></table></figure>
 
 <h2 id="重新安装-GCC"><a href="#重新安装-GCC" class="headerlink" title="重新安装 GCC"></a>重新安装 GCC</h2><p>因为 GCC 依赖的 Glibc 发生了变化，这导致 GCC 不可用。因此我们要做一些调整。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">brew postinstall gcc</span><br></pre></td></tr></table></figure>
@@ -483,7 +486,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#寻找突破口，解决-Glibc-的存在性问题"><span class="nav-number">1.</span> <span class="nav-text">寻找突破口，解决 Glibc 的存在性问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#解决-GCC-的问题"><span class="nav-number">2.</span> <span class="nav-text">解决 GCC 的问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#安装-curl-和-git"><span class="nav-number">3.</span> <span class="nav-text">安装 curl 和 git</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#升级-Glibc"><span class="nav-number">4.</span> <span class="nav-text">升级 Glibc</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#重新安装-GCC"><span class="nav-number">5.</span> <span class="nav-text">重新安装 GCC</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%BB%E6%89%BE%E7%AA%81%E7%A0%B4%E5%8F%A3%EF%BC%8C%E8%A7%A3%E5%86%B3-Glibc-%E7%9A%84%E5%AD%98%E5%9C%A8%E6%80%A7%E9%97%AE%E9%A2%98"><span class="nav-number">1.</span> <span class="nav-text">寻找突破口，解决 Glibc 的存在性问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3-GCC-%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">2.</span> <span class="nav-text">解决 GCC 的问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%89%E8%A3%85-curl-%E5%92%8C-git"><span class="nav-number">3.</span> <span class="nav-text">安装 curl 和 git</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%87%E7%BA%A7-Glibc"><span class="nav-number">4.</span> <span class="nav-text">升级 Glibc</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%8D%E6%96%B0%E5%AE%89%E8%A3%85-GCC"><span class="nav-number">5.</span> <span class="nav-text">重新安装 GCC</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -519,7 +522,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -534,52 +537,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -617,9 +620,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -674,9 +677,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -744,7 +755,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

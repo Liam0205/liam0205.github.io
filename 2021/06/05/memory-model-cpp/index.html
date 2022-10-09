@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,18 @@
   </script>
 
   <meta name="description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
-<meta name="keywords" content="Atomics,Memory Model">
 <meta property="og:type" content="article">
 <meta property="og:title" content="程序员的自我修养（十）：C++ 的内存模型">
 <meta property="og:url" content="https://liam.page/2021/06/05/memory-model-cpp/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2021-12-11T14:18:33.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-05T02:36:41.000Z">
+<meta property="article:modified_time" content="2021-12-11T14:18:33.647Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Atomics">
+<meta property="article:tag" content="Memory Model">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="程序员的自我修养（十）：C++ 的内存模型">
-<meta name="twitter:description" content="上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上对应页面的翻译，有删减和补充。">
 
 <link rel="canonical" href="https://liam.page/2021/06/05/memory-model-cpp/">
 
@@ -292,7 +293,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>3.2k</span>
+              <span>3.3k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -311,56 +312,56 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上<a href="https://en.cppreference.com/w/cpp/language/memory_model" target="_blank" rel="noopener">对应页面</a>的翻译，有删减和补充。</p>
-<a id="more"></a>
+        <p>上一次写这个系列好像还是 COVID-19 疫情爆发之前。此篇讨论一下 C++ 当中的内存模型。文中内容基本上是 CPP reference 上<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/memory_model">对应页面</a>的翻译，有删减和补充。</p>
+<span id="more"></span>
 
 <p>内存模型为 C++ 抽象机器定义了计算机内存存储语义。</p>
 <p>C++ 程序可用的内存是一个或多个连续的字节序列。每个字节有自己独有的内存地址。</p>
-<h2 id="字节（Byte）"><a href="#字节（Byte）" class="headerlink" title="字节（Byte）"></a>字节（Byte）</h2><p>字节是内存中的最小可寻址单元，由连续的多个比特组成。C++ 中，<code>char</code>/<code>unsigned char</code>/<code>signed char</code> 的对象存储和<a href="https://en.cppreference.com/w/cpp/language/object" target="_blank" rel="noopener">值表示</a>均使用恰好 1 字节。于是，字节中有多少比特，可以通过 <a href="http://en.cppreference.com/w/cpp/types/numeric_limits" target="_blank" rel="noopener"><code>std::numeric_limits&lt;unsigned char&gt;::digits</code></a>取得。</p>
+<h2 id="字节（Byte）"><a href="#字节（Byte）" class="headerlink" title="字节（Byte）"></a>字节（Byte）</h2><p>字节是内存中的最小可寻址单元，由连续的多个比特组成。C++ 中，<code>char</code>&#x2F;<code>unsigned char</code>&#x2F;<code>signed char</code> 的对象存储和<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/object">值表示</a>均使用恰好 1 字节。于是，字节中有多少比特，可以通过 <a target="_blank" rel="noopener" href="http://en.cppreference.com/w/cpp/types/numeric_limits"><code>std::numeric_limits&lt;unsigned char&gt;::digits</code></a>取得。</p>
 <h2 id="内存位置（Memory-Location）"><a href="#内存位置（Memory-Location）" class="headerlink" title="内存位置（Memory Location）"></a>内存位置（Memory Location）</h2><p>内存位置是</p>
 <ul>
-<li><a href="https://en.cppreference.com/w/cpp/language/type" target="_blank" rel="noopener">标量类型</a>（算数类型、指针类型、枚举类型或是 <code>std::nullptr_t</code>）的对象；</li>
-<li>或是，长度不为零的<a href="https://en.cppreference.com/w/cpp/language/bit_field" target="_blank" rel="noopener">位域</a>组成的最长连续序列。</li>
+<li><a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/type">标量类型</a>（算数类型、指针类型、枚举类型或是 <code>std::nullptr_t</code>）的对象；</li>
+<li>或是，长度不为零的<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/bit_field">位域</a>组成的最长连续序列。</li>
 </ul>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">S</span> &#123;</span></span><br><span class="line">    <span class="keyword">char</span> a;     <span class="comment">// memory location #1</span></span><br><span class="line">    <span class="keyword">int</span> b : <span class="number">5</span>;  <span class="comment">// memory location #2</span></span><br><span class="line">    <span class="keyword">int</span> c : <span class="number">11</span>, <span class="comment">// memory location #2 (continued)</span></span><br><span class="line">          : <span class="number">0</span>,  <span class="comment">// zero-length, as a delimiter of continued sequence of bit-fields</span></span><br><span class="line">        d : <span class="number">8</span>;  <span class="comment">// memory location #3</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> &#123;</span></span><br><span class="line">        <span class="keyword">int</span> ee : <span class="number">8</span>; <span class="comment">// memory location #4</span></span><br><span class="line">    &#125; e;</span><br><span class="line">&#125; obj; <span class="comment">// The object 'obj' consists of 4 separate memory locations</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">S</span> &#123;</span><br><span class="line">    <span class="type">char</span> a;     <span class="comment">// memory location #1</span></span><br><span class="line">    <span class="type">int</span> b : <span class="number">5</span>;  <span class="comment">// memory location #2</span></span><br><span class="line">    <span class="type">int</span> c : <span class="number">11</span>, <span class="comment">// memory location #2 (continued)</span></span><br><span class="line">          : <span class="number">0</span>,  <span class="comment">// zero-length, as a delimiter of continued sequence of bit-fields</span></span><br><span class="line">        d : <span class="number">8</span>;  <span class="comment">// memory location #3</span></span><br><span class="line">    <span class="keyword">struct</span> &#123;</span><br><span class="line">        <span class="type">int</span> ee : <span class="number">8</span>; <span class="comment">// memory location #4</span></span><br><span class="line">    &#125; e;</span><br><span class="line">&#125; obj; <span class="comment">// The object &#x27;obj&#x27; consists of 4 separate memory locations</span></span><br></pre></td></tr></table></figure>
 
-<p>注意：语言中的许多特性会引入额外的内存位置。这些内存位置程序无法访问，而是为编译器实现自行管理。这些特性例如：<a href="https://en.cppreference.com/w/cpp/language/reference" target="_blank" rel="noopener">引用</a>和<a href="https://en.cppreference.com/w/cpp/language/virtual" target="_blank" rel="noopener">虚函数</a>。</p>
-<h2 id="线程与数据竞争（Thread-and-data-races）"><a href="#线程与数据竞争（Thread-and-data-races）" class="headerlink" title="线程与数据竞争（Thread and data races）"></a>线程与数据竞争（Thread and data races）</h2><p>程序中的线程是自 <a href="https://en.cppreference.com/w/cpp/thread/thread/thread" target="_blank" rel="noopener"><code>std::thread::thread</code></a>, <a href="https://en.cppreference.com/w/cpp/thread/async" target="_blank" rel="noopener"><code>std::async</code></a> 或者其他方式调用顶层函数开始的控制流。</p>
-<p>任一线程都可能访问程序中的任意对象。其中，原子及<a href="https://en.cppreference.com/w/cpp/language/storage_duration" target="_blank" rel="noopener">线程内部存储</a>亦可能为其它线程通过指针或引用来访问。</p>
-<p>在没有同步或阻塞的情况下，不同线程可并发访问（读/写）不同内存位置。</p>
+<p>注意：语言中的许多特性会引入额外的内存位置。这些内存位置程序无法访问，而是为编译器实现自行管理。这些特性例如：<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/reference">引用</a>和<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/virtual">虚函数</a>。</p>
+<h2 id="线程与数据竞争（Thread-and-data-races）"><a href="#线程与数据竞争（Thread-and-data-races）" class="headerlink" title="线程与数据竞争（Thread and data races）"></a>线程与数据竞争（Thread and data races）</h2><p>程序中的线程是自 <a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/thread/thread/thread"><code>std::thread::thread</code></a>, <a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/thread/async"><code>std::async</code></a> 或者其他方式调用顶层函数开始的控制流。</p>
+<p>任一线程都可能访问程序中的任意对象。其中，原子及<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/storage_duration">线程内部存储</a>亦可能为其它线程通过指针或引用来访问。</p>
+<p>在没有同步或阻塞的情况下，不同线程可并发访问（读&#x2F;写）不同内存位置。</p>
 <p>若一个表达式求值对某一内存位置进行写操作，而另一求值过程对同一内存位置进行读或写操作，则两个求值过程存在冲突。除非满足下列条件，程序中冲突的求值操作将引发数据竞争：</p>
 <ul>
-<li>存在冲突的求值操作在同一线程中执行，或在同一<a href="https://en.cppreference.com/w/cpp/utility/program/signal#Signal_handler" target="_blank" rel="noopener">信号处理函数</a>中执行；或者</li>
-<li>存在冲突的求值操作均是原子操作（参见 <a href="https://en.cppreference.com/w/cpp/atomic/atomic" target="_blank" rel="noopener"><code>std::atomic</code></a>）；或者</li>
-<li>存在冲突的求值操作，其一<ins>先于（happens-before）</ins>另一发生（参见 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order</code></a>）。</li>
+<li>存在冲突的求值操作在同一线程中执行，或在同一<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/utility/program/signal#Signal_handler">信号处理函数</a>中执行；或者</li>
+<li>存在冲突的求值操作均是原子操作（参见 <a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/atomic/atomic"><code>std::atomic</code></a>）；或者</li>
+<li>存在冲突的求值操作，其一<ins>先于（happens-before）</ins>另一发生（参见 <a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/atomic/memory_order"><code>std::memory_order</code></a>）。</li>
 </ul>
 <p>数据竞争将导致未定义行为。</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> cnt = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// undefined behavior</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> cnt = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; cnt++; &#125;;</span><br><span class="line">std::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// undefined behavior</span></span><br></pre></td></tr></table></figure>
 
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::atomic&lt;<span class="keyword">int</span>&gt; cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using atomic variable</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">std::atomic&lt;<span class="type">int</span>&gt; cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; cnt++; &#125;;</span><br><span class="line">std::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using atomic variable</span></span><br></pre></td></tr></table></figure>
 
-<p>特别地，对于同一个 <a href="https://en.cppreference.com/w/cpp/thread/mutex" target="_blank" rel="noopener"><code>std::mutex</code></a>，在一个线程中释放它与在另一线程中获取它是<ins>同步的（synchronized-with）</ins>，故而释放动作<ins>先于（happens-before）</ins>获取动作。因此，可用 <code>std::mutex</code> 来避免数据竞争。</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">int</span> cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line"><span class="built_in">std</span>::mutex mtx;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; <span class="built_in">std</span>::lock_guard&lt;<span class="built_in">std</span>::mutex&gt; lk(mtx); cnt++; &#125;;</span><br><span class="line"><span class="built_in">std</span>::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using mutex to ensure happens-before semantic</span></span><br></pre></td></tr></table></figure>
+<p>特别地，对于同一个 <a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/thread/mutex"><code>std::mutex</code></a>，在一个线程中释放它与在另一线程中获取它是<ins>同步的（synchronized-with）</ins>，故而释放动作<ins>先于（happens-before）</ins>获取动作。因此，可用 <code>std::mutex</code> 来避免数据竞争。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> cnt&#123;<span class="number">0</span>&#125;;</span><br><span class="line">std::mutex mtx;</span><br><span class="line"><span class="keyword">auto</span> f = [&amp;]&#123; std::lock_guard&lt;std::mutex&gt; <span class="built_in">lk</span>(mtx); cnt++; &#125;;</span><br><span class="line">std::thread t1&#123;f&#125;, t2&#123;f&#125;, t3&#123;f&#125;;  <span class="comment">// OK, by using mutex to ensure happens-before semantic</span></span><br></pre></td></tr></table></figure>
 
-<h2 id="内存顺序（Memory-Order）"><a href="#内存顺序（Memory-Order）" class="headerlink" title="内存顺序（Memory Order）"></a>内存顺序（Memory Order）</h2><p>线程自某个内存位置取值时，读到的可能是它的初始值，也可能是当前线程写入的值，亦可能是其他线程写入的值。有关内存顺序的细节可参见 <a href="https://en.cppreference.com/w/cpp/atomic/memory_order" target="_blank" rel="noopener"><code>std::memory_order</code></a>；其中讨论了线程的写入操作在其他线程可见性的问题。</p>
-<h2 id="前向执行（Forward-Progress）"><a href="#前向执行（Forward-Progress）" class="headerlink" title="前向执行（Forward Progress）"></a>前向执行（Forward Progress）</h2><h3 id="无阻塞（Obstruction-freedom）"><a href="#无阻塞（Obstruction-freedom）" class="headerlink" title="无阻塞（Obstruction freedom）"></a>无阻塞（Obstruction freedom）</h3><p>仅有一个未被标准库函数阻塞的线程在执行无锁<a href="https://en.cppreference.com/w/cpp/atomic" target="_blank" rel="noopener">原子函数（atomic function）</a>时，该原子函数必能执行完毕（标准库内所有无锁操作均<a href="obstruction-free">无阻塞</a>）。</p>
-<h3 id="无锁（Lock-freedom）"><a href="#无锁（Lock-freedom）" class="headerlink" title="无锁（Lock freedom）"></a>无锁（Lock freedom）</h3><p>一个或更多无锁原子函数并发执行时，至少其中之一必能执行完毕（标准库内所有无所操作均<a href="https://en.wikipedia.org/wiki/Non-blocking_algorithm#Lock-freedom" target="_blank" rel="noopener">无锁</a>——编译器实现会保证它们不会被一直锁住，例如持续地被窃走缓存行（cache-line stealing；一种因为执行其他线程的 CPU 核心对内存数据做预取而导致当前 CPU 核心缓存行变脏的现象））。</p>
+<h2 id="内存顺序（Memory-Order）"><a href="#内存顺序（Memory-Order）" class="headerlink" title="内存顺序（Memory Order）"></a>内存顺序（Memory Order）</h2><p>线程自某个内存位置取值时，读到的可能是它的初始值，也可能是当前线程写入的值，亦可能是其他线程写入的值。有关内存顺序的细节可参见 <a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/atomic/memory_order"><code>std::memory_order</code></a>；其中讨论了线程的写入操作在其他线程可见性的问题。</p>
+<h2 id="前向执行（Forward-Progress）"><a href="#前向执行（Forward-Progress）" class="headerlink" title="前向执行（Forward Progress）"></a>前向执行（Forward Progress）</h2><h3 id="无阻塞（Obstruction-freedom）"><a href="#无阻塞（Obstruction-freedom）" class="headerlink" title="无阻塞（Obstruction freedom）"></a>无阻塞（Obstruction freedom）</h3><p>仅有一个未被标准库函数阻塞的线程在执行无锁<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/atomic">原子函数（atomic function）</a>时，该原子函数必能执行完毕（标准库内所有无锁操作均<a href="obstruction-free">无阻塞</a>）。</p>
+<h3 id="无锁（Lock-freedom）"><a href="#无锁（Lock-freedom）" class="headerlink" title="无锁（Lock freedom）"></a>无锁（Lock freedom）</h3><p>一个或更多无锁原子函数并发执行时，至少其中之一必能执行完毕（标准库内所有无所操作均<a target="_blank" rel="noopener" href="https://en.wikipedia.org/wiki/Non-blocking_algorithm#Lock-freedom">无锁</a>——编译器实现会保证它们不会被一直锁住，例如持续地被窃走缓存行（cache-line stealing；一种因为执行其他线程的 CPU 核心对内存数据做预取而导致当前 CPU 核心缓存行变脏的现象））。</p>
 <blockquote>
-<p>关于 cache-line stealing，参见：<a href="https://www.researchgate.net/publication/221497089_Tackling_Cache-Line_Stealing_Effects_Using_Run-Time_Adaptation" target="_blank" rel="noopener">这篇论文</a>。</p>
+<p>关于 cache-line stealing，参见：<a target="_blank" rel="noopener" href="https://www.researchgate.net/publication/221497089_Tackling_Cache-Line_Stealing_Effects_Using_Run-Time_Adaptation">这篇论文</a>。</p>
 </blockquote>
 <h3 id="执行之担保（Progress-guarantee）"><a href="#执行之担保（Progress-guarantee）" class="headerlink" title="执行之担保（Progress guarantee）"></a>执行之担保（Progress guarantee）</h3><p>在正确的 C++ 程序当中，所有线程终将执行到下列情形之一：</p>
 <ul>
 <li>终止；</li>
-<li>调用 I/O 库的函数；</li>
-<li>经由<a href="https://en.cppreference.com/w/cpp/language/cv" target="_blank" rel="noopener">易变（volatile）</a>的左值（lvalue）或者将亡值（xvalue）——拥有内存地址的长寿对象——访问外部设备；</li>
+<li>调用 I&#x2F;O 库的函数；</li>
+<li>经由<a target="_blank" rel="noopener" href="https://en.cppreference.com/w/cpp/language/cv">易变（volatile）</a>的左值（lvalue）或者将亡值（xvalue）——拥有内存地址的长寿对象——访问外部设备；</li>
 <li>执行原子操作或是同步操作。</li>
 </ul>
-<p>若一个线程执行上述任一操作（I/O, volatile, 原子操作或是同步操作），或是阻塞在标准库函数当中，亦或是因其他为阻塞线程正在并发执行导致调用一个无锁原子操作却尚未完成，则称该线程<ins>有进展（make progress）</ins>。</p>
+<p>若一个线程执行上述任一操作（I&#x2F;O, volatile, 原子操作或是同步操作），或是阻塞在标准库函数当中，亦或是因其他为阻塞线程正在并发执行导致调用一个无锁原子操作却尚未完成，则称该线程<ins>有进展（make progress）</ins>。</p>
 <h3 id="并发前向执行（Concurrent-forward-progress-since-C-17）"><a href="#并发前向执行（Concurrent-forward-progress-since-C-17）" class="headerlink" title="并发前向执行（Concurrent forward progress; since C++17）"></a>并发前向执行（Concurrent forward progress; since C++17）</h3><p>若某线程有<ins>并发前向执行之担保（concurrent forward progress guarantee）</ins>，则在它终止之前，无论其他线程（若有）是否有进展，它都将于有限时间内取得如上定义之<ins>进展（make progress）</ins>。</p>
 <p>C++ 标准鼓励（但并不强求）主线程和其他由 <code>std::thread</code> 启动的线程提供<ins>并发前向执行之担保</ins>。</p>
 <h3 id="并行前向执行（Parallel-forward-progress-since-C-17）"><a href="#并行前向执行（Parallel-forward-progress-since-C-17）" class="headerlink" title="并行前向执行（Parallel forward progress; since C++17）"></a>并行前向执行（Parallel forward progress; since C++17）</h3><p>若某线程有<ins>并行前向执行之担保（parallel forward progress guarantee）</ins>，则</p>
 <ul>
-<li>在它尚未执行任何步骤（I/O, volatile, 原子操作或是同步操作）时，编译器实现不保证它在有限时间内有<ins>进展</ins>；</li>
+<li>在它尚未执行任何步骤（I&#x2F;O, volatile, 原子操作或是同步操作）时，编译器实现不保证它在有限时间内有<ins>进展</ins>；</li>
 <li>而一旦它执行了某一步骤，它提供<ins>并发前向执行之担保</ins>。</li>
 </ul>
 <p>此规则表明，线程池中的线程可以按照任意顺序执行任务。</p>
@@ -498,7 +499,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#字节（Byte）"><span class="nav-number">1.</span> <span class="nav-text">字节（Byte）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存位置（Memory-Location）"><span class="nav-number">2.</span> <span class="nav-text">内存位置（Memory Location）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程与数据竞争（Thread-and-data-races）"><span class="nav-number">3.</span> <span class="nav-text">线程与数据竞争（Thread and data races）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存顺序（Memory-Order）"><span class="nav-number">4.</span> <span class="nav-text">内存顺序（Memory Order）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#前向执行（Forward-Progress）"><span class="nav-number">5.</span> <span class="nav-text">前向执行（Forward Progress）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#无阻塞（Obstruction-freedom）"><span class="nav-number">5.1.</span> <span class="nav-text">无阻塞（Obstruction freedom）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#无锁（Lock-freedom）"><span class="nav-number">5.2.</span> <span class="nav-text">无锁（Lock freedom）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#执行之担保（Progress-guarantee）"><span class="nav-number">5.3.</span> <span class="nav-text">执行之担保（Progress guarantee）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并发前向执行（Concurrent-forward-progress-since-C-17）"><span class="nav-number">5.4.</span> <span class="nav-text">并发前向执行（Concurrent forward progress; since C++17）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并行前向执行（Parallel-forward-progress-since-C-17）"><span class="nav-number">5.5.</span> <span class="nav-text">并行前向执行（Parallel forward progress; since C++17）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#弱并行前向执行（Weakly-parallel-forward-progress-since-C-17）"><span class="nav-number">5.6.</span> <span class="nav-text">弱并行前向执行（Weakly parallel forward progress; since C++17）</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%97%E8%8A%82%EF%BC%88Byte%EF%BC%89"><span class="nav-number">1.</span> <span class="nav-text">字节（Byte）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E4%BD%8D%E7%BD%AE%EF%BC%88Memory-Location%EF%BC%89"><span class="nav-number">2.</span> <span class="nav-text">内存位置（Memory Location）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%BF%E7%A8%8B%E4%B8%8E%E6%95%B0%E6%8D%AE%E7%AB%9E%E4%BA%89%EF%BC%88Thread-and-data-races%EF%BC%89"><span class="nav-number">3.</span> <span class="nav-text">线程与数据竞争（Thread and data races）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E9%A1%BA%E5%BA%8F%EF%BC%88Memory-Order%EF%BC%89"><span class="nav-number">4.</span> <span class="nav-text">内存顺序（Memory Order）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E5%90%91%E6%89%A7%E8%A1%8C%EF%BC%88Forward-Progress%EF%BC%89"><span class="nav-number">5.</span> <span class="nav-text">前向执行（Forward Progress）</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%A0%E9%98%BB%E5%A1%9E%EF%BC%88Obstruction-freedom%EF%BC%89"><span class="nav-number">5.1.</span> <span class="nav-text">无阻塞（Obstruction freedom）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%A0%E9%94%81%EF%BC%88Lock-freedom%EF%BC%89"><span class="nav-number">5.2.</span> <span class="nav-text">无锁（Lock freedom）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E4%B9%8B%E6%8B%85%E4%BF%9D%EF%BC%88Progress-guarantee%EF%BC%89"><span class="nav-number">5.3.</span> <span class="nav-text">执行之担保（Progress guarantee）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B9%B6%E5%8F%91%E5%89%8D%E5%90%91%E6%89%A7%E8%A1%8C%EF%BC%88Concurrent-forward-progress-since-C-17%EF%BC%89"><span class="nav-number">5.4.</span> <span class="nav-text">并发前向执行（Concurrent forward progress; since C++17）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B9%B6%E8%A1%8C%E5%89%8D%E5%90%91%E6%89%A7%E8%A1%8C%EF%BC%88Parallel-forward-progress-since-C-17%EF%BC%89"><span class="nav-number">5.5.</span> <span class="nav-text">并行前向执行（Parallel forward progress; since C++17）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BC%B1%E5%B9%B6%E8%A1%8C%E5%89%8D%E5%90%91%E6%89%A7%E8%A1%8C%EF%BC%88Weakly-parallel-forward-progress-since-C-17%EF%BC%89"><span class="nav-number">5.6.</span> <span class="nav-text">弱并行前向执行（Weakly parallel forward progress; since C++17）</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -534,7 +535,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -549,52 +550,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -632,9 +633,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -689,9 +690,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -759,7 +768,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

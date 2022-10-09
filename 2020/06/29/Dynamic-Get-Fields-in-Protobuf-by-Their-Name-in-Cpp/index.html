@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -25,18 +25,19 @@
     var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="最近在实际业务中，我遇到了这样一类问题。 首先，我们定义了一个通用类，比如 message Feature。然后，在一个大的特征分组中，我们定义了若干个特征。比如 12345message FooGroup &amp;#123;  Feature foo = 1;  Feature bar = 2;  Feature baz = 3;&amp;#125;  但在实际使用中，我们需要根据配置文件，有筛选地选出其中的">
-<meta name="keywords" content="Protobuf,Reflection">
+  <meta name="description" content="最近在实际业务中，我遇到了这样一类问题。 首先，我们定义了一个通用类，比如 message Feature。然后，在一个大的特征分组中，我们定义了若干个特征。比如 12345message FooGroup &amp;#123;  Feature foo &#x3D; 1;  Feature bar &#x3D; 2;  Feature baz &#x3D; 3;&amp;#125;  但在实际使用中，我们需要根据配置文件，有筛选地选出其中的">
 <meta property="og:type" content="article">
 <meta property="og:title" content="在 C++ 中利用反射，动态获取 Protobuf 结构中的字段">
 <meta property="og:url" content="https://liam.page/2020/06/29/Dynamic-Get-Fields-in-Protobuf-by-Their-Name-in-Cpp/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="最近在实际业务中，我遇到了这样一类问题。 首先，我们定义了一个通用类，比如 message Feature。然后，在一个大的特征分组中，我们定义了若干个特征。比如 12345message FooGroup &amp;#123;  Feature foo = 1;  Feature bar = 2;  Feature baz = 3;&amp;#125;  但在实际使用中，我们需要根据配置文件，有筛选地选出其中的">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-07-09T16:07:23.000Z">
+<meta property="og:description" content="最近在实际业务中，我遇到了这样一类问题。 首先，我们定义了一个通用类，比如 message Feature。然后，在一个大的特征分组中，我们定义了若干个特征。比如 12345message FooGroup &amp;#123;  Feature foo &#x3D; 1;  Feature bar &#x3D; 2;  Feature baz &#x3D; 3;&amp;#125;  但在实际使用中，我们需要根据配置文件，有筛选地选出其中的">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-06-29T12:51:47.000Z">
+<meta property="article:modified_time" content="2020-07-09T16:07:23.992Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Protobuf">
+<meta property="article:tag" content="Reflection">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="在 C++ 中利用反射，动态获取 Protobuf 结构中的字段">
-<meta name="twitter:description" content="最近在实际业务中，我遇到了这样一类问题。 首先，我们定义了一个通用类，比如 message Feature。然后，在一个大的特征分组中，我们定义了若干个特征。比如 12345message FooGroup &amp;#123;  Feature foo = 1;  Feature bar = 2;  Feature baz = 3;&amp;#125;  但在实际使用中，我们需要根据配置文件，有筛选地选出其中的">
 
 <link rel="canonical" href="https://liam.page/2020/06/29/Dynamic-Get-Fields-in-Protobuf-by-Their-Name-in-Cpp/">
 
@@ -299,7 +300,7 @@
                 <i class="fa fa-clock-o"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>4 分钟</span>
+              <span>5 分钟</span>
             </span>
 
         </div>
@@ -313,39 +314,38 @@
       
         <p>最近在实际业务中，我遇到了这样一类问题。</p>
 <p>首先，我们定义了一个通用类，比如 <code>message Feature</code>。然后，在一个大的特征分组中，我们定义了若干个特征。比如</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">message FooGroup &#123;</span><br><span class="line">  Feature foo = 1;</span><br><span class="line">  Feature bar = 2;</span><br><span class="line">  Feature baz = 3;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">message FooGroup &#123;</span><br><span class="line">  Feature foo = 1;</span><br><span class="line">  Feature bar = 2;</span><br><span class="line">  Feature baz = 3;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>但在实际使用中，我们需要根据配置文件，有筛选地选出其中的某几个来使用——比如选择使用 <code>foo</code> 和 <code>baz</code>。为此，我们会传递 <code>&quot;foo&quot;</code> 和 <code>&quot;baz&quot;</code> 给函数 <code>get_feature</code>，并期待它能返回 <code>const Feature&amp;</code>，分别装着 <code>foo</code> 和 <code>baz</code> 的常量引用。</p>
 <p>查阅 Protobuf 的文档之后发现，使用描述器（Descriptor）、字段描述器（FieldDescriptor）和反射（Reflection）来实现该功能。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="函数原型"><a href="#函数原型" class="headerlink" title="函数原型"></a>函数原型</h2><p>我们的 <code>get_feature</code> 函数的原型应该形如：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">const</span> Feature&amp; <span class="title">get_features</span><span class="params">(<span class="keyword">const</span> FooGroup&amp; group, <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; name)</span></span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> Feature&amp; <span class="title">get_features</span><span class="params">(<span class="type">const</span> FooGroup&amp; group, <span class="type">const</span> std::string&amp; name)</span></span>;</span><br></pre></td></tr></table></figure>
 
-<h2 id="描述器"><a href="#描述器" class="headerlink" title="描述器"></a>描述器</h2><p>Protobuf 的描述器定义在头文件 <a href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.descriptor" target="_blank" rel="noopener"><code>descriptor.h</code></a>。为了使用描述器，你需要引用相应的头文件：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;google/protobuf/descriptor.h&gt;</span></span></span><br></pre></td></tr></table></figure>
+<h2 id="描述器"><a href="#描述器" class="headerlink" title="描述器"></a>描述器</h2><p>Protobuf 的描述器定义在头文件 <a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.descriptor"><code>descriptor.h</code></a>。为了使用描述器，你需要引用相应的头文件：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;google/protobuf/descriptor.h&gt;</span></span></span><br></pre></td></tr></table></figure>
 
 <p>Protobuf 的描述器包含了通过 Protobuf 定义的消息类的相关信息。这实际上实现了所谓的「自省」（Introspection）。对于一个具体的消息类对象，可以使用 <code>GetDescriptor()</code> 接口来获取其描述器。例如：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> google::protobuf::Descriptor* des = group.GetDescriptor();</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> google::protobuf::Descriptor* des = group.<span class="built_in">GetDescriptor</span>();</span><br></pre></td></tr></table></figure>
 
-<h2 id="字段描述器"><a href="#字段描述器" class="headerlink" title="字段描述器"></a>字段描述器</h2><p>Protobuf 的字段描述器也定义在头文件 <a href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.descriptor" target="_blank" rel="noopener"><code>descriptor.h</code></a> 当中，它包含了对于消息类中某个字段的描述。在概念上，近似于 C++ 中类的成员指针。</p>
+<h2 id="字段描述器"><a href="#字段描述器" class="headerlink" title="字段描述器"></a>字段描述器</h2><p>Protobuf 的字段描述器也定义在头文件 <a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.descriptor"><code>descriptor.h</code></a> 当中，它包含了对于消息类中某个字段的描述。在概念上，近似于 C++ 中类的成员指针。</p>
 <p>由于消息类中某个字段的描述也属于消息类的描述的一部分，因此我们需要通过消息类的描述器来获取其中字段的描述器。</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> google::protobuf::Descriptor* des = group.GetDescriptor();</span><br><span class="line"><span class="keyword">const</span> google::protobuf::FieldDescriptor* fdes = des-&gt;FindFieldByName(<span class="string">"foo"</span>);</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> google::protobuf::Descriptor* des = group.<span class="built_in">GetDescriptor</span>();</span><br><span class="line"><span class="type">const</span> google::protobuf::FieldDescriptor* fdes = des-&gt;<span class="built_in">FindFieldByName</span>(<span class="string">&quot;foo&quot;</span>);</span><br></pre></td></tr></table></figure>
 
 <p>这里，<code>FindFieldByName</code> 接口接受一个 <code>const std::string&amp;</code>，并查找描述器对应的消息类中，是否有相应名称的字段。如果存在，则返回相应的字段描述器。如果不存在，则返回 <code>nullptr</code>。注意，这里的 <code>FindFieldByName</code> 是大小写敏感的。</p>
 <p>这样一来，我们就获取了 <code>FooGroup</code> 这个消息类当中字段 <code>foo</code> 的字段描述器（近似理解成 C++ 中的类成员指针）。</p>
-<h2 id="反射"><a href="#反射" class="headerlink" title="反射"></a>反射</h2><p>Protobuf 的反射定义在头文件 <a href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.message" target="_blank" rel="noopener"><code>message.h</code></a> 当中。为了使用它，你需要引用相应的头文件：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;google/protobuf/message.h&gt;</span></span></span><br></pre></td></tr></table></figure>
+<h2 id="反射"><a href="#反射" class="headerlink" title="反射"></a>反射</h2><p>Protobuf 的反射定义在头文件 <a target="_blank" rel="noopener" href="https://developers.google.com/protocol-buffers/docs/reference/cpp/google.protobuf.message"><code>message.h</code></a> 当中。为了使用它，你需要引用相应的头文件：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;google/protobuf/message.h&gt;</span></span></span><br></pre></td></tr></table></figure>
 
 <p>Protobuf 的反射定义了一系列接口，用以在运行时动态地访问、修改消息类中的成员。对于一个具体的消息类对象，可以用 <code>GetReflection()</code> 接口来获取其反射。例如：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> google::protobuf::Reflection* ref = group.GetReflection();</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> google::protobuf::Reflection* ref = group.<span class="built_in">GetReflection</span>();</span><br></pre></td></tr></table></figure>
 
 <p>然后，就可以通过反射提供的一系列接口来访问消息类中的字段了。由于我们需要获取 <code>const Feature&amp;</code>，所以我们需要用到 <code>const Message&amp; GetMessage(const Message &amp; message, const FieldDescriptor * field, MessageFactory * factory = nullptr) const</code> 这个接口。注意到，它返回的是 <code>const Messasge&amp;</code>。这里 <code>Message</code> 是所有 Protobuf 消息类的父类。于是，我们可以在获取到它之后，通过 <code>dynamic_cast&lt;const Feature&amp;&gt;</code> 将 <code>Message</code> 的常量引用动态转换成 <code>Feature</code> 的常量引用。</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">dynamic_cast</span>&lt;<span class="keyword">const</span> Feature&amp;&gt;(ref-&gt;GetMessage(group, fdes));</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">dynamic_cast</span>&lt;<span class="type">const</span> Feature&amp;&gt;(ref-&gt;<span class="built_in">GetMessage</span>(group, fdes));</span><br></pre></td></tr></table></figure>
 
 <h2 id="完整实现"><a href="#完整实现" class="headerlink" title="完整实现"></a>完整实现</h2><p>如此，我们就能给出完整实现了：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">const</span> Feature&amp; <span class="title">get_feature</span><span class="params">(<span class="keyword">const</span> FooGroup&amp; group, <span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">string</span>&amp; name)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">const</span> google::protobuf::Descriptor* des = group.GetDescriptor();</span><br><span class="line">  <span class="keyword">const</span> google::protobuf::FieldDescriptor* fdes = des-&gt;FindFieldByName(name);</span><br><span class="line">  assert(fdes != <span class="literal">nullptr</span>);  <span class="comment">// in case of typo or something.</span></span><br><span class="line">  <span class="keyword">const</span> google::protobuf::Reflection* ref = group.GetReflection();</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">dynamic_cast</span>&lt;<span class="keyword">const</span> Feature&amp;&gt;(ref-&gt;GetMessage(group, fdes));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> Feature&amp; <span class="title">get_feature</span><span class="params">(<span class="type">const</span> FooGroup&amp; group, <span class="type">const</span> std::string&amp; name)</span> </span>&#123;</span><br><span class="line">  <span class="type">const</span> google::protobuf::Descriptor* des = group.<span class="built_in">GetDescriptor</span>();</span><br><span class="line">  <span class="type">const</span> google::protobuf::FieldDescriptor* fdes = des-&gt;<span class="built_in">FindFieldByName</span>(name);</span><br><span class="line">  <span class="built_in">assert</span>(fdes != <span class="literal">nullptr</span>);  <span class="comment">// in case of typo or something.</span></span><br><span class="line">  <span class="type">const</span> google::protobuf::Reflection* ref = group.<span class="built_in">GetReflection</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">dynamic_cast</span>&lt;<span class="type">const</span> Feature&amp;&gt;(ref-&gt;<span class="built_in">GetMessage</span>(group, fdes));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
     </div>
 
@@ -479,7 +479,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#函数原型"><span class="nav-number">1.</span> <span class="nav-text">函数原型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#描述器"><span class="nav-number">2.</span> <span class="nav-text">描述器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#字段描述器"><span class="nav-number">3.</span> <span class="nav-text">字段描述器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#反射"><span class="nav-number">4.</span> <span class="nav-text">反射</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#完整实现"><span class="nav-number">5.</span> <span class="nav-text">完整实现</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%87%BD%E6%95%B0%E5%8E%9F%E5%9E%8B"><span class="nav-number">1.</span> <span class="nav-text">函数原型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8F%8F%E8%BF%B0%E5%99%A8"><span class="nav-number">2.</span> <span class="nav-text">描述器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%97%E6%AE%B5%E6%8F%8F%E8%BF%B0%E5%99%A8"><span class="nav-number">3.</span> <span class="nav-text">字段描述器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%8D%E5%B0%84"><span class="nav-number">4.</span> <span class="nav-text">反射</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4%E5%AE%9E%E7%8E%B0"><span class="nav-number">5.</span> <span class="nav-text">完整实现</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -515,7 +515,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -530,52 +530,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -613,9 +613,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -670,9 +670,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -740,7 +748,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

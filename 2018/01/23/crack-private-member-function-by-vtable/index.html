@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,19 @@
   </script>
 
   <meta name="description" content="一直听说 C++ 继承体系中对虚函数调用的动态绑定是基于虚函数表和虚表指针的，但是因为一些原因，我一直没有去搞清楚。今天想起这件事情，就去翻看了 C++ 的标准文档。然而，标准文档只提及了动态绑定的各种规则，却并没有提及任何有关虚函数表或虚表指针的内容。显然，我看的不会是假的标准文档，那么只可能是动态绑定是由编译器实现决定的了。 本想具体详细地写一写虚函数表相关的问题，但已入深夜，就简单记录一份实">
-<meta name="keywords" content="C++,Class,Virtual">
 <meta property="og:type" content="article">
 <meta property="og:title" content="通过虚函数表访问私有函数">
 <meta property="og:url" content="https://liam.page/2018/01/23/crack-private-member-function-by-vtable/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="一直听说 C++ 继承体系中对虚函数调用的动态绑定是基于虚函数表和虚表指针的，但是因为一些原因，我一直没有去搞清楚。今天想起这件事情，就去翻看了 C++ 的标准文档。然而，标准文档只提及了动态绑定的各种规则，却并没有提及任何有关虚函数表或虚表指针的内容。显然，我看的不会是假的标准文档，那么只可能是动态绑定是由编译器实现决定的了。 本想具体详细地写一写虚函数表相关的问题，但已入深夜，就简单记录一份实">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2018-01-23T15:06:32.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Class">
+<meta property="article:tag" content="Virtual">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="通过虚函数表访问私有函数">
-<meta name="twitter:description" content="一直听说 C++ 继承体系中对虚函数调用的动态绑定是基于虚函数表和虚表指针的，但是因为一些原因，我一直没有去搞清楚。今天想起这件事情，就去翻看了 C++ 的标准文档。然而，标准文档只提及了动态绑定的各种规则，却并没有提及任何有关虚函数表或虚表指针的内容。显然，我看的不会是假的标准文档，那么只可能是动态绑定是由编译器实现决定的了。 本想具体详细地写一写虚函数表相关的问题，但已入深夜，就简单记录一份实">
 
 <link rel="canonical" href="https://liam.page/2018/01/23/crack-private-member-function-by-vtable/">
 
@@ -311,12 +313,12 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>一直听说 C++ 继承体系中对虚函数调用的动态绑定是基于虚函数表和虚表指针的，但是因为一些原因，我一直没有去搞清楚。今天想起这件事情，就去翻看了 <a href="https://github.com/cplusplus/draft/releases" target="_blank" rel="noopener">C++ 的标准文档</a>。然而，标准文档只提及了动态绑定的各种规则，却并没有提及任何有关虚函数表或虚表指针的内容。显然，我看的不会是假的标准文档，那么只可能是动态绑定是由编译器实现决定的了。</p>
+        <p>一直听说 C++ 继承体系中对虚函数调用的动态绑定是基于虚函数表和虚表指针的，但是因为一些原因，我一直没有去搞清楚。今天想起这件事情，就去翻看了 <a target="_blank" rel="noopener" href="https://github.com/cplusplus/draft/releases">C++ 的标准文档</a>。然而，标准文档只提及了动态绑定的各种规则，却并没有提及任何有关虚函数表或虚表指针的内容。显然，我看的不会是假的标准文档，那么只可能是动态绑定是由编译器实现决定的了。</p>
 <p>本想具体详细地写一写虚函数表相关的问题，但已入深夜，就简单记录一份实验的代码吧。详细的内容待后续再讨论。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <p>不多做分析，直接上代码。</p>
-<figure class="highlight cpp"><figcaption><span>crack_private.cc</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stddef.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Base</span> &#123;</span></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">f</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Your are calling Base::f (public)."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="keyword">void</span> <span class="title">g</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"Your are calling Base::g (private)."</span> &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Derived</span> :</span> <span class="keyword">public</span> Base&#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">funcptr_t</span> = <span class="keyword">void</span>(*)(<span class="keyword">void</span>);</span><br><span class="line"><span class="keyword">using</span> <span class="keyword">ptr_t</span>     = <span class="keyword">uint64_t</span>*;</span><br><span class="line"></span><br><span class="line"><span class="keyword">funcptr_t</span> fuckcxx(Base* <span class="keyword">const</span> ptr, <span class="keyword">const</span> <span class="keyword">ptrdiff_t</span> offset) &#123;</span><br><span class="line">  <span class="keyword">ptr_t</span> pvtbl = <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">ptr_t</span>&gt;(ptr);               <span class="comment">// 1.</span></span><br><span class="line">  <span class="keyword">ptr_t</span> pfunc = <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">ptr_t</span>&gt;(*pvtbl);</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">reinterpret_cast</span>&lt;<span class="keyword">funcptr_t</span>&gt;(*(pfunc + offset));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    Derived d;</span><br><span class="line">    <span class="keyword">auto</span> f = fuckcxx(&amp;d, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">auto</span> g = fuckcxx(&amp;d, <span class="number">1</span>);                                <span class="comment">// 2.</span></span><br><span class="line">    f(); g();</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><figcaption><span>crack_private.cc</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stddef.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Base</span> &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="type">void</span> <span class="title">f</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    std::cout &lt;&lt; <span class="string">&quot;Your are calling Base::f (public).&quot;</span> &lt;&lt; std::endl;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="function"><span class="keyword">virtual</span> <span class="type">void</span> <span class="title">g</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    std::cout &lt;&lt; <span class="string">&quot;Your are calling Base::g (private).&quot;</span> &lt;&lt; std::endl;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Derived</span> : <span class="keyword">public</span> Base&#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="type">funcptr_t</span> = <span class="built_in">void</span>(*)(<span class="type">void</span>);</span><br><span class="line"><span class="keyword">using</span> <span class="type">ptr_t</span>     = <span class="type">uint64_t</span>*;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">funcptr_t</span> <span class="title">fuckcxx</span><span class="params">(Base* <span class="type">const</span> ptr, <span class="type">const</span> <span class="type">ptrdiff_t</span> offset)</span> </span>&#123;</span><br><span class="line">  <span class="type">ptr_t</span> pvtbl = <span class="built_in">reinterpret_cast</span>&lt;<span class="type">ptr_t</span>&gt;(ptr);               <span class="comment">// 1.</span></span><br><span class="line">  <span class="type">ptr_t</span> pfunc = <span class="built_in">reinterpret_cast</span>&lt;<span class="type">ptr_t</span>&gt;(*pvtbl);</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">reinterpret_cast</span>&lt;<span class="type">funcptr_t</span>&gt;(*(pfunc + offset));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    Derived d;</span><br><span class="line">    <span class="keyword">auto</span> f = <span class="built_in">fuckcxx</span>(&amp;d, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">auto</span> g = <span class="built_in">fuckcxx</span>(&amp;d, <span class="number">1</span>);                                <span class="comment">// 2.</span></span><br><span class="line">    <span class="built_in">f</span>(); <span class="built_in">g</span>();</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>编译并执行。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ g++-6 --version</span><br><span class="line">g++-6 (Homebrew GCC 6.4.0_1) 6.4.0</span><br><span class="line">Copyright (C) 2017 Free Software Foundation, Inc.</span><br><span class="line">This is free software; see the <span class="built_in">source</span> <span class="keyword">for</span> copying conditions.  There is NO</span><br><span class="line">warranty; not even <span class="keyword">for</span> MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span><br><span class="line"></span><br><span class="line">$ g++-6 crack_private.cc</span><br><span class="line">$ ./a.out</span><br><span class="line">Your are calling Base::f (public).</span><br><span class="line">Your are calling Base::g (private).</span><br></pre></td></tr></table></figure>
@@ -500,7 +502,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -515,52 +517,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -598,9 +600,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -655,9 +657,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -725,7 +735,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

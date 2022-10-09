@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,21 @@
   </script>
 
   <meta name="description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
-<meta name="keywords" content="Linking,Loading,Static,Dynamic,Shared Object">
 <meta property="og:type" content="article">
 <meta property="og:title" content="为什么不能在动态库里静态链接？">
 <meta property="og:url" content="https://liam.page/2017/04/03/not-to-link-libstdc-statically-and-why/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-04-03T04:13:09.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Linking">
+<meta property="article:tag" content="Loading">
+<meta property="article:tag" content="Static">
+<meta property="article:tag" content="Dynamic">
+<meta property="article:tag" content="Shared Object">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="为什么不能在动态库里静态链接？">
-<meta name="twitter:description" content="因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 A.so）需要使用与整个模块不同版本的 gcc 进行编译。由于 A.so 使用了高版本 libstdc++.so 中提供的接口；因此，如果让 A.so 与整个模块运行在同一个环境（即，依赖同一个低版本的 libstdc++.so），那么，整个程序运行时将会由动态链接器提示「">
 
 <link rel="canonical" href="https://liam.page/2017/04/03/not-to-link-libstdc-statically-and-why/">
 
@@ -292,14 +296,14 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>7.9k</span>
+              <span>8k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>14 分钟</span>
+              <span>15 分钟</span>
             </span>
 
         </div>
@@ -314,7 +318,7 @@
         <p>因为各种复杂的原因，工作中遇到了某个模块当中的一个动态库（Linux Dynamic Shared Object，我们称其为 <code>A.so</code>）需要使用与整个模块不同版本的 gcc 进行编译。由于 <code>A.so</code> 使用了高版本 <code>libstdc++.so</code> 中提供的接口；因此，如果让 <code>A.so</code> 与整个模块运行在同一个环境（即，依赖同一个低版本的 <code>libstdc++.so</code>），那么，整个程序运行时将会由动态链接器提示「找不到符号」的错误。</p>
 <p>一个「看似」可行的解决办法，是在编译 <code>A.so</code> 的时候，将对应的高版本的 <code>libstdc++</code> 以静态的方式链接到 <code>A.so</code> 里面。这样，如果能把来自高版本 <code>libstdc++.a</code> 的符号隐藏起来（不暴露给动态链接器，避免符号冲突），那么就可以解决问题了。</p>
 <p>然而，这个解决办法，实际上是不可行的。本文将分析为什么不可行。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="静态链接的优缺点"><a href="#静态链接的优缺点" class="headerlink" title="静态链接的优缺点"></a>静态链接的优缺点</h2><p>总结起来，静态链接有如下优点</p>
 <ul>
@@ -323,7 +327,7 @@
 <li>因为减少了动态链接的步骤，所以运行起来会快一些（某些情况下）；</li>
 <li>因为在链接时，链接器可以看到所有符号，并进行符号解析，所以链接器可以硬编码函数的入口地址，故而函数调用会快一些；</li>
 <li>因为在链接时，链接器可以看到所有的符号，所以链接器可以优化删除一些没有被引用的符号，一定程度上减小编译出的文件的体积；</li>
-<li>能够明确地知道程序使用的依赖库的版本，而无需担心 <code>LD_LIBRARY_PATH</code>/<code>LD_PATH</code> 的影响。</li>
+<li>能够明确地知道程序使用的依赖库的版本，而无需担心 <code>LD_LIBRARY_PATH</code>&#x2F;<code>LD_PATH</code> 的影响。</li>
 </ul>
 <p>当然，静态链接也会有缺点（反过来就是动态链接的优点）</p>
 <ul>
@@ -336,7 +340,7 @@
 <p>为了说明这个问题，我们需要对程序装载进内存的过程做一个简单的梳理。</p>
 <p>当我们在 Linux bash 当中执行命令启动一个进程的时候，bash 实际上会先做一个 <code>fork()</code> 系统调用，而后在子进程里做一个 <code>execve()</code> 系统调用执行指定的 ELF 可执行文件，原先的进程则返回等待。GLIBC 对 <code>execve()</code> 系统调用做了封装，提供了诸如 <code>execlp()</code> 的函数；但这些函数内里都会去执行 <code>execve()</code> 系统调用。</p>
 <p>以下代码实现了一个简单的 minibash，模拟展示了启动一个进程的过程。</p>
-<figure class="highlight c"><figcaption><span>minibash.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">size_t</span> buf_size = <span class="number">1024</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="keyword">char</span> buf[buf_size] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">    <span class="keyword">pid_t</span> pid;</span><br><span class="line">    <span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">"minibash $ "</span>);</span><br><span class="line">        <span class="built_in">scanf</span>(<span class="string">"%s"</span>, buf);</span><br><span class="line">        pid = fork();</span><br><span class="line">        <span class="keyword">if</span> (<span class="number">0</span> == pid) &#123;</span><br><span class="line">            <span class="keyword">if</span> (execlp(buf, <span class="number">0</span>) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">printf</span>(<span class="string">"exec error\n"</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (pid &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">int</span> status;</span><br><span class="line">            waitpid(pid, &amp;status, <span class="number">0</span>);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            pritnf(<span class="string">"fork error %d\n"</span>, pid);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><figcaption><span>minibash.c</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">const</span> <span class="type">size_t</span> buf_size = <span class="number">1024</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span> <span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">char</span> buf[buf_size] = &#123;<span class="number">0</span>&#125;;</span><br><span class="line">    <span class="type">pid_t</span> pid;</span><br><span class="line">    <span class="keyword">while</span> (<span class="number">1</span>) &#123;</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;minibash $ &quot;</span>);</span><br><span class="line">        <span class="built_in">scanf</span>(<span class="string">&quot;%s&quot;</span>, buf);</span><br><span class="line">        pid = fork();</span><br><span class="line">        <span class="keyword">if</span> (<span class="number">0</span> == pid) &#123;</span><br><span class="line">            <span class="keyword">if</span> (execlp(buf, <span class="number">0</span>) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">printf</span>(<span class="string">&quot;exec error\n&quot;</span>);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (pid &gt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="type">int</span> status;</span><br><span class="line">            waitpid(pid, &amp;status, <span class="number">0</span>);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            pritnf(<span class="string">&quot;fork error %d\n&quot;</span>, pid);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>当执行到 <code>execve()</code> 系统调用时，就会进入到对应的 <code>sys_execve()</code> 入口。这标志着由用户态向内核态的转变，同时也标志着装载的开始。对于 ELF 可执行文件，之后的调用顺序是</p>
 <ul>
@@ -378,7 +382,7 @@
 <li>将来自 <code>libstdc++</code> 的各个 <code>.o</code> 文件，编译进 <code>A.so</code>，并隐藏这些符号。</li>
 </ul>
 <p>至此，我们的程序在链接和装载的过程中，不会遇到任何问题——系统能够正常地将控制权交给模块真正的入口了。但是，如此解决方案仍然有问题。</p>
-<p>众所周知，诸如 <code>libstdc++</code>/<code>libpthread</code> 这些库，会在进程空间自行维护一套全局变量和数据结构，用于维护和记录当前的运行状态。很多第三方库，也会有类似的全局变量和数据结构。现在，我们为了使得两个版本的 <code>libstdc++</code>（来自系统环境的，以及来自 <code>A.so</code> 的）在符号的层面上得以共存，就引起了这样的问题：整个进程空间里，这些全局变量和数据结构存在了两份。比如</p>
+<p>众所周知，诸如 <code>libstdc++</code>&#x2F;<code>libpthread</code> 这些库，会在进程空间自行维护一套全局变量和数据结构，用于维护和记录当前的运行状态。很多第三方库，也会有类似的全局变量和数据结构。现在，我们为了使得两个版本的 <code>libstdc++</code>（来自系统环境的，以及来自 <code>A.so</code> 的）在符号的层面上得以共存，就引起了这样的问题：整个进程空间里，这些全局变量和数据结构存在了两份。比如</p>
 <ul>
 <li>文件描述符（FD，File Description)；</li>
 <li>内存边界；</li>
@@ -389,7 +393,7 @@
 <p>回顾整个过程，我们不难发现，这样的需求会产生很多问题。尽管从编译、链接、装载的角度，我们可以用一些很 tricky 的方法解决问题；但是，等到程序执行过程中，仍然可能会隐藏各种难以发现、解决的问题。因此，我们说<strong>不应该尝试向动态库静态编译标准库或第三方库</strong>。</p>
 <hr>
 <h2 id="附录：如何将依赖的库静态链接进可执行程序"><a href="#附录：如何将依赖的库静态链接进可执行程序" class="headerlink" title="附录：如何将依赖的库静态链接进可执行程序"></a>附录：如何将依赖的库静态链接进可执行程序</h2><p>我们先来看一个耳熟能详的 <code>Hello world!</code> 程序。</p>
-<figure class="highlight c++"><figcaption><span>hello.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="built_in">std</span>::<span class="built_in">cout</span>;</span><br><span class="line"><span class="keyword">using</span> <span class="built_in">std</span>::<span class="built_in">endl</span>;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">cout</span> &lt;&lt; <span class="string">"Hello world!"</span> &lt;&lt; <span class="built_in">endl</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c++"><figcaption><span>hello.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> std::cout;</span><br><span class="line"><span class="keyword">using</span> std::endl;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    cout &lt;&lt; <span class="string">&quot;Hello world!&quot;</span> &lt;&lt; endl;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>众所周知，如果要将它编译为可执行程序，只需要执行 <code>g++ hello.cpp -o hello</code> 就可以了。在这个过程中，<code>g++</code> 这个命令，隐藏了编译、链接的细节。我们在这里把步骤拆开，依次进行。</p>
 <p>首先，我们对其进行编译。</p>
@@ -397,11 +401,11 @@
 
 <p>在这里，<code>-c</code> 参数告知 <code>g++</code> 命令，我们只希望编译就可以了，之后的链接不要自动执行。</p>
 <p>我们知道，编译器会将代码中的函数、变量等，翻译成一个个的符号（symbol）。我们可以用 <code>nm</code> 命令，查看 <code>hello.o</code> 当中包含了哪些符号。而后可以用 <code>c++filt</code> 命令，查看符号背后对应的函数签名或者变量名。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ nm hello.o | wc -l</span><br><span class="line">14</span><br><span class="line">$ nm hello.o</span><br><span class="line">000000000000003e t _GLOBAL__I_main</span><br><span class="line">0000000000000000 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev</span><br><span class="line">                 U _ZSt4cout</span><br><span class="line">                 U _ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_</span><br><span class="line">0000000000000000 b _ZSt8__ioinit</span><br><span class="line">                 U _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc</span><br><span class="line">                 U __cxa_atexit</span><br><span class="line">                 U __dso_handle</span><br><span class="line">                 U __gxx_personality_v0</span><br><span class="line">0000000000000054 t __tcf_0</span><br><span class="line">000000000000006c T main</span><br><span class="line">$ c++filt _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">__static_initialization_and_destruction_0(int, int)</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">$ nm hello.o | <span class="built_in">wc</span> -l</span><br><span class="line">14</span><br><span class="line">$ nm hello.o</span><br><span class="line">000000000000003e t _GLOBAL__I_main</span><br><span class="line">0000000000000000 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev</span><br><span class="line">                 U _ZSt4cout</span><br><span class="line">                 U _ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_</span><br><span class="line">0000000000000000 b _ZSt8__ioinit</span><br><span class="line">                 U _ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc</span><br><span class="line">                 U __cxa_atexit</span><br><span class="line">                 U __dso_handle</span><br><span class="line">                 U __gxx_personality_v0</span><br><span class="line">0000000000000054 t __tcf_0</span><br><span class="line">000000000000006c T main</span><br><span class="line">$ c++filt _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">__static_initialization_and_destruction_0(int, int)</span><br></pre></td></tr></table></figure>
 
 <p>我们看到，<code>hello.o</code> 当中，只有 14 个符号。并且，在这些符号中，有很多是未定义的符号——第二列提示 <code>U</code> 表示未定义。这表明，<code>hello.o</code> 用到了这些符号，但是这些符号对应的函数、变量，定义在其他目标文件当中。</p>
 <p>接下来我们执行链接这一步。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">49</span><br><span class="line">$ nm hello</span><br><span class="line">0000000000600ae8 d _DYNAMIC</span><br><span class="line">0000000000600cb0 d _GLOBAL_OFFSET_TABLE_</span><br><span class="line">0000000000400816 t _GLOBAL__I_main</span><br><span class="line">0000000000400958 R _IO_stdin_used</span><br><span class="line">                 w _Jv_RegisterClasses</span><br><span class="line">00000000004007d8 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev@@GLIBCXX_3.4</span><br><span class="line">...</span><br><span class="line">0000000000400844 T main</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | <span class="built_in">wc</span> -l</span><br><span class="line">49</span><br><span class="line">$ nm hello</span><br><span class="line">0000000000600ae8 d _DYNAMIC</span><br><span class="line">0000000000600cb0 d _GLOBAL_OFFSET_TABLE_</span><br><span class="line">0000000000400816 t _GLOBAL__I_main</span><br><span class="line">0000000000400958 R _IO_stdin_used</span><br><span class="line">                 w _Jv_RegisterClasses</span><br><span class="line">00000000004007d8 t _Z41__static_initialization_and_destruction_0ii</span><br><span class="line">                 U _ZNSolsEPFRSoS_E@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitC1Ev@@GLIBCXX_3.4</span><br><span class="line">                 U _ZNSt8ios_base4InitD1Ev@@GLIBCXX_3.4</span><br><span class="line">...</span><br><span class="line">0000000000400844 T main</span><br></pre></td></tr></table></figure>
 
 <p>经过链接之后，可执行文件 <code>hello</code> 当中的符号多了不少：从 14 个增加到了 49 个。这说明，经过链接之后，可执行文件补充了一些执行过程中需要的符号。但是我们也看到，在 <code>hello</code> 当中，仍然存在被标记为 <code>U</code> 的未定义的符号。这说明，<code>hello</code> 在运行时仍旧会动态地依赖系统中的动态库。我们可以用 <code>ldd</code> 命令查看一个 ELF 文件依赖的动态库。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffb3bfd000)</span><br><span class="line">        libstdc++.so.6 =&gt; /opt/gcc/lib64/libstdc++.so.6 (0x00002ada4968e000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002ada49996000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br></pre></td></tr></table></figure>
@@ -410,17 +414,17 @@
 <ul>
 <li><code>linux-vdso.so.1</code> 是 Linux 的一个内核模块；</li>
 <li><code>libstdc++.so.6</code> 是 C++ 标准库对应的动态库；</li>
-<li><code>libm.so.6</code>/<code>libgcc_s.so.1</code>/<code>libc.so.6</code> 都是 gcc 相关的动态库；</li>
+<li><code>libm.so.6</code>&#x2F;<code>libgcc_s.so.1</code>&#x2F;<code>libc.so.6</code> 都是 gcc 相关的动态库；</li>
 <li><code>/lib64/ld-linux-x86-64.so.2</code> 则是动态链接器对应的动态库（实际上也是一个可执行的 ELF）。</li>
 </ul>
 <p>如果想要将这些依赖的动态库对应的符号，都静态链接到可执行文件中的话，则需要在链接的时候加上 <code>-static</code> 参数。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">4425</span><br><span class="line">$ ldd hello</span><br><span class="line">        not a dynamic executable</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span></span><br><span class="line">                 U __tls_get_addr</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ nm hello | <span class="built_in">wc</span> -l</span><br><span class="line">4425</span><br><span class="line">$ ldd hello</span><br><span class="line">        not a dynamic executable</span><br><span class="line">$ nm hello | grep <span class="string">&quot; U &quot;</span></span><br><span class="line">                 U __tls_get_addr</span><br></pre></td></tr></table></figure>
 
 <p>我们看到，相对不加 <code>-static</code> 参数的版本，新的 <code>hello</code> 多出了四千多个符号；并且，以 <code>ldd</code> 查看 <code>hello</code> 依赖的动态库，命令提示 <code>hello</code> 没有依赖其他的动态库；最后，我们发现，<code>hello</code> 的所有符号中，仅有 <code>__tls_get_addr</code> 是未定义的。</p>
 <p><code>tls</code> 是 Thread Local Storage 的缩写，<code>__tls_get_addr()</code> 接收一个参数（数据结构 <code>tls_index</code> 的起始地址），返回一个 Thread Local Variable 的在当前段的偏移量和长度。这个函数是专为动态链接器设计的，在静态链接时这个符号对应的函数无意义（参见 <code>ELF/SymbolTable.cpp</code>）。</p>
 <p>因此，我们说，对于静态链接版本的 <code>hello</code> 来说，它已经包含了运行所需的所有符号。</p>
 <p>若是想要静态链接 <code>libstdc++</code>，其他的部分依然保留动态链接，则可以使用 <code>g++</code> 的参数 <code>-static-libstdc++</code>。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static-libstdc++</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffcd5fd000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002b6ccb401000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br><span class="line">$ nm hello | wc -l</span><br><span class="line">3022</span><br><span class="line">$ nm hello | grep <span class="string">" U "</span> | grep -v GLIBC | grep -v GCC</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">$ g++ hello.o -o hello -static-libstdc++</span><br><span class="line">$ ./hello</span><br><span class="line">Hello world!</span><br><span class="line">$ ldd hello</span><br><span class="line">        linux-vdso.so.1 =&gt;  (0x00007fffcd5fd000)</span><br><span class="line">        libm.so.6 =&gt; /lib64/libm.so.6 (0x0000003576c00000)</span><br><span class="line">        libgcc_s.so.1 =&gt; /opt/gcc/lib64/libgcc_s.so.1 (0x00002b6ccb401000)</span><br><span class="line">        libc.so.6 =&gt; /lib64/libc.so.6 (0x0000003576000000)</span><br><span class="line">        /lib64/ld-linux-x86-64.so.2 (0x0000003575c00000)</span><br><span class="line">$ nm hello | <span class="built_in">wc</span> -l</span><br><span class="line">3022</span><br><span class="line">$ nm hello | grep <span class="string">&quot; U &quot;</span> | grep -v GLIBC | grep -v GCC</span><br></pre></td></tr></table></figure>
 
 <p>可以看到，使用 <code>-static-libstdc++</code> 之后，<code>hello</code> 不再依赖 <code>libstdc++.so</code> 了。同时，其中包含的符号相比动态链接 <code>libstdc++</code> 的版本要多出不少，而相对完全静态链接的版本又少了不少；介于二者之间。此外，我们也验证了，<code>hello</code> 中包含的未定义的符号，除开 <code>GLIBC</code> 和 <code>GCC</code> 相关的符号之外，就没有了。</p>
 
@@ -559,7 +563,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#静态链接的优缺点"><span class="nav-number">1.</span> <span class="nav-text">静态链接的优缺点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#对装载的影响"><span class="nav-number">2.</span> <span class="nav-text">对装载的影响</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#符号冲突"><span class="nav-number">3.</span> <span class="nav-text">符号冲突</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#全局变量更新导致的运行时问题"><span class="nav-number">4.</span> <span class="nav-text">全局变量更新导致的运行时问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#附录：如何将依赖的库静态链接进可执行程序"><span class="nav-number">5.</span> <span class="nav-text">附录：如何将依赖的库静态链接进可执行程序</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9D%99%E6%80%81%E9%93%BE%E6%8E%A5%E7%9A%84%E4%BC%98%E7%BC%BA%E7%82%B9"><span class="nav-number">1.</span> <span class="nav-text">静态链接的优缺点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%B9%E8%A3%85%E8%BD%BD%E7%9A%84%E5%BD%B1%E5%93%8D"><span class="nav-number">2.</span> <span class="nav-text">对装载的影响</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%A6%E5%8F%B7%E5%86%B2%E7%AA%81"><span class="nav-number">3.</span> <span class="nav-text">符号冲突</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%A8%E5%B1%80%E5%8F%98%E9%87%8F%E6%9B%B4%E6%96%B0%E5%AF%BC%E8%87%B4%E7%9A%84%E8%BF%90%E8%A1%8C%E6%97%B6%E9%97%AE%E9%A2%98"><span class="nav-number">4.</span> <span class="nav-text">全局变量更新导致的运行时问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%84%E5%BD%95%EF%BC%9A%E5%A6%82%E4%BD%95%E5%B0%86%E4%BE%9D%E8%B5%96%E7%9A%84%E5%BA%93%E9%9D%99%E6%80%81%E9%93%BE%E6%8E%A5%E8%BF%9B%E5%8F%AF%E6%89%A7%E8%A1%8C%E7%A8%8B%E5%BA%8F"><span class="nav-number">5.</span> <span class="nav-text">附录：如何将依赖的库静态链接进可执行程序</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -595,7 +599,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -610,52 +614,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -693,9 +697,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -750,9 +754,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -820,7 +832,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

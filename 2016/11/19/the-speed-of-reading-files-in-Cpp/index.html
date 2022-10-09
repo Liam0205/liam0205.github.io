@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -25,18 +25,23 @@
     var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="这篇文章的缘起有二：  很多人主张「应当在几乎所有情况下使用 C 风格的 I/O」（比如这里），而我很怀疑； 另一方面，在刷 POJ 的时候，使用 std::cin 确实能 TLE 而改成 std::scanf 就 AC 了，因此想试试看 std::cin 能否加速。  中文网络里，已有码农场和 byvoid 菊苣的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的坚持，决定">
-<meta name="keywords" content="C++,I&#x2F;O,cin,scanf">
+  <meta name="description" content="这篇文章的缘起有二：  很多人主张「应当在几乎所有情况下使用 C 风格的 I&#x2F;O」（比如这里），而我很怀疑； 另一方面，在刷 POJ 的时候，使用 std::cin 确实能 TLE 而改成 std::scanf 就 AC 了，因此想试试看 std::cin 能否加速。  中文网络里，已有码农场和 byvoid 菊苣的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的">
 <meta property="og:type" content="article">
 <meta property="og:title" content="探幽：C++ 的读入速度">
 <meta property="og:url" content="https://liam.page/2016/11/19/the-speed-of-reading-files-in-Cpp/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="这篇文章的缘起有二：  很多人主张「应当在几乎所有情况下使用 C 风格的 I/O」（比如这里），而我很怀疑； 另一方面，在刷 POJ 的时候，使用 std::cin 确实能 TLE 而改成 std::scanf 就 AC 了，因此想试试看 std::cin 能否加速。  中文网络里，已有码农场和 byvoid 菊苣的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的坚持，决定">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:description" content="这篇文章的缘起有二：  很多人主张「应当在几乎所有情况下使用 C 风格的 I&#x2F;O」（比如这里），而我很怀疑； 另一方面，在刷 POJ 的时候，使用 std::cin 确实能 TLE 而改成 std::scanf 就 AC 了，因此想试试看 std::cin 能否加速。  中文网络里，已有码农场和 byvoid 菊苣的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liam.page/uploads/images/computer-architecture/05.png">
+<meta property="article:published_time" content="2016-11-19T15:09:53.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="I&#x2F;O">
+<meta property="article:tag" content="cin">
+<meta property="article:tag" content="scanf">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="探幽：C++ 的读入速度">
-<meta name="twitter:description" content="这篇文章的缘起有二：  很多人主张「应当在几乎所有情况下使用 C 风格的 I/O」（比如这里），而我很怀疑； 另一方面，在刷 POJ 的时候，使用 std::cin 确实能 TLE 而改成 std::scanf 就 AC 了，因此想试试看 std::cin 能否加速。  中文网络里，已有码农场和 byvoid 菊苣的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的坚持，决定">
+<meta name="twitter:image" content="https://liam.page/uploads/images/computer-architecture/05.png">
 
 <link rel="canonical" href="https://liam.page/2016/11/19/the-speed-of-reading-files-in-Cpp/">
 
@@ -292,7 +297,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>7.6k</span>
+              <span>7.8k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -313,18 +318,18 @@
       
         <p>这篇文章的缘起有二：</p>
 <ul>
-<li>很多人主张「应当在几乎所有情况下使用 C 风格的 I/O」（<a href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do/answer/Utkarsh-Bhatt?srid=WsLB" target="_blank" rel="noopener">比如这里</a>），而我很怀疑；</li>
+<li>很多人主张「应当在几乎所有情况下使用 C 风格的 I&#x2F;O」（<a target="_blank" rel="noopener" href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do/answer/Utkarsh-Bhatt?srid=WsLB">比如这里</a>），而我很怀疑；</li>
 <li>另一方面，在刷 POJ 的时候，使用 <code>std::cin</code> 确实能 TLE 而改成 <code>std::scanf</code> 就 AC 了，因此想试试看 <code>std::cin</code> 能否加速。</li>
 </ul>
-<p>中文网络里，已有<a href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html" target="_blank" rel="noopener">码农场</a>和 <a href="https://www.byvoid.com/blog/fast-readfile/" target="_blank" rel="noopener">byvoid 菊苣</a>的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的坚持，决定写下这篇文章，探讨 C++ 的读入速度的问题，特别是读入文件速度的问题。</p>
-<a id="more"></a>
+<p>中文网络里，已有<a target="_blank" rel="noopener" href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">码农场</a>和 <a target="_blank" rel="noopener" href="https://www.byvoid.com/blog/fast-readfile/">byvoid 菊苣</a>的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的坚持，决定写下这篇文章，探讨 C++ 的读入速度的问题，特别是读入文件速度的问题。</p>
+<span id="more"></span>
 
 <h2 id="从稍微底层介绍起"><a href="#从稍微底层介绍起" class="headerlink" title="从稍微底层介绍起"></a>从稍微底层介绍起</h2><p><code>std::cin</code> 为什么慢？要解释这个问题，就得从稍微底层的角度说起。</p>
 <p>以 Linux 为例。Linux 内核负责管理计算机硬件，对接硬件规格，向上提供系统调用（System Call）。内核之上的运行时库（Runtime Library）负责对接系统调用，向上提供操作系统应用编程接口（Operation System Application Programming Interface, OS API）。</p>
-<p><img data-src="/uploads/images/computer-architecture/05.png" alt></p>
-<p>对于我们使用 C/C++ 编程来说，所作的几乎全部事情，都基于运行时库提供的 OS API（<code>glibc</code> 提供的 POSIX API）；少数操作，可以通过 OS API 中提供的类函数直接操作系统调用（如 <code>fork()</code> 函数）。</p>
-<p>因此，不难理解，不论是 <code>std::cin</code> 还是 <code>std::scanf</code> 都是对 OS API 的封装，而 OS API 又是对系统调用的封装。至于再往下，系统调用就直接通过内核操作硬件了。因此，可以粗略地估计，直接使用系统调用做 I/O 会比用 OS API 要快；而用 OS API 又会比封装 OS API 的语言库函数要慢。</p>
-<p>我们这里讨论 <code>std::cin</code> 和 <code>std::scanf</code>，因此主要关系 I/O 中的 Input 部分。在 Linux 系统调用中，和文件读取相关的系统调用有两个类函数。</p>
+<p><img data-src="/uploads/images/computer-architecture/05.png"></p>
+<p>对于我们使用 C&#x2F;C++ 编程来说，所作的几乎全部事情，都基于运行时库提供的 OS API（<code>glibc</code> 提供的 POSIX API）；少数操作，可以通过 OS API 中提供的类函数直接操作系统调用（如 <code>fork()</code> 函数）。</p>
+<p>因此，不难理解，不论是 <code>std::cin</code> 还是 <code>std::scanf</code> 都是对 OS API 的封装，而 OS API 又是对系统调用的封装。至于再往下，系统调用就直接通过内核操作硬件了。因此，可以粗略地估计，直接使用系统调用做 I&#x2F;O 会比用 OS API 要快；而用 OS API 又会比封装 OS API 的语言库函数要慢。</p>
+<p>我们这里讨论 <code>std::cin</code> 和 <code>std::scanf</code>，因此主要关系 I&#x2F;O 中的 Input 部分。在 Linux 系统调用中，和文件读取相关的系统调用有两个类函数。</p>
 <ul>
 <li><code>void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);</code>: 封装名为 <code>mmap2</code> 的系统调用（<code>mmap</code> 自 Linux 2.4 起弃用）；<code>mmap</code> 将磁盘上的文件一一映射到实存空间，当进程调用相关内存的时候，通过缺页错误真正将文件内容拷贝到实存。</li>
 <li><code>ssize_t read(int fd, void *buf, size_t count);</code>: 封装名为 <code>read</code> 的系统调用。这里 <code>ssize_t</code> 是 <code>__kernel_ssize_t</code> 的 <code>typedef</code>；而 <code>__kernel_ssize_t</code> 在 32 位系统上是 <code>int</code> 的 <code>typedef</code>，在 64 位系统上是 <code>long ing</code> 的 <code>typedef</code>。<code>read</code> 会从文件描述符（file description）<code>fd</code> 中读入 <code>count</code> 个字节，存入 <code>buf</code> 缓存中。</li>
@@ -340,7 +345,7 @@
 <p>事实上，为了「安全」，<code>std::cin</code> 主要做了两件额外的事情：</p>
 <ul>
 <li>与 <code>std::cout</code> 绑定，每次 <code>std::cin</code> 从缓冲区读入内容之前，确保已经执行过 <code>std::cout.flush()</code>；</li>
-<li>与 <code>stdio</code> 同步（synchronize），确保混搭使用 C 风格的 I/O 操作不会引发问题。</li>
+<li>与 <code>stdio</code> 同步（synchronize），确保混搭使用 C 风格的 I&#x2F;O 操作不会引发问题。</li>
 </ul>
 <p>如果我们能手工确保不会出问题，那么就可以省略 <code>std::cin</code> 做的这些额外的工作。</p>
 <h3 id="std-ios-tie"><a href="#std-ios-tie" class="headerlink" title="std::ios::tie"></a><code>std::ios::tie</code></h3><p>首先我们解决「绑定」的问题。</p>
@@ -350,7 +355,7 @@
 <li><code>ostream* tie (ostream* tiestr)</code>: 返回当前绑定的输出流实例的指针，再将 <code>tiestr</code> 绑定到当前实例。</li>
 </ul>
 <p>cplusplus 网站上提供了这样的示例：</p>
-<figure class="highlight cpp"><figcaption><span>demo_tie.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redefine tied object</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;     // std::ostream, std::cout, std::cin</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fstream&gt;      // std::ofstream</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">std</span>::ostream *prevstr;</span><br><span class="line">  <span class="built_in">std</span>::ofstream ofs;</span><br><span class="line">  ofs.open (<span class="string">"test.txt"</span>);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; <span class="string">"tie example:\n"</span>;</span><br><span class="line"></span><br><span class="line">  *<span class="built_in">std</span>::<span class="built_in">cin</span>.tie() &lt;&lt; <span class="string">"This is inserted into cout"</span>;</span><br><span class="line">  prevstr = <span class="built_in">std</span>::<span class="built_in">cin</span>.tie (&amp;ofs);</span><br><span class="line">  *<span class="built_in">std</span>::<span class="built_in">cin</span>.tie() &lt;&lt; <span class="string">"This is inserted into the file"</span>;</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">cin</span>.tie (prevstr);</span><br><span class="line"></span><br><span class="line">  ofs.close();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><figcaption><span>demo_tie.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redefine tied object</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span>     <span class="comment">// std::ostream, std::cout, std::cin</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fstream&gt;</span>      <span class="comment">// std::ofstream</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">  std::ostream *prevstr;</span><br><span class="line">  std::ofstream ofs;</span><br><span class="line">  ofs.<span class="built_in">open</span> (<span class="string">&quot;test.txt&quot;</span>);</span><br><span class="line"></span><br><span class="line">  std::cout &lt;&lt; <span class="string">&quot;tie example:\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">  *std::cin.<span class="built_in">tie</span>() &lt;&lt; <span class="string">&quot;This is inserted into cout&quot;</span>;</span><br><span class="line">  prevstr = std::cin.<span class="built_in">tie</span> (&amp;ofs);</span><br><span class="line">  *std::cin.<span class="built_in">tie</span>() &lt;&lt; <span class="string">&quot;This is inserted into the file&quot;</span>;</span><br><span class="line">  std::cin.<span class="built_in">tie</span> (prevstr);</span><br><span class="line"></span><br><span class="line">  ofs.<span class="built_in">close</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>默认情况下，<code>std::cin</code> 与 <code>std::cout</code> 绑定。因此第一次调用 <code>std::cin.tie()</code> 返回的是 <code>std::cout</code> 的指针。因此第一次输出将会打印到标准输出上。</p>
 <p>之后，我们用 <code>std::cin.tie (&amp;ofs)</code> 将一个文件输出流绑定在 <code>std::cin</code> 上，并将 <code>std::cout</code> 的指针存在 <code>prevstr</code> 中。这时候，第二次调用 <code>std::cin.tie()</code> 返回的是 <code>ofs</code> 的指针。因此第二次输出将会打印到 <code>ofs</code> 绑定的文件中（<code>test.txt</code>）。</p>
@@ -363,69 +368,69 @@
 <p>This is inserted into the file</p>
 </blockquote>
 <p>为了解除 <code>std::cin</code> 与 <code>std::cout</code> 的绑定，我们可以这样做</p>
-<figure class="highlight cpp"><figcaption><span>untie</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::ostream *prevstr = <span class="built_in">std</span>::<span class="built_in">cin</span>.tie();</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cin</span>.tie(<span class="literal">nullptr</span>);</span><br><span class="line"><span class="comment">// ... use cin without tying to cout</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><figcaption><span>untie</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">std::ostream *prevstr = std::cin.<span class="built_in">tie</span>();</span><br><span class="line">std::cin.<span class="built_in">tie</span>(<span class="literal">nullptr</span>);</span><br><span class="line"><span class="comment">// ... use cin without tying to cout</span></span><br></pre></td></tr></table></figure>
 
 <h3 id="std-ios-base-sync-with-stdio"><a href="#std-ios-base-sync-with-stdio" class="headerlink" title="std::ios_base::sync_with_stdio"></a><code>std::ios_base::sync_with_stdio</code></h3><p>接下来我们解决同步的问题。</p>
 <p>在所有输入输出流的基类（<code>std::ios_base</code>）中定义了 <code>sync_with_stdio</code> 函数。它的原型是：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">static</span> <span class="keyword">bool</span> <span class="title">sync_with_stdio</span><span class="params">( <span class="keyword">bool</span> sync = <span class="literal">true</span> )</span></span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">sync_with_stdio</span><span class="params">( <span class="type">bool</span> sync = <span class="literal">true</span> )</span></span></span><br></pre></td></tr></table></figure>
 
 <p>默认情况下，这个同步机制是打开的。于是，在 C++ 的流上做的任何操作，会被立即同步到相应的 C 的流中。因此，在代码里我们可以混搭 C 风格和 C++ 风格的流操作。</p>
 <p>我们可以通过这样做，以解除 C++ 风格的输入输出流与 C 风格的输入输出流的绑定：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::ios_base::sync_with_stdio(<span class="literal">false</span>);</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">std::ios_base::<span class="built_in">sync_with_stdio</span>(<span class="literal">false</span>);</span><br></pre></td></tr></table></figure>
 
 <h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><h3 id="随机数生成"><a href="#随机数生成" class="headerlink" title="随机数生成"></a>随机数生成</h3><p>作为实验的预备，我们需要生成一组随机数，作为读入。这里计划生成的文件，样式为：</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">a_1 b_1</span><br><span class="line">a_2 b_2</span><br><span class="line">...</span><br><span class="line">a_k b_k</span><br><span class="line">...</span><br><span class="line">a_n b_n</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">a_1 b_1</span><br><span class="line">a_2 b_2</span><br><span class="line">...</span><br><span class="line">a_k b_k</span><br><span class="line">...</span><br><span class="line">a_n b_n</span><br></pre></td></tr></table></figure>
 
 <p>其中，$a_1, \ldots, a_n$ 是随机整数，$b_1, \ldots, b_n$ 是随机浮点数。我们用 Python 来实现随机数的生成和输出。</p>
-<figure class="highlight python"><figcaption><span>gen_random.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> random</span><br><span class="line"><span class="keyword">import</span> sys</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">getRandom</span><span class="params">(fname_base, lines_num)</span>:</span></span><br><span class="line">  fname = <span class="string">'%s_%d.txt'</span> % (fname_base, lines_num)</span><br><span class="line">  <span class="keyword">with</span> open(fname, <span class="string">'w'</span>) <span class="keyword">as</span> fout:</span><br><span class="line">    temp = <span class="string">'%d %f\n'</span> % (random.randint(<span class="number">-1000</span>, <span class="number">1000</span>), random.gauss(<span class="number">0</span>, <span class="number">10</span>))</span><br><span class="line">    fout.write(temp)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">  exp  = [<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>]</span><br><span class="line">  NUMS = map(<span class="keyword">lambda</span> x: <span class="number">10</span> ** x, exp)</span><br><span class="line">  base = <span class="string">'random'</span></span><br><span class="line">  <span class="keyword">for</span> num <span class="keyword">in</span> NUMS:</span><br><span class="line">    getRandom(base, num)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><figcaption><span>gen_random.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> random</span><br><span class="line"><span class="keyword">import</span> sys</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">getRandom</span>(<span class="params">fname_base, lines_num</span>):</span><br><span class="line">  fname = <span class="string">&#x27;%s_%d.txt&#x27;</span> % (fname_base, lines_num)</span><br><span class="line">  <span class="keyword">with</span> <span class="built_in">open</span>(fname, <span class="string">&#x27;w&#x27;</span>) <span class="keyword">as</span> fout:</span><br><span class="line">    temp = <span class="string">&#x27;%d %f\n&#x27;</span> % (random.randint(-<span class="number">1000</span>, <span class="number">1000</span>), random.gauss(<span class="number">0</span>, <span class="number">10</span>))</span><br><span class="line">    fout.write(temp)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">  exp  = [<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>]</span><br><span class="line">  NUMS = <span class="built_in">map</span>(<span class="keyword">lambda</span> x: <span class="number">10</span> ** x, exp)</span><br><span class="line">  base = <span class="string">&#x27;random&#x27;</span></span><br><span class="line">  <span class="keyword">for</span> num <span class="keyword">in</span> NUMS:</span><br><span class="line">    getRandom(base, num)</span><br></pre></td></tr></table></figure>
 
 <h3 id="实验环境"><a href="#实验环境" class="headerlink" title="实验环境"></a>实验环境</h3><ul>
 <li>编译器：gcc-4.7.2</li>
 <li>操作系统：CentOS 5.4</li>
-<li>CPU 型号：Intel(R) Xeon(R) CPU <a href="mailto:E5645@2.4" target="_blank" rel="noopener">E5645@2.4</a> GHz</li>
+<li>CPU 型号：Intel(R) Xeon(R) CPU <a href="mailto:&#69;&#53;&#54;&#x34;&#x35;&#x40;&#50;&#x2e;&#52;">&#69;&#53;&#54;&#x34;&#x35;&#x40;&#50;&#x2e;&#52;</a> GHz</li>
 <li>主存大小：65979428 KiB</li>
 <li>磁盘大小：388 GiB</li>
 </ul>
-<h3 id="实验代码"><a href="#实验代码" class="headerlink" title="实验代码"></a>实验代码</h3><figure class="highlight c"><figcaption><span>scanf.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">a</span><span class="params">(<span class="number">0</span>)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">double</span> <span class="title">b</span><span class="params">(<span class="number">0.0</span>)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (~<span class="built_in">scanf</span>(<span class="string">"%d %f"</span>, &amp;a, &amp;b)) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">" us\n"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="实验代码"><a href="#实验代码" class="headerlink" title="实验代码"></a>实验代码</h3><figure class="highlight c"><figcaption><span>scanf.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (~<span class="built_in">scanf</span>(<span class="string">&quot;%d %f&quot;</span>, &amp;a, &amp;b)) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<figure class="highlight c"><figcaption><span>cin.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">a</span><span class="params">(<span class="number">0</span>)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">double</span> <span class="title">b</span><span class="params">(<span class="number">0.0</span>)</span></span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">" us\n"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><figcaption><span>cin.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
-<figure class="highlight c"><figcaption><span>cin-speed_up.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">int</span> <span class="title">a</span><span class="params">(<span class="number">0</span>)</span></span>;</span><br><span class="line">    <span class="function"><span class="keyword">double</span> <span class="title">b</span><span class="params">(<span class="number">0.0</span>)</span></span>;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cin</span>.tie(<span class="number">0</span>);</span><br><span class="line">    <span class="built_in">std</span>::ios_base::sync_with_stdio(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">" us\n"</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><figcaption><span>cin-speed_up.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cin</span>.tie(<span class="number">0</span>);</span><br><span class="line">    <span class="built_in">std</span>::ios_base::sync_with_stdio(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <h3 id="实验结果"><a href="#实验结果" class="headerlink" title="实验结果"></a>实验结果</h3><p>这里用管道的方式，将输入数据传给编译好的可执行映像。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">cat foobar.txt | ./a.out</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> foobar.txt | ./a.out</span><br></pre></td></tr></table></figure>
 
 <p>这里将每一份数据重复输入可执行映像 5 次，然后去除最低和最高的执行时间，取中间三个做平均值，得到结果如下（单位：微秒）。</p>
 <table><tbody><tr><td>数据大小</td><th>cin</th><th>cin -O2</th><th>cin 加速</th><th>cin 加速 -O2</th><th>scanf</th><th>scanf -O2</th><iframe id="tmp_downloadhelper_iframe" style="display: none;"></iframe></tr><tr><th><script type="math/tex" id="MathJax-Element-6"> 10^3</script></th><td>1962</td><td>2179</td><td>1131</td><td>1020</td><td>754</td><td>773</td></tr><tr><th><script type="math/tex" id="MathJax-Element-7"> 10^4</script></th><td>20099</td><td>20448</td><td>10496</td><td>9817</td><td>7187</td><td>7205</td></tr><tr><th><script type="math/tex" id="MathJax-Element-8"> 10^5</script></th><td>139541</td><td>146781</td><td>75328</td><td>70302</td><td>52498</td><td>55002</td></tr><tr><th><script type="math/tex" id="MathJax-Element-9"> 10^6</script></th><td>1401558</td><td>1382098</td><td>681064</td><td>651954</td><td>476777</td><td>481314</td></tr><tr><th><script type="math/tex" id="MathJax-Element-10"> 10^7</script></th><td>13318033</td><td>13956841</td><td>6687289</td><td>6468692</td><td>4779453</td><td>4760468</td></tr></tbody></table>
 
 <p>从表中可以看出，<code>std::scanf</code> 在实验条件下速度始终最快，但与「加速之后的」<code>std::cin</code> 处于同一个数量级。而它们都比默认的 <code>std::cin</code> 要快出一个数量级。这个结论随着数据量的增长保持不变。</p>
 <p>另外，使用编译器的 <code>-O2</code> 参数，打开编译器优化之后，<code>std::cin</code> 对优化不敏感，甚至在一些数据集上优化之后的速度反而变慢；加速之后的 <code>std::cin</code> 和 <code>std::scanf</code> 则对优化敏感，其中加速之后的 <code>std::cin</code> 对优化尤其敏感。</p>
-<p>在这个实验中，<code>std::scanf</code> 的确在速度上有优势，似乎验证了「很多人」的主张。不过，<a href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714" target="_blank" rel="noopener">tatanaideyo</a> 做了类似的实验，结果表明：</p>
+<p>在这个实验中，<code>std::scanf</code> 的确在速度上有优势，似乎验证了「很多人」的主张。不过，<a target="_blank" rel="noopener" href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714">tatanaideyo</a> 做了类似的实验，结果表明：</p>
 <ul>
 <li><code>std::scanf</code> 和加速之后的 <code>std::cin</code> 一定比 <code>std::cin</code> 快；</li>
 <li><code>std::scanf</code> 在读入浮点数时比加速之后的 <code>std::cin</code> 快；</li>
 <li><code>std::scanf</code> 在读入整形数值时比加速之后的 <code>std::cin</code> 慢。</li>
 </ul>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>加速之后的 <code>std::cin</code> 并不一定比 <code>std::scanf</code> 慢；在大多数日常使用的情形下，其效率在渐进意义上与 <code>std::scanf</code> 相当。tatanaideyo 则表明，如果数据中包含大量的整形数值，则使用加速之后的 <code>std::cin</code> 会更有优势；反之若数据中包含大量的浮点数，则使用 <code>std::scanf</code> 更佳。</p>
-<p>更多探讨可以参考：<a href="http://codeforces.com/blog/entry/5217" target="_blank" rel="noopener">http://codeforces.com/blog/entry/5217</a></p>
+<p>更多探讨可以参考：<a target="_blank" rel="noopener" href="http://codeforces.com/blog/entry/5217">http://codeforces.com/blog/entry/5217</a></p>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
 <li>《程序员的自我修养：链接、装载和库》</li>
-<li><a href="http://www.tutorialspoint.com/unix_system_calls/read.htm" target="_blank" rel="noopener">http://www.tutorialspoint.com/unix_system_calls/read.htm</a></li>
-<li><a href="http://man7.org/linux/man-pages/man2/read.2.html" target="_blank" rel="noopener">http://man7.org/linux/man-pages/man2/read.2.html</a></li>
-<li><a href="http://man7.org/linux/man-pages/man2/mmap.2.html" target="_blank" rel="noopener">http://man7.org/linux/man-pages/man2/mmap.2.html</a></li>
-<li><a href="http://www.cplusplus.com/reference/cstdio/fread/" target="_blank" rel="noopener">http://www.cplusplus.com/reference/cstdio/fread/</a></li>
-<li><a href="http://www.cplusplus.com/reference/cstdio/scanf/" target="_blank" rel="noopener">http://www.cplusplus.com/reference/cstdio/scanf/</a></li>
-<li><a href="http://www.cplusplus.com/reference/ios/ios/tie/" target="_blank" rel="noopener">http://www.cplusplus.com/reference/ios/ios/tie/</a></li>
-<li><a href="http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio" target="_blank" rel="noopener">http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio</a></li>
-<li><a href="https://www.byvoid.com/blog/fast-readfile/" target="_blank" rel="noopener">https://www.byvoid.com/blog/fast-readfile/</a></li>
-<li><a href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html" target="_blank" rel="noopener">http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html</a></li>
-<li><a href="https://heavywatal.github.io/cxx/speed.html" target="_blank" rel="noopener">https://heavywatal.github.io/cxx/speed.html</a></li>
-<li><a href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714" target="_blank" rel="noopener">http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714</a></li>
-<li><a href="http://codeforces.com/blog/entry/5217" target="_blank" rel="noopener">http://codeforces.com/blog/entry/5217</a></li>
-<li><a href="http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout" target="_blank" rel="noopener">http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout</a></li>
-<li><a href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do" target="_blank" rel="noopener">https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do</a></li>
-<li><a href="http://www.cnblogs.com/huxiao-tee/p/4660352.html" target="_blank" rel="noopener">http://www.cnblogs.com/huxiao-tee/p/4660352.html</a></li>
-<li><a href="http://en.cppreference.com/w/cpp/chrono/duration" target="_blank" rel="noopener">http://en.cppreference.com/w/cpp/chrono/duration</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.tutorialspoint.com/unix_system_calls/read.htm">http://www.tutorialspoint.com/unix_system_calls/read.htm</a></li>
+<li><a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/read.2.html">http://man7.org/linux/man-pages/man2/read.2.html</a></li>
+<li><a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/mmap.2.html">http://man7.org/linux/man-pages/man2/mmap.2.html</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.cplusplus.com/reference/cstdio/fread/">http://www.cplusplus.com/reference/cstdio/fread/</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.cplusplus.com/reference/cstdio/scanf/">http://www.cplusplus.com/reference/cstdio/scanf/</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.cplusplus.com/reference/ios/ios/tie/">http://www.cplusplus.com/reference/ios/ios/tie/</a></li>
+<li><a target="_blank" rel="noopener" href="http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio">http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.byvoid.com/blog/fast-readfile/">https://www.byvoid.com/blog/fast-readfile/</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html</a></li>
+<li><a target="_blank" rel="noopener" href="https://heavywatal.github.io/cxx/speed.html">https://heavywatal.github.io/cxx/speed.html</a></li>
+<li><a target="_blank" rel="noopener" href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714">http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714</a></li>
+<li><a target="_blank" rel="noopener" href="http://codeforces.com/blog/entry/5217">http://codeforces.com/blog/entry/5217</a></li>
+<li><a target="_blank" rel="noopener" href="http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout">http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do">https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do</a></li>
+<li><a target="_blank" rel="noopener" href="http://www.cnblogs.com/huxiao-tee/p/4660352.html">http://www.cnblogs.com/huxiao-tee/p/4660352.html</a></li>
+<li><a target="_blank" rel="noopener" href="http://en.cppreference.com/w/cpp/chrono/duration">http://en.cppreference.com/w/cpp/chrono/duration</a></li>
 </ul>
 
     </div>
@@ -562,7 +567,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#从稍微底层介绍起"><span class="nav-number">1.</span> <span class="nav-text">从稍微底层介绍起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#std-cin-做了哪些额外的工作"><span class="nav-number">2.</span> <span class="nav-text">std::cin 做了哪些额外的工作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#std-ios-tie"><span class="nav-number">2.1.</span> <span class="nav-text">std::ios::tie</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#std-ios-base-sync-with-stdio"><span class="nav-number">2.2.</span> <span class="nav-text">std::ios_base::sync_with_stdio</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实验"><span class="nav-number">3.</span> <span class="nav-text">实验</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#随机数生成"><span class="nav-number">3.1.</span> <span class="nav-text">随机数生成</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实验环境"><span class="nav-number">3.2.</span> <span class="nav-text">实验环境</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实验代码"><span class="nav-number">3.3.</span> <span class="nav-text">实验代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实验结果"><span class="nav-number">3.4.</span> <span class="nav-text">实验结果</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#参考"><span class="nav-number">5.</span> <span class="nav-text">参考</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8E%E7%A8%8D%E5%BE%AE%E5%BA%95%E5%B1%82%E4%BB%8B%E7%BB%8D%E8%B5%B7"><span class="nav-number">1.</span> <span class="nav-text">从稍微底层介绍起</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#std-cin-%E5%81%9A%E4%BA%86%E5%93%AA%E4%BA%9B%E9%A2%9D%E5%A4%96%E7%9A%84%E5%B7%A5%E4%BD%9C"><span class="nav-number">2.</span> <span class="nav-text">std::cin 做了哪些额外的工作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#std-ios-tie"><span class="nav-number">2.1.</span> <span class="nav-text">std::ios::tie</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#std-ios-base-sync-with-stdio"><span class="nav-number">2.2.</span> <span class="nav-text">std::ios_base::sync_with_stdio</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C"><span class="nav-number">3.</span> <span class="nav-text">实验</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9A%8F%E6%9C%BA%E6%95%B0%E7%94%9F%E6%88%90"><span class="nav-number">3.1.</span> <span class="nav-text">随机数生成</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E7%8E%AF%E5%A2%83"><span class="nav-number">3.2.</span> <span class="nav-text">实验环境</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E4%BB%A3%E7%A0%81"><span class="nav-number">3.3.</span> <span class="nav-text">实验代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%AA%8C%E7%BB%93%E6%9E%9C"><span class="nav-number">3.4.</span> <span class="nav-text">实验结果</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">5.</span> <span class="nav-text">参考</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -598,7 +603,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -613,52 +618,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -696,9 +701,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -753,9 +758,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -823,7 +836,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

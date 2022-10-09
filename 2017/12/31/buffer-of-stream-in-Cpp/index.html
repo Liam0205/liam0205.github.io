@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -25,18 +25,20 @@
     var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="众所周知，C++ 语言本身并不提供 I/O 功能。C++ 的 I/O 是通过标准库中输入输出流来实现的。标准库在 iostream 头文件当中，预定义了六个流对象，他们是：  istream &amp;lt;- std::cin/std::wcin，对应标准输入的输入流； ostream &amp;lt;- std::cout/std::wcout，对应标准输出的输出流； ostream &amp;lt;- std::c">
-<meta name="keywords" content="C++,Stream,Buffer">
+  <meta name="description" content="众所周知，C++ 语言本身并不提供 I&#x2F;O 功能。C++ 的 I&#x2F;O 是通过标准库中输入输出流来实现的。标准库在 iostream 头文件当中，预定义了六个流对象，他们是：  istream &lt;- std::cin&#x2F;std::wcin，对应标准输入的输入流； ostream &lt;- std::cout&#x2F;std::wcout，对应标准输出的输出流；">
 <meta property="og:type" content="article">
 <meta property="og:title" content="谈谈 C++ 中流的缓冲区">
 <meta property="og:url" content="https://liam.page/2017/12/31/buffer-of-stream-in-Cpp/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="众所周知，C++ 语言本身并不提供 I/O 功能。C++ 的 I/O 是通过标准库中输入输出流来实现的。标准库在 iostream 头文件当中，预定义了六个流对象，他们是：  istream &amp;lt;- std::cin/std::wcin，对应标准输入的输入流； ostream &amp;lt;- std::cout/std::wcout，对应标准输出的输出流； ostream &amp;lt;- std::c">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:description" content="众所周知，C++ 语言本身并不提供 I&#x2F;O 功能。C++ 的 I&#x2F;O 是通过标准库中输入输出流来实现的。标准库在 iostream 头文件当中，预定义了六个流对象，他们是：  istream &lt;- std::cin&#x2F;std::wcin，对应标准输入的输入流； ostream &lt;- std::cout&#x2F;std::wcout，对应标准输出的输出流；">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-12-31T09:14:10.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Stream">
+<meta property="article:tag" content="Buffer">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="谈谈 C++ 中流的缓冲区">
-<meta name="twitter:description" content="众所周知，C++ 语言本身并不提供 I/O 功能。C++ 的 I/O 是通过标准库中输入输出流来实现的。标准库在 iostream 头文件当中，预定义了六个流对象，他们是：  istream &amp;lt;- std::cin/std::wcin，对应标准输入的输入流； ostream &amp;lt;- std::cout/std::wcout，对应标准输出的输出流； ostream &amp;lt;- std::c">
 
 <link rel="canonical" href="https://liam.page/2017/12/31/buffer-of-stream-in-Cpp/">
 
@@ -292,7 +294,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>5.3k</span>
+              <span>5.5k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -311,60 +313,60 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>众所周知，C++ 语言本身并不提供 I/O 功能。C++ 的 I/O 是通过标准库中输入输出流来实现的。标准库在 <code>iostream</code> 头文件当中，预定义了六个流对象，他们是：</p>
+        <p>众所周知，C++ 语言本身并不提供 I&#x2F;O 功能。C++ 的 I&#x2F;O 是通过标准库中输入输出流来实现的。标准库在 <code>iostream</code> 头文件当中，预定义了六个流对象，他们是：</p>
 <ul>
-<li><code>istream</code> &lt;- <code>std::cin</code>/<code>std::wcin</code>，对应标准输入的输入流；</li>
-<li><code>ostream</code> &lt;- <code>std::cout</code>/<code>std::wcout</code>，对应标准输出的输出流；</li>
-<li><code>ostream</code> &lt;- <code>std::cerr</code>/<code>std::wcerr</code>，对应标准错误的输出流。</li>
+<li><code>istream</code> &lt;- <code>std::cin</code>&#x2F;<code>std::wcin</code>，对应标准输入的输入流；</li>
+<li><code>ostream</code> &lt;- <code>std::cout</code>&#x2F;<code>std::wcout</code>，对应标准输出的输出流；</li>
+<li><code>ostream</code> &lt;- <code>std::cerr</code>&#x2F;<code>std::wcerr</code>，对应标准错误的输出流。</li>
 </ul>
 <p>稍有经验的 C++ 程序员都应对这些流熟悉（至少对非宽字符版本的三个流对象熟悉），因此此篇不介绍它们的基本用法，而是讨论流的缓冲区。</p>
-<a id="more"></a>
+<span id="more"></span>
 
-<h2 id="为什么要有缓冲区？"><a href="#为什么要有缓冲区？" class="headerlink" title="为什么要有缓冲区？"></a>为什么要有缓冲区？</h2><p>首先需要思考的问题是：为什么要有缓冲区，而不是与相关的文件/设备进行直接的读写操作。提出这个问题是很显然的。这是因为任何决定都是一种在代价和收益中的权衡。考虑到加上缓冲区是有代价的（代码变得更加复杂、需要控制的内容增多），所以加上缓冲区必然有随之而来的收益。</p>
-<p>众所周知，相对于 CPU 的指令执行和主存访问，I/O 操作是非常慢的。这也就是说，在不考虑缓冲区的情况下，如果程序有频繁的 I/O 操作，那么相当于程序的「高速」部分就会被频繁打断。这对于程序的整体性能是不利的。有了缓冲区，程序就可以避免频繁的 I/O 操作，而是对缓冲区进行读写，只有在必须的情况下，才通过刷新缓冲区进行真实的 I/O 操作。这样一来，程序就能将多个缓慢的 I/O 操作合并成一个，从而在整体上提高了程序的性能。</p>
+<h2 id="为什么要有缓冲区？"><a href="#为什么要有缓冲区？" class="headerlink" title="为什么要有缓冲区？"></a>为什么要有缓冲区？</h2><p>首先需要思考的问题是：为什么要有缓冲区，而不是与相关的文件&#x2F;设备进行直接的读写操作。提出这个问题是很显然的。这是因为任何决定都是一种在代价和收益中的权衡。考虑到加上缓冲区是有代价的（代码变得更加复杂、需要控制的内容增多），所以加上缓冲区必然有随之而来的收益。</p>
+<p>众所周知，相对于 CPU 的指令执行和主存访问，I&#x2F;O 操作是非常慢的。这也就是说，在不考虑缓冲区的情况下，如果程序有频繁的 I&#x2F;O 操作，那么相当于程序的「高速」部分就会被频繁打断。这对于程序的整体性能是不利的。有了缓冲区，程序就可以避免频繁的 I&#x2F;O 操作，而是对缓冲区进行读写，只有在必须的情况下，才通过刷新缓冲区进行真实的 I&#x2F;O 操作。这样一来，程序就能将多个缓慢的 I&#x2F;O 操作合并成一个，从而在整体上提高了程序的性能。</p>
 <p>因此，问题的答案是：使用缓冲区有助于提高程序的整体性能。</p>
 <h2 id="缓冲区要做哪些工作？"><a href="#缓冲区要做哪些工作？" class="headerlink" title="缓冲区要做哪些工作？"></a>缓冲区要做哪些工作？</h2><p>确定了必须要使用缓冲区，接下来的问题就是，这种缓冲区应该有哪些功能。</p>
-<p>从上一节的描述中，不难发现缓冲区向上连接了程序的输入输出请求，向下连接了真实的 I/O 操作。作为中间层，必然需要分别处理好与上下两层之间的接口，以及要处理好上下两层之间的协作。（后者即是中间层本身的功能）</p>
+<p>从上一节的描述中，不难发现缓冲区向上连接了程序的输入输出请求，向下连接了真实的 I&#x2F;O 操作。作为中间层，必然需要分别处理好与上下两层之间的接口，以及要处理好上下两层之间的协作。（后者即是中间层本身的功能）</p>
 <p>在 C++ 中，流的缓冲区之基类是定义在 <code>streambuf</code> 头文件当中的 <code>std::basic_streambuf</code>。这是一个类模板；其声明如下：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;</span><br><span class="line">    <span class="class"><span class="keyword">class</span> <span class="title">CharT</span>,</span></span><br><span class="line"><span class="class">    <span class="title">class</span> <span class="title">Traits</span> = <span class="title">std</span>:</span>:char_traits&lt;CharT&gt;</span><br><span class="line">&gt; <span class="class"><span class="keyword">class</span> <span class="title">basic_streambuf</span>;</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">CharT</span>,</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">Traits</span> = std::char_traits&lt;CharT&gt;</span><br><span class="line">&gt; <span class="keyword">class</span> basic_streambuf;</span><br></pre></td></tr></table></figure>
 
 <p><code>std::basic_streambuf</code> 包含两个字符序列，并提供对这两个序列控制和访问的能力：</p>
 <ul>
-<li>受控字符序列（controlled character sequence）：又称缓冲序列（buffer sequence），由读取区（get area）和/或写入区（put area）组成。此二者分别用来缓冲上层流的读写操作。</li>
-<li>关联字符序列（associated character sequence）：对于输入流来说又称源（source），对于输出流来说又称槽（sink）。关联字符序列通常是通过系统 API 与 I/O 设备关联，或是与 <code>std::vector</code>/<code>array</code>/字符串字面值等能作为源或槽的对象关联。</li>
+<li>受控字符序列（controlled character sequence）：又称缓冲序列（buffer sequence），由读取区（get area）和&#x2F;或写入区（put area）组成。此二者分别用来缓冲上层流的读写操作。</li>
+<li>关联字符序列（associated character sequence）：对于输入流来说又称源（source），对于输出流来说又称槽（sink）。关联字符序列通常是通过系统 API 与 I&#x2F;O 设备关联，或是与 <code>std::vector</code>&#x2F;<code>array</code>&#x2F;字符串字面值等能作为源或槽的对象关联。</li>
 </ul>
 <p>对于关联字符序列来说，需要 <code>std::basic_streambuf</code> 自己实现的功能不多。因为，大多数情况可通过系统 API 或是相关对象的接口来实现。<code>std::basic_streambuf</code> 大多数的功能集中在对受控字符序列的管理上。</p>
 <p>读取区或写入区，通常实现为相应 <code>CharT</code> 的 C 风格数组，并辅以 3 个指针，以实现对受控字符序列的控制：</p>
 <ul>
 <li>起始指针（beginning pointer）：用于标识相应缓冲序列可用范围的起始位置；</li>
 <li>终止指针（end pointer）：用于标识相应缓冲序列可用范围的尾后位置；</li>
-<li>工作指针（next pointer）：指向相应缓冲序列中，下一个等待读/写的元素的位置。</li>
+<li>工作指针（next pointer）：指向相应缓冲序列中，下一个等待读&#x2F;写的元素的位置。</li>
 </ul>
 <p>若是一个受控字符序列单单是读取区或写入区，则它必然有这三个指针；若一个受控字符序列同时是读取区和写入区，那么则有两套共六个这样的指针。通过这些指针，<code>std::basic_streambuf</code> 就能实现对换受控字符序列的控制。</p>
-<h2 id="流中的缓冲区"><a href="#流中的缓冲区" class="headerlink" title="流中的缓冲区"></a>流中的缓冲区</h2><p>在头文件 <code>ios</code> 当中，定义着两个类（模板）：<code>std::ios_base</code> 和 <code>std::basic_ios</code>。前者是所有 I/O 类的祖先，提供了状态信息、控制信息、内部存储、回调等设施。后者继承自前者，额外提供了与 <code>std::basic_streambuf</code> 的接口；同时允许多个 <code>std::basic_ios</code> 对象绑定同一个 <code>std::basic_streambuf</code> 对象。它们的声明分别是：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">ios_base</span>;</span></span><br><span class="line"><span class="keyword">template</span>&lt;</span><br><span class="line">    <span class="class"><span class="keyword">class</span> <span class="title">CharT</span>,</span></span><br><span class="line"><span class="class">    <span class="title">class</span> <span class="title">Traits</span> = <span class="title">std</span>:</span>:char_traits&lt;CharT&gt;</span><br><span class="line">&gt; <span class="class"><span class="keyword">class</span> <span class="title">basic_ios</span>;</span>  <span class="comment">// : public ios_base</span></span><br></pre></td></tr></table></figure>
+<h2 id="流中的缓冲区"><a href="#流中的缓冲区" class="headerlink" title="流中的缓冲区"></a>流中的缓冲区</h2><p>在头文件 <code>ios</code> 当中，定义着两个类（模板）：<code>std::ios_base</code> 和 <code>std::basic_ios</code>。前者是所有 I&#x2F;O 类的祖先，提供了状态信息、控制信息、内部存储、回调等设施。后者继承自前者，额外提供了与 <code>std::basic_streambuf</code> 的接口；同时允许多个 <code>std::basic_ios</code> 对象绑定同一个 <code>std::basic_streambuf</code> 对象。它们的声明分别是：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">ios_base</span>;</span><br><span class="line"><span class="keyword">template</span>&lt;</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">CharT</span>,</span><br><span class="line">    <span class="keyword">class</span> <span class="title class_">Traits</span> = std::char_traits&lt;CharT&gt;</span><br><span class="line">&gt; <span class="keyword">class</span> basic_ios;  <span class="comment">// : public ios_base</span></span><br></pre></td></tr></table></figure>
 
-<p>由于 <code>std::ios_base</code> 没有提供与 <code>std::basic_streambuf</code> 的接口，<code>std::basic_ios</code> 才是标准库内所有 I/O 类（模板）事实上的最近共同祖先。<code>std::basic_ios</code> 的成员函数 <code>rdbuf</code> 是读取和设置流对象（<code>std::basic_ios</code> 的对象）绑定缓冲区的成员函数，它有两个不同的重载形式，分别如下：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">std</span>::basic_streambuf&lt;CharT, Traits&gt;*</span><br><span class="line">rdbuf() <span class="keyword">const</span>;                                      <span class="comment">// 1.</span></span><br><span class="line"><span class="built_in">std</span>::basic_streambuf&lt;CharT, Traits&gt;*</span><br><span class="line">rdbuf( <span class="built_in">std</span>::basic_streambuf&lt;CharT, Traits&gt;* sb );   <span class="comment">// 2.</span></span><br></pre></td></tr></table></figure>
+<p>由于 <code>std::ios_base</code> 没有提供与 <code>std::basic_streambuf</code> 的接口，<code>std::basic_ios</code> 才是标准库内所有 I&#x2F;O 类（模板）事实上的最近共同祖先。<code>std::basic_ios</code> 的成员函数 <code>rdbuf</code> 是读取和设置流对象（<code>std::basic_ios</code> 的对象）绑定缓冲区的成员函数，它有两个不同的重载形式，分别如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::basic_streambuf&lt;CharT, Traits&gt;*</span></span><br><span class="line"><span class="function"><span class="title">rdbuf</span><span class="params">()</span> <span class="type">const</span></span>;                                      <span class="comment">// 1.</span></span><br><span class="line"><span class="function">std::basic_streambuf&lt;CharT, Traits&gt;*</span></span><br><span class="line"><span class="function"><span class="title">rdbuf</span><span class="params">( std::basic_streambuf&lt;CharT, Traits&gt;* sb )</span></span>;   <span class="comment">// 2.</span></span><br></pre></td></tr></table></figure>
 
 <p>两个重载版本，第一版不接受任何参数，第二版接受一个指向 <code>std::basic_streambuf&lt;CharT, Traits&gt;</code> 类型对象的指针。</p>
 <p>不接受参数的版本返回流对象绑定的缓冲区对象的指针；而若流对象未绑定任何缓冲区对象，则返回空指针 <code>nullptr</code>。接受指针的版本首先返回上述指针，而后与先前绑定的缓冲区对象（如果有）解绑，再绑定参数中传入指针指向的缓冲区对象；而若传入空指针 <code>nullptr</code>，则流对象不与任何缓冲区对象绑定。</p>
 <h2 id="巧妙设置流中的缓冲区"><a href="#巧妙设置流中的缓冲区" class="headerlink" title="巧妙设置流中的缓冲区"></a>巧妙设置流中的缓冲区</h2><p>通过巧妙设置流中的缓冲区，可以达成各种特殊的效果。这里给出几个演示。</p>
 <h3 id="输出流共享缓冲区"><a href="#输出流共享缓冲区" class="headerlink" title="输出流共享缓冲区"></a>输出流共享缓冲区</h3><p>从机制上说，<code>std::basic_ios</code> 允许多个流对象绑定同一个缓冲区对象。当然，虽然机制上允许，一般来说这样做却不是好主意。不过，在某些情况下，让多个流对象绑定同一个缓冲区对象，也是有好处的。</p>
-<p>在具体介绍具体操作之前，还有一事必须说明。如前所述，缓冲区对象是在流和 I/O 设备之间加入的抽象中间层。因此，实际上对于流的所有操作，都会反馈在缓冲区对象之上，而非直接作用域 I/O。这也就是说，一旦流对象绑定的缓冲区对象发生变化，最终的 I/O 效果也会随之发生变化。</p>
-<p>众所周知，头文件 <code>iomanip</code> 当中定义了许多与 <code>std::ios_base</code> 相关的格式控制函数与对象。通过这些函数与对象，程序员可以控制从 I/O 流的行为。但若上述行为需要频繁在若干状态之间发生切换，则代码会显得相当繁琐。此时，让多个流对象绑定同一个缓冲区对象就是有好处的了。程序员可以让多个流对象绑定同一个缓冲区对象，而后为每个流对象设置不同的 I/O 行为，即可在需要的时候使用对应的流对象。由于这些流对象绑定了同一个缓冲区对象，这些 I/O 操作最终会合在一起。如此，就达成了目的。</p>
+<p>在具体介绍具体操作之前，还有一事必须说明。如前所述，缓冲区对象是在流和 I&#x2F;O 设备之间加入的抽象中间层。因此，实际上对于流的所有操作，都会反馈在缓冲区对象之上，而非直接作用域 I&#x2F;O。这也就是说，一旦流对象绑定的缓冲区对象发生变化，最终的 I&#x2F;O 效果也会随之发生变化。</p>
+<p>众所周知，头文件 <code>iomanip</code> 当中定义了许多与 <code>std::ios_base</code> 相关的格式控制函数与对象。通过这些函数与对象，程序员可以控制从 I&#x2F;O 流的行为。但若上述行为需要频繁在若干状态之间发生切换，则代码会显得相当繁琐。此时，让多个流对象绑定同一个缓冲区对象就是有好处的了。程序员可以让多个流对象绑定同一个缓冲区对象，而后为每个流对象设置不同的 I&#x2F;O 行为，即可在需要的时候使用对应的流对象。由于这些流对象绑定了同一个缓冲区对象，这些 I&#x2F;O 操作最终会合在一起。如此，就达成了目的。</p>
 <p>以下是让输出流共享缓冲区的示例。</p>
-<figure class="highlight cpp"><figcaption><span>ostream_shares_buf.cc</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iomanip&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="built_in">std</span>::ostream fixed&#123;<span class="built_in">std</span>::<span class="built_in">cout</span>.rdbuf()&#125;;                          <span class="comment">// 1.</span></span><br><span class="line">    <span class="built_in">std</span>::ostream sci&#123;<span class="built_in">std</span>::<span class="built_in">cout</span>.rdbuf()&#125;;</span><br><span class="line"></span><br><span class="line">    fixed.setf(<span class="built_in">std</span>::ios_base::fixed, <span class="built_in">std</span>::ios_base::floatfield);    <span class="comment">// 2.</span></span><br><span class="line">    fixed.precision(<span class="number">5</span>);</span><br><span class="line">    sci.setf(<span class="built_in">std</span>::ios_base::scientific, <span class="built_in">std</span>::ios_base::floatfield);</span><br><span class="line">    sci.precision(<span class="number">3</span>);</span><br><span class="line"></span><br><span class="line">    fixed &lt;&lt; <span class="number">15.518</span> &lt;&lt; <span class="string">'\n'</span>;                                        <span class="comment">// 3.</span></span><br><span class="line">    sci   &lt;&lt; <span class="number">15.518</span> &lt;&lt; <span class="string">'\n'</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><figcaption><span>ostream_shares_buf.cc</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iomanip&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    std::ostream fixed&#123;std::cout.<span class="built_in">rdbuf</span>()&#125;;                          <span class="comment">// 1.</span></span><br><span class="line">    std::ostream sci&#123;std::cout.<span class="built_in">rdbuf</span>()&#125;;</span><br><span class="line"></span><br><span class="line">    fixed.<span class="built_in">setf</span>(std::ios_base::fixed, std::ios_base::floatfield);    <span class="comment">// 2.</span></span><br><span class="line">    fixed.<span class="built_in">precision</span>(<span class="number">5</span>);</span><br><span class="line">    sci.<span class="built_in">setf</span>(std::ios_base::scientific, std::ios_base::floatfield);</span><br><span class="line">    sci.<span class="built_in">precision</span>(<span class="number">3</span>);</span><br><span class="line"></span><br><span class="line">    fixed &lt;&lt; <span class="number">15.518</span> &lt;&lt; <span class="string">&#x27;\n&#x27;</span>;                                        <span class="comment">// 3.</span></span><br><span class="line">    sci   &lt;&lt; <span class="number">15.518</span> &lt;&lt; <span class="string">&#x27;\n&#x27;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>此处，(1) 将新建的两个流对象 <code>fixed</code> 和 <code>sci</code> 都与 <code>std::cout</code> 的缓冲区对象绑定，而后在 (2) 处分别设置两个流对象的输出格式，最后在 (3) 处用两个不同的流对象输出同一浮点数。编译后得到的结果如下。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ g++ -std=c++11 ostream_shares_buf.cc</span><br><span class="line">$ ./a.out</span><br><span class="line">15.51800</span><br><span class="line">1.552e+01</span><br></pre></td></tr></table></figure>
 
 <h3 id="替换输入流的缓冲区"><a href="#替换输入流的缓冲区" class="headerlink" title="替换输入流的缓冲区"></a>替换输入流的缓冲区</h3><p>标准库的 <code>std::cin</code> 默认与关联标准输入的缓冲区对象绑定。因此，使用 <code>std::cin</code> 可以从标准输入中读取输入。不过，在某些情况下，程序员也会希望改变这一点。例如，在 Online Judge 训练时，程序员可能会希望让 <code>std::cin</code> 从本地的测试文件中读取测试用例。考虑到 C++ 中的流对象实际上是对缓冲区进行操作；此时，替换 <code>std::cin</code> 的缓冲区，即可达成目的。</p>
 <p>以下是替换标准输入流的示例。</p>
-<figure class="highlight cpp"><figcaption><span>istream_replace_buf.cc</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> DEBUG_                                           <span class="comment">// 1.</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fstream&gt;</span></span></span><br><span class="line"><span class="keyword">namespace</span> &#123;                                             <span class="comment">// 2.</span></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">constexpr</span> <span class="keyword">char</span>* kTestFileName = <span class="string">"oj.test.txt"</span>;</span><br><span class="line"><span class="built_in">std</span>::ifstream fin&#123;kTestFileName&#125;;                       <span class="comment">// 3.</span></span><br><span class="line"><span class="keyword">auto</span> cin_buf = <span class="built_in">std</span>::<span class="built_in">cin</span>.rdbuf(fin.rdbuf());             <span class="comment">// 4.</span></span><br><span class="line">&#125;  <span class="comment">// namespace</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span>  <span class="comment">// DEBUG_</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line"><span class="meta">#<span class="meta-keyword">ifdef</span> DEBUG_</span></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cin</span>.tie(<span class="literal">nullptr</span>);                              <span class="comment">// 5.</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">endif</span>  <span class="comment">// DEBUG_</span></span></span><br><span class="line"></span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">string</span> temp;</span><br><span class="line">    <span class="built_in">std</span>::getline(<span class="built_in">std</span>::<span class="built_in">cin</span>, temp);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; temp &lt;&lt; <span class="string">'\n'</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><figcaption><span>istream_replace_buf.cc</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;string&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> DEBUG_                                           <span class="comment">// 1.</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fstream&gt;</span></span></span><br><span class="line"><span class="keyword">namespace</span> &#123;                                             <span class="comment">// 2.</span></span><br><span class="line"><span class="type">const</span> <span class="keyword">constexpr</span> <span class="type">char</span>* kTestFileName = <span class="string">&quot;oj.test.txt&quot;</span>;</span><br><span class="line">std::ifstream fin&#123;kTestFileName&#125;;                       <span class="comment">// 3.</span></span><br><span class="line"><span class="keyword">auto</span> cin_buf = std::cin.<span class="built_in">rdbuf</span>(fin.<span class="built_in">rdbuf</span>());             <span class="comment">// 4.</span></span><br><span class="line">&#125;  <span class="comment">// namespace</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// DEBUG_</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> DEBUG_</span></span><br><span class="line">    std::cin.<span class="built_in">tie</span>(<span class="literal">nullptr</span>);                              <span class="comment">// 5.</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// DEBUG_</span></span></span><br><span class="line"></span><br><span class="line">    std::string temp;</span><br><span class="line">    std::<span class="built_in">getline</span>(std::cin, temp);</span><br><span class="line">    std::cout &lt;&lt; temp &lt;&lt; <span class="string">&#x27;\n&#x27;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>此处，(1) 在 <code>DEBUG_</code> 宏有定义的情况下，进行 (2)(3)(4)(5) 的步骤。其中 (2) 启用了一个匿名空间，起到 C 语言中文件 <code>static</code> 的作用（C++ 也支持这样的用法，但是已经不推荐）；(3) 声明了一个与测试文件关联的文件输入流；(4) 将 <code>std::cin</code> 与上述文件输入流的缓冲区绑定，同时将 <code>std::cin</code> 原本的缓冲区指针保存在 <code>cin_buf</code> 当中。由于在 <code>DEBUG_</code> 宏有定义的情况下，<code>std::cin</code> 与标准输入解绑，因此无需与标准输入绑定，故而 (5）处取消这种绑定。编译后得到的结果如下。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ cat oj.test.txt</span><br><span class="line">This is a file <span class="keyword">for</span> testing.</span><br><span class="line">$ g++ -std=c++11 -DDEBUG_ istream_replace_buf.cc</span><br><span class="line">$ ./a.out</span><br><span class="line">This is a file <span class="keyword">for</span> testing.</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="built_in">cat</span> oj.test.txt</span><br><span class="line">This is a file <span class="keyword">for</span> testing.</span><br><span class="line">$ g++ -std=c++11 -DDEBUG_ istream_replace_buf.cc</span><br><span class="line">$ ./a.out</span><br><span class="line">This is a file <span class="keyword">for</span> testing.</span><br></pre></td></tr></table></figure>
 
 <p>可见，无需在标准输入手工输入测试样例，程序在 <code>DEBUG_</code> 有定义时，直接从测试样例文件中读取测试。</p>
 <!-- 2017 结束，祝 2018 一切顺利！ -->
@@ -502,7 +504,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#为什么要有缓冲区？"><span class="nav-number">1.</span> <span class="nav-text">为什么要有缓冲区？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#缓冲区要做哪些工作？"><span class="nav-number">2.</span> <span class="nav-text">缓冲区要做哪些工作？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流中的缓冲区"><span class="nav-number">3.</span> <span class="nav-text">流中的缓冲区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#巧妙设置流中的缓冲区"><span class="nav-number">4.</span> <span class="nav-text">巧妙设置流中的缓冲区</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#输出流共享缓冲区"><span class="nav-number">4.1.</span> <span class="nav-text">输出流共享缓冲区</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#替换输入流的缓冲区"><span class="nav-number">4.2.</span> <span class="nav-text">替换输入流的缓冲区</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E6%9C%89%E7%BC%93%E5%86%B2%E5%8C%BA%EF%BC%9F"><span class="nav-number">1.</span> <span class="nav-text">为什么要有缓冲区？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BC%93%E5%86%B2%E5%8C%BA%E8%A6%81%E5%81%9A%E5%93%AA%E4%BA%9B%E5%B7%A5%E4%BD%9C%EF%BC%9F"><span class="nav-number">2.</span> <span class="nav-text">缓冲区要做哪些工作？</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B5%81%E4%B8%AD%E7%9A%84%E7%BC%93%E5%86%B2%E5%8C%BA"><span class="nav-number">3.</span> <span class="nav-text">流中的缓冲区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B7%A7%E5%A6%99%E8%AE%BE%E7%BD%AE%E6%B5%81%E4%B8%AD%E7%9A%84%E7%BC%93%E5%86%B2%E5%8C%BA"><span class="nav-number">4.</span> <span class="nav-text">巧妙设置流中的缓冲区</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BE%93%E5%87%BA%E6%B5%81%E5%85%B1%E4%BA%AB%E7%BC%93%E5%86%B2%E5%8C%BA"><span class="nav-number">4.1.</span> <span class="nav-text">输出流共享缓冲区</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9B%BF%E6%8D%A2%E8%BE%93%E5%85%A5%E6%B5%81%E7%9A%84%E7%BC%93%E5%86%B2%E5%8C%BA"><span class="nav-number">4.2.</span> <span class="nav-text">替换输入流的缓冲区</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -538,7 +540,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -553,52 +555,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -636,9 +638,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -693,9 +695,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -763,7 +773,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

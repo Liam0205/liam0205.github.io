@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,19 @@
   </script>
 
   <meta name="description" content="在数学里，泰勒展开是拉格朗日定理（微分中值定理）和牛顿迭代法在高阶可微函数的推广。在机器学习领域，我们已经见过其威力；通过应用泰勒展开，我们可以大幅降低计算的复杂度。 这里，我们会回顾一下泰勒展开相关数学定义，并说说泰勒展开在计算机科学领域的另一个应用——高精数值计算。">
-<meta name="keywords" content="Taylor Expansion,lop1p,expm1">
 <meta property="og:type" content="article">
 <meta property="og:title" content="说说泰勒展开、lop1p 及 expm1">
 <meta property="og:url" content="https://liam.page/2017/07/23/taylor-expansion-and-lop1p-and-expm1/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="在数学里，泰勒展开是拉格朗日定理（微分中值定理）和牛顿迭代法在高阶可微函数的推广。在机器学习领域，我们已经见过其威力；通过应用泰勒展开，我们可以大幅降低计算的复杂度。 这里，我们会回顾一下泰勒展开相关数学定义，并说说泰勒展开在计算机科学领域的另一个应用——高精数值计算。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-07-23T04:25:24.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Taylor Expansion">
+<meta property="article:tag" content="lop1p">
+<meta property="article:tag" content="expm1">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="说说泰勒展开、lop1p 及 expm1">
-<meta name="twitter:description" content="在数学里，泰勒展开是拉格朗日定理（微分中值定理）和牛顿迭代法在高阶可微函数的推广。在机器学习领域，我们已经见过其威力；通过应用泰勒展开，我们可以大幅降低计算的复杂度。 这里，我们会回顾一下泰勒展开相关数学定义，并说说泰勒展开在计算机科学领域的另一个应用——高精数值计算。">
 
 <link rel="canonical" href="https://liam.page/2017/07/23/taylor-expansion-and-lop1p-and-expm1/">
 
@@ -292,7 +294,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>4.5k</span>
+              <span>4.6k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -313,48 +315,48 @@
       
         <p>在数学里，泰勒展开是拉格朗日定理（微分中值定理）和牛顿迭代法在高阶可微函数的推广。在机器学习领域，我们<a href="/uploads/slides/gb-xgb-lm.pdf">已经见过其威力</a>；通过应用泰勒展开，我们可以大幅降低计算的复杂度。</p>
 <p>这里，我们会回顾一下泰勒展开相关数学定义，并说说泰勒展开在计算机科学领域的另一个应用——高精数值计算。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="泰勒其人"><a href="#泰勒其人" class="headerlink" title="泰勒其人"></a>泰勒其人</h2><p>说起来，现在名气最大的「泰勒」，当属那位<del>甩一个男友就写一首歌的</del>当红女歌手（泰勒·斯威夫特）了。不过此处我们说的泰勒，是英国数学家布鲁克·泰勒（Brook Taylor）。</p>
 <p>泰勒 1685 年生于英格兰米德萨斯郡，1731 年逝于英格兰伦敦。尽管后世尊其为数学家，但实际上泰勒在剑桥大学攻读的学位是法学学士和博士学位。泰勒留下的工作不多，一方面由于其从事数学工作的时间比同时期其他数学家要短，另一方面由于它写的文稿往往语焉不详，难以理解。由此可见，<strong>好好说话</strong>的重要性。</p>
 <p>泰勒最著名的工作有两个，但都集中在 1715 年发表的著作《Methodus Incrementorum Directa et Inversa》当中。其一是，从这部著作出发，后世引出了高等数学的一个分支：有限差分方法。其二是，这部著作中，提出了对无穷可微函数的泰勒级数。后者被他的后辈，著名的法国数学家约瑟夫·拉格朗日（Joseph Lagrange）尊为「导数计算的基础」（le principal fondement du calcul différentiel）。</p>
 <h2 id="泰勒展开与麦克劳林展开"><a href="#泰勒展开与麦克劳林展开" class="headerlink" title="泰勒展开与麦克劳林展开"></a>泰勒展开与麦克劳林展开</h2><h3 id="从原始的微分定义开始"><a href="#从原始的微分定义开始" class="headerlink" title="从原始的微分定义开始"></a>从原始的微分定义开始</h3><p>按照微分定义，函数在一点的微分，是它在该点附近的最佳线性近似：</p>
-<p>$$f(a+h) = f(a) + h\cdot f&#39;(a) + o(h).$$</p>
+<p>$$f(a+h) &#x3D; f(a) + h\cdot f&#39;(a) + o(h).$$</p>
 <p>其中，$o(h)$ 表示 $h$ 的高阶无穷小。这也就是说，对于可微函数 $f(x)$ 来说，有近似</p>
 <p>$$f(a + h) \approx f(a) + h\cdot f&#39;(a).$$</p>
 <p>显而易见，$f(x)$ 与 $f(a) + (x - a)\cdot f&#39;(a)$ 在 $a$ 附近是很接近的。以数学的语言表述，这两个表达式在 $a$ 处的零阶导数（函数自身）与一阶导数相等。由此我们可以预计，如果一个函数足够光滑（$n + 1$ 阶可微），那么若有一个多项式在 $a$ 处的前 $n$ 阶导数值与函数自身的导数值相等，那么这一多项式就可以是该函数的近似。</p>
 <h3 id="泰勒定理"><a href="#泰勒定理" class="headerlink" title="泰勒定理"></a>泰勒定理</h3><p>定理的描述如下。</p>
 <blockquote>
-<p>设 $n \in \mathbb{Z}^+$ 是一个正整数；设 $f(x)$ 是定义在包含 $a$ 的区间上的函数，并且在 $a$ 处 $n+1$ 阶可微。那么，对于这个函数在定义区间内的任意 $x$，都有：<br>$$f(x) = f(a) + \frac{f&#39;(a)}{1!}(x - a) + \frac{f&#39;&#39;(a)}{2!}(x - a)^2 + \cdots + \frac{f^{(n)}}{n!}(x - a)^n + \text{Res}_n(x).$$<br>此处的多项式，称为 $f(x)$ 在 $a$ 处的泰勒展开式，并且 $\text{Res}_n(x)$ 作为泰勒公式的余项是 $(x - a)^n$ 的高阶无穷小。</p>
+<p>设 $n \in \mathbb{Z}^+$ 是一个正整数；设 $f(x)$ 是定义在包含 $a$ 的区间上的函数，并且在 $a$ 处 $n+1$ 阶可微。那么，对于这个函数在定义区间内的任意 $x$，都有：<br>$$f(x) &#x3D; f(a) + \frac{f&#39;(a)}{1!}(x - a) + \frac{f&#39;&#39;(a)}{2!}(x - a)^2 + \cdots + \frac{f^{(n)}}{n!}(x - a)^n + \text{Res}_n(x).$$<br>此处的多项式，称为 $f(x)$ 在 $a$ 处的泰勒展开式，并且 $\text{Res}_n(x)$ 作为泰勒公式的余项是 $(x - a)^n$ 的高阶无穷小。</p>
 </blockquote>
 <p>泰勒公式的余项有多种形式，在不同意义上描述了泰勒展开与原函数的接近程度。</p>
 <ul>
-<li>仅只说余项是高阶无穷小，即 $\text{Res}_n(x) = o[(x - a)^n]$，则是「皮亚诺」余项；</li>
-<li>拉格朗日余项可视作微分中值定理的推广，即 $\text{Res}_n(x) = \frac{f^{(n + 1)}(\theta)}{(n + 1)!}(x - a)^{n + 1}$，其中 $\theta \in (a, x)$；</li>
-<li>积分余项则课视作积分基本定理的推广，即 $\text{Res}_n(x) = \int_a^x \frac{f^{(n + 1)}(t)}{n!}(x - t)^{n} \mathop{}\!\mathrm{d}t$。</li>
+<li>仅只说余项是高阶无穷小，即 $\text{Res}_n(x) &#x3D; o[(x - a)^n]$，则是「皮亚诺」余项；</li>
+<li>拉格朗日余项可视作微分中值定理的推广，即 $\text{Res}_n(x) &#x3D; \frac{f^{(n + 1)}(\theta)}{(n + 1)!}(x - a)^{n + 1}$，其中 $\theta \in (a, x)$；</li>
+<li>积分余项则课视作积分基本定理的推广，即 $\text{Res}_n(x) &#x3D; \int_a^x \frac{f^{(n + 1)}(t)}{n!}(x - t)^{n} \mathop{}\!\mathrm{d}t$。</li>
 </ul>
 <h3 id="泰勒级数"><a href="#泰勒级数" class="headerlink" title="泰勒级数"></a>泰勒级数</h3><p>泰勒定理描述了 $n + 1$ 阶可微函数的 $n$ 阶泰勒展开。相应的，对于在 $a$ 处无穷可微的函数，则可以有在 $a$ 处的无穷阶泰勒展开。与此同时，余项因为趋于 $0$，可以取消。</p>
-<p>$$f(x) = \sum_{n = 0}^{\infty} \frac{f^{(n)}(a)}{n!} (x - a)^n.$$</p>
-<p>特别地，若 $a = 0$，则泰勒展开特化为麦克劳林展开。</p>
-<h2 id="泰勒级数与计算精度"><a href="#泰勒级数与计算精度" class="headerlink" title="泰勒级数与计算精度"></a>泰勒级数与计算精度</h2><h3 id="浮点运算的精度损失"><a href="#浮点运算的精度损失" class="headerlink" title="浮点运算的精度损失"></a>浮点运算的精度损失</h3><p>众所周知，计算机的浮点运算，由于内部表示的问题（<a href="http://www.ruanyifeng.com/blog/2010/06/ieee_floating-point_representation.html" target="_blank" rel="noopener">小数的二进制表示</a>），总是有限的。通常情况，这无关紧要，但是某些情况仍会导致不少问题。例如说，有经验的程序员都知道，不能直接用相等去比较两个不知经过何种运算的来的浮点数。因为，它们在逻辑上可能相等，但是由于多次计算的精度损失，它们在内部表示上却并不相等。</p>
+<p>$$f(x) &#x3D; \sum_{n &#x3D; 0}^{\infty} \frac{f^{(n)}(a)}{n!} (x - a)^n.$$</p>
+<p>特别地，若 $a &#x3D; 0$，则泰勒展开特化为麦克劳林展开。</p>
+<h2 id="泰勒级数与计算精度"><a href="#泰勒级数与计算精度" class="headerlink" title="泰勒级数与计算精度"></a>泰勒级数与计算精度</h2><h3 id="浮点运算的精度损失"><a href="#浮点运算的精度损失" class="headerlink" title="浮点运算的精度损失"></a>浮点运算的精度损失</h3><p>众所周知，计算机的浮点运算，由于内部表示的问题（<a target="_blank" rel="noopener" href="http://www.ruanyifeng.com/blog/2010/06/ieee_floating-point_representation.html">小数的二进制表示</a>），总是有限的。通常情况，这无关紧要，但是某些情况仍会导致不少问题。例如说，有经验的程序员都知道，不能直接用相等去比较两个不知经过何种运算的来的浮点数。因为，它们在逻辑上可能相等，但是由于多次计算的精度损失，它们在内部表示上却并不相等。</p>
 <p>为了说明精度损失，我们看一个在机器学习任务中常见的函数。</p>
-<p>$$f(x) = \ln(1 - \exp(-x)).$$</p>
+<p>$$f(x) &#x3D; \ln(1 - \exp(-x)).$$</p>
 <p>这个函数的定义域是 $(0, +\infty)$。</p>
 <p>在 $x$ 取值适中的时候，我们可以直接计算函数值。</p>
 <p>但是，当 $x \to 0^+$ 时，$\exp(-x)$ 十分接近 $1$；因此 $1 - \exp(-x)$ 损失精度之后，可能直接变成 $0$。此时，再进行对数运算，就不合适了。</p>
 <p>又或者，当 $x$ 较大时，$\exp(-x)$ 十分接近 $0$；因此 $1 - \exp(-x)$ 损失精度之后，可能直接变成 $1$。此时，再进行对数运算，就只能得到 $0$ 了。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">1</span>]: <span class="keyword">import</span> math</span><br><span class="line"></span><br><span class="line">In [<span class="number">2</span>]: <span class="function"><span class="keyword">def</span> <span class="title">f</span><span class="params">(x)</span>:</span></span><br><span class="line">   ...:     <span class="keyword">return</span> math.log(<span class="number">1</span> - math.exp(-x))</span><br><span class="line">   ...:</span><br><span class="line"></span><br><span class="line">In [<span class="number">3</span>]: f(<span class="number">1</span>)</span><br><span class="line">Out[<span class="number">3</span>]: <span class="number">-0.45867514538708193</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">4</span>]: f(<span class="number">10</span>)</span><br><span class="line">Out[<span class="number">4</span>]: <span class="number">-4.54009603704951e-05</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">5</span>]: f(<span class="number">100</span>)</span><br><span class="line">Out[<span class="number">5</span>]: <span class="number">0.0</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">6</span>]: f(<span class="number">1000</span>)</span><br><span class="line">Out[<span class="number">6</span>]: <span class="number">0.0</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">7</span>]: f(<span class="number">0.1</span>)</span><br><span class="line">Out[<span class="number">7</span>]: <span class="number">-2.3521684610440903</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">8</span>]: f(<span class="number">0.01</span>)</span><br><span class="line">Out[<span class="number">8</span>]: <span class="number">-4.610166019324902</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">9</span>]: f(<span class="number">1e-8</span>)</span><br><span class="line">Out[<span class="number">9</span>]: <span class="number">-18.420680750029838</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">10</span>]: f(<span class="number">1e-15</span>)</span><br><span class="line">Out[<span class="number">10</span>]: <span class="number">-34.53957599234088</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">11</span>]: f(<span class="number">1e-20</span>)</span><br><span class="line">---------------------------------------------------------------------------</span><br><span class="line">ValueError                                Traceback (most recent call last)</span><br><span class="line">&lt;ipython-input<span class="number">-11</span>-f08323787079&gt; <span class="keyword">in</span> &lt;module&gt;()</span><br><span class="line">----&gt; 1 f(1e-20)</span><br><span class="line"></span><br><span class="line">&lt;ipython-input<span class="number">-2</span><span class="number">-80</span>da3292b612&gt; <span class="keyword">in</span> f(x)</span><br><span class="line">      <span class="number">1</span> <span class="function"><span class="keyword">def</span> <span class="title">f</span><span class="params">(x)</span>:</span></span><br><span class="line">----&gt; 2     return math.log(1 - math.exp(-x))</span><br><span class="line"></span><br><span class="line">ValueError: math domain error</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">1</span>]: <span class="keyword">import</span> math</span><br><span class="line"></span><br><span class="line">In [<span class="number">2</span>]: <span class="keyword">def</span> <span class="title function_">f</span>(<span class="params">x</span>):</span><br><span class="line">   ...:     <span class="keyword">return</span> math.log(<span class="number">1</span> - math.exp(-x))</span><br><span class="line">   ...:</span><br><span class="line"></span><br><span class="line">In [<span class="number">3</span>]: f(<span class="number">1</span>)</span><br><span class="line">Out[<span class="number">3</span>]: -<span class="number">0.45867514538708193</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">4</span>]: f(<span class="number">10</span>)</span><br><span class="line">Out[<span class="number">4</span>]: -<span class="number">4.54009603704951e-05</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">5</span>]: f(<span class="number">100</span>)</span><br><span class="line">Out[<span class="number">5</span>]: <span class="number">0.0</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">6</span>]: f(<span class="number">1000</span>)</span><br><span class="line">Out[<span class="number">6</span>]: <span class="number">0.0</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">7</span>]: f(<span class="number">0.1</span>)</span><br><span class="line">Out[<span class="number">7</span>]: -<span class="number">2.3521684610440903</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">8</span>]: f(<span class="number">0.01</span>)</span><br><span class="line">Out[<span class="number">8</span>]: -<span class="number">4.610166019324902</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">9</span>]: f(<span class="number">1e-8</span>)</span><br><span class="line">Out[<span class="number">9</span>]: -<span class="number">18.420680750029838</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">10</span>]: f(<span class="number">1e-15</span>)</span><br><span class="line">Out[<span class="number">10</span>]: -<span class="number">34.53957599234088</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">11</span>]: f(<span class="number">1e-20</span>)</span><br><span class="line">---------------------------------------------------------------------------</span><br><span class="line">ValueError                                Traceback (most recent call last)</span><br><span class="line">&lt;ipython-<span class="built_in">input</span>-<span class="number">11</span>-f08323787079&gt; <span class="keyword">in</span> &lt;module&gt;()</span><br><span class="line">----&gt; <span class="number">1</span> f(<span class="number">1e-20</span>)</span><br><span class="line"></span><br><span class="line">&lt;ipython-<span class="built_in">input</span>-<span class="number">2</span>-80da3292b612&gt; <span class="keyword">in</span> f(x)</span><br><span class="line">      <span class="number">1</span> <span class="keyword">def</span> <span class="title function_">f</span>(<span class="params">x</span>):</span><br><span class="line">----&gt; <span class="number">2</span>     <span class="keyword">return</span> math.log(<span class="number">1</span> - math.exp(-x))</span><br><span class="line"></span><br><span class="line">ValueError: math domain error</span><br></pre></td></tr></table></figure>
 
 <h3 id="泰勒展开拯救世界"><a href="#泰勒展开拯救世界" class="headerlink" title="泰勒展开拯救世界"></a>泰勒展开拯救世界</h3><p>如果是简单的计算任务，损失一些精度可能无关紧要。但是，在一些不容出错的领域——比如利息计算，少许的精度损失，可能导致成百上千的差距。然而，精度损失是计算机系统的固有问题，我们无法轻易解决。此时，就轮到泰勒展开出场，去拯救世界了。</p>
 <p>我们观察两个函数的泰勒展开，</p>
-<p>$$\begin{aligned}<br>g(x) ={}&amp; \ln(1 + x) = x - \frac{x^2}{2} + \frac{x^3}{3} - \cdots \\<br>h(x) ={}&amp; \exp(x) - 1 = x + \frac{x^2}{2!} + \frac{x^3}{3!} + \cdots<br>\end{aligned}$$</p>
+<p>$$\begin{aligned}<br>g(x) &#x3D;{}&amp; \ln(1 + x) &#x3D; x - \frac{x^2}{2} + \frac{x^3}{3} - \cdots \\<br>h(x) &#x3D;{}&amp; \exp(x) - 1 &#x3D; x + \frac{x^2}{2!} + \frac{x^3}{3!} + \cdots<br>\end{aligned}$$</p>
 <p>并且注意到以下事实，</p>
-<p>$$\begin{aligned}<br>f(x) ={}&amp; g(-\exp(-x)) \\<br>f(x) ={}&amp; \ln(-h(-x)).<br>\end{aligned}$$</p>
+<p>$$\begin{aligned}<br>f(x) &#x3D;{}&amp; g(-\exp(-x)) \\<br>f(x) &#x3D;{}&amp; \ln(-h(-x)).<br>\end{aligned}$$</p>
 <p>因此，计算机在计算 $g(x)$ 和 $h(x)$ 时，可以借助泰勒展开，将对数函数、指数函数，转换成精度更高的幂函数计算，以此提高精度。另一方面，利用上述变形，我们就可以借助 $g(x)$ 和 $h(x)$ 去计算 $f(x)$ 了。特别地，在 $x \to 0^+$ 时，使用 $\ln(-h(-x))$ 的效果好；在 $x \to \infty$ 时，使用 $g(-\exp(-x))$ 的效果好。</p>
 <h3 id="实际实现看看"><a href="#实际实现看看" class="headerlink" title="实际实现看看"></a>实际实现看看</h3><p>$g(x)$ 和 $h(x)$ 在计算领域是两个重要的函数，多数语言的标准库中，都提供了这两个函数的泰勒展开实现。通常 $g(x)$ 的名字叫做 <code>log1p</code> 而 $h(x)$ 的名字叫做 <code>expm1</code>。我们用 <code>log1p</code> 和 <code>expm1</code> 重新实现目标函数看看。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">12</span>]: <span class="function"><span class="keyword">def</span> <span class="title">f</span><span class="params">(x, boundary = math.log<span class="params">(<span class="number">2</span>)</span>)</span>:</span></span><br><span class="line">    ...:     <span class="keyword">if</span> x &lt;= boundary:</span><br><span class="line">    ...:         <span class="keyword">return</span> math.log(-math.expm1(-x))</span><br><span class="line">    ...:     <span class="keyword">else</span>:</span><br><span class="line">    ...:         <span class="keyword">return</span> math.log1p(-math.exp(-x))</span><br><span class="line">    ...:</span><br><span class="line"></span><br><span class="line">In [<span class="number">13</span>]: f(<span class="number">1</span>)</span><br><span class="line">Out[<span class="number">13</span>]: <span class="number">-0.45867514538708193</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">14</span>]: f(<span class="number">10</span>)</span><br><span class="line">Out[<span class="number">14</span>]: <span class="number">-4.5400960370489214e-05</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">15</span>]: f(<span class="number">100</span>)</span><br><span class="line">Out[<span class="number">15</span>]: <span class="number">-3.720075976020836e-44</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">16</span>]: f(<span class="number">1000</span>)</span><br><span class="line">Out[<span class="number">16</span>]: <span class="number">-0.0</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">17</span>]: f(<span class="number">0.1</span>)</span><br><span class="line">Out[<span class="number">17</span>]: <span class="number">-2.3521684610440907</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">18</span>]: f(<span class="number">1e-8</span>)</span><br><span class="line">Out[<span class="number">18</span>]: <span class="number">-18.420680748952364</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">19</span>]: f(<span class="number">1e-15</span>)</span><br><span class="line">Out[<span class="number">19</span>]: <span class="number">-34.538776394910684</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">20</span>]: f(<span class="number">1e-20</span>)</span><br><span class="line">Out[<span class="number">20</span>]: <span class="number">-46.051701859880914</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">12</span>]: <span class="keyword">def</span> <span class="title function_">f</span>(<span class="params">x, boundary = math.log(<span class="params"><span class="number">2</span></span>)</span>):</span><br><span class="line">    ...:     <span class="keyword">if</span> x &lt;= boundary:</span><br><span class="line">    ...:         <span class="keyword">return</span> math.log(-math.expm1(-x))</span><br><span class="line">    ...:     <span class="keyword">else</span>:</span><br><span class="line">    ...:         <span class="keyword">return</span> math.log1p(-math.exp(-x))</span><br><span class="line">    ...:</span><br><span class="line"></span><br><span class="line">In [<span class="number">13</span>]: f(<span class="number">1</span>)</span><br><span class="line">Out[<span class="number">13</span>]: -<span class="number">0.45867514538708193</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">14</span>]: f(<span class="number">10</span>)</span><br><span class="line">Out[<span class="number">14</span>]: -<span class="number">4.5400960370489214e-05</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">15</span>]: f(<span class="number">100</span>)</span><br><span class="line">Out[<span class="number">15</span>]: -<span class="number">3.720075976020836e-44</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">16</span>]: f(<span class="number">1000</span>)</span><br><span class="line">Out[<span class="number">16</span>]: -<span class="number">0.0</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">17</span>]: f(<span class="number">0.1</span>)</span><br><span class="line">Out[<span class="number">17</span>]: -<span class="number">2.3521684610440907</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">18</span>]: f(<span class="number">1e-8</span>)</span><br><span class="line">Out[<span class="number">18</span>]: -<span class="number">18.420680748952364</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">19</span>]: f(<span class="number">1e-15</span>)</span><br><span class="line">Out[<span class="number">19</span>]: -<span class="number">34.538776394910684</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">20</span>]: f(<span class="number">1e-20</span>)</span><br><span class="line">Out[<span class="number">20</span>]: -<span class="number">46.051701859880914</span></span><br></pre></td></tr></table></figure>
 
-<p>可以看到，新版本的目标函数，能够区分出自变量取值 $x = 100$ 和 $x = 1000$ 之间的差异了；另外，原本提示定义域错误的 $x = 1e-20$ 现在也能计算出正确的值了。</p>
+<p>可以看到，新版本的目标函数，能够区分出自变量取值 $x &#x3D; 100$ 和 $x &#x3D; 1000$ 之间的差异了；另外，原本提示定义域错误的 $x &#x3D; 1e-20$ 现在也能计算出正确的值了。</p>
 
     </div>
 
@@ -489,7 +491,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#泰勒其人"><span class="nav-number">1.</span> <span class="nav-text">泰勒其人</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#泰勒展开与麦克劳林展开"><span class="nav-number">2.</span> <span class="nav-text">泰勒展开与麦克劳林展开</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#从原始的微分定义开始"><span class="nav-number">2.1.</span> <span class="nav-text">从原始的微分定义开始</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#泰勒定理"><span class="nav-number">2.2.</span> <span class="nav-text">泰勒定理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#泰勒级数"><span class="nav-number">2.3.</span> <span class="nav-text">泰勒级数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#泰勒级数与计算精度"><span class="nav-number">3.</span> <span class="nav-text">泰勒级数与计算精度</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#浮点运算的精度损失"><span class="nav-number">3.1.</span> <span class="nav-text">浮点运算的精度损失</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#泰勒展开拯救世界"><span class="nav-number">3.2.</span> <span class="nav-text">泰勒展开拯救世界</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#实际实现看看"><span class="nav-number">3.3.</span> <span class="nav-text">实际实现看看</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%B0%E5%8B%92%E5%85%B6%E4%BA%BA"><span class="nav-number">1.</span> <span class="nav-text">泰勒其人</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%B0%E5%8B%92%E5%B1%95%E5%BC%80%E4%B8%8E%E9%BA%A6%E5%85%8B%E5%8A%B3%E6%9E%97%E5%B1%95%E5%BC%80"><span class="nav-number">2.</span> <span class="nav-text">泰勒展开与麦克劳林展开</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%8E%E5%8E%9F%E5%A7%8B%E7%9A%84%E5%BE%AE%E5%88%86%E5%AE%9A%E4%B9%89%E5%BC%80%E5%A7%8B"><span class="nav-number">2.1.</span> <span class="nav-text">从原始的微分定义开始</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%B0%E5%8B%92%E5%AE%9A%E7%90%86"><span class="nav-number">2.2.</span> <span class="nav-text">泰勒定理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%B0%E5%8B%92%E7%BA%A7%E6%95%B0"><span class="nav-number">2.3.</span> <span class="nav-text">泰勒级数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%B0%E5%8B%92%E7%BA%A7%E6%95%B0%E4%B8%8E%E8%AE%A1%E7%AE%97%E7%B2%BE%E5%BA%A6"><span class="nav-number">3.</span> <span class="nav-text">泰勒级数与计算精度</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%AE%E7%82%B9%E8%BF%90%E7%AE%97%E7%9A%84%E7%B2%BE%E5%BA%A6%E6%8D%9F%E5%A4%B1"><span class="nav-number">3.1.</span> <span class="nav-text">浮点运算的精度损失</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%B0%E5%8B%92%E5%B1%95%E5%BC%80%E6%8B%AF%E6%95%91%E4%B8%96%E7%95%8C"><span class="nav-number">3.2.</span> <span class="nav-text">泰勒展开拯救世界</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9E%E9%99%85%E5%AE%9E%E7%8E%B0%E7%9C%8B%E7%9C%8B"><span class="nav-number">3.3.</span> <span class="nav-text">实际实现看看</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -525,7 +527,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -540,52 +542,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -623,9 +625,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -680,9 +682,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -750,7 +760,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,19 @@
   </script>
 
   <meta name="description" content="因为一直在做推荐系统和点击率预估排序相关工作，所以一直想用一种粗糙但直观的方式来做一个推荐系统的示例，如果能有一定的工程实现价值就更好。最近突然有了这样一个基于 Beta 分布的想法，所以记录下来。当然，这个想法可能不是我的专利，可能已经有人想到过了。">
-<meta name="keywords" content="Beta Distribution,Recommendation System,Realia">
 <meta property="og:type" content="article">
 <meta property="og:title" content="一种基于 Beta 分布的推荐方法示例">
 <meta property="og:url" content="https://liam.page/2019/11/06/a-Beta-Distribution-based-recommendation-realia-method/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="因为一直在做推荐系统和点击率预估排序相关工作，所以一直想用一种粗糙但直观的方式来做一个推荐系统的示例，如果能有一定的工程实现价值就更好。最近突然有了这样一个基于 Beta 分布的想法，所以记录下来。当然，这个想法可能不是我的专利，可能已经有人想到过了。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-11-06T08:05:19.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Beta Distribution">
+<meta property="article:tag" content="Recommendation System">
+<meta property="article:tag" content="Realia">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="一种基于 Beta 分布的推荐方法示例">
-<meta name="twitter:description" content="因为一直在做推荐系统和点击率预估排序相关工作，所以一直想用一种粗糙但直观的方式来做一个推荐系统的示例，如果能有一定的工程实现价值就更好。最近突然有了这样一个基于 Beta 分布的想法，所以记录下来。当然，这个想法可能不是我的专利，可能已经有人想到过了。">
 
 <link rel="canonical" href="https://liam.page/2019/11/06/a-Beta-Distribution-based-recommendation-realia-method/">
 
@@ -292,7 +294,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>2.5k</span>
+              <span>2.7k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -312,14 +314,14 @@
 
       
         <p>因为一直在做推荐系统和点击率预估排序相关工作，所以一直想用一种粗糙但直观的方式来做一个推荐系统的示例，如果能有一定的工程实现价值就更好。最近突然有了这样一个基于 Beta 分布的想法，所以记录下来。当然，这个想法可能不是我的专利，可能已经有人想到过了。</p>
-<a id="more"></a>
+<span id="more"></span>
 
-<h2 id="Beta-分布的直观理解"><a href="#Beta-分布的直观理解" class="headerlink" title="Beta 分布的直观理解"></a>Beta 分布的直观理解</h2><p><a href="https://zh.wikipedia.org/wiki/%CE%92%E5%88%86%E5%B8%83" target="_blank" rel="noopener">Beta 分布</a> 是一组定义在 $(0, 1)$ 之间的连续概率分布，有两个参数 <code>$\alpha, \beta &gt; 0$</code>。随机变量 <code>$X$</code> 服从参数为 <code>$\alpha$</code>, <code>$\beta$</code> 的 Beta 分布通常记作 <code>$X \sim \text{Be}(\alpha, \beta)$</code>。</p>
+<h2 id="Beta-分布的直观理解"><a href="#Beta-分布的直观理解" class="headerlink" title="Beta 分布的直观理解"></a>Beta 分布的直观理解</h2><p><a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/%CE%92%E5%88%86%E5%B8%83">Beta 分布</a> 是一组定义在 $(0, 1)$ 之间的连续概率分布，有两个参数 <code>$\alpha, \beta &gt; 0$</code>。随机变量 <code>$X$</code> 服从参数为 <code>$\alpha$</code>, <code>$\beta$</code> 的 Beta 分布通常记作 <code>$X \sim \text&#123;Be&#125;(\alpha, \beta)$</code>。</p>
 <p>在理解 Beta 分布之前，我们先回顾一下二项分布。</p>
 <p>二项分布说的是 $n$ 个 i.i.d 的二项伯努利试验中成功次数的离散概率分布。根据二项分布，我们可以用似然的办法，通过有限次的实验，推断伯努利实验成功的概率。比如有一枚多少有些不均匀的硬币，我们多次抛硬币，将硬币呈现正面记为成功，要求成功的概率，就可以用似然的办法结合二项分布来求解。现在的问题是，在只有很少次数的实验时，利用二项分布估计的概率可能会很不准。一个极端的例子，如果我们只做了一次实验，硬币落下后呈现正面。那么根据二项分布估计出来的概率将会是 <code>$P = 1$</code>。这显然是不对的。</p>
 <p>这时候，Beta 分布就该出场了。Beta 分布可以看做是二项分布概率的概率分布。怎么理解呢？我们来继续看抛硬币的例子。</p>
-<p>我们知道，虽然每一枚硬币都多少有些不均匀，但是总体上，硬币落下呈现正面的概率是 <code>$0.5$</code> 左右。因此，不论如何，一枚多少有些不均匀的硬币，抛硬币得到正面的概率应该和 <code>$0.5$</code> 相去不远。具体到多次 i.i.d 的二项伯努利试验上，就是当 <code>$N$</code> 足够大时，<code>$2N$</code> 次二项伯努利试验中，得到正面的次数应该接近 <code>$N$</code>。我们假设 <code>$N = 1000$</code>，这意味着，在 <code>$2000$</code> 次二项伯努利试验中，大约会获得 <code>$A = 1000$</code> 次正面和 <code>$B = 1000$</code> 次反面。于是，我们初始化 Beta 分布 <code>$\text{Be}(A, B) = \text{Be}(1000, 1000)$</code>。接着，我们用这枚多少有些不均匀的硬币开始若干次二项伯努利试验，比如说 50 次。在 50 次试验中，我们得到了 <code>$a = 19$</code> 次正面，<code>$b = 31$</code> 次反面。于是我们更新 Beta 分布的参数 <code>$\alpha \gets A + a$</code> 以及 <code>$\beta \gets B + b$</code>，于是得到新的 Beta 分布 <code>$\text{Be}(1019, 1031)$</code>。该 Beta 分布的均值是</p>
-<p><code>$$ \frac{\alpha}{\alpha + \beta} = \frac{1019}{1019 + 1031} = \frac{1019}{2050} \approx 0.497. $$</code></p>
+<p>我们知道，虽然每一枚硬币都多少有些不均匀，但是总体上，硬币落下呈现正面的概率是 <code>$0.5$</code> 左右。因此，不论如何，一枚多少有些不均匀的硬币，抛硬币得到正面的概率应该和 <code>$0.5$</code> 相去不远。具体到多次 i.i.d 的二项伯努利试验上，就是当 <code>$N$</code> 足够大时，<code>$2N$</code> 次二项伯努利试验中，得到正面的次数应该接近 <code>$N$</code>。我们假设 <code>$N = 1000$</code>，这意味着，在 <code>$2000$</code> 次二项伯努利试验中，大约会获得 <code>$A = 1000$</code> 次正面和 <code>$B = 1000$</code> 次反面。于是，我们初始化 Beta 分布 <code>$\text&#123;Be&#125;(A, B) = \text&#123;Be&#125;(1000, 1000)$</code>。接着，我们用这枚多少有些不均匀的硬币开始若干次二项伯努利试验，比如说 50 次。在 50 次试验中，我们得到了 <code>$a = 19$</code> 次正面，<code>$b = 31$</code> 次反面。于是我们更新 Beta 分布的参数 <code>$\alpha \gets A + a$</code> 以及 <code>$\beta \gets B + b$</code>，于是得到新的 Beta 分布 <code>$\text&#123;Be&#125;(1019, 1031)$</code>。该 Beta 分布的均值是</p>
+<p><code>$$ \frac&#123;\alpha&#125;&#123;\alpha + \beta&#125; = \frac&#123;1019&#125;&#123;1019 + 1031&#125; = \frac&#123;1019&#125;&#123;2050&#125; \approx 0.497. $$</code></p>
 <p>于是我们说，这枚多少有些不均匀的硬币在二项伯努利试验中得到正面的概率是 <code>$P = 0.497$</code>；与此同时，就这 50 次试验，根据二项分布推算出来的概率是 <code>$P = 0.38$</code>。显然，根据 Beta 分布均值推算出来的概率相对根据二项分布推算出来的概率要显著接近 <code>$P = 0.5$</code> 的先验值。</p>
 <p>总结一下，Beta 分布可以看做是二项分布概率的概率分布。当我们对二项分布概率已经有一个相对比较靠谱的先验知识的时候，我们可以据此设定 Beta 的参数，然后在后续 i.i.d 的二项伯努利试验过程中，依赖 Beta 分布共轭先验的特性，对 Beta 分布的参数进行更新，最后以 Beta 分布均值作为二项分布概率的估计。</p>
 <h2 id="基于-Beta-分布的用户画像"><a href="#基于-Beta-分布的用户画像" class="headerlink" title="基于 Beta 分布的用户画像"></a>基于 Beta 分布的用户画像</h2><p>推荐系统的一侧是用户，描述用户的方法是用户画像。我们可以用 Beta 用户来做基于 Tag 的用户画像。在这里，对于某个用户来说：</p>
@@ -329,15 +331,15 @@
 </ul>
 <p>于是，用户画像的策略可以简单叙述如下：</p>
 <ul>
-<li>对于某个用户，使用先验知识（比如，全体用户的平均兴趣），对 <code>$\{(\alpha_i, \beta_i)\}$</code> 序列进行初始化。</li>
+<li>对于某个用户，使用先验知识（比如，全体用户的平均兴趣），对 <code>$\&#123;(\alpha_i, \beta_i)\&#125;$</code> 序列进行初始化。</li>
 <li>根据用户的行为（展示和点击），更新该序列<ul>
 <li>用户点击了具有编号为 <code>$i$</code>, <code>$j$</code>, <code>$k$</code> Tag 的物品进行了点击，则对 <code>$\alpha_i$</code>, <code>$\alpha_j$</code>, <code>$\alpha_k$</code> 分别自增 1；</li>
 <li>用户展示未点击具有编号为 <code>$i$</code>, <code>$j$</code>, <code>$k$</code> Tag 的物品进行了点击，则对 <code>$\beta_i$</code>, <code>$\beta_j$</code>, <code>$\beta_k$</code> 分别自增 1。</li>
 </ul>
 </li>
 </ul>
-<h2 id="基于-Beta-分布的点击率预估"><a href="#基于-Beta-分布的点击率预估" class="headerlink" title="基于 Beta 分布的点击率预估"></a>基于 Beta 分布的点击率预估</h2><p>对于具有画像 <code>$\{(\alpha_i, \beta_i)\}$</code> 的用户进行推荐时，我们要对待推荐的物品进行点击率预估。假设某物品同时具有编号为 <code>$i$</code>, <code>$j$</code>, <code>$k$</code> 的 Tag，假设各个 Tag 对点击行为的贡献都相同——这是一个很强的假设，但对于示例方案来说无关紧要，则用户对该物品的点击概率可以预估为：</p>
-<p><code>$$P_{\text{click}} = 1 - \frac{\beta_i}{\alpha_i + \beta_i} \times \frac{\beta_j}{\alpha_j + \beta_j} \times \frac{\beta_k}{\alpha_k + \beta_k}.$$</code></p>
+<h2 id="基于-Beta-分布的点击率预估"><a href="#基于-Beta-分布的点击率预估" class="headerlink" title="基于 Beta 分布的点击率预估"></a>基于 Beta 分布的点击率预估</h2><p>对于具有画像 <code>$\&#123;(\alpha_i, \beta_i)\&#125;$</code> 的用户进行推荐时，我们要对待推荐的物品进行点击率预估。假设某物品同时具有编号为 <code>$i$</code>, <code>$j$</code>, <code>$k$</code> 的 Tag，假设各个 Tag 对点击行为的贡献都相同——这是一个很强的假设，但对于示例方案来说无关紧要，则用户对该物品的点击概率可以预估为：</p>
+<p><code>$$P_&#123;\text&#123;click&#125;&#125; = 1 - \frac&#123;\beta_i&#125;&#123;\alpha_i + \beta_i&#125; \times \frac&#123;\beta_j&#125;&#123;\alpha_j + \beta_j&#125; \times \frac&#123;\beta_k&#125;&#123;\alpha_k + \beta_k&#125;.$$</code></p>
 <p>而后，我们可以根据各个物品的预估点击率对物品进行排序，然后推荐给用户。</p>
 <h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>这是一个近乎「儿戏」的推荐方案，但在实践上并非完全无用。说它儿戏，是因为它只考虑了单个用户的历史行为，而没有考虑其他所有对推荐有帮助的因素——比如其他用户的行为（可做协同过滤），比如推荐结果多样性。但是，在没有这些其他因素的情况下，这种方案可以起到过渡方案的作用。对，我说的就是在新用户、新物品冷启动的时候，这种方案简单易实现，值得一试。</p>
 
@@ -474,7 +476,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Beta-分布的直观理解"><span class="nav-number">1.</span> <span class="nav-text">Beta 分布的直观理解</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#基于-Beta-分布的用户画像"><span class="nav-number">2.</span> <span class="nav-text">基于 Beta 分布的用户画像</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#基于-Beta-分布的点击率预估"><span class="nav-number">3.</span> <span class="nav-text">基于 Beta 分布的点击率预估</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Beta-%E5%88%86%E5%B8%83%E7%9A%84%E7%9B%B4%E8%A7%82%E7%90%86%E8%A7%A3"><span class="nav-number">1.</span> <span class="nav-text">Beta 分布的直观理解</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8E-Beta-%E5%88%86%E5%B8%83%E7%9A%84%E7%94%A8%E6%88%B7%E7%94%BB%E5%83%8F"><span class="nav-number">2.</span> <span class="nav-text">基于 Beta 分布的用户画像</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E4%BA%8E-Beta-%E5%88%86%E5%B8%83%E7%9A%84%E7%82%B9%E5%87%BB%E7%8E%87%E9%A2%84%E4%BC%B0"><span class="nav-number">3.</span> <span class="nav-text">基于 Beta 分布的点击率预估</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -510,7 +512,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -525,52 +527,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -608,9 +610,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -665,9 +667,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -735,7 +745,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

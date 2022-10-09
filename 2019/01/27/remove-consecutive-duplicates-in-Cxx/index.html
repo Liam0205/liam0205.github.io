@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,19 @@
   </script>
 
   <meta name="description" content="最近在写 YTL 中的字符串相关辅助函数。实现到 split 函数时，希望能够实现类似 Python 当中的 str.split 方法的功能。  If sep is not specified or is None, a different splitting algorithm is applied: runs of consecutive whitespace are regarded as">
-<meta name="keywords" content="C++,Consecutive,Duplicate">
 <meta property="og:type" content="article">
 <meta property="og:title" content="在 C++ 中移除序列中连续重复的特定值">
 <meta property="og:url" content="https://liam.page/2019/01/27/remove-consecutive-duplicates-in-Cxx/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="最近在写 YTL 中的字符串相关辅助函数。实现到 split 函数时，希望能够实现类似 Python 当中的 str.split 方法的功能。  If sep is not specified or is None, a different splitting algorithm is applied: runs of consecutive whitespace are regarded as">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-01-27T06:02:18.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Consecutive">
+<meta property="article:tag" content="Duplicate">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="在 C++ 中移除序列中连续重复的特定值">
-<meta name="twitter:description" content="最近在写 YTL 中的字符串相关辅助函数。实现到 split 函数时，希望能够实现类似 Python 当中的 str.split 方法的功能。  If sep is not specified or is None, a different splitting algorithm is applied: runs of consecutive whitespace are regarded as">
 
 <link rel="canonical" href="https://liam.page/2019/01/27/remove-consecutive-duplicates-in-Cxx/">
 
@@ -292,7 +294,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>3.6k</span>
+              <span>3.7k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -313,7 +315,7 @@
       
         <p>最近在写 YTL 中的字符串相关辅助函数。实现到 <code>split</code> 函数时，希望能够实现类似 Python 当中的 <code>str.split</code> 方法的功能。</p>
 <blockquote>
-<p>If <code>sep</code> is not specified or is <code>None</code>, a different splitting algorithm is applied: runs of consecutive whitespace are regarded as a single separator, and the result will contain no empty strings at the start or end if the string has leading or trailing whitespace.<br>——<a href="https://docs.python.org/3/library/stdtypes.html#str.split" target="_blank" rel="noopener">https://docs.python.org/3/library/stdtypes.html#str.split</a></p>
+<p>If <code>sep</code> is not specified or is <code>None</code>, a different splitting algorithm is applied: runs of consecutive whitespace are regarded as a single separator, and the result will contain no empty strings at the start or end if the string has leading or trailing whitespace.<br>——<a target="_blank" rel="noopener" href="https://docs.python.org/3/library/stdtypes.html#str.split">https://docs.python.org/3/library/stdtypes.html#str.split</a></p>
 </blockquote>
 <p>也就是说，在最基本的 <code>split</code> 的基础上，要添加两个功能：</p>
 <ul>
@@ -322,29 +324,29 @@
 </ul>
 <p>前一个功能很好实现。将空白符保存在 <code>const char* trim_chars = &quot; \t\n\r\v\f&quot;</code> 当中，然后使用 <code>std::string::find_first_not_of</code> 以及 <code>std::string::find_last_not_of</code> 即可找到有效内容的起止位置，最后再 <code>std::string::erase</code> 一下就好了。</p>
 <p>后一个功能也不复杂。但要写得优雅——最好是能利用上标准库的设施——就不那么容易了。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="std-unique-的基本用法"><a href="#std-unique-的基本用法" class="headerlink" title="std::unique 的基本用法"></a><code>std::unique</code> 的基本用法</h2><p><code>std::unique</code> 是定义在 <code>algorithm</code> 头文件内的容器算法。它有两种基本形式：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt; <span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span> &gt;</span></span><br><span class="line"><span class="class"><span class="title">ForwardIt</span> <span class="title">unique</span>( <span class="title">ForwardIt</span> <span class="title">first</span>, <span class="title">ForwardIt</span> <span class="title">last</span> );</span></span><br><span class="line"><span class="keyword">template</span>&lt; <span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span>, <span class="title">class</span> <span class="title">BinaryPredicate</span> &gt;</span></span><br><span class="line"><span class="class"><span class="title">ForwardIt</span> <span class="title">unique</span>( <span class="title">ForwardIt</span> <span class="title">first</span>, <span class="title">ForwardIt</span> <span class="title">last</span>, <span class="title">BinaryPredicate</span> <span class="title">p</span> );</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt; <span class="keyword">class</span> ForwardIt &gt;</span></span><br><span class="line"><span class="function">ForwardIt <span class="title">unique</span><span class="params">( ForwardIt first, ForwardIt last )</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">template</span>&lt; <span class="keyword">class</span> ForwardIt, <span class="keyword">class</span> BinaryPredicate &gt;</span></span><br><span class="line"><span class="function">ForwardIt <span class="title">unique</span><span class="params">( ForwardIt first, ForwardIt last, BinaryPredicate p )</span></span>;</span><br></pre></td></tr></table></figure>
 
 <p>其中，第一种形式是第二种形式的特例，它等价于 <code>BinaryPredicate p</code> 为连续两元素相等性判断时的第二种形式：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt; <span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span>,</span></span><br><span class="line"><span class="class">          <span class="title">class</span> <span class="title">BinaryPredicate</span> =</span></span><br><span class="line"><span class="class">            <span class="title">std</span>:</span>:function&lt;<span class="keyword">bool</span>(<span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp;,</span><br><span class="line">              <span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp;)&gt;</span><br><span class="line"><span class="function">ForwardIt <span class="title">unique</span><span class="params">( ForwardIt first, ForwardIt last,</span></span></span><br><span class="line"><span class="function"><span class="params">            BinaryPredicate p = [](<span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp; lhs,</span></span></span><br><span class="line"><span class="function"><span class="params">                                   <span class="keyword">const</span> <span class="keyword">typename</span> <span class="built_in">std</span>::iterator_traits&lt;ForwardIt&gt;::value_type&amp; rhs) &#123;</span></span></span><br><span class="line"><span class="function"><span class="params">                                        <span class="keyword">return</span> lhs == rhs; &#125;)</span></span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt; <span class="keyword">class</span> <span class="title class_">ForwardIt</span>,</span><br><span class="line">          <span class="keyword">class</span> <span class="title class_">BinaryPredicate</span> =</span><br><span class="line">            std::function&lt;<span class="built_in">bool</span>(<span class="type">const</span> <span class="keyword">typename</span> std::iterator_traits&lt;ForwardIt&gt;::value_type&amp;,</span><br><span class="line">              <span class="type">const</span> <span class="keyword">typename</span> std::iterator_traits&lt;ForwardIt&gt;::value_type&amp;)&gt;</span><br><span class="line">ForwardIt <span class="built_in">unique</span>( ForwardIt first, ForwardIt last,</span><br><span class="line">            BinaryPredicate p = [](<span class="type">const</span> <span class="keyword">typename</span> std::iterator_traits&lt;ForwardIt&gt;::value_type&amp; lhs,</span><br><span class="line">                                   <span class="type">const</span> <span class="keyword">typename</span> std::iterator_traits&lt;ForwardIt&gt;::value_type&amp; rhs) &#123;</span><br><span class="line">                                        <span class="keyword">return</span> lhs == rhs; &#125;);</span><br></pre></td></tr></table></figure>
 
 <p>这也就是说，第一种形式的 <code>std::unique</code> 会找到每个连续重复的区间，而后保留这些区间的首个元素，最后返回新序列逻辑上的尾后迭代器。例如，<code>aabbccaa</code> 经过 <code>std::unique</code> 处理之后得到：</p>
 <figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">abca????</span><br><span class="line">    ↑</span><br></pre></td></tr></table></figure>
 
 <p>这里用箭头标出的位置，即是 <code>std::unique</code> 的返回值所指向的位置。需要注意的是，经过 <code>std::unique</code> 处理之后，容器的实际大小没有发生改变，甚至逻辑尾后迭代器到容器实际尾后迭代器之间的左闭右开区间内的迭代器仍然是可解引用的（dereferenceable）。但这部分区间内的元素的值是不确定的。因此，在使用 <code>std::unqiue</code> 之后，往往会调用容器的 <code>erase</code> 函数成员，删除逻辑尾后迭代器开始的所有元素。例如：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;string&gt;</span></span><br><span class="line"><span class="comment">// #include &lt;algorithm&gt;</span></span><br><span class="line"><span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">source</span><span class="params">(<span class="string">"aabbccaa"</span>)</span></span>;</span><br><span class="line">source.erase(<span class="built_in">std</span>::unique(source.begin(), source.end()), source.end());</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; source &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;  <span class="comment">// expect result: abca</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;string&gt;</span></span><br><span class="line"><span class="comment">// #include &lt;algorithm&gt;</span></span><br><span class="line"><span class="function">std::string <span class="title">source</span><span class="params">(<span class="string">&quot;aabbccaa&quot;</span>)</span></span>;</span><br><span class="line">source.<span class="built_in">erase</span>(std::<span class="built_in">unique</span>(source.<span class="built_in">begin</span>(), source.<span class="built_in">end</span>()), source.<span class="built_in">end</span>());</span><br><span class="line">std::cout &lt;&lt; source &lt;&lt; std::endl;  <span class="comment">// expect result: abca</span></span><br></pre></td></tr></table></figure>
 
 <h2 id="只对特定内容进行-std-unique-操作"><a href="#只对特定内容进行-std-unique-操作" class="headerlink" title="只对特定内容进行 std::unique 操作"></a>只对特定内容进行 <code>std::unique</code> 操作</h2><p>回到最开始的问题。我们需要的功能，是针对分隔符 <code>sep</code> 进行操作，将连续出现的 <code>sep</code> 压缩成一个。<code>std::unique</code> 的默认行为则不然，它会将所有连续出现的元素都压缩成一个——不光是 <code>sep</code>。为此，我们需要实现自己的 <code>BinaryPredicate</code>。首先，由于我们要指定具体需要被 <code>std::unique</code> 压缩的元素，我们必然要将其作为函数参数传入函数。于是我们有以下实现：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;functional&gt;</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="function"><span class="keyword">bool</span> <span class="title">AreConsecutiveElements</span><span class="params">(<span class="keyword">const</span> T&amp; target, <span class="keyword">const</span> T&amp; lhs, <span class="keyword">const</span> T&amp; rhs)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> (lhs == rhs) <span class="keyword">and</span> (lhs == target);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;functional&gt;</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">AreConsecutiveElements</span><span class="params">(<span class="type">const</span> T&amp; target, <span class="type">const</span> T&amp; lhs, <span class="type">const</span> T&amp; rhs)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> (lhs == rhs) <span class="built_in">and</span> (lhs == target);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p><code>std::unique</code> 要求一个二元谓词（<code>BinaryPredicate</code>），但此处我们实现的是三元谓词。于是，好在 <code>target</code> 总是应当预先给出的，所以我们可以利用 <code>std::bind</code> 将 <code>target</code> 绑定在 <code>AreConsecutiveElements</code> 的第一个参数上，产生一个二元谓词。</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;functional&gt;</span></span><br><span class="line"><span class="comment">// using namespace std::placeholders;</span></span><br><span class="line"><span class="comment">// #include &lt;string&gt;</span></span><br><span class="line"><span class="comment">// #include &lt;algorithm&gt;</span></span><br><span class="line"><span class="keyword">const</span> <span class="keyword">char</span> target = <span class="string">'b'</span></span><br><span class="line"><span class="keyword">auto</span> binp = <span class="built_in">std</span>::bind(AreConsecutiveElements, target, _1, _2);</span><br><span class="line"><span class="built_in">std</span>::<span class="function"><span class="built_in">string</span> <span class="title">source</span><span class="params">(<span class="string">"aabbccaa"</span>)</span></span>;</span><br><span class="line">source.erase(<span class="built_in">std</span>::unique(source.begin(), source.end(), binp), source.end());</span><br><span class="line"><span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; source &lt;&lt; <span class="built_in">std</span>::<span class="built_in">endl</span>;  <span class="comment">// expect result: aabccaa</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// #include &lt;functional&gt;</span></span><br><span class="line"><span class="comment">// using namespace std::placeholders;</span></span><br><span class="line"><span class="comment">// #include &lt;string&gt;</span></span><br><span class="line"><span class="comment">// #include &lt;algorithm&gt;</span></span><br><span class="line"><span class="type">const</span> <span class="type">char</span> target = <span class="string">&#x27;b&#x27;</span></span><br><span class="line"><span class="keyword">auto</span> binp = std::<span class="built_in">bind</span>(AreConsecutiveElements, target, _1, _2);</span><br><span class="line"><span class="function">std::string <span class="title">source</span><span class="params">(<span class="string">&quot;aabbccaa&quot;</span>)</span></span>;</span><br><span class="line">source.<span class="built_in">erase</span>(std::<span class="built_in">unique</span>(source.<span class="built_in">begin</span>(), source.<span class="built_in">end</span>(), binp), source.<span class="built_in">end</span>());</span><br><span class="line">std::cout &lt;&lt; source &lt;&lt; std::endl;  <span class="comment">// expect result: aabccaa</span></span><br></pre></td></tr></table></figure>
 
 <p>这里，我们将 <code>&#39;b&#39;</code> 作为压缩目标，并将其与 <code>AreConsecutiveElements</code> 绑定在一起，产生一个新的二元谓词。最终输出期待的结果。</p>
 <hr>
-<h2 id="附：std-unique-的一个可能实现"><a href="#附：std-unique-的一个可能实现" class="headerlink" title="附：std::unique 的一个可能实现"></a>附：<code>std::unique</code> 的一个可能实现</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="class"><span class="keyword">class</span> <span class="title">ForwardIt</span>, <span class="title">class</span> <span class="title">BinaryPredicate</span>&gt;</span></span><br><span class="line"><span class="class"><span class="title">ForwardIt</span> <span class="title">unique</span>(<span class="title">ForwardIt</span> <span class="title">first</span>, <span class="title">ForwardIt</span> <span class="title">last</span>, <span class="title">BinaryPredicate</span> <span class="title">p</span>) &#123;</span></span><br><span class="line">  <span class="keyword">if</span> (first == last) &#123;</span><br><span class="line">    <span class="keyword">return</span> last;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  ForwardIt result = first;</span><br><span class="line">  <span class="keyword">while</span> (++first != last) &#123;</span><br><span class="line">    <span class="keyword">if</span> (!p(*result, *first) &amp;&amp; ++result != first) &#123;</span><br><span class="line">      *result = <span class="built_in">std</span>::move(*first);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> ++result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="附：std-unique-的一个可能实现"><a href="#附：std-unique-的一个可能实现" class="headerlink" title="附：std::unique 的一个可能实现"></a>附：<code>std::unique</code> 的一个可能实现</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="keyword">class</span> ForwardIt, <span class="keyword">class</span> BinaryPredicate&gt;</span></span><br><span class="line"><span class="function">ForwardIt <span class="title">unique</span><span class="params">(ForwardIt first, ForwardIt last, BinaryPredicate p)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (first == last) &#123;</span><br><span class="line">    <span class="keyword">return</span> last;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  ForwardIt result = first;</span><br><span class="line">  <span class="keyword">while</span> (++first != last) &#123;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">p</span>(*result, *first) &amp;&amp; ++result != first) &#123;</span><br><span class="line">      *result = std::<span class="built_in">move</span>(*first);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> ++result;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <!-- 今天是老女人邢坤悦的 28 岁生日。但邢坤悦是个婊子，我肏烂她全家女性的骚屄。 -->
 
@@ -481,7 +483,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#std-unique-的基本用法"><span class="nav-number">1.</span> <span class="nav-text">std::unique 的基本用法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#只对特定内容进行-std-unique-操作"><span class="nav-number">2.</span> <span class="nav-text">只对特定内容进行 std::unique 操作</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#附：std-unique-的一个可能实现"><span class="nav-number">3.</span> <span class="nav-text">附：std::unique 的一个可能实现</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#std-unique-%E7%9A%84%E5%9F%BA%E6%9C%AC%E7%94%A8%E6%B3%95"><span class="nav-number">1.</span> <span class="nav-text">std::unique 的基本用法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%AA%E5%AF%B9%E7%89%B9%E5%AE%9A%E5%86%85%E5%AE%B9%E8%BF%9B%E8%A1%8C-std-unique-%E6%93%8D%E4%BD%9C"><span class="nav-number">2.</span> <span class="nav-text">只对特定内容进行 std::unique 操作</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%84%EF%BC%9Astd-unique-%E7%9A%84%E4%B8%80%E4%B8%AA%E5%8F%AF%E8%83%BD%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.</span> <span class="nav-text">附：std::unique 的一个可能实现</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -517,7 +519,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -532,52 +534,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -615,9 +617,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -672,9 +674,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -742,7 +752,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

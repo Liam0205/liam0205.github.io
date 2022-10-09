@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,20 @@
   </script>
 
   <meta name="description" content="这个系列的文章，已有两篇（一、二）。本文将接着第二篇的叙述，探讨一个与多进程、多线程相关的问题：fork()-安全。">
-<meta name="keywords" content="Process,Thread,Fork,Fork Safe">
 <meta property="og:type" content="article">
 <meta property="og:title" content="程序员的自我修养（三）：fork() 安全">
 <meta property="og:url" content="https://liam.page/2017/01/17/fork-safe/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="这个系列的文章，已有两篇（一、二）。本文将接着第二篇的叙述，探讨一个与多进程、多线程相关的问题：fork()-安全。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-01-17T12:55:05.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Process">
+<meta property="article:tag" content="Thread">
+<meta property="article:tag" content="Fork">
+<meta property="article:tag" content="Fork Safe">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="程序员的自我修养（三）：fork() 安全">
-<meta name="twitter:description" content="这个系列的文章，已有两篇（一、二）。本文将接着第二篇的叙述，探讨一个与多进程、多线程相关的问题：fork()-安全。">
 
 <link rel="canonical" href="https://liam.page/2017/01/17/fork-safe/">
 
@@ -312,21 +315,21 @@
 
       
         <p>这个系列的文章，已有两篇（<a href="/2016/08/30/review-of-hardware-development/">一</a>、<a href="/2017/01/17/layers-and-operation-system/">二</a>）。本文将接着第二篇的叙述，探讨一个与多进程、多线程相关的问题：<code>fork()</code>-安全。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="抛出异常"><a href="#抛出异常" class="headerlink" title="抛出异常"></a>抛出异常</h2><p>首先我们来看这样的代码</p>
-<figure class="highlight cpp"><figcaption><span>mutex_deadlock.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// compile: g++ ‐‐std=c++11 ‐lpthread mutex_deadlock.cpp</span></span><br><span class="line"><span class="comment">// execute: ./a.out</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="keyword">pthread_mutex_t</span> mutex = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span>* <span class="title">doit</span><span class="params">(<span class="keyword">void</span>*)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_lock(&amp;mutex);</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">timespec</span> <span class="title">ts</span> = &#123;</span><span class="number">20</span>, <span class="number">0</span>&#125;;</span><br><span class="line">    nanosleep(&amp;ts, <span class="number">0</span>);</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">pthread_t</span> t;</span><br><span class="line">    pthread_create(&amp;t, <span class="literal">nullptr</span>, doit, <span class="literal">nullptr</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fork() == <span class="number">0</span>) &#123;</span><br><span class="line">        doit(<span class="literal">nullptr</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    pthread_join(t, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><figcaption><span>mutex_deadlock.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// compile: g++ ‐‐std=c++11 ‐lpthread mutex_deadlock.cpp</span></span><br><span class="line"><span class="comment">// execute: ./a.out</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="type">pthread_mutex_t</span> mutex = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span>* <span class="title">doit</span><span class="params">(<span class="type">void</span>*)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">pthread_mutex_lock</span>(&amp;mutex);</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">timespec</span> ts = &#123;<span class="number">20</span>, <span class="number">0</span>&#125;;</span><br><span class="line">    <span class="built_in">nanosleep</span>(&amp;ts, <span class="number">0</span>);</span><br><span class="line">    <span class="built_in">pthread_mutex_unlock</span>(&amp;mutex);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="type">pthread_t</span> t;</span><br><span class="line">    <span class="built_in">pthread_create</span>(&amp;t, <span class="literal">nullptr</span>, doit, <span class="literal">nullptr</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fork() == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">doit</span>(<span class="literal">nullptr</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">pthread_join</span>(t, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>在代码里，我们首先用 <code>pthread_create()</code> 创建了一个子线程。在子线程里，<code>doit()</code> 工作函数会持有一把互斥锁，然后睡 20 秒后再释放这把锁。而后，与子线程同时进行的，在主线程中，我们调用 <code>fork()</code> 函数，创建一个子进程。并且，在子进程里，我们也调用 <code>doit()</code> 函数，尝试获取互斥锁。</p>
 <h2 id="捕获异常"><a href="#捕获异常" class="headerlink" title="捕获异常"></a>捕获异常</h2><p>现在我们观察一下，这个程序的运行状态。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ ./a.out</span><br><span class="line">$ ps ‐ef | grep <span class="string">"a.out"</span> | grep ‐v grep</span><br><span class="line">   16629    10449   340  0 11:25 pts/90   00:00:00 ./a.out</span><br><span class="line">   16629    10451 10449  0 11:25 pts/90   00:00:00 ./a.out</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ ./a.out</span><br><span class="line">$ ps ‐ef | grep <span class="string">&quot;a.out&quot;</span> | grep ‐v grep</span><br><span class="line">   16629    10449   340  0 11:25 pts/90   00:00:00 ./a.out</span><br><span class="line">   16629    10451 10449  0 11:25 pts/90   00:00:00 ./a.out</span><br></pre></td></tr></table></figure>
 
 <p>可以看到，等到我们有机会查看程序的运行状态时，子进程已经被创建出来了。显而易见，<code>10449</code> 是主进程，而 <code>10451</code> 是子进程。我们用 <code>strace</code> 跟踪主进程试试看。</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">$ strace -p 10449 -f</span><br><span class="line">Process 10449 attached with 2 threads - interrupt to quit</span><br><span class="line">[pid 10450] restart_syscall(&lt;... resuming interrupted call ...&gt; &lt;unfinished ...&gt;</span><br><span class="line">[pid 10449] futex(0x41c279d0, FUTEX_WAIT, 10450, NULL &lt;unfinished ...&gt;</span><br><span class="line">[pid 10450] &lt;... restart_syscall resumed&gt; ) = 0</span><br><span class="line">[pid 10450] _exit(0)                    = ?</span><br><span class="line">Process 10450 detached</span><br><span class="line">&lt;... futex resumed&gt; )                   = 0</span><br><span class="line">exit_group(0)                           = ?</span><br><span class="line">Process 10449 detached</span><br></pre></td></tr></table></figure>
 
 <p>不难发现，<code>strace</code> 提示主进程里有 2 个线程，其中主线程正在等待子线程释放互斥锁。待子线程释放互斥锁并退出后，主线程就获取到锁，而后退出了。这表明，主进程运行正常。</p>
 <p>现在看看子进程的状态。</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ ps -ef | grep <span class="string">"a.out"</span> | grep -v grep</span><br><span class="line">16629    10451     1  0 11:25 pts/90   00:00:00 ./a.out</span><br><span class="line">$ strace -p 10451 -f</span><br><span class="line">Process 10451 attached - interrupt to quit</span><br><span class="line">futex(0x600e20, FUTEX_WAIT_PRIVATE, 2, NULL</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ ps -ef | grep <span class="string">&quot;a.out&quot;</span> | grep -v grep</span><br><span class="line">16629    10451     1  0 11:25 pts/90   00:00:00 ./a.out</span><br><span class="line">$ strace -p 10451 -f</span><br><span class="line">Process 10451 attached - interrupt to quit</span><br><span class="line">futex(0x600e20, FUTEX_WAIT_PRIVATE, 2, NULL</span><br></pre></td></tr></table></figure>
 
 <p>这里有几处值得注意的地方</p>
 <ul>
@@ -339,7 +342,7 @@
 <li>主进程显而易见有两个线程，为什么经由其 <code>fork()</code> 得到的子进程却只有 1 个线程？</li>
 <li>既然子进程只有 1 个线程，为什么会陷入死锁？</li>
 </ul>
-<p>为了解答这两个疑惑，我们需要更加深入地了解一下 <code>fork()</code> 函数的行为。阅读 <a href="http://man7.org/linux/man-pages/man2/fork.2.html" target="_blank" rel="noopener"><code>fork()</code> 函数的说明</a>，我们可以发现有这样一段话：</p>
+<p>为了解答这两个疑惑，我们需要更加深入地了解一下 <code>fork()</code> 函数的行为。阅读 <a target="_blank" rel="noopener" href="http://man7.org/linux/man-pages/man2/fork.2.html"><code>fork()</code> 函数的说明</a>，我们可以发现有这样一段话：</p>
 <blockquote>
 <p>The child process is created with a single thread --- the one that called <code>fork()</code>. The entire virtual address space of the parent is replicated in the child, including the states of mutexes, condition variables, and other pthreads objects; the use of <code>pthread_atfork()</code> may be helpful for dealing with problems that this can cause.</p>
 </blockquote>
@@ -348,7 +351,7 @@
 <p>回过头来看代码。在 <code>fork()</code> 执行时，子线程还持有着 <code>mutex</code> 互斥锁。而当 <code>fork()</code> 执行之后，子进程里的子线程就蒸发掉了，但是 <code>mutex</code> 互斥锁依然保持着被持有的状态。而子进程里仅存的线程，马上就进入 <code>doit()</code> 函数，尝试获取锁——它在尝试获取一个永远不会被释放的锁，形成死锁。</p>
 <p>这是一个刻意构造的例子，说明当子线程持有锁的时候，由主线程进行 <code>fork()</code> 操作是不安全的。在生产实际中，这种现象不总是发生，但是在概率的意义上是必然发生的。因此，我们有必要考虑怎样解决这个问题。好在，<code>fork()</code> 的文档中给出了提示：使用 <code>pthread_atfork()</code> 函数。</p>
 <h2 id="pthread-atfork-函数"><a href="#pthread-atfork-函数" class="headerlink" title="pthread_atfork() 函数"></a><code>pthread_atfork()</code> 函数</h2><p><code>pthread_atfork()</code> 和 <code>phread_create()</code> 函数一样，由 <code>pthread</code> 库提供。它的原型是</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">pthread_atfork</span> <span class="params">(<span class="keyword">void</span> (*prepare) (<span class="keyword">void</span>), <span class="keyword">void</span> (*parent) (<span class="keyword">void</span>), <span class="keyword">void</span> (*child) (<span class="keyword">void</span>))</span></span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="title function_">pthread_atfork</span> <span class="params">(<span class="type">void</span> (*prepare) (<span class="type">void</span>), <span class="type">void</span> (*parent) (<span class="type">void</span>), <span class="type">void</span> (*child) (<span class="type">void</span>))</span>;</span><br></pre></td></tr></table></figure>
 
 <p>它接收三个参数，分别是</p>
 <ul>
@@ -358,7 +361,7 @@
 </ul>
 <p>这个函数实际上是一个注册机，它可以被执行多次，而后将诸多 <code>prepare</code> 函数压入堆栈中，在 <code>fork()</code> 之前依次弹栈执行（执行顺序与注册的顺序相反）；将诸多 <code>parent</code> 和 <code>child</code> 函数分别填入队列中，在 <code>fork()</code> 函数即将 <code>return</code> 的地方依次执行（执行顺序与注册顺序相同）。按照设计的意图，程序员可以在 <code>fork()</code> 之前，做好清理工作，以便 <code>fork()</code> 能够安全地调用；并且在 <code>fork()</code> 返回之前，对函数做初始化，以便后续代码能够顺利执行。</p>
 <p>据此，对上面的代码，我们可以有这样的修改</p>
-<figure class="highlight cpp"><figcaption><span>mutex_deadlock_fix.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// compile: g++ ‐‐std=c++11 ‐lpthread mutex_deadlock_fix.cpp</span></span><br><span class="line"><span class="comment">// execute: ./a.out</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> <span class="built_in">std</span>;</span><br><span class="line"><span class="keyword">pthread_mutex_t</span> mutex = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span>* <span class="title">doit</span><span class="params">(<span class="keyword">void</span>*)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_lock(&amp;mutex);</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">timespec</span> <span class="title">ts</span> = &#123;</span><span class="number">20</span>, <span class="number">0</span>&#125;;</span><br><span class="line">    nanosleep(&amp;ts, <span class="number">0</span>);</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">prepare</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_lock(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">parent</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">child</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_mutex_unlock(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">void</span>)</span> </span>&#123;</span><br><span class="line">    pthread_atfork(prepare, parent, child);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">pthread_t</span> t;</span><br><span class="line">    pthread_create(&amp;t, <span class="literal">nullptr</span>, doit, <span class="literal">nullptr</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fork() == <span class="number">0</span>) &#123;</span><br><span class="line">        doit(<span class="literal">nullptr</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    pthread_join(t, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><figcaption><span>mutex_deadlock_fix.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// compile: g++ ‐‐std=c++11 ‐lpthread mutex_deadlock_fix.cpp</span></span><br><span class="line"><span class="comment">// execute: ./a.out</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;time.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="type">pthread_mutex_t</span> mutex = PTHREAD_MUTEX_INITIALIZER;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span>* <span class="title">doit</span><span class="params">(<span class="type">void</span>*)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">pthread_mutex_lock</span>(&amp;mutex);</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">timespec</span> ts = &#123;<span class="number">20</span>, <span class="number">0</span>&#125;;</span><br><span class="line">    <span class="built_in">nanosleep</span>(&amp;ts, <span class="number">0</span>);</span><br><span class="line">    <span class="built_in">pthread_mutex_unlock</span>(&amp;mutex);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">prepare</span><span class="params">(<span class="type">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">pthread_mutex_lock</span>(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">parent</span><span class="params">(<span class="type">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">pthread_mutex_unlock</span>(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">child</span><span class="params">(<span class="type">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">pthread_mutex_unlock</span>(&amp;mutex);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">void</span>)</span> </span>&#123;</span><br><span class="line">    <span class="built_in">pthread_atfork</span>(prepare, parent, child);</span><br><span class="line"></span><br><span class="line">    <span class="type">pthread_t</span> t;</span><br><span class="line">    <span class="built_in">pthread_create</span>(&amp;t, <span class="literal">nullptr</span>, doit, <span class="literal">nullptr</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (fork() == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">doit</span>(<span class="literal">nullptr</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">pthread_join</span>(t, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>不难验证，死锁的问题已经解决。</p>
 <h2 id="没有银弹"><a href="#没有银弹" class="headerlink" title="没有银弹"></a>没有银弹</h2><p>不幸的是，<code>pthread_atfork()</code> 函数并不是解决此类问题的银弹。事实上，<code>pthread_atfork()</code> 本身就可能造成死锁的问题。</p>
@@ -506,7 +509,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#抛出异常"><span class="nav-number">1.</span> <span class="nav-text">抛出异常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#捕获异常"><span class="nav-number">2.</span> <span class="nav-text">捕获异常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#异常分析"><span class="nav-number">3.</span> <span class="nav-text">异常分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pthread-atfork-函数"><span class="nav-number">4.</span> <span class="nav-text">pthread_atfork() 函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#没有银弹"><span class="nav-number">5.</span> <span class="nav-text">没有银弹</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8A%9B%E5%87%BA%E5%BC%82%E5%B8%B8"><span class="nav-number">1.</span> <span class="nav-text">抛出异常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8D%95%E8%8E%B7%E5%BC%82%E5%B8%B8"><span class="nav-number">2.</span> <span class="nav-text">捕获异常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%82%E5%B8%B8%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">异常分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pthread-atfork-%E5%87%BD%E6%95%B0"><span class="nav-number">4.</span> <span class="nav-text">pthread_atfork() 函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B2%A1%E6%9C%89%E9%93%B6%E5%BC%B9"><span class="nav-number">5.</span> <span class="nav-text">没有银弹</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -542,7 +545,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -557,52 +560,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -640,9 +643,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -697,9 +700,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -767,7 +778,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

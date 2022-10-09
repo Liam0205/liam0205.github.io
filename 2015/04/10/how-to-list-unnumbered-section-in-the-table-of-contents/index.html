@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,20 @@
   </script>
 
   <meta name="description" content="LaTeX 标准文档类提供了 \section 和 \section* 等两组命令，用于排版章节标题。其中不带星号的版本有章节编号，会列入目录，同时修改章节标记。带星号的版本只有章节标题格式而不编号，不列入目录，也不会修改章节标记。 有时，我们会希望将不编号的章节标题列入目录。这种情况使用 \section 或 \section* 都不大合适。本文将对这些问题做出分析，并给出解决方案。">
-<meta name="keywords" content="Section,Sectioning,Numbering,Table of Contents">
 <meta property="og:type" content="article">
 <meta property="og:title" content="在 LaTeX 中将不编号的章节列入目录">
 <meta property="og:url" content="https://liam.page/2015/04/10/how-to-list-unnumbered-section-in-the-table-of-contents/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="LaTeX 标准文档类提供了 \section 和 \section* 等两组命令，用于排版章节标题。其中不带星号的版本有章节编号，会列入目录，同时修改章节标记。带星号的版本只有章节标题格式而不编号，不列入目录，也不会修改章节标记。 有时，我们会希望将不编号的章节标题列入目录。这种情况使用 \section 或 \section* 都不大合适。本文将对这些问题做出分析，并给出解决方案。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2015-04-10T09:54:32.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Section">
+<meta property="article:tag" content="Sectioning">
+<meta property="article:tag" content="Numbering">
+<meta property="article:tag" content="Table of Contents">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="在 LaTeX 中将不编号的章节列入目录">
-<meta name="twitter:description" content="LaTeX 标准文档类提供了 \section 和 \section* 等两组命令，用于排版章节标题。其中不带星号的版本有章节编号，会列入目录，同时修改章节标记。带星号的版本只有章节标题格式而不编号，不列入目录，也不会修改章节标记。 有时，我们会希望将不编号的章节标题列入目录。这种情况使用 \section 或 \section* 都不大合适。本文将对这些问题做出分析，并给出解决方案。">
 
 <link rel="canonical" href="https://liam.page/2015/04/10/how-to-list-unnumbered-section-in-the-table-of-contents/">
 
@@ -292,7 +295,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>3.2k</span>
+              <span>3.3k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -313,7 +316,7 @@
       
         <p>LaTeX 标准文档类提供了 <code>\section</code> 和 <code>\section*</code> 等两组命令，用于排版章节标题。其中不带星号的版本有章节编号，会列入目录，同时修改章节标记。带星号的版本只有章节标题格式而不编号，不列入目录，也不会修改章节标记。</p>
 <p>有时，我们会希望将不编号的章节标题列入目录。这种情况使用 <code>\section</code> 或 <code>\section*</code> 都不大合适。本文将对这些问题做出分析，并给出解决方案。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <p>LaTeX 标准文档类的 <code>\section</code> 命令做四件事情：</p>
 <ol>
@@ -325,33 +328,33 @@
 <p>相应地，<code>\section*</code> 命令只做上述第二件事情，其余三件都不做。</p>
 <p>因此，我们的思路很简单，有两个方向。第一，使用 <code>\section*</code>，手工做目录的处理；第二，使用 <code>\section</code>，但是抑制编号。</p>
 <h2 id="思路一"><a href="#思路一" class="headerlink" title="思路一"></a>思路一</h2><p>LaTeX 处理目录需要编译两次。在第一次编译的过程中，<code>\section</code> 命令将目录信息写入 <code>.aux</code> 文件。随后，在第二次编译的过程中，LaTeX 读取 <code>.aux</code> 文件中的相应信息，形成目录。因此，我们只需要模仿 <code>\section</code> 写入 <code>.aux</code> 文件的过程就可以了。</p>
-<p>LaTeX 提供了 <code>\addcontentsline{&lt;辅助文件后缀&gt;}{&lt;章节等级&gt;}{名字}</code> 命令来做这样的工作。我们来看一个例子。</p>
-<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section*</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">addcontentsline</span><span class="string">&#123;toc&#125;</span><span class="string">&#123;section&#125;</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+<p>LaTeX 提供了 <code>\addcontentsline&#123;&lt;辅助文件后缀&gt;&#125;&#123;&lt;章节等级&gt;&#125;&#123;名字&#125;</code> 命令来做这样的工作。我们来看一个例子。</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;ctexart&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\tableofcontents</span></span><br><span class="line"><span class="keyword">\section</span>*&#123;不编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\addcontentsline</span>&#123;toc&#125;&#123;section&#125;&#123;不编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure>
 
 <h2 id="思路二"><a href="#思路二" class="headerlink" title="思路二"></a>思路二</h2><p>LaTeX 标准文档类中的 <code>\appendix</code> 命令，会使得后续的章节标题从 0 开始编号，同时将编号格式从阿拉伯数字修改为大写英文字母。<code>\appendix</code> 命令虽然不符合我们的需求，但是产生的效果却和我们需要的效果类似：修改了章节标题编号。我们可以对这个命令做适当的修改，达成我们的目的。</p>
 <p>我们来看一下 <code>article.cls</code> 里的 <code>\appendix</code> 是如何定义的。</p>
-<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">appendix</span><span class="string">&#123;\par</span></span></span><br><span class="line"><span class="tag"><span class="string">  \setcounter&#123;section&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">setcounter</span><span class="string">&#123;subsection&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">gdef</span></span><span class="tag">\<span class="name">thesection</span><span class="string">&#123;\@Alph\c@section&#125;</span></span>&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\newcommand</span><span class="keyword">\appendix</span>&#123;<span class="keyword">\par</span></span><br><span class="line">  <span class="keyword">\setcounter</span>&#123;section&#125;&#123;0&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\setcounter</span>&#123;subsection&#125;&#123;0&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\gdef</span><span class="keyword">\thesection</span>&#123;<span class="keyword">\@Alph</span><span class="keyword">\c@section</span>&#125;&#125;</span><br></pre></td></tr></table></figure>
 
 <p>接下来，我们仿造它，定义一个新的命令 <code>\specialsectioning</code>。</p>
-<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">[hyperref]</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">specialsectioning</span><span class="string">&#123;\par</span></span></span><br><span class="line"><span class="tag"><span class="string">  \setcounter&#123;section&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">setcounter</span><span class="string">&#123;subsection&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">renewcommand</span></span><span class="tag">\<span class="name">thesection</span><span class="string">&#123;\relax&#125;</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;正常编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">specialsectioning</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>[hyperref]&#123;ctexart&#125;</span><br><span class="line"><span class="keyword">\newcommand</span><span class="keyword">\specialsectioning</span>&#123;<span class="keyword">\par</span></span><br><span class="line">  <span class="keyword">\setcounter</span>&#123;section&#125;&#123;0&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\setcounter</span>&#123;subsection&#125;&#123;0&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\renewcommand</span><span class="keyword">\thesection</span>&#123;<span class="keyword">\relax</span>&#125;&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\tableofcontents</span></span><br><span class="line"><span class="keyword">\section</span>&#123;正常编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\specialsectioning</span></span><br><span class="line"><span class="keyword">\section</span>&#123;不编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure>
 
 <p>编译之后我们会发现，在 <code>\specialsectioning</code> 之后的 <code>\section</code> 虽然不带星花，但已然不编号了，并且出现在了目录当中。</p>
 <p>不过，正常标题的编号和标题正文之间是有一定的空距的。我们现在虽然将编号取消了，但是这个空距依然存在。虽然它不明显，但是毕竟是个问题。作为一个精益求精的完美主义者，我们要解决它。</p>
 <p>正文中编号的格式由 LaTeX 内部宏 <code>\@seccntformat</code> 控制，默认是在编号后面加一个 <code>\quad</code>，我们把它去掉。</p>
-<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">@</span></span>seccntformat##1&#123;<span class="tag">\<span class="name">@</span></span>nameuse&#123;the##1&#125;&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\def</span><span class="keyword">\@seccntformat</span><span class="params">##1</span>&#123;<span class="keyword">\@nameuse</span>&#123;the<span class="params">##1</span>&#125;&#125;</span><br></pre></td></tr></table></figure>
 
 <p>此外，目录中的编号和章节标题之间也有距离，我们通过 <code>tocloft</code> 宏包来将这个距离设置为 <code>0pt</code>。</p>
-<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">addtocontents</span><span class="string">&#123;toc&#125;</span><span class="string">&#123;\def\cftsecnumwidth&#123;0pt&#125;</span></span>&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\addtocontents</span>&#123;toc&#125;&#123;<span class="keyword">\def</span><span class="keyword">\cftsecnumwidth</span>&#123;0pt&#125;&#125;</span><br></pre></td></tr></table></figure>
 
 <p>这样，完整的代码变成：</p>
-<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">usepackage</span><span class="string">&#123;tocloft&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">makeatletter</span></span></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">specialsectioning</span><span class="string">&#123;\par</span></span></span><br><span class="line"><span class="tag"><span class="string">  \setcounter&#123;section&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">setcounter</span><span class="string">&#123;subsection&#125;</span><span class="string">&#123;0&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">renewcommand</span></span><span class="tag">\<span class="name">thesection</span><span class="string">&#123;\relax&#125;</span></span><span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">def</span></span><span class="tag">\<span class="name">@</span></span>seccntformat##1&#123;<span class="tag">\<span class="name">@</span></span>nameuse&#123;the##1&#125;&#125;<span class="comment">%</span></span><br><span class="line">  <span class="tag">\<span class="name">addtocontents</span><span class="string">&#123;toc&#125;</span><span class="string">&#123;\def\cftsecnumwidth&#123;0pt&#125;</span></span>&#125;&#125;</span><br><span class="line"><span class="tag">\<span class="name">makeatother</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;正常编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">specialsectioning</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;ctexart&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;tocloft&#125;</span><br><span class="line"><span class="keyword">\makeatletter</span></span><br><span class="line"><span class="keyword">\newcommand</span><span class="keyword">\specialsectioning</span>&#123;<span class="keyword">\par</span></span><br><span class="line">  <span class="keyword">\setcounter</span>&#123;section&#125;&#123;0&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\setcounter</span>&#123;subsection&#125;&#123;0&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\renewcommand</span><span class="keyword">\thesection</span>&#123;<span class="keyword">\relax</span>&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\def</span><span class="keyword">\@seccntformat</span><span class="params">##1</span>&#123;<span class="keyword">\@nameuse</span>&#123;the<span class="params">##1</span>&#125;&#125;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\addtocontents</span>&#123;toc&#125;&#123;<span class="keyword">\def</span><span class="keyword">\cftsecnumwidth</span>&#123;0pt&#125;&#125;&#125;</span><br><span class="line"><span class="keyword">\makeatother</span></span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\tableofcontents</span></span><br><span class="line"><span class="keyword">\section</span>&#123;正常编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\specialsectioning</span></span><br><span class="line"><span class="keyword">\section</span>&#123;不编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure>
 
 <hr>
 <p>问题解决了，不过思路二这样做未免麻烦。在这个思路下，会不会有更简单的方法呢？答案是肯定的。</p>
 <p>在 LaTeX 标准文档类中，secnumdepth 这个计数器是用来控制章节编号深度的。在 article 中，这个计数器的值默认是 3，对应的章节命令是 \subsubsection。也就是说，默认情况下，article 将会对 \subsubsection 及其之上的所有章节标题进行编号，也就是 \part, \section, \subsection, \subsubsection。</p>
 <p>LaTeX 标准文档类中，最大的标题是 \part。它在 book 和 report 类中的层级是「-1」，在 article 类中的层级是「0」。因此，我们只需要将计数器设置为 -2，之后章节命令都不会编号了，从而解决问题。</p>
 <p>我们来看一下代码。</p>
-<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">\<span class="name">documentclass</span><span class="string">&#123;ctexart&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">makeatletter</span></span></span><br><span class="line"><span class="tag">\<span class="name">newcommand</span></span><span class="tag">\<span class="name">specialsectioning</span><span class="string">&#123;\setcounter&#123;secnumdepth&#125;</span><span class="string">&#123;-2&#125;</span></span>&#125;</span><br><span class="line"><span class="tag">\<span class="name">makeatother</span></span></span><br><span class="line"><span class="tag">\<span class="name">begin</span><span class="string">&#123;document&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">tableofcontents</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;正常编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">specialsectioning</span></span></span><br><span class="line"><span class="tag">\<span class="name">section</span><span class="string">&#123;不编号的章节标题&#125;</span></span></span><br><span class="line"><span class="tag">\<span class="name">end</span><span class="string">&#123;document&#125;</span></span></span><br></pre></td></tr></table></figure>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;ctexart&#125;</span><br><span class="line"><span class="keyword">\makeatletter</span></span><br><span class="line"><span class="keyword">\newcommand</span><span class="keyword">\specialsectioning</span>&#123;<span class="keyword">\setcounter</span>&#123;secnumdepth&#125;&#123;-2&#125;&#125;</span><br><span class="line"><span class="keyword">\makeatother</span></span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\tableofcontents</span></span><br><span class="line"><span class="keyword">\section</span>&#123;正常编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\specialsectioning</span></span><br><span class="line"><span class="keyword">\section</span>&#123;不编号的章节标题&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure>
 
 <p>怎么样？是不是简单多了？</p>
 
@@ -489,7 +492,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#思路一"><span class="nav-number">1.</span> <span class="nav-text">思路一</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#思路二"><span class="nav-number">2.</span> <span class="nav-text">思路二</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%9D%E8%B7%AF%E4%B8%80"><span class="nav-number">1.</span> <span class="nav-text">思路一</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%9D%E8%B7%AF%E4%BA%8C"><span class="nav-number">2.</span> <span class="nav-text">思路二</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -525,7 +528,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -540,52 +543,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -623,9 +626,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -680,9 +683,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -750,7 +761,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

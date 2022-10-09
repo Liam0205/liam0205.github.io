@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,17 @@
   </script>
 
   <meta name="description" content="在实际工作一个典型的机器学习任务中，我们在线上和线下都要对特征数据进行处理。线上处理的目的是为了推理预测，线下处理的目的则是为了准备训练数据。显然，因为处理区分线上线下，数据一致性就会成为非常关键的问题。 然而，数据一致性是挺烫手的山芋。因为，如果尝试在线上线下先后两次实现同样的功能，不论如何小心，都有出错的可能。更不用说，如果使用不同语言，那对于数据处理上的些微不同最终都可能破坏数据一致性。 因">
-<meta name="keywords" content="Hive">
 <meta property="og:type" content="article">
 <meta property="og:title" content="使用 TRANSFORM 在 Hive 中调用用户自定义的脚本">
 <meta property="og:url" content="https://liam.page/2020/05/11/TRANSFORM-in-Hive/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="在实际工作一个典型的机器学习任务中，我们在线上和线下都要对特征数据进行处理。线上处理的目的是为了推理预测，线下处理的目的则是为了准备训练数据。显然，因为处理区分线上线下，数据一致性就会成为非常关键的问题。 然而，数据一致性是挺烫手的山芋。因为，如果尝试在线上线下先后两次实现同样的功能，不论如何小心，都有出错的可能。更不用说，如果使用不同语言，那对于数据处理上的些微不同最终都可能破坏数据一致性。 因">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-05-11T15:20:24.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-05-11T14:57:50.000Z">
+<meta property="article:modified_time" content="2020-05-11T15:20:24.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Hive">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="使用 TRANSFORM 在 Hive 中调用用户自定义的脚本">
-<meta name="twitter:description" content="在实际工作一个典型的机器学习任务中，我们在线上和线下都要对特征数据进行处理。线上处理的目的是为了推理预测，线下处理的目的则是为了准备训练数据。显然，因为处理区分线上线下，数据一致性就会成为非常关键的问题。 然而，数据一致性是挺烫手的山芋。因为，如果尝试在线上线下先后两次实现同样的功能，不论如何小心，都有出错的可能。更不用说，如果使用不同语言，那对于数据处理上的些微不同最终都可能破坏数据一致性。 因">
 
 <link rel="canonical" href="https://liam.page/2020/05/11/TRANSFORM-in-Hive/">
 
@@ -309,14 +309,14 @@
 <p>然而，数据一致性是挺烫手的山芋。因为，如果尝试在线上线下先后两次实现同样的功能，不论如何小心，都有出错的可能。更不用说，如果使用不同语言，那对于数据处理上的些微不同最终都可能破坏数据一致性。</p>
 <p>因此，保证数据一致性最好的办法就是用一份代码在两个地方干同样的事情。我们线上服务是用 C++ 编写的，因此我们可以将特征 ETL 抽象成单独的模块，分别链接到线上服务以及离线特征处理程序中。这样，二者对于特征的 ETL 的行为就完全一致了。</p>
 <p>剩下的问题就是：离线数据通过 Kafka 落在 Hive 表当中，我们需要在 Hive 处理数据的过程中，嵌入我们自己编写的特征处理程序。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <p>经过简单的检索，我发现 Hive SQL 的 <code>TRANSFORM</code> 语法可以很方便地完成这一工作。</p>
 <p>首先，我们需要使用 <code>ADD FILE</code> 将可执行程序以及可能的其他资源文件加入 Hive 豪华套餐。</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ADD FILE hdfs://path/to/feature_etl;</span><br><span class="line">ADD FILE hdfs://path/to/feature_etl.cfg;</span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ADD</span> FILE hdfs:<span class="operator">/</span><span class="operator">/</span>path<span class="operator">/</span><span class="keyword">to</span><span class="operator">/</span>feature_etl;</span><br><span class="line"><span class="keyword">ADD</span> FILE hdfs:<span class="operator">/</span><span class="operator">/</span>path<span class="operator">/</span><span class="keyword">to</span><span class="operator">/</span>feature_etl.cfg;</span><br></pre></td></tr></table></figure>
 
 <p>而后，我们就可以将 <code>TRANSFORM</code> 语句嵌入在 <code>SELECT</code> 子句当中了：</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  TRANSFORM (column1, column2)</span><br><span class="line">    <span class="keyword">USING</span> <span class="string">'./feature_etl --config_file=./feature_etl.cfg'</span></span><br><span class="line">    <span class="keyword">AS</span> (out_column1 <span class="keyword">STRING</span>, out_column2 <span class="built_in">BIGINT</span>)</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">  db_name.tb_name</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">  conds;</span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">  TRANSFORM (column1, column2)</span><br><span class="line">    <span class="keyword">USING</span> <span class="string">&#x27;./feature_etl --config_file=./feature_etl.cfg&#x27;</span></span><br><span class="line">    <span class="keyword">AS</span> (out_column1 STRING, out_column2 <span class="type">BIGINT</span>)</span><br><span class="line"><span class="keyword">FROM</span></span><br><span class="line">  db_name.tb_name</span><br><span class="line"><span class="keyword">WHERE</span></span><br><span class="line">  conds;</span><br></pre></td></tr></table></figure>
 
 <p>这里：</p>
 <ul>
@@ -337,7 +337,7 @@
 </li>
 </ul>
 <p>另外，Hive 也提供了 <code>MAP</code> 和 <code>REDUCE</code> 子句，同样可以使用用户自定程序处理数据。但是 <code>MAP</code> 和 <code>REDUCE</code> 其实只是 <code>TRANSFORM</code> 的别称，使用 <code>MAP</code> 并不一定会在 MapReduce 的 Map 阶段进行处理，使用 <code>REDUCE</code> 也是一样。因此，使用这两个子句难免有误导之嫌，不如不用，统一转向 <code>TRANSFORM</code>。</p>
-<p><code>TRANSFORM</code> 子句还有其他一些细节，可参考 <a href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Transform" target="_blank" rel="noopener">Apache 的 wiki 页</a>。</p>
+<p><code>TRANSFORM</code> 子句还有其他一些细节，可参考 <a target="_blank" rel="noopener" href="https://cwiki.apache.org/confluence/display/Hive/LanguageManual+Transform">Apache 的 wiki 页</a>。</p>
 
     </div>
 
@@ -505,7 +505,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -520,52 +520,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -603,9 +603,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -660,9 +660,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -730,7 +738,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

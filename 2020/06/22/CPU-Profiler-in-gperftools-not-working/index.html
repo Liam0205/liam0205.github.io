@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -25,18 +25,19 @@
     var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按官网介绍，以下三种方式之一，可开启 CPU Profiler。  运行时，用 LD_PRELOAD 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 env LD_PRELOAD=&amp;quot;/usr/lib/libprofiler.so&amp;quot; /pat">
-<meta name="keywords" content="gperftools,CPU Profiler">
+  <meta name="description" content="为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按官网介绍，以下三种方式之一，可开启 CPU Profiler。  运行时，用 LD_PRELOAD 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 env LD_PRELOAD&#x3D;&quot;&#x2F;usr&#x2F;lib&#x2F;libprofiler.so&quot; &#x2F;pat">
 <meta property="og:type" content="article">
 <meta property="og:title" content="gperftools 中 CPU Profiler 不工作问题的解法">
 <meta property="og:url" content="https://liam.page/2020/06/22/CPU-Profiler-in-gperftools-not-working/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按官网介绍，以下三种方式之一，可开启 CPU Profiler。  运行时，用 LD_PRELOAD 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 env LD_PRELOAD=&amp;quot;/usr/lib/libprofiler.so&amp;quot; /pat">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-07-09T16:07:23.000Z">
+<meta property="og:description" content="为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按官网介绍，以下三种方式之一，可开启 CPU Profiler。  运行时，用 LD_PRELOAD 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 env LD_PRELOAD&#x3D;&quot;&#x2F;usr&#x2F;lib&#x2F;libprofiler.so&quot; &#x2F;pat">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2020-06-22T13:01:30.000Z">
+<meta property="article:modified_time" content="2020-07-09T16:07:23.992Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="gperftools">
+<meta property="article:tag" content="CPU Profiler">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="gperftools 中 CPU Profiler 不工作问题的解法">
-<meta name="twitter:description" content="为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按官网介绍，以下三种方式之一，可开启 CPU Profiler。  运行时，用 LD_PRELOAD 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 env LD_PRELOAD=&amp;quot;/usr/lib/libprofiler.so&amp;quot; /pat">
 
 <link rel="canonical" href="https://liam.page/2020/06/22/CPU-Profiler-in-gperftools-not-working/">
 
@@ -311,7 +312,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按<a href="https://gperftools.github.io/gperftools/cpuprofile.html" target="_blank" rel="noopener">官网介绍</a>，以下三种方式之一，可开启 CPU Profiler。</p>
+        <p>为了分析服务性能瓶颈，今次我们计划用 gperftools 当中的 CPU Profiler 来打印服务当中的性能热点。按<a target="_blank" rel="noopener" href="https://gperftools.github.io/gperftools/cpuprofile.html">官网介绍</a>，以下三种方式之一，可开启 CPU Profiler。</p>
 <ol>
 <li>运行时，用 <code>LD_PRELOAD</code> 环境变量加载 CPU Profiler 的共享对象（动态库）。例如 <code>env LD_PRELOAD=&quot;/usr/lib/libprofiler.so&quot; /path/to/elf_bin</code>。</li>
 <li>链接时，加上 <code>-lprofiler</code>（或者 <code>-ltcmalloc_and_profiler</code>，如果还需要 TCMalloc 的话），而后在运行时通过 <code>env CPUPROFILE=foo.prof /path/to/elf_bin</code> 将性能分析文件写入 <code>foo.prof</code>。</li>
@@ -319,12 +320,12 @@
 </ol>
 <p>这里 (1) 不需要重新编译，但是一看就很山寨；(3) 在分析特定代码片块的性能时很有效，但在意图分析整个程序的性能时就很鸡肋。目光集中在 (2) 上面。</p>
 <p>尝试 (2) 时，遇到一个问题。不管如何设置 <code>CPUPROFILE</code>，程序都不会将性能分析文件转储出来。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <p>经过分析，原因水落石出。链接器在链接 <code>libprofiler</code> 时，会根据程序中的符号引用情况，将未被引用的符号都删掉。由于我们的代码里，没有引用任何 CPU Profiler 的函数，相当于整个 <code>libprofiler</code> 其实没有被链入程序当中。</p>
 <p>为解决这个问题，最标准的解法，是在 <code>-lprofiler</code> 前后加上链接器参数，抑制这种行为：<code>--no-as-needed</code> 和 <code>--as-needed</code>。</p>
 <p>如果因为种种原因，无法给链接器传参，则可考虑在 <code>main</code> 函数返回之前，加入这段代码：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">volatile</span> <span class="keyword">bool</span> tmp = <span class="literal">false</span>;</span><br><span class="line"><span class="keyword">if</span> (tmp) ProfilerStop();</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">volatile</span> <span class="type">bool</span> tmp = <span class="literal">false</span>;</span><br><span class="line"><span class="keyword">if</span> (tmp) <span class="built_in">ProfilerStop</span>();</span><br></pre></td></tr></table></figure>
 
 <p>这里，布尔变量 <code>tmp</code> 被 <code>volatile</code> 修饰，因而编译器不会将其优化掉。而因为我们没有机会改变 <code>tmp</code> 的值，所以 <code>ProfilerStop()</code> 没有机会被执行。但是，虽然我们知道这一点，但编译器并不知道。因此，在得到的目标文件之中，会有针对 <code>ProfilerStop</code> 及相关符号的引用。这样，哪怕不加 <code>--no-as-needed</code> 和 <code>--as-needed</code> 参数，链接器也会将需要的符号链入程序当中。</p>
 
@@ -495,7 +496,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -510,52 +511,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -593,9 +594,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -650,9 +651,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -720,7 +729,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,24 @@
   </script>
 
   <meta name="description" content="准确是两个概念。准是 bias 小，确是 variance 小。准确是相对概念，因为 bias-variance tradeoff。——Liam Huang  在机器学习领域，人们总是希望使自己的模型尽可能准确地描述数据背后的真实规律。通俗所言的「准确」，其实就是误差小。在领域中，排除人为失误，人们一般会遇到三种误差来源：随机误差、偏差和方差。偏差和方差又与「欠拟合」及「过拟合」紧紧联系在一起。">
-<meta name="keywords" content="Machine Learning,Tradeoff">
 <meta property="og:type" content="article">
 <meta property="og:title" content="谈谈 Bias-Variance Tradeoff">
 <meta property="og:url" content="https://liam.page/2017/03/25/bias-variance-tradeoff/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="准确是两个概念。准是 bias 小，确是 variance 小。准确是相对概念，因为 bias-variance tradeoff。——Liam Huang  在机器学习领域，人们总是希望使自己的模型尽可能准确地描述数据背后的真实规律。通俗所言的「准确」，其实就是误差小。在领域中，排除人为失误，人们一般会遇到三种误差来源：随机误差、偏差和方差。偏差和方差又与「欠拟合」及「过拟合」紧紧联系在一起。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2021-07-31T05:56:01.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/bias-and-variance.png">
+<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/polyfit.png">
+<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/bias-variance-tend.png">
+<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/error-curve.png">
+<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/Machine-Learning-Workflow.png">
+<meta property="article:published_time" content="2017-03-25T03:33:41.000Z">
+<meta property="article:modified_time" content="2021-07-31T05:56:01.233Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Machine Learning">
+<meta property="article:tag" content="Tradeoff">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="谈谈 Bias-Variance Tradeoff">
-<meta name="twitter:description" content="准确是两个概念。准是 bias 小，确是 variance 小。准确是相对概念，因为 bias-variance tradeoff。——Liam Huang  在机器学习领域，人们总是希望使自己的模型尽可能准确地描述数据背后的真实规律。通俗所言的「准确」，其实就是误差小。在领域中，排除人为失误，人们一般会遇到三种误差来源：随机误差、偏差和方差。偏差和方差又与「欠拟合」及「过拟合」紧紧联系在一起。">
+<meta name="twitter:image" content="https://liam.page/uploads/images/MachineLearning/bias-and-variance.png">
 
 <link rel="canonical" href="https://liam.page/2017/03/25/bias-variance-tradeoff/">
 
@@ -292,14 +299,14 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>5.4k</span>
+              <span>5.9k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>10 分钟</span>
+              <span>11 分钟</span>
             </span>
 
         </div>
@@ -315,28 +322,20 @@
 <p>准确是两个概念。准是 bias 小，确是 variance 小。准确是相对概念，因为 bias-variance tradeoff。<br>——Liam Huang</p>
 </blockquote>
 <p>在机器学习领域，人们总是希望使自己的模型尽可能准确地描述数据背后的真实规律。通俗所言的「准确」，其实就是误差小。在领域中，排除人为失误，人们一般会遇到三种误差来源：随机误差、偏差和方差。偏差和方差又与「欠拟合」及「过拟合」紧紧联系在一起。由于随机误差是不可消除的，所以此篇我们讨论在偏差和方差之间的权衡（Bias-Variance Tradeoff）。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="定义"><a href="#定义" class="headerlink" title="定义"></a>定义</h2><h3 id="数学上定义"><a href="#数学上定义" class="headerlink" title="数学上定义"></a>数学上定义</h3><p>首先需要说明的是<strong>随机误差</strong>。随机误差是数据本身的噪音带来的，这种误差是不可避免的。一般认为随机误差服从高斯分布，记作 $\epsilon\sim\mathcal N(0, \sigma_\epsilon)$。因此，若有变量 $y$ 作为预测值，以及 $X$ 作为自变量（协变量），那么我们将数据背后的真实规律 $f$ 记作</p>
-<p>$$y = f(X) + \epsilon.$$</p>
+<p>$$y &#x3D; f(X) + \epsilon.$$</p>
 <p>偏差和方差则需要在统计上做对应的定义。</p>
 <ul>
-<li><strong>偏差（bias）</strong>描述的是通过学习拟合出来的结果之期望，与真实规律之间的差距，记作 $\text{Bias}(X) = E[\hat f(X)] - f(X)$。</li>
-<li><strong>方差（variance）</strong>即是统计学中的定义，描述的是通过学习拟合出来的结果自身的不稳定性，记作 $\text{Var}(X) = E\Bigl[\bigl(\hat f(X) - E[\hat f(X)]\bigr)^{2}\Bigr]$。</li>
+<li><strong>偏差（bias）</strong>描述的是通过学习拟合出来的结果之期望，与真实规律之间的差距，记作 $\text{Bias}(X) &#x3D; E[\hat f(X)] - f(X)$。</li>
+<li><strong>方差（variance）</strong>即是统计学中的定义，描述的是通过学习拟合出来的结果自身的不稳定性，记作 $\text{Var}(X) &#x3D; E\Bigl[\bigl(\hat f(X) - E[\hat f(X)]\bigr)^{2}\Bigr]$。</li>
 </ul>
 <p>以均方误差为例，有如下推论</p>
-<p><code>\begin{equation}
-\begin{aligned}
-\text{Err}(X) &amp;{}= E\Bigl[\bigl(y - \hat f(X)\bigr)^2\Bigr] \\
-              &amp;{}= E\Bigl[\bigl(f(X) + \epsilon - \hat f(X)\bigr)^2\Bigr] \\
-              &amp;{}= \left(E[\hat{f}(X)]-f(X)\right)^2 + E\left[\left(\hat{f}(X)-E[\hat{f}(X)]\right)^2\right] +\sigma_\epsilon^2 \\
-              &amp;{}= \text{Bias}^2 + \text{Variance} + \text{Random Error}.
-\end{aligned}
-\label{eq:err-comp}
-\end{equation}</code></p>
+<p><code>\begin&#123;equation&#125; \begin&#123;aligned&#125; \text&#123;Err&#125;(X) &amp;&#123;&#125;= E\Bigl[\bigl(y - \hat f(X)\bigr)^2\Bigr] \\               &amp;&#123;&#125;= E\Bigl[\bigl(f(X) + \epsilon - \hat f(X)\bigr)^2\Bigr] \\               &amp;&#123;&#125;= \left(E[\hat&#123;f&#125;(X)]-f(X)\right)^2 + E\left[\left(\hat&#123;f&#125;(X)-E[\hat&#123;f&#125;(X)]\right)^2\right] +\sigma_\epsilon^2 \\               &amp;&#123;&#125;= \text&#123;Bias&#125;^2 + \text&#123;Variance&#125; + \text&#123;Random Error&#125;. \end&#123;aligned&#125; \label&#123;eq:err-comp&#125; \end&#123;equation&#125;</code></p>
 <h3 id="直观的图示"><a href="#直观的图示" class="headerlink" title="直观的图示"></a>直观的图示</h3><p>下图将机器学习任务描述为一个「打靶」的活动：根据相同算法、不同数据集训练出的模型，对同一个样本进行预测；每个模型作出的预测相当于是一次打靶。</p>
 <blockquote>
-<p><img data-src="/uploads/images/MachineLearning/bias-and-variance.png" alt><br><a href="http://scott.fortmann-roe.com/docs/BiasVariance.html" target="_blank" rel="noopener">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
+<p><img data-src="/uploads/images/MachineLearning/bias-and-variance.png"><br><a target="_blank" rel="noopener" href="http://scott.fortmann-roe.com/docs/BiasVariance.html">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
 </blockquote>
 <p>左上角的示例是理想状况：偏差和方差都非常小。如果有无穷的训练数据，以及完美的模型算法，我们是有办法达成这样的情况的。然而，现实中的工程问题，通常数据量是有限的，而模型也是不完美的。因此，这只是一个理想状况。</p>
 <p>右上角的示例表示偏差小而方差大。靶纸上的落点都集中分布在红心周围，它们的期望落在红心之内，因此偏差较小。另外一方面，落点虽然集中在红心周围，但是比较分散，这是方差大的表现。</p>
@@ -344,13 +343,13 @@
 <p>右下角的示例则是最糟糕的情况，偏差和方差都非常大。这是我们最不希望看到的结果。</p>
 <h2 id="举个栗子"><a href="#举个栗子" class="headerlink" title="举个栗子"></a>举个栗子</h2><p>现在我们做一个模拟实验，用以说明至此介绍的内容。</p>
 <p>首先，我们生成了两组 array，分别作为训练集和验证集。这里，<code>x</code> 与 <code>y</code> 是接近线性相关的，而在 <code>y</code> 上加入了随机噪声，用以模拟真实问题中的情况。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line">np.random.seed(<span class="number">42</span>)  <span class="comment"># the answer to life, the universe and everything</span></span><br><span class="line">real = <span class="keyword">lambda</span> x:x + x ** <span class="number">0.1</span></span><br><span class="line"></span><br><span class="line">x_train = np.linspace(<span class="number">0</span>, <span class="number">15</span>, <span class="number">100</span>)</span><br><span class="line">y_train = map(real, x_train)</span><br><span class="line">y_noise = <span class="number">2</span> * np.random.normal(size = x_train.size)</span><br><span class="line">y_train = y_train + y_noise</span><br><span class="line"></span><br><span class="line">x_valid = np.linspace(<span class="number">0</span>, <span class="number">15</span>, <span class="number">50</span>)</span><br><span class="line">y_valid = map(real, x_valid)</span><br><span class="line">y_noise = <span class="number">2</span> * np.random.normal(size = x_valid.size)</span><br><span class="line">y_valid = y_valid + y_noise</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line">np.random.seed(<span class="number">42</span>)  <span class="comment"># the answer to life, the universe and everything</span></span><br><span class="line">real = <span class="keyword">lambda</span> x:x + x ** <span class="number">0.1</span></span><br><span class="line"></span><br><span class="line">x_train = np.linspace(<span class="number">0</span>, <span class="number">15</span>, <span class="number">100</span>)</span><br><span class="line">y_train = <span class="built_in">map</span>(real, x_train)</span><br><span class="line">y_noise = <span class="number">2</span> * np.random.normal(size = x_train.size)</span><br><span class="line">y_train = y_train + y_noise</span><br><span class="line"></span><br><span class="line">x_valid = np.linspace(<span class="number">0</span>, <span class="number">15</span>, <span class="number">50</span>)</span><br><span class="line">y_valid = <span class="built_in">map</span>(real, x_valid)</span><br><span class="line">y_noise = <span class="number">2</span> * np.random.normal(size = x_valid.size)</span><br><span class="line">y_valid = y_valid + y_noise</span><br></pre></td></tr></table></figure>
 
 <p>现在，我们选用最小平方误差作为损失函数，尝试用多项式函数去拟合这些数据。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">prop    = np.polyfit(x_train, y_train, <span class="number">1</span>)</span><br><span class="line">prop_   = np.poly1d(prop)</span><br><span class="line">overf   = np.polyfit(x_train, y_train, <span class="number">15</span>)</span><br><span class="line">overf_  = np.poly1d(overf)</span><br></pre></td></tr></table></figure>
 
 <p>这里，对于 <code>prop</code>，我们采用了一阶的多项式函数（线性模型）去拟合数据；对于 <code>overf</code>，我们采用了 15 阶的多项式函数（多项式模型）去拟合数据。如此，我们可以把拟合效果绘制成图。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt</span><br><span class="line"></span><br><span class="line">_ = plt.figure(figsize = (<span class="number">14</span>, <span class="number">6</span>))</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">prop_e  = np.mean((y_train - np.polyval(prop, x_train)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_train - np.polyval(overf, x_train)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(<span class="number">-2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_train, y_train, <span class="string">'.'</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">'-'</span>, label = <span class="string">'proper, err: %.3f'</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">'--'</span>, label = <span class="string">'overfit, err: %.3f'</span> % (overf_e))</span><br><span class="line">plt.ylim(<span class="number">-5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">'train set'</span>)</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>)</span><br><span class="line">prop_e  = np.mean((y_valid - np.polyval(prop,  x_valid)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_valid - np.polyval(overf, x_valid)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(<span class="number">-2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_valid, y_valid, <span class="string">'.'</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">'-'</span>, label = <span class="string">'proper, err: %.3f'</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">'--'</span>, label = <span class="string">'overfit, err: %.3f'</span> % (overf_e))</span><br><span class="line">plt.ylim(<span class="number">-5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">'validation set'</span>)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> matplotlib.pyplot <span class="keyword">as</span> plt</span><br><span class="line"></span><br><span class="line">_ = plt.figure(figsize = (<span class="number">14</span>, <span class="number">6</span>))</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>)</span><br><span class="line">prop_e  = np.mean((y_train - np.polyval(prop, x_train)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_train - np.polyval(overf, x_train)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(-<span class="number">2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_train, y_train, <span class="string">&#x27;.&#x27;</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">&#x27;-&#x27;</span>, label = <span class="string">&#x27;proper, err: %.3f&#x27;</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">&#x27;--&#x27;</span>, label = <span class="string">&#x27;overfit, err: %.3f&#x27;</span> % (overf_e))</span><br><span class="line">plt.ylim(-<span class="number">5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">&#x27;train set&#x27;</span>)</span><br><span class="line"></span><br><span class="line">plt.subplot(<span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>)</span><br><span class="line">prop_e  = np.mean((y_valid - np.polyval(prop,  x_valid)) ** <span class="number">2</span>)</span><br><span class="line">overf_e = np.mean((y_valid - np.polyval(overf, x_valid)) ** <span class="number">2</span>)</span><br><span class="line">xp      = np.linspace(-<span class="number">2</span>, <span class="number">17</span>, <span class="number">200</span>)</span><br><span class="line">plt.plot(x_valid, y_valid, <span class="string">&#x27;.&#x27;</span>)</span><br><span class="line">plt.plot(xp, prop_(xp), <span class="string">&#x27;-&#x27;</span>, label = <span class="string">&#x27;proper, err: %.3f&#x27;</span> % (prop_e))</span><br><span class="line">plt.plot(xp, overf_(xp), <span class="string">&#x27;--&#x27;</span>, label = <span class="string">&#x27;overfit, err: %.3f&#x27;</span> % (overf_e))</span><br><span class="line">plt.ylim(-<span class="number">5</span>, <span class="number">20</span>)</span><br><span class="line">plt.legend()</span><br><span class="line">plt.title(<span class="string">&#x27;validation set&#x27;</span>)</span><br></pre></td></tr></table></figure>
 
 <p><img data-src="/uploads/images/MachineLearning/polyfit.png" alt="多项式拟合结果"></p>
 <p>以训练集上的结果来说，线性模型的误差要明显高于多项式模型。站在人类观察者的角度来说，这似乎是显而易见的：数据是围绕一个近似线性的函数附近抖动的，那么用简单的线性模型，自然就无法准确地拟合数据；但是，高阶的多项式函数可以进行各种「扭曲」，以便将训练集的数据拟合得更好。</p>
@@ -372,27 +371,23 @@
 <p>也就是说，在整个过程中，我们固定训练样本，改变模型的描述能力（模型复杂度）。不难理解，随着模型复杂度的增加，其描述能力也就会增加；此时，模型在验证集上的表现，偏差会倾向于减小而方差会倾向于增大。而在相反方向，随着模型复杂度的降低，其描述能力也就会降低；此时，模型在验证集上的表现，偏差会倾向于增大而方差会倾向于减小。</p>
 <p>考虑到，模型误差是偏差与方差的加和，因此我们可以绘制出这样的图像。</p>
 <blockquote>
-<p><img data-src="/uploads/images/MachineLearning/bias-variance-tend.png" alt="偏差与误差的变化趋势"><br><a href="http://scott.fortmann-roe.com/docs/BiasVariance.html" target="_blank" rel="noopener">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
+<p><img data-src="/uploads/images/MachineLearning/bias-variance-tend.png" alt="偏差与误差的变化趋势"><br><a target="_blank" rel="noopener" href="http://scott.fortmann-roe.com/docs/BiasVariance.html">http://scott.fortmann-roe.com/docs/BiasVariance.html</a></p>
 </blockquote>
 <p>图中的最优位置，实际上是 total error 曲线的拐点。我们知道，连续函数的拐点意味着此处一阶导数的值为 0。考虑到 total error 是偏差与方差的加和，所以我们有，在拐点处：</p>
-<p><code>\begin{equation}
-\newcommand{\dif}{\mathop{}\!\mathrm{d}}
-\frac{\dif\text{Bias}}{\dif\text{Complexity}} = - \frac{\dif\text{Variance}}{\dif\text{Complexity}}
-\label{eq:sweet}
-\end{equation}</code></p>
+<p><code>\begin&#123;equation&#125; \newcommand&#123;\dif&#125;&#123;\mathop&#123;&#125;\!\mathrm&#123;d&#125;&#125; \frac&#123;\dif\text&#123;Bias&#125;&#125;&#123;\dif\text&#123;Complexity&#125;&#125; = - \frac&#123;\dif\text&#123;Variance&#125;&#125;&#123;\dif\text&#123;Complexity&#125;&#125; \label&#123;eq:sweet&#125; \end&#123;equation&#125;</code></p>
 <p>公式 \ref{eq:sweet} 给出了寻找最优平衡点的数学描述。若模型复杂度大于平衡点，则模型的方差会偏高，模型倾向于过拟合；若模型复杂度小于平衡点，则模型的偏差会偏高，模型倾向于欠拟合。</p>
 <h3 id="过拟合与欠拟合的外在表现"><a href="#过拟合与欠拟合的外在表现" class="headerlink" title="过拟合与欠拟合的外在表现"></a>过拟合与欠拟合的外在表现</h3><p>尽管有了上述数学表述，但是在现实环境中，有时候我们很难计算模型的偏差与方差。因此，我们需要通过外在表现，判断模型的拟合状态：是欠拟合还是过拟合。</p>
 <p>同样地，在有限的训练数据集中，不断增加模型的复杂度，意味着模型会尽可能多地降低在训练集上的误差。因此，在训练集上，不断增加模型的复杂度，训练集上的误差会一直下降。</p>
 <p>因此，我们可以绘制出这样的图像。</p>
 <blockquote>
-<p><img data-src="/uploads/images/MachineLearning/error-curve.png" alt="训练集和验证集上的误差变化"><br><a href="http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/" target="_blank" rel="noopener">http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/</a></p>
+<p><img data-src="/uploads/images/MachineLearning/error-curve.png" alt="训练集和验证集上的误差变化"><br><a target="_blank" rel="noopener" href="http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/">http://www.learnopencv.com/bias-variance-tradeoff-in-machine-learning/</a></p>
 </blockquote>
 <p>因此，</p>
 <ul>
 <li>当模型处于欠拟合状态时，训练集和验证集上的误差都很高；</li>
 <li>当模型处于过拟合状态时，训练集上的误差低，而验证集上的误差会非常高。</li>
 </ul>
-<h2 id="处理欠拟合与过拟合"><a href="#处理欠拟合与过拟合" class="headerlink" title="处理欠拟合与过拟合"></a>处理欠拟合与过拟合</h2><p>有了这些分析，我们就能比较容易地判断模型所处的拟合状态。接下来，我们就可以参考 Andrew Ng 博士提供的处理模型欠拟合/过拟合的一般方法了。</p>
+<h2 id="处理欠拟合与过拟合"><a href="#处理欠拟合与过拟合" class="headerlink" title="处理欠拟合与过拟合"></a>处理欠拟合与过拟合</h2><p>有了这些分析，我们就能比较容易地判断模型所处的拟合状态。接下来，我们就可以参考 Andrew Ng 博士提供的处理模型欠拟合&#x2F;过拟合的一般方法了。</p>
 <blockquote>
 <p><img data-src="/uploads/images/MachineLearning/Machine-Learning-Workflow.png" alt="机器学习调试的一般流程"></p>
 </blockquote>
@@ -542,7 +537,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#定义"><span class="nav-number">1.</span> <span class="nav-text">定义</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#数学上定义"><span class="nav-number">1.1.</span> <span class="nav-text">数学上定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#直观的图示"><span class="nav-number">1.2.</span> <span class="nav-text">直观的图示</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#举个栗子"><span class="nav-number">2.</span> <span class="nav-text">举个栗子</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#权衡之术"><span class="nav-number">3.</span> <span class="nav-text">权衡之术</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#克服-OCD"><span class="nav-number">3.1.</span> <span class="nav-text">克服 OCD</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#最佳平衡点的数学表述"><span class="nav-number">3.2.</span> <span class="nav-text">最佳平衡点的数学表述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#过拟合与欠拟合的外在表现"><span class="nav-number">3.3.</span> <span class="nav-text">过拟合与欠拟合的外在表现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#处理欠拟合与过拟合"><span class="nav-number">4.</span> <span class="nav-text">处理欠拟合与过拟合</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#欠拟合"><span class="nav-number">4.1.</span> <span class="nav-text">欠拟合</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#过拟合"><span class="nav-number">4.2.</span> <span class="nav-text">过拟合</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9A%E4%B9%89"><span class="nav-number">1.</span> <span class="nav-text">定义</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E5%AD%A6%E4%B8%8A%E5%AE%9A%E4%B9%89"><span class="nav-number">1.1.</span> <span class="nav-text">数学上定义</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%B4%E8%A7%82%E7%9A%84%E5%9B%BE%E7%A4%BA"><span class="nav-number">1.2.</span> <span class="nav-text">直观的图示</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BE%E4%B8%AA%E6%A0%97%E5%AD%90"><span class="nav-number">2.</span> <span class="nav-text">举个栗子</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9D%83%E8%A1%A1%E4%B9%8B%E6%9C%AF"><span class="nav-number">3.</span> <span class="nav-text">权衡之术</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%85%8B%E6%9C%8D-OCD"><span class="nav-number">3.1.</span> <span class="nav-text">克服 OCD</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%80%E4%BD%B3%E5%B9%B3%E8%A1%A1%E7%82%B9%E7%9A%84%E6%95%B0%E5%AD%A6%E8%A1%A8%E8%BF%B0"><span class="nav-number">3.2.</span> <span class="nav-text">最佳平衡点的数学表述</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%87%E6%8B%9F%E5%90%88%E4%B8%8E%E6%AC%A0%E6%8B%9F%E5%90%88%E7%9A%84%E5%A4%96%E5%9C%A8%E8%A1%A8%E7%8E%B0"><span class="nav-number">3.3.</span> <span class="nav-text">过拟合与欠拟合的外在表现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%84%E7%90%86%E6%AC%A0%E6%8B%9F%E5%90%88%E4%B8%8E%E8%BF%87%E6%8B%9F%E5%90%88"><span class="nav-number">4.</span> <span class="nav-text">处理欠拟合与过拟合</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AC%A0%E6%8B%9F%E5%90%88"><span class="nav-number">4.1.</span> <span class="nav-text">欠拟合</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%87%E6%8B%9F%E5%90%88"><span class="nav-number">4.2.</span> <span class="nav-text">过拟合</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -578,7 +573,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -593,52 +588,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -676,9 +671,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -733,9 +728,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -803,7 +806,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

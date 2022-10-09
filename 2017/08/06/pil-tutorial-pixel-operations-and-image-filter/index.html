@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,23 @@
   </script>
 
   <meta name="description" content="这是系列文章的第三篇，参见系列中的相关内容。 这篇文章介绍如何利用 PIL 库，获取图像中的像素内容、修改后生成新的图像。此外，在修改的过程中，我们会引入卷积滤镜，进而引出 PIL 中的图像滤镜库 ImageFilter。">
-<meta name="keywords" content="Python,PIL,ImageFilter">
 <meta property="og:type" content="article">
 <meta property="og:title" content="PIL 简明教程 - 像素操作与图像滤镜">
 <meta property="og:url" content="https://liam.page/2017/08/06/pil-tutorial-pixel-operations-and-image-filter/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="这是系列文章的第三篇，参见系列中的相关内容。 这篇文章介绍如何利用 PIL 库，获取图像中的像素内容、修改后生成新的图像。此外，在修改的过程中，我们会引入卷积滤镜，进而引出 PIL 中的图像滤镜库 ImageFilter。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liam.page/uploads/images/python/cat.jpg">
+<meta property="og:image" content="https://liam.page/uploads/images/python/funny_cat.jpg">
+<meta property="og:image" content="https://liam.page/uploads/images/python/cat_blur.jpg">
+<meta property="article:published_time" content="2017-08-06T07:25:43.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="PIL">
+<meta property="article:tag" content="ImageFilter">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="PIL 简明教程 - 像素操作与图像滤镜">
-<meta name="twitter:description" content="这是系列文章的第三篇，参见系列中的相关内容。 这篇文章介绍如何利用 PIL 库，获取图像中的像素内容、修改后生成新的图像。此外，在修改的过程中，我们会引入卷积滤镜，进而引出 PIL 中的图像滤镜库 ImageFilter。">
+<meta name="twitter:image" content="https://liam.page/uploads/images/python/cat.jpg">
 
 <link rel="canonical" href="https://liam.page/2017/08/06/pil-tutorial-pixel-operations-and-image-filter/">
 
@@ -292,7 +298,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>4.8k</span>
+              <span>5k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -313,22 +319,22 @@
       
         <p>这是系列文章的第三篇，参见<a href="/series">系列</a>中的相关内容。</p>
 <p>这篇文章介绍如何利用 PIL 库，获取图像中的像素内容、修改后生成新的图像。此外，在修改的过程中，我们会引入卷积滤镜，进而引出 PIL 中的图像滤镜库 <code>ImageFilter</code>。</p>
-<a id="more"></a>
+<span id="more"></span>
 
-<h2 id="获取像素内容"><a href="#获取像素内容" class="headerlink" title="获取像素内容"></a>获取像素内容</h2><p>位图是有一个个像素组成的。因此，读入一张图片，实际上就是读入了一系列的像素内容。这些像素内容，按照不同的<a href="http://pillow.readthedocs.io/en/3.4.x/handbook/concepts.html#concept-modes" target="_blank" rel="noopener">模式</a>具有不同的格式。对于三通道的 RGB 位图来说，每个像素是一个 8-bit 整数的三元组。例如 <code>rgb(0, 0, 0)</code> 表示纯黑色，而 <code>rgb(255, 255, 255)</code> 则表示纯白色。</p>
+<h2 id="获取像素内容"><a href="#获取像素内容" class="headerlink" title="获取像素内容"></a>获取像素内容</h2><p>位图是有一个个像素组成的。因此，读入一张图片，实际上就是读入了一系列的像素内容。这些像素内容，按照不同的<a target="_blank" rel="noopener" href="http://pillow.readthedocs.io/en/3.4.x/handbook/concepts.html#concept-modes">模式</a>具有不同的格式。对于三通道的 RGB 位图来说，每个像素是一个 8-bit 整数的三元组。例如 <code>rgb(0, 0, 0)</code> 表示纯黑色，而 <code>rgb(255, 255, 255)</code> 则表示纯白色。</p>
 <p>前文介绍过，<code>Image.open()</code> 可以打开一张图片，返回一个 <code>Image</code> 类的对象。那么，我们怎样获得这一图片的像素内容呢？</p>
 <p>PIL 提供了 <code>PIL.Image.getdata(band = None)</code> 方法，用来获取 <code>Image</code> 类的对象中的像素内容。</p>
 <p>该方法会将图片中的像素内容，逐行逐行地拼接起来<del>（俗称降维打击）</del>，作为一个完整的序列返回。方法的返回类型，是 PIL 库的内部类型。我们可以用 <code>list(im.getdata())</code> 得到标准的 Python <code>list</code> 对象。</p>
 <p>该方法的参数中，<code>band</code> 意味「通道」。当 <code>band = None</code> 时，方法返回所有通道的像素内容；当 <code>band = 0</code> 时，则返回第一个通道的像素内容。例如，对于 RGB 模式的位图，<code>band = 0</code> 返回 R 通道的内容；<code>band = 2</code> 返回 <code>B</code> 通道的内容。</p>
 <p>示例代码：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"></span><br><span class="line">im = Image.open(<span class="string">'cat.jpg'</span>)</span><br><span class="line"></span><br><span class="line">rgb_pixels = list(im.getdata())</span><br><span class="line">r_pixels   = list(im.getdata(band = <span class="number">0</span>))</span><br><span class="line">g_pixels   = list(im.getdata(band = <span class="number">1</span>))</span><br><span class="line">b_pixels   = list(im.getdata(band = <span class="number">2</span>))</span><br><span class="line"></span><br><span class="line">print(rgb_pixels[:<span class="number">10</span>])</span><br><span class="line">print(r_pixels[:<span class="number">10</span>])</span><br><span class="line">print(g_pixels[:<span class="number">10</span>])</span><br><span class="line">print(b_pixels[:<span class="number">10</span>])</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"></span><br><span class="line">im = Image.<span class="built_in">open</span>(<span class="string">&#x27;cat.jpg&#x27;</span>)</span><br><span class="line"></span><br><span class="line">rgb_pixels = <span class="built_in">list</span>(im.getdata())</span><br><span class="line">r_pixels   = <span class="built_in">list</span>(im.getdata(band = <span class="number">0</span>))</span><br><span class="line">g_pixels   = <span class="built_in">list</span>(im.getdata(band = <span class="number">1</span>))</span><br><span class="line">b_pixels   = <span class="built_in">list</span>(im.getdata(band = <span class="number">2</span>))</span><br><span class="line"></span><br><span class="line"><span class="built_in">print</span>(rgb_pixels[:<span class="number">10</span>])</span><br><span class="line"><span class="built_in">print</span>(r_pixels[:<span class="number">10</span>])</span><br><span class="line"><span class="built_in">print</span>(g_pixels[:<span class="number">10</span>])</span><br><span class="line"><span class="built_in">print</span>(b_pixels[:<span class="number">10</span>])</span><br></pre></td></tr></table></figure>
 
 <p>可能的输出：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[(<span class="number">130</span>, <span class="number">82</span>, <span class="number">8</span>), (<span class="number">132</span>, <span class="number">84</span>, <span class="number">8</span>), (<span class="number">136</span>, <span class="number">87</span>, <span class="number">10</span>), (<span class="number">141</span>, <span class="number">90</span>, <span class="number">11</span>), (<span class="number">143</span>, <span class="number">90</span>, <span class="number">10</span>), (<span class="number">145</span>, <span class="number">90</span>, <span class="number">7</span>), (<span class="number">144</span>, <span class="number">88</span>, <span class="number">3</span>), (<span class="number">144</span>, <span class="number">87</span>, <span class="number">0</span>), (<span class="number">147</span>, <span class="number">85</span>, <span class="number">0</span>), (<span class="number">148</span>, <span class="number">84</span>, <span class="number">0</span>)]</span><br><span class="line">[<span class="number">130</span>, <span class="number">132</span>, <span class="number">136</span>, <span class="number">141</span>, <span class="number">143</span>, <span class="number">145</span>, <span class="number">144</span>, <span class="number">144</span>, <span class="number">147</span>, <span class="number">148</span>]</span><br><span class="line">[<span class="number">82</span>, <span class="number">84</span>, <span class="number">87</span>, <span class="number">90</span>, <span class="number">90</span>, <span class="number">90</span>, <span class="number">88</span>, <span class="number">87</span>, <span class="number">85</span>, <span class="number">84</span>]</span><br><span class="line">[<span class="number">8</span>, <span class="number">8</span>, <span class="number">10</span>, <span class="number">11</span>, <span class="number">10</span>, <span class="number">7</span>, <span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]</span><br></pre></td></tr></table></figure>
 
 <h2 id="写入像素内容"><a href="#写入像素内容" class="headerlink" title="写入像素内容"></a>写入像素内容</h2><p>上一节介绍了如何从一个 <code>Image</code> 类的对象中获得像素内容。现在我们考虑它的镜像问题：如何将已知的像素内容写入一个新的 <code>Image</code> 类的对象。</p>
 <p>在介绍 <code>PIL.Image.getdata()</code> 的过程中，我们提到，该方法返回的内容是一个一维的序列。这个过程，实际上丢失了图像的模式、尺寸等信息。那么在从像素内容恢复到 <code>Image</code> 类的对象的过程中，我们就必须补足这些信息。因此，我们首先需要获取原图像的模式和尺寸。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"></span><br><span class="line">im = Image.open(<span class="string">'cat.jpg'</span>)</span><br><span class="line"></span><br><span class="line">mode = im.mode</span><br><span class="line">width, height = im.size</span><br><span class="line"></span><br><span class="line">imn = Image.new(mode, (height, width))</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"></span><br><span class="line">im = Image.<span class="built_in">open</span>(<span class="string">&#x27;cat.jpg&#x27;</span>)</span><br><span class="line"></span><br><span class="line">mode = im.mode</span><br><span class="line">width, height = im.size</span><br><span class="line"></span><br><span class="line">imn = Image.new(mode, (height, width))</span><br></pre></td></tr></table></figure>
 
 <p>如此，我们就创建了一个新的 <code>Image</code> 类的对象。它的模式与 <code>im</code> 保持一致，尺寸则相对 <code>im</code> 长宽颠倒。现在，我们可以向 <code>imn</code> 中写入像素内容了。</p>
 <p><code>PIL.Image.putdata(data, scale=1.0, offset=0.0)</code> 方法允许我们将像素内容写入 <code>Image</code> 类的对象。</p>
@@ -336,23 +342,23 @@
 <p>据此，我们可以写出完整的代码。首先来看看原图。</p>
 <p><img data-src="/uploads/images/python/cat.jpg" alt="一只惊讶的猫"></p>
 <p>示例代码：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"></span><br><span class="line">im = Image.open(<span class="string">'cat.jpg'</span>)</span><br><span class="line"></span><br><span class="line">mode = im.mode</span><br><span class="line">width, height = im.size</span><br><span class="line">rgb_pixels = list(im.getdata())</span><br><span class="line"></span><br><span class="line">imn = Image.new(mode, (height, width))</span><br><span class="line">imn.putdata(data = rgb_pixels)</span><br><span class="line"></span><br><span class="line">imn.save(<span class="string">'funny_cat.jpg'</span>)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"></span><br><span class="line">im = Image.<span class="built_in">open</span>(<span class="string">&#x27;cat.jpg&#x27;</span>)</span><br><span class="line"></span><br><span class="line">mode = im.mode</span><br><span class="line">width, height = im.size</span><br><span class="line">rgb_pixels = <span class="built_in">list</span>(im.getdata())</span><br><span class="line"></span><br><span class="line">imn = Image.new(mode, (height, width))</span><br><span class="line">imn.putdata(data = rgb_pixels)</span><br><span class="line"></span><br><span class="line">imn.save(<span class="string">&#x27;funny_cat.jpg&#x27;</span>)</span><br></pre></td></tr></table></figure>
 
 <p>结果：</p>
 <p><img data-src="/uploads/images/python/funny_cat.jpg" alt="一只扭曲的猫"></p>
-<h2 id="实际操作看看——实现卷积滤镜"><a href="#实际操作看看——实现卷积滤镜" class="headerlink" title="实际操作看看——实现卷积滤镜"></a>实际操作看看——实现卷积滤镜</h2><p>用固定的矩阵扫描更大的矩阵，这个操作称为卷积。若后者是一张图片，那么这一操作，就是对图像的滤镜操作了。我们在<a href="/2017/07/27/convolutions-and-convolution-neural-network/#图像的滤镜">前作</a>中介绍了这种操作，此处我们来实践看看。</p>
+<h2 id="实际操作看看——实现卷积滤镜"><a href="#实际操作看看——实现卷积滤镜" class="headerlink" title="实际操作看看——实现卷积滤镜"></a>实际操作看看——实现卷积滤镜</h2><p>用固定的矩阵扫描更大的矩阵，这个操作称为卷积。若后者是一张图片，那么这一操作，就是对图像的滤镜操作了。我们在<a href="/2017/07/27/convolutions-and-convolution-neural-network/#%E5%9B%BE%E5%83%8F%E7%9A%84%E6%BB%A4%E9%95%9C">前作</a>中介绍了这种操作，此处我们来实践看看。</p>
 <p>示例代码：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"><span class="keyword">from</span> scipy <span class="keyword">import</span> signal</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">read_image</span><span class="params">(fname)</span>:</span></span><br><span class="line">    im     = Image.open(fname)</span><br><span class="line">    width, height = im.size</span><br><span class="line">    mode   = im.mode</span><br><span class="line">    pixels = list(im.getdata())</span><br><span class="line">    im.close()</span><br><span class="line"></span><br><span class="line">    r_pxs  = map(<span class="keyword">lambda</span> x:x[<span class="number">0</span>], pixels)</span><br><span class="line">    g_pxs  = map(<span class="keyword">lambda</span> x:x[<span class="number">1</span>], pixels)</span><br><span class="line">    b_pxs  = map(<span class="keyword">lambda</span> x:x[<span class="number">2</span>], pixels)</span><br><span class="line">    r_pxs  = [r_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line">    g_pxs  = [g_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line">    b_pxs  = [b_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> mode, (width, height), (r_pxs, g_pxs, b_pxs)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">convolve2d</span><span class="params">(x, ker, mode = <span class="string">'same'</span>, boundary = <span class="string">'wrap'</span>)</span>:</span></span><br><span class="line">    a = np.asarray(x, dtype = float)</span><br><span class="line">    b = np.asarray(ker, dtype = float)</span><br><span class="line">    res = signal.convolve2d(a, b, mode, boundary)</span><br><span class="line">    <span class="keyword">return</span> res</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">filter_image</span><span class="params">(mode, size, rgb, kernel, fname)</span>:</span></span><br><span class="line">    r   = convolve2d(rgb[<span class="number">0</span>], kernel)</span><br><span class="line">    g   = convolve2d(rgb[<span class="number">1</span>], kernel)</span><br><span class="line">    b   = convolve2d(rgb[<span class="number">2</span>], kernel)</span><br><span class="line"></span><br><span class="line">    int_it = <span class="keyword">lambda</span> f:int(round(f, <span class="number">0</span>))</span><br><span class="line"></span><br><span class="line">    pixels = map(<span class="keyword">lambda</span> x, y, z: (int_it(x), int_it(y), int_it(z)),</span><br><span class="line">                                            r.flat, g.flat, b.flat)</span><br><span class="line"></span><br><span class="line">    res = Image.new(mode, size)</span><br><span class="line">    res.putdata(pixels)</span><br><span class="line">    res.save(fname)</span><br><span class="line">    res.close()</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">None</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">'__main__'</span>:</span><br><span class="line">    base, ext = <span class="string">'cat'</span>, <span class="string">'jpg'</span></span><br><span class="line"></span><br><span class="line">    ifname = <span class="string">"%s.%s"</span> % (base, ext)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">"%s_blur.%s"</span> % (base, ext)</span><br><span class="line">    blur_5 = [[<span class="number">1.0</span> / <span class="number">25.0</span>] * <span class="number">5</span>] * <span class="number">5</span></span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, blur_5, ofname)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">"%s_shrp.%s"</span> % (base, ext)</span><br><span class="line">    shrp_3 = [[<span class="number">0</span>, <span class="number">-1</span>, <span class="number">0</span>],</span><br><span class="line">              [<span class="number">-1</span>, <span class="number">5</span>, <span class="number">-1</span>],</span><br><span class="line">              [<span class="number">0</span>, <span class="number">-1</span>, <span class="number">0</span>]]</span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, shrp_3, ofname)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">"%s_dtct.%s"</span> % (base, ext)</span><br><span class="line">    dtct_3 = [[<span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>],</span><br><span class="line">              [<span class="number">-1</span>, <span class="number">8</span>, <span class="number">-1</span>],</span><br><span class="line">              [<span class="number">-1</span>, <span class="number">-1</span>, <span class="number">-1</span>]]</span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, dtct_3, ofname)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"><span class="keyword">import</span> numpy <span class="keyword">as</span> np</span><br><span class="line"><span class="keyword">from</span> scipy <span class="keyword">import</span> signal</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">read_image</span>(<span class="params">fname</span>):</span><br><span class="line">    im     = Image.<span class="built_in">open</span>(fname)</span><br><span class="line">    width, height = im.size</span><br><span class="line">    mode   = im.mode</span><br><span class="line">    pixels = <span class="built_in">list</span>(im.getdata())</span><br><span class="line">    im.close()</span><br><span class="line"></span><br><span class="line">    r_pxs  = <span class="built_in">map</span>(<span class="keyword">lambda</span> x:x[<span class="number">0</span>], pixels)</span><br><span class="line">    g_pxs  = <span class="built_in">map</span>(<span class="keyword">lambda</span> x:x[<span class="number">1</span>], pixels)</span><br><span class="line">    b_pxs  = <span class="built_in">map</span>(<span class="keyword">lambda</span> x:x[<span class="number">2</span>], pixels)</span><br><span class="line">    r_pxs  = [r_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line">    g_pxs  = [g_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line">    b_pxs  = [b_pxs[i * width:(i + <span class="number">1</span>) * width] <span class="keyword">for</span> i <span class="keyword">in</span> xrange(height)]</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> mode, (width, height), (r_pxs, g_pxs, b_pxs)</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">convolve2d</span>(<span class="params">x, ker, mode = <span class="string">&#x27;same&#x27;</span>, boundary = <span class="string">&#x27;wrap&#x27;</span></span>):</span><br><span class="line">    a = np.asarray(x, dtype = <span class="built_in">float</span>)</span><br><span class="line">    b = np.asarray(ker, dtype = <span class="built_in">float</span>)</span><br><span class="line">    res = signal.convolve2d(a, b, mode, boundary)</span><br><span class="line">    <span class="keyword">return</span> res</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">filter_image</span>(<span class="params">mode, size, rgb, kernel, fname</span>):</span><br><span class="line">    r   = convolve2d(rgb[<span class="number">0</span>], kernel)</span><br><span class="line">    g   = convolve2d(rgb[<span class="number">1</span>], kernel)</span><br><span class="line">    b   = convolve2d(rgb[<span class="number">2</span>], kernel)</span><br><span class="line"></span><br><span class="line">    int_it = <span class="keyword">lambda</span> f:<span class="built_in">int</span>(<span class="built_in">round</span>(f, <span class="number">0</span>))</span><br><span class="line"></span><br><span class="line">    pixels = <span class="built_in">map</span>(<span class="keyword">lambda</span> x, y, z: (int_it(x), int_it(y), int_it(z)),</span><br><span class="line">                                            r.flat, g.flat, b.flat)</span><br><span class="line"></span><br><span class="line">    res = Image.new(mode, size)</span><br><span class="line">    res.putdata(pixels)</span><br><span class="line">    res.save(fname)</span><br><span class="line">    res.close()</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">None</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">    base, ext = <span class="string">&#x27;cat&#x27;</span>, <span class="string">&#x27;jpg&#x27;</span></span><br><span class="line"></span><br><span class="line">    ifname = <span class="string">&quot;%s.%s&quot;</span> % (base, ext)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">&quot;%s_blur.%s&quot;</span> % (base, ext)</span><br><span class="line">    blur_5 = [[<span class="number">1.0</span> / <span class="number">25.0</span>] * <span class="number">5</span>] * <span class="number">5</span></span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, blur_5, ofname)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">&quot;%s_shrp.%s&quot;</span> % (base, ext)</span><br><span class="line">    shrp_3 = [[<span class="number">0</span>, -<span class="number">1</span>, <span class="number">0</span>],</span><br><span class="line">              [-<span class="number">1</span>, <span class="number">5</span>, -<span class="number">1</span>],</span><br><span class="line">              [<span class="number">0</span>, -<span class="number">1</span>, <span class="number">0</span>]]</span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, shrp_3, ofname)</span><br><span class="line"></span><br><span class="line">    ofname = <span class="string">&quot;%s_dtct.%s&quot;</span> % (base, ext)</span><br><span class="line">    dtct_3 = [[-<span class="number">1</span>, -<span class="number">1</span>, -<span class="number">1</span>],</span><br><span class="line">              [-<span class="number">1</span>, <span class="number">8</span>, -<span class="number">1</span>],</span><br><span class="line">              [-<span class="number">1</span>, -<span class="number">1</span>, -<span class="number">1</span>]]</span><br><span class="line">    mode, size, rgb = read_image(ifname)</span><br><span class="line">    filter_image(mode, size, rgb, dtct_3, ofname)</span><br></pre></td></tr></table></figure>
 
 <p>此处 <code>read_image</code> 函数从一个图像文件中读入其模式、尺寸及 RGB 三通道矩阵。<code>convolve2d</code> 函数利用了 <code>scipy</code> 库中的 <code>signal.convolve2d</code> 函数，对图像的单通道进行卷积操作——滤镜。<code>filter_image</code> 函数则是对 <code>convolve2d</code> 的封装，从上述模式、尺寸及 RGB 三通道矩阵开始，使用 <code>kerner</code> 作为卷积核进行滤镜操作，并将图片保存下来。</p>
-<p>此处我们选择了三个卷积核。<code>blur_5</code> 将目标像素周围的 5*5 的像素平均起来，起到 box-模糊化的作用。<code>shrp_3</code> 加强了目标像素的作用，同时减弱了上下左右四个像素的干扰，起到了锐化的作用。<code>dtct_3</code> 则凸显了哪些与周围 8 个像素具有明显差异的像素，起到了边缘检测的作用。三个滤镜的效果可以参见：<a href="/uploads/images/python/cat.jpg">原图</a>/<a href="/uploads/images/python/cat_blur.jpg">模糊化</a>/<a href="/uploads/images/python/cat_shrp.jpg">锐化</a>/<a href="/uploads/images/python/cat_dtct.jpg">边缘检测</a>。</p>
+<p>此处我们选择了三个卷积核。<code>blur_5</code> 将目标像素周围的 5*5 的像素平均起来，起到 box-模糊化的作用。<code>shrp_3</code> 加强了目标像素的作用，同时减弱了上下左右四个像素的干扰，起到了锐化的作用。<code>dtct_3</code> 则凸显了哪些与周围 8 个像素具有明显差异的像素，起到了边缘检测的作用。三个滤镜的效果可以参见：<a href="/uploads/images/python/cat.jpg">原图</a>&#x2F;<a href="/uploads/images/python/cat_blur.jpg">模糊化</a>&#x2F;<a href="/uploads/images/python/cat_shrp.jpg">锐化</a>&#x2F;<a href="/uploads/images/python/cat_dtct.jpg">边缘检测</a>。</p>
 <h2 id="使用-ImageFilter-预定义的滤镜"><a href="#使用-ImageFilter-预定义的滤镜" class="headerlink" title="使用 ImageFilter 预定义的滤镜"></a>使用 <code>ImageFilter</code> 预定义的滤镜</h2><p>PIL 库在 <code>ImageFilter</code> 模块中已经为我们预定义好了一些滤镜。同时 <code>Image</code> 模块也提供了 <code>filter</code> 方法应用滤镜：<code>Image.filter(filter_object)</code>。因此，我们可以用 <code>ImageFilter</code> 提供的 <code>Kernel</code> 滤镜，很方便地复现上一节中的滤镜效果。（<code>Kernel</code> 当前仅支持 3<em>3 或 5</em>5 的滤镜，sad）。</p>
 <p>示例代码：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> ImageFilter</span><br><span class="line"></span><br><span class="line">im = Image.open(<span class="string">'cat.jpg'</span>)</span><br><span class="line"></span><br><span class="line">imn = im.filter(ImageFilter.Kernel(size = (<span class="number">5</span>, <span class="number">5</span>), kernel = [<span class="number">1.0</span> / <span class="number">25.0</span>] * <span class="number">25</span>))</span><br><span class="line"></span><br><span class="line">imn.show()</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> Image</span><br><span class="line"><span class="keyword">from</span> PIL <span class="keyword">import</span> ImageFilter</span><br><span class="line"></span><br><span class="line">im = Image.<span class="built_in">open</span>(<span class="string">&#x27;cat.jpg&#x27;</span>)</span><br><span class="line"></span><br><span class="line">imn = im.<span class="built_in">filter</span>(ImageFilter.Kernel(size = (<span class="number">5</span>, <span class="number">5</span>), kernel = [<span class="number">1.0</span> / <span class="number">25.0</span>] * <span class="number">25</span>))</span><br><span class="line"></span><br><span class="line">imn.show()</span><br></pre></td></tr></table></figure>
 
 <p>效果：</p>
-<p><img data-src="/uploads/images/python/cat_blur.jpg" alt></p>
-<p>你可以在<a href="http://pillow.readthedocs.io/en/3.4.x/reference/ImageFilter.html" target="_blank" rel="noopener">官方文档</a>中找到更多的滤镜。</p>
+<p><img data-src="/uploads/images/python/cat_blur.jpg"></p>
+<p>你可以在<a target="_blank" rel="noopener" href="http://pillow.readthedocs.io/en/3.4.x/reference/ImageFilter.html">官方文档</a>中找到更多的滤镜。</p>
 
     </div>
 
@@ -487,7 +493,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#获取像素内容"><span class="nav-number">1.</span> <span class="nav-text">获取像素内容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#写入像素内容"><span class="nav-number">2.</span> <span class="nav-text">写入像素内容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实际操作看看——实现卷积滤镜"><span class="nav-number">3.</span> <span class="nav-text">实际操作看看——实现卷积滤镜</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#使用-ImageFilter-预定义的滤镜"><span class="nav-number">4.</span> <span class="nav-text">使用 ImageFilter 预定义的滤镜</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%8E%B7%E5%8F%96%E5%83%8F%E7%B4%A0%E5%86%85%E5%AE%B9"><span class="nav-number">1.</span> <span class="nav-text">获取像素内容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%99%E5%85%A5%E5%83%8F%E7%B4%A0%E5%86%85%E5%AE%B9"><span class="nav-number">2.</span> <span class="nav-text">写入像素内容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%9E%E9%99%85%E6%93%8D%E4%BD%9C%E7%9C%8B%E7%9C%8B%E2%80%94%E2%80%94%E5%AE%9E%E7%8E%B0%E5%8D%B7%E7%A7%AF%E6%BB%A4%E9%95%9C"><span class="nav-number">3.</span> <span class="nav-text">实际操作看看——实现卷积滤镜</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-ImageFilter-%E9%A2%84%E5%AE%9A%E4%B9%89%E7%9A%84%E6%BB%A4%E9%95%9C"><span class="nav-number">4.</span> <span class="nav-text">使用 ImageFilter 预定义的滤镜</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -523,7 +529,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -538,52 +544,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -621,9 +627,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -678,9 +684,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -748,7 +762,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

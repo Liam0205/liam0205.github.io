@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,18 @@
   </script>
 
   <meta name="description" content="今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。">
-<meta name="keywords" content="BST,Preorder Traversal">
 <meta property="og:type" content="article">
 <meta property="og:title" content="从前序遍历结果中重建二叉搜索树">
 <meta property="og:url" content="https://liam.page/2019/08/29/rebuild-a-binary-search-tree-from-its-preorder-traversal-result/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-08-29T06:38:23.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="BST">
+<meta property="article:tag" content="Preorder Traversal">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="从前序遍历结果中重建二叉搜索树">
-<meta name="twitter:description" content="今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。">
 
 <link rel="canonical" href="https://liam.page/2019/08/29/rebuild-a-binary-search-tree-from-its-preorder-traversal-result/">
 
@@ -312,7 +313,7 @@
 
       
         <p>今天遇到一个有趣的问题：已知有一个无重复元素的二叉搜索树的前序遍历结果，要求重建该二叉搜索树。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="回顾"><a href="#回顾" class="headerlink" title="回顾"></a>回顾</h2><p>首先回顾一下前序遍历和二叉搜索树的概念。</p>
 <h3 id="前序遍历"><a href="#前序遍历" class="headerlink" title="前序遍历"></a>前序遍历</h3><p>二叉树的前序遍历指得是：对于任意的节点及其左右子节点，在遍历结果中出现的顺序总是「父节点 -&gt; 左子树（如果有） -&gt; 右子树（如果有）」；由于二叉树的自相似结构，这种描述唯一确定的遍历顺序即是前序遍历。</p>
@@ -353,7 +354,7 @@
 <p>好消息是，我们现在需要重建的二叉树是二叉搜索树。因此，树根的右孩子，就是前序遍历中第一个比根节点大的那个元素。这样一来，我们就能确定根节点的左右孩子的位置了，如此一来，只需要递归就能解决问题。</p>
 <p>于是，遗留的问题变成了：如何在常数时间内找到第一个比根节点大的元素的位置。</p>
 <p>讲道理，单就查找元素的问题而言，我们是做不到的。最快的二分的复杂度也有 <code>$\Theta(\log(n))$</code>，何况它还有额外要求。但是，我们已知：根节点到根节点右孩子（如果有）之间的所有元素，都是根节点左子树（如果有）的元素（假设其个数是 <code>$k$</code>）。如果我们有办法在寻找右孩子的过程中，把左子树构建出来，我们就能把寻找右孩子的复杂度 <code>$\Theta(k)$</code> 均摊到这 <code>$k$</code> 个左子树的元素上去，复杂度就变成了常数。要做到这一点，依赖于实现。</p>
-<h3 id="递归实现"><a href="#递归实现" class="headerlink" title="递归实现"></a>递归实现</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">TreeNode* <span class="title">rebuildBST</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">int</span>&gt;&amp; preorder,</span></span></span><br><span class="line"><span class="function"><span class="params">                                   <span class="keyword">const</span> <span class="keyword">int</span> bound = <span class="built_in">std</span>::numeric_limits&lt;<span class="keyword">int</span>&gt;::max())</span> </span>&#123;</span><br><span class="line">  <span class="keyword">static</span> <span class="keyword">size_t</span> i = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">if</span> (preorder.size() == i <span class="keyword">or</span> preorder[i] &gt; bound) &#123; <span class="keyword">return</span> <span class="literal">nullptr</span>; &#125;</span><br><span class="line">  <span class="keyword">auto</span> node = <span class="keyword">new</span> TreeNode(preorder[i]);</span><br><span class="line">  ++i;</span><br><span class="line">  node-&gt;left = rebuildBST(preorder, node-&gt;val);</span><br><span class="line">  node-&gt;right = rebuildBST(preorder, bound);</span><br><span class="line">  <span class="keyword">return</span> node;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="递归实现"><a href="#递归实现" class="headerlink" title="递归实现"></a>递归实现</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">TreeNode* <span class="title">rebuildBST</span><span class="params">(<span class="type">const</span> std::vector&lt;<span class="type">int</span>&gt;&amp; preorder,</span></span></span><br><span class="line"><span class="params"><span class="function">                                   <span class="type">const</span> <span class="type">int</span> bound = std::numeric_limits&lt;<span class="type">int</span>&gt;::max())</span> </span>&#123;</span><br><span class="line">  <span class="type">static</span> <span class="type">size_t</span> i = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">if</span> (preorder.<span class="built_in">size</span>() == i <span class="keyword">or</span> preorder[i] &gt; bound) &#123; <span class="keyword">return</span> <span class="literal">nullptr</span>; &#125;</span><br><span class="line">  <span class="keyword">auto</span> node = <span class="keyword">new</span> <span class="built_in">TreeNode</span>(preorder[i]);</span><br><span class="line">  ++i;</span><br><span class="line">  node-&gt;left = <span class="built_in">rebuildBST</span>(preorder, node-&gt;val);</span><br><span class="line">  node-&gt;right = <span class="built_in">rebuildBST</span>(preorder, bound);</span><br><span class="line">  <span class="keyword">return</span> node;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>这里，所有递归调用都共享同一个下标 <code>i</code>，它从 <code>0</code> 开始自增到 <code>preorder.size()</code> 后，所有递归退出。在每次递归调用中，除开构建节点的开销，都只有常数项的操作：至多两次比较，一次变量自增。因此，复杂度是 <code>$\Theta(n)$</code>。</p>
 <h3 id="非递归实现"><a href="#非递归实现" class="headerlink" title="非递归实现"></a>非递归实现</h3><p>再多一点挑战：有没有办法用非递归的方式去实现这一算法呢？</p>
@@ -371,7 +372,7 @@
 <li>提供一个栈，直接或间接地保存这里的 <code>bound</code>。</li>
 </ul>
 <p>于是有实现：</p>
-<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">TreeNode* <span class="title">rebuildBST</span><span class="params">(<span class="keyword">const</span> <span class="built_in">std</span>::<span class="built_in">vector</span>&lt;<span class="keyword">int</span>&gt;&amp; preorder)</span> </span>&#123;</span><br><span class="line">  TreeNode* dummy = <span class="keyword">new</span> TreeNode(<span class="built_in">std</span>::numeric_limits&lt;<span class="keyword">int</span>&gt;::max());</span><br><span class="line">  <span class="built_in">std</span>::<span class="built_in">stack</span>&lt;TreeNode*&gt; s;</span><br><span class="line">  s.push(dummy);</span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">int</span> x : preorder) &#123;</span><br><span class="line">    TreeNode* node = <span class="keyword">new</span> TreeNode(x);</span><br><span class="line">    TreeNode* wk = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">for</span> (; s.top()-&gt;val &lt; x; wk = s.top(), s.pop()) &#123; ; &#125;</span><br><span class="line">    <span class="keyword">if</span> (wk == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">      s.top()-&gt;left = node;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      wk-&gt;right = node;</span><br><span class="line">    &#125;</span><br><span class="line">    s.push(node);</span><br><span class="line">  &#125;</span><br><span class="line">  TreeNode* res = dummy-&gt;left;</span><br><span class="line">  dummy-&gt;left = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="keyword">delete</span> dummy;</span><br><span class="line">  <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">TreeNode* <span class="title">rebuildBST</span><span class="params">(<span class="type">const</span> std::vector&lt;<span class="type">int</span>&gt;&amp; preorder)</span> </span>&#123;</span><br><span class="line">  TreeNode* dummy = <span class="keyword">new</span> <span class="built_in">TreeNode</span>(std::numeric_limits&lt;<span class="type">int</span>&gt;::<span class="built_in">max</span>());</span><br><span class="line">  std::stack&lt;TreeNode*&gt; s;</span><br><span class="line">  s.<span class="built_in">push</span>(dummy);</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">int</span> x : preorder) &#123;</span><br><span class="line">    TreeNode* node = <span class="keyword">new</span> <span class="built_in">TreeNode</span>(x);</span><br><span class="line">    TreeNode* wk = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">for</span> (; s.<span class="built_in">top</span>()-&gt;val &lt; x; wk = s.<span class="built_in">top</span>(), s.<span class="built_in">pop</span>()) &#123; ; &#125;</span><br><span class="line">    <span class="keyword">if</span> (wk == <span class="literal">nullptr</span>) &#123;</span><br><span class="line">      s.<span class="built_in">top</span>()-&gt;left = node;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      wk-&gt;right = node;</span><br><span class="line">    &#125;</span><br><span class="line">    s.<span class="built_in">push</span>(node);</span><br><span class="line">  &#125;</span><br><span class="line">  TreeNode* res = dummy-&gt;left;</span><br><span class="line">  dummy-&gt;left = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="keyword">delete</span> dummy;</span><br><span class="line">  <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>这里，<code>dummy</code> 起到了哨兵的作用；<code>for (:)</code> 是上述提到的循环；<code>for (;;)</code> 里每一次弹栈，都意味着遇到了右孩子，对应递归版本中的 <code>return nullptr;</code>。</p>
 <p>从非递归的版本中看时间复杂度是很明显的。<code>for (:)</code> 之外的内容只有常数复杂度，<code>for (:)</code> 循环之内的内容要重点分析 <code>for (;;)</code> 循环。<code>for (;;)</code> 循环每执行一次，都有一次 <code>s.pop()</code> 操作，它与 <code>s.push(node)</code> 一一对应。因此，有多少次 <code>s.push(node)</code> 就有多少次 <code>s.pop()</code>（不算 <code>s.push(dummy)</code>）。于是，均摊到每次 <code>for (:)</code> 循环中去，<code>for (;;)</code> 恰好只执行一次 <code>wk = s.top()</code> 和 <code>s.pop()</code>。于是 <code>for (:)</code> 之内的内容也只有常数复杂度。于是，这个实现的复杂度为 <code>$\Theta(n)$</code>。</p>
@@ -515,7 +516,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#回顾"><span class="nav-number">1.</span> <span class="nav-text">回顾</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#前序遍历"><span class="nav-number">1.1.</span> <span class="nav-text">前序遍历</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#二叉搜索树"><span class="nav-number">1.2.</span> <span class="nav-text">二叉搜索树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分析"><span class="nav-number">2.</span> <span class="nav-text">分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#唯一性"><span class="nav-number">2.1.</span> <span class="nav-text">唯一性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#时间复杂度"><span class="nav-number">2.2.</span> <span class="nav-text">时间复杂度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#向-Theta-n-进发"><span class="nav-number">3.</span> <span class="nav-text">向 $\Theta(n)$ 进发</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#递归实现"><span class="nav-number">3.1.</span> <span class="nav-text">递归实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#非递归实现"><span class="nav-number">3.2.</span> <span class="nav-text">非递归实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总结"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%9E%E9%A1%BE"><span class="nav-number">1.</span> <span class="nav-text">回顾</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%89%8D%E5%BA%8F%E9%81%8D%E5%8E%86"><span class="nav-number">1.1.</span> <span class="nav-text">前序遍历</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%8C%E5%8F%89%E6%90%9C%E7%B4%A2%E6%A0%91"><span class="nav-number">1.2.</span> <span class="nav-text">二叉搜索树</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%94%AF%E4%B8%80%E6%80%A7"><span class="nav-number">2.1.</span> <span class="nav-text">唯一性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%B6%E9%97%B4%E5%A4%8D%E6%9D%82%E5%BA%A6"><span class="nav-number">2.2.</span> <span class="nav-text">时间复杂度</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%91-Theta-n-%E8%BF%9B%E5%8F%91"><span class="nav-number">3.</span> <span class="nav-text">向 $\Theta(n)$ 进发</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%92%E5%BD%92%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.1.</span> <span class="nav-text">递归实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9D%9E%E9%80%92%E5%BD%92%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.2.</span> <span class="nav-text">非递归实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%BB%E7%BB%93"><span class="nav-number">4.</span> <span class="nav-text">总结</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -551,7 +552,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -566,52 +567,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -649,9 +650,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -706,9 +707,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -776,7 +785,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

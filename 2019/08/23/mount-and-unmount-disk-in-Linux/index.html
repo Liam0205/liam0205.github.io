@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,18 @@
   </script>
 
   <meta name="description" content="昨天正在训练线上模型的机器被人误操作，不得不重做系统。万幸模型相关的训练状态保存在另一块磁盘上，没有受到影响。要想恢复训练状态相关数据，就必须把磁盘挂载好。因为这个操作不常用，一时居然都没想起来怎么做。因此这里「烂笔头」记录下来。">
-<meta name="keywords" content="Linux,Disk">
 <meta property="og:type" content="article">
 <meta property="og:title" content="在 Linux 上挂载&#x2F;卸载磁盘">
 <meta property="og:url" content="https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="昨天正在训练线上模型的机器被人误操作，不得不重做系统。万幸模型相关的训练状态保存在另一块磁盘上，没有受到影响。要想恢复训练状态相关数据，就必须把磁盘挂载好。因为这个操作不常用，一时居然都没想起来怎么做。因此这里「烂笔头」记录下来。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-08-23T06:30:19.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="Disk">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="在 Linux 上挂载&#x2F;卸载磁盘">
-<meta name="twitter:description" content="昨天正在训练线上模型的机器被人误操作，不得不重做系统。万幸模型相关的训练状态保存在另一块磁盘上，没有受到影响。要想恢复训练状态相关数据，就必须把磁盘挂载好。因为这个操作不常用，一时居然都没想起来怎么做。因此这里「烂笔头」记录下来。">
 
 <link rel="canonical" href="https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/">
 
@@ -312,7 +313,7 @@
 
       
         <p>昨天正在训练线上模型的机器被人误操作，不得不重做系统。万幸模型相关的训练状态保存在另一块磁盘上，没有受到影响。要想恢复训练状态相关数据，就必须把磁盘挂载好。因为这个操作不常用，一时居然都没想起来怎么做。因此这里「烂笔头」记录下来。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="查看机器上的磁盘"><a href="#查看机器上的磁盘" class="headerlink" title="查看机器上的磁盘"></a>查看机器上的磁盘</h2><p><code>fdisk</code> 是 Linux 上用来操作磁盘分区表的工具。使用 <code>fdisk -l</code> 命令，可以列出系统识别的所有磁盘及其分区。</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">Disk /dev/sda: 599.1 GB, 599051206656 bytes, 1170021888 sectors</span><br><span class="line">Units = sectors of 1 * 512 = 512 bytes</span><br><span class="line">Sector size (logical/physical): 512 bytes / 4096 bytes</span><br><span class="line">I/O size (minimum/optimal): 262144 bytes / 262144 bytes</span><br><span class="line">Disk label type: # masked</span><br><span class="line">Disk identifier: # masked</span><br><span class="line"></span><br><span class="line">   Device Boot      Start         End      Blocks   Id  System</span><br><span class="line">/dev/sda1            2048   204802047   102400000   83  Linux</span><br><span class="line">/dev/sda2       204802048   213190655     4194304   82  Linux swap / Solaris</span><br><span class="line">/dev/sda3   *   213190656  1170020351   478414848   83  Linux</span><br><span class="line"></span><br><span class="line">Disk /dev/sdb: 6118.5 GB, 6118546079744 bytes, 11950285312 sectors</span><br><span class="line">Units = sectors of 1 * 512 = 512 bytes</span><br><span class="line">Sector size (logical/physical): 512 bytes / 4096 bytes</span><br><span class="line">I/O size (minimum/optimal): 262144 bytes / 262144 bytes</span><br></pre></td></tr></table></figure>
@@ -325,7 +326,7 @@
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mkdir -p /mnt/data</span><br></pre></td></tr></table></figure>
 
 <h2 id="确定磁盘文件系统类型"><a href="#确定磁盘文件系统类型" class="headerlink" title="确定磁盘文件系统类型"></a>确定磁盘文件系统类型</h2><p>在挂载磁盘之前，还需要确定磁盘（分区）的文件系统类型。若不然，挂载时选错文件系统类型可能造成一系列奇怪的现象。为此，我们需要执行 <code>parted -l</code> 命令。</p>
-<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#</span><span class="bash"> parted -l</span></span><br><span class="line">Model: # masked</span><br><span class="line">Disk /dev/sda: 599GB</span><br><span class="line">Sector size (logical/physical): 512B/4096B</span><br><span class="line">Partition Table: msdos</span><br><span class="line">Disk Flags:</span><br><span class="line"></span><br><span class="line">Number  Start   End    Size    Type     File system     Flags</span><br><span class="line"> 1      1049kB  105GB  105GB   primary  xfs</span><br><span class="line"> 2      105GB   109GB  4295MB  primary  linux-swap(v1)</span><br><span class="line"> 3      109GB   599GB  490GB   primary  xfs             boot</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Model: # masked</span><br><span class="line">Disk /dev/sdb: 6119GB</span><br><span class="line">Sector size (logical/physical): 512B/4096B</span><br><span class="line">Partition Table: loop</span><br><span class="line">Disk Flags:</span><br><span class="line"></span><br><span class="line">Number  Start  End     Size    File system  Flags</span><br><span class="line"> 1      0.00B  6119GB  6119GB  ext4</span><br></pre></td></tr></table></figure>
+<figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta prompt_"># </span><span class="language-bash">parted -l</span></span><br><span class="line">Model: # masked</span><br><span class="line">Disk /dev/sda: 599GB</span><br><span class="line">Sector size (logical/physical): 512B/4096B</span><br><span class="line">Partition Table: msdos</span><br><span class="line">Disk Flags:</span><br><span class="line"></span><br><span class="line">Number  Start   End    Size    Type     File system     Flags</span><br><span class="line"> 1      1049kB  105GB  105GB   primary  xfs</span><br><span class="line"> 2      105GB   109GB  4295MB  primary  linux-swap(v1)</span><br><span class="line"> 3      109GB   599GB  490GB   primary  xfs             boot</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">Model: # masked</span><br><span class="line">Disk /dev/sdb: 6119GB</span><br><span class="line">Sector size (logical/physical): 512B/4096B</span><br><span class="line">Partition Table: loop</span><br><span class="line">Disk Flags:</span><br><span class="line"></span><br><span class="line">Number  Start  End     Size    File system  Flags</span><br><span class="line"> 1      0.00B  6119GB  6119GB  ext4</span><br></pre></td></tr></table></figure>
 
 <p>由此可见，目标磁盘 <code>/dev/sdb</code> 的文件系统类型是 <code>ext4</code>。</p>
 <h2 id="挂载磁盘"><a href="#挂载磁盘" class="headerlink" title="挂载磁盘"></a>挂载磁盘</h2><p>此时，我们就能挂载磁盘了。</p>
@@ -383,7 +384,7 @@
   </li>
   <li class="post-copyright-link">
     <strong>本文链接：</strong>
-    <a href="https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/" title="在 Linux 上挂载/卸载磁盘">https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/</a>
+    <a href="https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/" title="在 Linux 上挂载&#x2F;卸载磁盘">https://liam.page/2019/08/23/mount-and-unmount-disk-in-Linux/</a>
   </li>
   <li class="post-copyright-license">
     <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
@@ -470,7 +471,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#查看机器上的磁盘"><span class="nav-number">1.</span> <span class="nav-text">查看机器上的磁盘</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#创建挂载点"><span class="nav-number">2.</span> <span class="nav-text">创建挂载点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#确定磁盘文件系统类型"><span class="nav-number">3.</span> <span class="nav-text">确定磁盘文件系统类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#挂载磁盘"><span class="nav-number">4.</span> <span class="nav-text">挂载磁盘</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#卸载磁盘"><span class="nav-number">5.</span> <span class="nav-text">卸载磁盘</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9F%A5%E7%9C%8B%E6%9C%BA%E5%99%A8%E4%B8%8A%E7%9A%84%E7%A3%81%E7%9B%98"><span class="nav-number">1.</span> <span class="nav-text">查看机器上的磁盘</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E6%8C%82%E8%BD%BD%E7%82%B9"><span class="nav-number">2.</span> <span class="nav-text">创建挂载点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A1%AE%E5%AE%9A%E7%A3%81%E7%9B%98%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F%E7%B1%BB%E5%9E%8B"><span class="nav-number">3.</span> <span class="nav-text">确定磁盘文件系统类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8C%82%E8%BD%BD%E7%A3%81%E7%9B%98"><span class="nav-number">4.</span> <span class="nav-text">挂载磁盘</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8D%B8%E8%BD%BD%E7%A3%81%E7%9B%98"><span class="nav-number">5.</span> <span class="nav-text">卸载磁盘</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -506,7 +507,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -521,52 +522,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -604,9 +605,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -661,9 +662,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -731,7 +740,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

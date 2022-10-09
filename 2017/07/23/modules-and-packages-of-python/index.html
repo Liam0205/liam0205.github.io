@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,19 @@
   </script>
 
   <meta name="description" content="如果你用过 Python，那么你一定用过 import 关键字加载过各式各样的模块。但你是否熟悉 Python 中的模块与包的概念呢？或者，以下几个问题，你是否有明确的答案？  什么是模块？什么又是包？ from matplotlib.ticker import Formatter, FixedLocator 中的 matplotlib 和 ticker 分别是什么？中间的句点是什么意思？ fro">
-<meta name="keywords" content="Python,Packages,Modules">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Python 中的黑暗角落（三）：模块与包">
 <meta property="og:url" content="https://liam.page/2017/07/23/modules-and-packages-of-python/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="如果你用过 Python，那么你一定用过 import 关键字加载过各式各样的模块。但你是否熟悉 Python 中的模块与包的概念呢？或者，以下几个问题，你是否有明确的答案？  什么是模块？什么又是包？ from matplotlib.ticker import Formatter, FixedLocator 中的 matplotlib 和 ticker 分别是什么？中间的句点是什么意思？ fro">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2017-07-22T17:00:49.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="Packages">
+<meta property="article:tag" content="Modules">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Python 中的黑暗角落（三）：模块与包">
-<meta name="twitter:description" content="如果你用过 Python，那么你一定用过 import 关键字加载过各式各样的模块。但你是否熟悉 Python 中的模块与包的概念呢？或者，以下几个问题，你是否有明确的答案？  什么是模块？什么又是包？ from matplotlib.ticker import Formatter, FixedLocator 中的 matplotlib 和 ticker 分别是什么？中间的句点是什么意思？ fro">
 
 <link rel="canonical" href="https://liam.page/2017/07/23/modules-and-packages-of-python/">
 
@@ -292,7 +294,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>6.7k</span>
+              <span>6.8k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -318,22 +320,22 @@
 <li><code>from matplotlib.pyplot import *</code> 中，<code>import *</code> 的背后会发生什么？</li>
 </ul>
 <p>鲁迅先生说：「于无声处听惊雷」，讲的是平淡时却有令人惊奇、意外的事情。<code>import</code> 相关的模块、包的概念也是如此。如果你对上面几个问题存有疑问，那么这篇就是为你而作的。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="模块"><a href="#模块" class="headerlink" title="模块"></a>模块</h2><h3 id="为什么要有模块"><a href="#为什么要有模块" class="headerlink" title="为什么要有模块"></a>为什么要有模块</h3><p>众所周知，Python 有一个交互式的解释器。在解释器中，你可以使用 Python 的所有功能。但是，解释器是一次性的。也就是说，如果你关掉解释器，那么先前定义、运行的一切东西，都会丢失不见。另一方面，在解释器中输入代码是一件很麻烦的事情；这是因为在解释器中复用代码比较困难。</p>
 <p>为此，人们会把相对稳定、篇幅较长的代码保存在一个纯文本文件中。一般来说，我们把这样扩展名为 <code>.py</code> 的文件称为 Python 脚本。为了提高代码复用率，我们可以把一组相关的 Python 相关的定义、声明保存在同一个 <code>.py</code> 文件中。此时，这个 Python 脚本就是一个 Python 模块（Module）。我们可以在解释器中，或者在其他 Python 脚本中，通过 <code>import</code> 载入定义好的 Python 模块。</p>
 <h3 id="模块的识别"><a href="#模块的识别" class="headerlink" title="模块的识别"></a>模块的识别</h3><p>和 Python 中的其它对象一样，Python 也为模块定义了一些形如 <code>__foo__</code> 的变量。对于模块来说，最重要的就是它的名字 <code>__name__</code> 了。每当 Python 执行脚本，它就会为该脚本赋予一个名字。对于「主程序」来说，这一脚本的 <code>__name__</code> 被定义为 <code>&quot;__main__&quot;</code>；对于被 <code>import</code> 进主程序的模块来说，这一脚本的 <code>__name__</code> 被定义为脚本的文件名（base filename）。因此，我们可以用 <code>if __name__ == &quot;__main__&quot;:</code> 在模块代码中定义一些测试代码。</p>
-<figure class="highlight python"><figcaption><span>fibonacci.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fib_yield</span><span class="params">(n)</span>:</span></span><br><span class="line">    a, b = <span class="number">0</span>, <span class="number">1</span></span><br><span class="line">    <span class="keyword">while</span> b &lt; n:</span><br><span class="line">        <span class="keyword">yield</span> b</span><br><span class="line">        a, b = b, a+b</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">fib</span><span class="params">(n)</span>:</span></span><br><span class="line">    <span class="keyword">for</span> num <span class="keyword">in</span> fib_yield(n):</span><br><span class="line">        print(num)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    fib(<span class="number">10</span>)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><figcaption><span>fibonacci.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">fib_yield</span>(<span class="params">n</span>):</span><br><span class="line">    a, b = <span class="number">0</span>, <span class="number">1</span></span><br><span class="line">    <span class="keyword">while</span> b &lt; n:</span><br><span class="line">        <span class="keyword">yield</span> b</span><br><span class="line">        a, b = b, a+b</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">fib</span>(<span class="params">n</span>):</span><br><span class="line">    <span class="keyword">for</span> num <span class="keyword">in</span> fib_yield(n):</span><br><span class="line">        <span class="built_in">print</span>(num)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:</span><br><span class="line">    fib(<span class="number">10</span>)</span><br></pre></td></tr></table></figure>
 
 <p>我们将其保存为 <code>fibonacci.py</code>，而后在 Python 解释器中 <code>import</code> 它。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">1</span>]: <span class="keyword">import</span> fibonacci</span><br><span class="line"></span><br><span class="line">In [<span class="number">2</span>]: dir(fibonacci)</span><br><span class="line">Out[<span class="number">2</span>]:</span><br><span class="line">[<span class="string">'__builtins__'</span>,</span><br><span class="line"> <span class="string">'__doc__'</span>,</span><br><span class="line"> <span class="string">'__file__'</span>,</span><br><span class="line"> <span class="string">'__name__'</span>,</span><br><span class="line"> <span class="string">'__package__'</span>,</span><br><span class="line"> <span class="string">'fib'</span>,</span><br><span class="line"> <span class="string">'fib_yield'</span>]</span><br><span class="line"></span><br><span class="line">In [<span class="number">3</span>]: print(fibonacci.__name__)</span><br><span class="line">fibonacci</span><br><span class="line"></span><br><span class="line">In [<span class="number">4</span>]: fibonacci.fib(<span class="number">5</span>)</span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">2</span></span><br><span class="line"><span class="number">3</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">5</span>]: <span class="keyword">for</span> num <span class="keyword">in</span> fibonacci.fib_yield(<span class="number">5</span>):</span><br><span class="line">   ...:     print(num)</span><br><span class="line">   ...:</span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">2</span></span><br><span class="line"><span class="number">3</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">1</span>]: <span class="keyword">import</span> fibonacci</span><br><span class="line"></span><br><span class="line">In [<span class="number">2</span>]: <span class="built_in">dir</span>(fibonacci)</span><br><span class="line">Out[<span class="number">2</span>]:</span><br><span class="line">[<span class="string">&#x27;__builtins__&#x27;</span>,</span><br><span class="line"> <span class="string">&#x27;__doc__&#x27;</span>,</span><br><span class="line"> <span class="string">&#x27;__file__&#x27;</span>,</span><br><span class="line"> <span class="string">&#x27;__name__&#x27;</span>,</span><br><span class="line"> <span class="string">&#x27;__package__&#x27;</span>,</span><br><span class="line"> <span class="string">&#x27;fib&#x27;</span>,</span><br><span class="line"> <span class="string">&#x27;fib_yield&#x27;</span>]</span><br><span class="line"></span><br><span class="line">In [<span class="number">3</span>]: <span class="built_in">print</span>(fibonacci.__name__)</span><br><span class="line">fibonacci</span><br><span class="line"></span><br><span class="line">In [<span class="number">4</span>]: fibonacci.fib(<span class="number">5</span>)</span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">2</span></span><br><span class="line"><span class="number">3</span></span><br><span class="line"></span><br><span class="line">In [<span class="number">5</span>]: <span class="keyword">for</span> num <span class="keyword">in</span> fibonacci.fib_yield(<span class="number">5</span>):</span><br><span class="line">   ...:     <span class="built_in">print</span>(num)</span><br><span class="line">   ...:</span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">1</span></span><br><span class="line"><span class="number">2</span></span><br><span class="line"><span class="number">3</span></span><br></pre></td></tr></table></figure>
 
 <p>可以观察到，<code>fibonacci.py</code> 在作为模块引入时，<code>fibonacci.__name__</code> 被设置为文件名 <code>&quot;fibonacci&quot;</code>。但若在命令行直接执行 <code>python fibonacci.py</code>，则 <code>if</code> 语句块会被执行，此时 <code>__name__</code> 是 <code>&quot;__main__&quot;</code>。</p>
 <h3 id="模块的内部变量和初始化"><a href="#模块的内部变量和初始化" class="headerlink" title="模块的内部变量和初始化"></a>模块的内部变量和初始化</h3><p>Python 为每个模块维护了单独的符号表，因此可以实现类似 C++ 中名字空间（namespace）的功能。Python 模块中的函数，可以使用模块的内部变量，完成相关的初始化操作；同时，<code>import</code> 模块的时候，也不用担心这些模块内部变量与用户自定义的变量同名冲突。</p>
-<figure class="highlight python"><figcaption><span>module_var.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">foo = <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">show</span><span class="params">()</span>:</span></span><br><span class="line">    print(foo)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">"__main__"</span>:</span><br><span class="line">    show()</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><figcaption><span>module_var.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">foo = <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">show</span>():</span><br><span class="line">    <span class="built_in">print</span>(foo)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&quot;__main__&quot;</span>:</span><br><span class="line">    show()</span><br></pre></td></tr></table></figure>
 
 <p>此处我们在模块 <code>module_var</code> 内部定义了内部变量 <code>foo</code>，并且在函数 <code>show</code> 中引用了它。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">7</span>]: <span class="keyword">import</span> module_var</span><br><span class="line">   ...:</span><br><span class="line">   ...: foo = <span class="number">3</span></span><br><span class="line">   ...:</span><br><span class="line">   ...: print(foo)</span><br><span class="line">   ...: print(module_var.foo)</span><br><span class="line">   ...:</span><br><span class="line">   ...: module_var.show()</span><br><span class="line">   ...:</span><br><span class="line"><span class="number">3</span></span><br><span class="line"><span class="number">0</span></span><br><span class="line"><span class="number">0</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">7</span>]: <span class="keyword">import</span> module_var</span><br><span class="line">   ...:</span><br><span class="line">   ...: foo = <span class="number">3</span></span><br><span class="line">   ...:</span><br><span class="line">   ...: <span class="built_in">print</span>(foo)</span><br><span class="line">   ...: <span class="built_in">print</span>(module_var.foo)</span><br><span class="line">   ...:</span><br><span class="line">   ...: module_var.show()</span><br><span class="line">   ...:</span><br><span class="line"><span class="number">3</span></span><br><span class="line"><span class="number">0</span></span><br><span class="line"><span class="number">0</span></span><br></pre></td></tr></table></figure>
 
 <p>值得一提的是，模块的初始化操作（这里指 <code>foo = 0</code> 这条语句），仅只在 Python 解释器第一次处理该模块的时候执行。也就是说，如果同一个模块被多次 <code>import</code>，它只会执行一次初始化。</p>
 <h3 id="from-import"><a href="#from-import" class="headerlink" title="from ... import ..."></a><code>from ... import ...</code></h3><p>模块提供了类似名字空间的限制，不过 Python 也允许从模块中导入指定的符号（变量、函数、类等）到当前模块。导入后，这些符号就可以直接使用，而不需要前缀模块名。</p>
@@ -353,7 +355,7 @@
 <li>若依旧未能找到，则 Python 会在安装时指定的路径中搜寻 <code>foobar</code>；</li>
 <li>若仍旧失败，则 Python 会报错，提示找不到 <code>foobar</code> 这个模块。</li>
 </ul>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">14</span>]: <span class="keyword">import</span> foobar</span><br><span class="line">---------------------------------------------------------------------------</span><br><span class="line">ImportError                               Traceback (most recent call last)</span><br><span class="line">&lt;ipython-input<span class="number">-14</span><span class="number">-909</span>badd622c0&gt; <span class="keyword">in</span> &lt;module&gt;()</span><br><span class="line">----&gt; 1 import foobar</span><br><span class="line"></span><br><span class="line">ImportError: No module named foobar</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">In [<span class="number">14</span>]: <span class="keyword">import</span> foobar</span><br><span class="line">---------------------------------------------------------------------------</span><br><span class="line">ImportError                               Traceback (most recent call last)</span><br><span class="line">&lt;ipython-<span class="built_in">input</span>-<span class="number">14</span>-909badd622c0&gt; <span class="keyword">in</span> &lt;module&gt;()</span><br><span class="line">----&gt; <span class="number">1</span> <span class="keyword">import</span> foobar</span><br><span class="line"></span><br><span class="line">ImportError: No module named foobar</span><br></pre></td></tr></table></figure>
 
 <h3 id="pyc-文件"><a href="#pyc-文件" class="headerlink" title="pyc 文件"></a><code>pyc</code> 文件</h3><p>和 LaTeX 中遇到的问题一样：装载大量文本文件是很慢的。因此 Python 也采用了类似 LaTeX 的解决方案：将模块编译成容易装载的文件，并保存起来（相当于 LaTeX 中的 dump 格式文件 <code>.fmt</code>）。这些编译好并保存起来的文件，有后缀名 <code>.pyc</code>。</p>
 <p>当 Python 编译好模块之后，下次载入时，Python 就会读取相应的 <code>.pyc</code> 文件，而不是 <code>.py</code> 文件。而装载 <code>.pyc</code> 文件会比装载 <code>.py</code> 文件更快。</p>
@@ -362,20 +364,20 @@
 <p>科学计算领域，SciPy, NumPy, Matplotlib 等第三方工具，都是用包的形式发布的。</p>
 <h3 id="目录结构"><a href="#目录结构" class="headerlink" title="目录结构"></a>目录结构</h3><p>Python 要求每一个「包」目录下，都必须有一个名为 <code>__init__.py</code> 的文件。从这个文件的名字上看，首先它有 <code>__</code> 作为前后缀，我们就知道，这个文件肯定是 Python 内部用来做某种识别用的；其次，它有 <code>init</code>，我们知道它一定和初始化有关；最后，它有 <code>.py</code> 作为后缀名，因此它也是一个 Python 模块，可以完成一些特定的工作。</p>
 <p>现在假设你想编写一个 Python 工具包，用来处理图片，它可能由多个 Python 模块组成。于是你会考虑把它做成一个 Python 包，内部按照功能分成若干子包，再继续往下分成不同模块去实现。比如会有这样的目录结构。</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">picture/                        Top-level package</span><br><span class="line">      __init__.py               Initialize the picture package</span><br><span class="line">      formats/                  Subpackage for file format conversions</span><br><span class="line">              __init__.py</span><br><span class="line">              jpgread.py</span><br><span class="line">              jpgwrite.py</span><br><span class="line">              pngread.py</span><br><span class="line">              pngwrite.py</span><br><span class="line">              bmpread.py</span><br><span class="line">              bmpwrite.py</span><br><span class="line">              ...</span><br><span class="line">      filters/                  Subpackage for filters</span><br><span class="line">              __init__.py</span><br><span class="line">              boxblur.py</span><br><span class="line">              gaussblur.py</span><br><span class="line">              sharpen.py</span><br><span class="line">              ...</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">picture/                        Top-level package</span><br><span class="line">      __init__.py               Initialize the picture package</span><br><span class="line">      formats/                  Subpackage for file format conversions</span><br><span class="line">              __init__.py</span><br><span class="line">              jpgread.py</span><br><span class="line">              jpgwrite.py</span><br><span class="line">              pngread.py</span><br><span class="line">              pngwrite.py</span><br><span class="line">              bmpread.py</span><br><span class="line">              bmpwrite.py</span><br><span class="line">              ...</span><br><span class="line">      filters/                  Subpackage for filters</span><br><span class="line">              __init__.py</span><br><span class="line">              boxblur.py</span><br><span class="line">              gaussblur.py</span><br><span class="line">              sharpen.py</span><br><span class="line">              ...</span><br><span class="line"></span><br></pre></td></tr></table></figure>
 
 <p>此处 <code>picture</code> 目录下有 <code>__init__.py</code>，因此 Python 会将其作为一个 Python 包；类似地，子目录 <code>formats</code> 和 <code>filters</code> 就成了 <code>picture</code> 下的子包。这里，子包的划分以功能为准。<code>formats</code> 下的模块，设计用于处理不同格式的图片文件的读写；而 <code>filters</code> 下的模块，则被设计用于实现各种滤镜效果。</p>
 <h3 id="使用-Python-包"><a href="#使用-Python-包" class="headerlink" title="使用 Python 包"></a>使用 Python 包</h3><p>Python 包的使用和模块的使用类似，是很自然的方式。以我们的 <code>picture</code> 包为例，若你想使用其中具体的模块，可以这样做。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> picutre.filters.gaussblur</span><br></pre></td></tr></table></figure>
 
 <p>如此，你就导入了 <code>picture</code> 包中 <code>filters</code> 子包中的 <code>gaussblur</code> 模块，你就能使用高斯模糊模块提供的功能了。具体使用方式，和使用模块也保持一致。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">picture.filters.gaussblur.gaussblur_filter(input, output)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">picture.filters.gaussblur.gaussblur_filter(<span class="built_in">input</span>, output)</span><br></pre></td></tr></table></figure>
 
 <p>这看起来很繁琐，因此你可能会喜欢用 <code>from ... import ...</code> 语句，脱去过多的名字限制。</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> picture.filters <span class="keyword">import</span> gaussblur</span><br></pre></td></tr></table></figure>
 
 <p>这样一来，你就可以直接按如下方式使用高斯模糊这一滤镜了。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gaussblur.gaussblur_filter(input, output)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gaussblur.gaussblur_filter(<span class="built_in">input</span>, output)</span><br></pre></td></tr></table></figure>
 
 <h3 id="init-py"><a href="#init-py" class="headerlink" title="__init__.py"></a><code>__init__.py</code></h3><p>之前简单地介绍了 <code>__init__.py</code> 这个特殊的文件，但未展开。这里我们展开详说。</p>
 <p>首先的问题是，为什么要设计 <code>__init__.py</code>，而不是自动地把任何一个目录都当成是 Python 包？这主要是为了防止重名造成的问题。比如，很可能用户在目录下新建了一个子目录，名为 <code>collections</code>；但 Python 有内建的同名模块。若不加任何限制地，将子目录当做是 Python 包，那么，<code>import collections</code> 就会引入这个 Python 包。而这样的行为，可能不是用户预期的。从这个意义上说，设计 <code>__init__.py</code> 是一种保护措施。</p>
@@ -383,13 +385,12 @@
 <p>首先来说，<code>__init__.py</code> 可以执行一些初始化的操作。这是因为，<code>__init__.py</code> 作为模块文件，会在相应的 Python 包被引入时首先引入。这就是说，<code>import picture</code> 相当于是 <code>import picture.__init__</code>。因此，<code>__init__.py</code> 中可以保留一些初始化的代码——比如引入依赖的其他 Python 模块。</p>
 <p>其次，细心的你可能发现，上一小节中，我们没有介绍对 Python 包的 <code>from picture import *</code> 的用法。这是因为，从一个包中导入所有内容，这一行为是不明确的；必须要由包的作者指定。我们可以在 <code>__init__.py</code> 中定义名为 <code>__all__</code> 的 Python 列表。这样一来，就能使用 <code>from picture import *</code> 了。</p>
 <p>具体来说，我们可以在 <code>picture/__init__.py</code> 中做如下定义。</p>
-<figure class="highlight python"><figcaption><span>__init__.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> collections          <span class="comment"># import the built-in package</span></span><br><span class="line"></span><br><span class="line">__all__ = [<span class="string">"formats"</span>, <span class="string">"filters"</span>]</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><figcaption><span>__init__.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> collections          <span class="comment"># import the built-in package</span></span><br><span class="line"></span><br><span class="line">__all__ = [<span class="string">&quot;formats&quot;</span>, <span class="string">&quot;filters&quot;</span>]</span><br></pre></td></tr></table></figure>
 
 <p>此时，若我们在用户模块中 <code>from picture import *</code>，则首先会引入 Python 内建的 <code>collections</code> 模块，而后引入 <code>picture.formats</code> 和 <code>picture.filters</code> 这两个 Python 子包了。</p>
 <h3 id="在包内使用相对层级引用其他模块"><a href="#在包内使用相对层级引用其他模块" class="headerlink" title="在包内使用相对层级引用其他模块"></a>在包内使用相对层级引用其他模块</h3><p>细心的你应该已经发现，在引入 Python 包中的模块时，我们用句点 <code>.</code> 代替了斜线（或者反斜线）来标记路径的层级（实际上是包和模块的层级）。在 Python 包的内部，我们也可以使用类似相对路径的方式，使用相对层级来简化包内模块的互相引用。</p>
 <p>比如，在 <code>gaussblur.py</code> 中，你可以通过以下四种方式，引入 <code>boxblur.py</code>，而它们的效果是一样的。</p>
 <figure class="highlight python"><figcaption><span>gaussblur.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> boxblur</span><br><span class="line"><span class="keyword">from</span> . <span class="keyword">import</span> boxblur</span><br><span class="line"><span class="keyword">from</span> ..filters <span class="keyword">import</span> boxblur</span><br><span class="line"><span class="keyword">from</span> .. <span class="keyword">import</span> filters.boxblur <span class="keyword">as</span> boxblur</span><br></pre></td></tr></table></figure>
-
 
     </div>
 
@@ -524,7 +525,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#模块"><span class="nav-number">1.</span> <span class="nav-text">模块</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#为什么要有模块"><span class="nav-number">1.1.</span> <span class="nav-text">为什么要有模块</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#模块的识别"><span class="nav-number">1.2.</span> <span class="nav-text">模块的识别</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#模块的内部变量和初始化"><span class="nav-number">1.3.</span> <span class="nav-text">模块的内部变量和初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#from-import"><span class="nav-number">1.4.</span> <span class="nav-text">from ... import ...</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#模块搜索路径"><span class="nav-number">1.5.</span> <span class="nav-text">模块搜索路径</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#pyc-文件"><span class="nav-number">1.6.</span> <span class="nav-text">pyc 文件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#包"><span class="nav-number">2.</span> <span class="nav-text">包</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#目录结构"><span class="nav-number">2.1.</span> <span class="nav-text">目录结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#使用-Python-包"><span class="nav-number">2.2.</span> <span class="nav-text">使用 Python 包</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#init-py"><span class="nav-number">2.3.</span> <span class="nav-text">__init__.py</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#在包内使用相对层级引用其他模块"><span class="nav-number">2.4.</span> <span class="nav-text">在包内使用相对层级引用其他模块</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97"><span class="nav-number">1.</span> <span class="nav-text">模块</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E6%9C%89%E6%A8%A1%E5%9D%97"><span class="nav-number">1.1.</span> <span class="nav-text">为什么要有模块</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E7%9A%84%E8%AF%86%E5%88%AB"><span class="nav-number">1.2.</span> <span class="nav-text">模块的识别</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E7%9A%84%E5%86%85%E9%83%A8%E5%8F%98%E9%87%8F%E5%92%8C%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="nav-number">1.3.</span> <span class="nav-text">模块的内部变量和初始化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#from-import"><span class="nav-number">1.4.</span> <span class="nav-text">from ... import ...</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E6%90%9C%E7%B4%A2%E8%B7%AF%E5%BE%84"><span class="nav-number">1.5.</span> <span class="nav-text">模块搜索路径</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#pyc-%E6%96%87%E4%BB%B6"><span class="nav-number">1.6.</span> <span class="nav-text">pyc 文件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8C%85"><span class="nav-number">2.</span> <span class="nav-text">包</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%AE%E5%BD%95%E7%BB%93%E6%9E%84"><span class="nav-number">2.1.</span> <span class="nav-text">目录结构</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8-Python-%E5%8C%85"><span class="nav-number">2.2.</span> <span class="nav-text">使用 Python 包</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#init-py"><span class="nav-number">2.3.</span> <span class="nav-text">__init__.py</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9C%A8%E5%8C%85%E5%86%85%E4%BD%BF%E7%94%A8%E7%9B%B8%E5%AF%B9%E5%B1%82%E7%BA%A7%E5%BC%95%E7%94%A8%E5%85%B6%E4%BB%96%E6%A8%A1%E5%9D%97"><span class="nav-number">2.4.</span> <span class="nav-text">在包内使用相对层级引用其他模块</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -560,7 +561,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -575,52 +576,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -658,9 +659,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -715,9 +716,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -785,7 +794,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

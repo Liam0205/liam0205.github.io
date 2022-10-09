@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,22 @@
   </script>
 
   <meta name="description" content="最近在阅读 Airbnb 的论文 Applying Deep Learning to Airbnb Search。阅读的过程中，我发现作者在谈及特征归一化的必要性时，有如下表述：  Feeding values that are outside the usual range of features can cause large gradients to back propagate. This">
-<meta name="keywords" content="ReLU,Dead,Gradient,Vanishing">
 <meta property="og:type" content="article">
 <meta property="og:title" content="谈谈由异常输入导致的 ReLU 神经元死亡的问题">
 <meta property="og:url" content="https://liam.page/2018/11/30/vanishing-gradient-of-ReLU-due-to-unusual-input/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="最近在阅读 Airbnb 的论文 Applying Deep Learning to Airbnb Search。阅读的过程中，我发现作者在谈及特征归一化的必要性时，有如下表述：  Feeding values that are outside the usual range of features can cause large gradients to back propagate. This">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liam.page/uploads/images/MachineLearning/cell.jpg">
+<meta property="article:published_time" content="2018-11-30T07:04:41.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="ReLU">
+<meta property="article:tag" content="Dead">
+<meta property="article:tag" content="Gradient">
+<meta property="article:tag" content="Vanishing">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="谈谈由异常输入导致的 ReLU 神经元死亡的问题">
-<meta name="twitter:description" content="最近在阅读 Airbnb 的论文 Applying Deep Learning to Airbnb Search。阅读的过程中，我发现作者在谈及特征归一化的必要性时，有如下表述：  Feeding values that are outside the usual range of features can cause large gradients to back propagate. This">
+<meta name="twitter:image" content="https://liam.page/uploads/images/MachineLearning/cell.jpg">
 
 <link rel="canonical" href="https://liam.page/2018/11/30/vanishing-gradient-of-ReLU-due-to-unusual-input/">
 
@@ -311,7 +316,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>最近在阅读 Airbnb 的论文 <a href="https://arxiv.org/abs/1810.09591" target="_blank" rel="noopener">Applying Deep Learning to Airbnb Search</a>。阅读的过程中，我发现作者在谈及特征归一化的必要性时，有如下表述：</p>
+        <p>最近在阅读 Airbnb 的论文 <a target="_blank" rel="noopener" href="https://arxiv.org/abs/1810.09591">Applying Deep Learning to Airbnb Search</a>。阅读的过程中，我发现作者在谈及特征归一化的必要性时，有如下表述：</p>
 <blockquote>
 <p>Feeding values that are outside the usual range of features can cause large gradients to back propagate. This can permanently shut of activation functions like ReLU due to vanishing gradients.</p>
 </blockquote>
@@ -321,17 +326,17 @@
 </blockquote>
 <p>我感到有些疑惑。ReLU 正是为了解决梯度消失问题而设计的。为什么这里会提到「因梯度消失而永久关闭诸如 ReLU 的激活函数」呢？</p>
 <p>此篇来讨论这个问题。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="ReLU-函数"><a href="#ReLU-函数" class="headerlink" title="ReLU 函数"></a>ReLU 函数</h2><p>ReLU 的全称是 Rectified Linear Unit，即：线性整流单元。对于输入 $x$，它有输出</p>
-<p>$$y = \max(0, x).$$</p>
+<p>$$y &#x3D; \max(0, x).$$</p>
 <p>相应地，有导数</p>
-<p><code>$$y&#39; = \begin{cases}1 &amp; x &gt; 0, \\ 0 &amp; x &lt; 0.\end{cases}$$</code></p>
+<p><code>$$y&#39; = \begin&#123;cases&#125;1 &amp; x &gt; 0, \\ 0 &amp; x &lt; 0.\end&#123;cases&#125;$$</code></p>
 <p>由于 ReLU 在 $x &gt; 0$ 时，导数恒为 1。因此在反向传播的过程中，不会因为导数连乘，而使得梯度特别小，以至于参数无法更新。在这个意义上，ReLU 确实避免了梯度消失问题。</p>
 <h2 id="异常输入杀死神经元"><a href="#异常输入杀死神经元" class="headerlink" title="异常输入杀死神经元"></a>异常输入杀死神经元</h2><p><img data-src="/uploads/images/MachineLearning/cell.jpg" alt="一个典型的神经元"></p>
 <p>上图是一个典型的神经元。</p>
 <p>现在假设，这个神经元已经经过若干次迭代，其参数 $(\vec w, b)$ 已经迭代得趋于稳定。现在，神经元接收到了一个异常的输入 $\vec x$。比方说，它的某一维特征 <code>$x_i$</code> 与对应的权重 <code>$w_i$</code> 的乘积 <code>$w_ix_i$</code> 非常大。一般来说，这意味着 <code>$x_i$</code> 的绝对值非常大。于是，ReLU 的输入就会很大，对应 ReLU 的输出 $y$ 也就会很大。好了，假设这个 ReLU 神经元期望的输出（ground truth）是 $\hat y$，这个时候损失就会很大——损失一般是 $\lvert y - \hat y\rvert$ 的增函数，记为 $f\bigl(\lvert y - \hat y\rvert\bigr)$。</p>
-<p>于是，在反向传播过程中，传递到 ReLU 的输入时的梯度就是 $g = f\bigl(\lvert y - \hat y\rvert\bigr)$。考虑对于偏置 $b$ 有更新</p>
+<p>于是，在反向传播过程中，传递到 ReLU 的输入时的梯度就是 $g &#x3D; f\bigl(\lvert y - \hat y\rvert\bigr)$。考虑对于偏置 $b$ 有更新</p>
 <p>$$b \gets b - g\eta.$$</p>
 <p>考虑到 $g$ 是一个很大的正数，于是 $b$ 可能被更新为一个很小的负数。此后，对于常规输入来说，ReLU 的输入大概率是个负数。这也就是说，ReLU 大概率是关闭的。这时，梯度无法经 ReLU 反向传播至 ReLU 的输入函数。也就是说，这个神经元的参数再也不会更新了。这就是所谓的「神经元死亡」。</p>
 <p>如此看来，尽管 ReLU 解决了因激活函数导数的绝对值小于 1，在反向传播连乘的过程中迅速变小消失至 0 的问题，但由于它在输入为负的区段导数恒为零，而使得它对异常值特别敏感。这种异常值可能会使 ReLU 永久关闭，而杀死神经元。</p>
@@ -472,7 +477,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#ReLU-函数"><span class="nav-number">1.</span> <span class="nav-text">ReLU 函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#异常输入杀死神经元"><span class="nav-number">2.</span> <span class="nav-text">异常输入杀死神经元</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#梯度消失？"><span class="nav-number">3.</span> <span class="nav-text">梯度消失？</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#ReLU-%E5%87%BD%E6%95%B0"><span class="nav-number">1.</span> <span class="nav-text">ReLU 函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%82%E5%B8%B8%E8%BE%93%E5%85%A5%E6%9D%80%E6%AD%BB%E7%A5%9E%E7%BB%8F%E5%85%83"><span class="nav-number">2.</span> <span class="nav-text">异常输入杀死神经元</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A2%AF%E5%BA%A6%E6%B6%88%E5%A4%B1%EF%BC%9F"><span class="nav-number">3.</span> <span class="nav-text">梯度消失？</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -508,7 +513,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -523,52 +528,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -606,9 +611,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -663,9 +668,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -733,7 +746,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

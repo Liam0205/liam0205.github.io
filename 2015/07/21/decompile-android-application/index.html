@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,21 @@
   </script>
 
   <meta name="description" content="使用 QQ 这么多年，管理的群越来越多。现在每天被入群申请搞得烦不胜烦，于是萌生了写一个 QQ 机器人的想法。 要想实现一个 QQ 机器人，首先是要在程序里模拟登录。经过整理，可用的思路有两个：  使用 WebQQ 的方式登录，模拟浏览器的行为； 使用 Android QQ 的方式登录，模拟 Android 客户端的行为。  二者各有利弊。使用 WebQQ 方式登录协议相对简单，网络上也有相关分析">
-<meta name="keywords" content="Android,Decompile">
 <meta property="og:type" content="article">
 <meta property="og:title" content="反编译 Android 程序小记">
 <meta property="og:url" content="https://liam.page/2015/07/21/decompile-android-application/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="使用 QQ 这么多年，管理的群越来越多。现在每天被入群申请搞得烦不胜烦，于是萌生了写一个 QQ 机器人的想法。 要想实现一个 QQ 机器人，首先是要在程序里模拟登录。经过整理，可用的思路有两个：  使用 WebQQ 的方式登录，模拟浏览器的行为； 使用 Android QQ 的方式登录，模拟 Android 客户端的行为。  二者各有利弊。使用 WebQQ 方式登录协议相对简单，网络上也有相关分析">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liam.page/attachment/attachment/images/Android/AndroidManifest-Mojibake.png">
+<meta property="og:image" content="https://liam.page/attachment/attachment/images/Android/jd-gui-view.png">
+<meta property="article:published_time" content="2015-07-21T13:43:10.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Android">
+<meta property="article:tag" content="Decompile">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="反编译 Android 程序小记">
-<meta name="twitter:description" content="使用 QQ 这么多年，管理的群越来越多。现在每天被入群申请搞得烦不胜烦，于是萌生了写一个 QQ 机器人的想法。 要想实现一个 QQ 机器人，首先是要在程序里模拟登录。经过整理，可用的思路有两个：  使用 WebQQ 的方式登录，模拟浏览器的行为； 使用 Android QQ 的方式登录，模拟 Android 客户端的行为。  二者各有利弊。使用 WebQQ 方式登录协议相对简单，网络上也有相关分析">
+<meta name="twitter:image" content="https://liam.page/attachment/attachment/images/Android/AndroidManifest-Mojibake.png">
 
 <link rel="canonical" href="https://liam.page/2015/07/21/decompile-android-application/">
 
@@ -317,7 +321,7 @@
 <li>使用 WebQQ 的方式登录，模拟浏览器的行为；</li>
 <li>使用 Android QQ 的方式登录，模拟 Android 客户端的行为。</li>
 </ul>
-<p>二者各有利弊。使用 WebQQ 方式登录协议相对简单，网络上也有<a href="http://hfutfei.iteye.com/blog/800866" target="_blank" rel="noopener">相关分析</a>；但是 WebQQ 不能与电脑上的 QQ 共存：登录 WebQQ 就会将电脑上的登录踢下线。使用 Android QQ 的方式登录，由于没有现成的资料可供查询，实现起来十分复杂；但是 Android QQ 是手机端 QQ，可以与电脑端 QQ 共存。</p>
+<p>二者各有利弊。使用 WebQQ 方式登录协议相对简单，网络上也有<a target="_blank" rel="noopener" href="http://hfutfei.iteye.com/blog/800866">相关分析</a>；但是 WebQQ 不能与电脑上的 QQ 共存：登录 WebQQ 就会将电脑上的登录踢下线。使用 Android QQ 的方式登录，由于没有现成的资料可供查询，实现起来十分复杂；但是 Android QQ 是手机端 QQ，可以与电脑端 QQ 共存。</p>
 <p>「要做就做好」。思前想后，我还是决定使用 Android QQ 的方式登录。于是问题来了，怎样去抓取 Android QQ 的行为呢？</p>
 <ol>
 <li>在 Android QQ 外围进行抓包分析，然后让程序伪装成 Android QQ 向腾讯的服务器发包；</li>
@@ -326,9 +330,9 @@
 <p>方案 1 是常规方法，若能顺利实施，无非是不断重复抓包 - 分析 - 伪造的步骤。不过 QQ 的通信信息是加密处理过的，抓包分析比较费劲。因此，我决定尝试反编译 Android 程序，直接阅读源代码。</p>
 <p>这里我介绍反编译安卓程序，得到 Java 代码的详细方法。</p>
 <p><strong>请尊重他人劳动成果，勿将此方法用于恶意活动。</strong></p>
-<a id="more"></a>
+<span id="more"></span>
 
-<h2 id="解包-apk"><a href="#解包-apk" class="headerlink" title="解包 .apk"></a>解包 <code>.apk</code></h2><p><a href="https://zh.wikipedia.org/wiki/APK" target="_blank" rel="noopener">APK</a> 是 Application Package File 的缩写。<code>.apk</code> 文件的实质是一个 <code>.zip</code> 压缩包，包含 Android 运行 APP 所需以下内容：</p>
+<h2 id="解包-apk"><a href="#解包-apk" class="headerlink" title="解包 .apk"></a>解包 <code>.apk</code></h2><p><a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/APK">APK</a> 是 Application Package File 的缩写。<code>.apk</code> 文件的实质是一个 <code>.zip</code> 压缩包，包含 Android 运行 APP 所需以下内容：</p>
 <ul>
 <li>编译好的代码文件 <code>.dex</code></li>
 <li><code>assets</code> 目录</li>
@@ -340,20 +344,20 @@
 <h2 id="处理-AndroidManifest-xml"><a href="#处理-AndroidManifest-xml" class="headerlink" title="处理 AndroidManifest.xml"></a>处理 <code>AndroidManifest.xml</code></h2><p><code>AndroidManifest.xml</code> 是一个传统的Android清单文件，用于描述该应用程序的名字、版本号、所需权限、注册的服务、链接的其他应用程序。为了搞清楚程序到底做了什么，我们有必要知道这个文件的具体内容。</p>
 <p>如果用文本编辑器打开 <code>AndroidManifest.xml</code>，我们会发现其中是一堆乱码。</p>
 <p><img data-src="//liam.page/attachment/attachment/images/Android/AndroidManifest-Mojibake.png" alt="AndroidManifest.xml 乱码"></p>
-<p>实际上，<code>AndroidManifest.xml</code> 已经被处理成二进制格式，我们用文本模式打开它乱码是理所应当的。为了正确读取其中内容，我们需要用 <a href="https://code.google.com/p/android4me/downloads/list" target="_blank" rel="noopener">AXMLPrinter2</a> 这个工具对它进行处理，将它还原成文本格式。</p>
+<p>实际上，<code>AndroidManifest.xml</code> 已经被处理成二进制格式，我们用文本模式打开它乱码是理所应当的。为了正确读取其中内容，我们需要用 <a target="_blank" rel="noopener" href="https://code.google.com/p/android4me/downloads/list">AXMLPrinter2</a> 这个工具对它进行处理，将它还原成文本格式。</p>
 <ul>
-<li><a href="https://code.google.com/p/android4me/downloads/detail?name=AXMLPrinter2.jar&can=2&q=" target="_blank" rel="noopener">AXMLPrinter2 官方下载</a></li>
+<li><a target="_blank" rel="noopener" href="https://code.google.com/p/android4me/downloads/detail?name=AXMLPrinter2.jar&can=2&q=">AXMLPrinter2 官方下载</a></li>
 <li><a href="//liam.page/attachment/attachment/Android/AXMLPrinter2.jar">预防 Google Code 关闭准备的备用链接</a></li>
 </ul>
 <p>之后我们需要运行</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -jar AXMLPrinter2.jar AndroidManifest.xml &gt; AndroidManifest.txt</span><br></pre></td></tr></table></figure>
 
 <p>将二进制格式的 <code>AndroidManifest.xml</code> 转换为文本格式，并保存在 <code>AndroidManifest.txt</code> 之中。这样我们就能阅读其中信息了。</p>
-<h2 id="处理-dex-文件"><a href="#处理-dex-文件" class="headerlink" title="处理 .dex 文件"></a>处理 <code>.dex</code> 文件</h2><p><code>.dex</code> 文件是 Java 标准的 classes 文件通过 DEX 编译后的文件格式，是用于在 <a href="https://zh.wikipedia.org/wiki/Dalvik%E8%99%9A%E6%8B%9F%E6%9C%BA" target="_blank" rel="noopener">Dalvik 虚拟机</a>上运行的主要代码部分。显而易见，这是我们需要处理的重头戏。</p>
-<p>处理 <code>.dex</code> 文件就是要将其还原为 Java 标准的 <code>.jar</code> 文件。为此我们需要用到 <a href="https://github.com/pxb1988/dex2jar" target="_blank" rel="noopener"><code>dex2jar</code></a> 这个工具。</p>
+<h2 id="处理-dex-文件"><a href="#处理-dex-文件" class="headerlink" title="处理 .dex 文件"></a>处理 <code>.dex</code> 文件</h2><p><code>.dex</code> 文件是 Java 标准的 classes 文件通过 DEX 编译后的文件格式，是用于在 <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/Dalvik%E8%99%9A%E6%8B%9F%E6%9C%BA">Dalvik 虚拟机</a>上运行的主要代码部分。显而易见，这是我们需要处理的重头戏。</p>
+<p>处理 <code>.dex</code> 文件就是要将其还原为 Java 标准的 <code>.jar</code> 文件。为此我们需要用到 <a target="_blank" rel="noopener" href="https://github.com/pxb1988/dex2jar"><code>dex2jar</code></a> 这个工具。</p>
 <ul>
-<li><a href="https://github.com/pxb1988/dex2jar/releases" target="_blank" rel="noopener"><code>dex2jar</code> 官方下载</a></li>
-<li><a href="//liam.page/attachment/attachment/Android/dex-tools-2.0.zip">预防 GitHub 不能用的备用链接</a>（版本 2.0，<a href="https://github.com/pxb1988/dex2jar/commit/a9126a95ad613c4021cb37930823b1281ec5414a" target="_blank" rel="noopener"><code>a9126a9</code></a>）</li>
+<li><a target="_blank" rel="noopener" href="https://github.com/pxb1988/dex2jar/releases"><code>dex2jar</code> 官方下载</a></li>
+<li><a href="//liam.page/attachment/attachment/Android/dex-tools-2.0.zip">预防 GitHub 不能用的备用链接</a>（版本 2.0，<a target="_blank" rel="noopener" href="https://github.com/pxb1988/dex2jar/commit/a9126a95ad613c4021cb37930823b1281ec5414a"><code>a9126a9</code></a>）</li>
 </ul>
 <p>解压后，我们在命令行中运行</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/path/to/dex-tools/d2j-dex2jar.sh *.dex</span><br></pre></td></tr></table></figure>
@@ -362,11 +366,11 @@
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">\path\to\dex-tools\d2j-dex2jar.bat *.dex</span><br></pre></td></tr></table></figure>
 
 <p>就能得到 <code>classes.dex</code> 相应的 <code>classes-dex2jar.jar</code> 文件。</p>
-<h2 id="处理-jar-文件，得到-Java-源码"><a href="#处理-jar-文件，得到-Java-源码" class="headerlink" title="处理 .jar 文件，得到 Java 源码"></a>处理 <code>.jar</code> 文件，得到 Java 源码</h2><p><code>.jar</code> 文件是 <code>.class</code> 文件的封装。<a href="http://jd.benow.ca" target="_blank" rel="noopener">jd-gui</a> 这个小工具可以以图形化的界面查看 <code>.jar</code> 当中 <code>.class</code> 文件对应的 Java 源码。所得结果可读性非常高。</p>
+<h2 id="处理-jar-文件，得到-Java-源码"><a href="#处理-jar-文件，得到-Java-源码" class="headerlink" title="处理 .jar 文件，得到 Java 源码"></a>处理 <code>.jar</code> 文件，得到 Java 源码</h2><p><code>.jar</code> 文件是 <code>.class</code> 文件的封装。<a target="_blank" rel="noopener" href="http://jd.benow.ca/">jd-gui</a> 这个小工具可以以图形化的界面查看 <code>.jar</code> 当中 <code>.class</code> 文件对应的 Java 源码。所得结果可读性非常高。</p>
 <p>下载地址：</p>
 <ul>
-<li><a href="https://github.com/java-decompiler/jd-gui/releases/download/v1.3.0/jd-gui-windows-1.3.0.zip" target="_blank" rel="noopener">Windows 版 - 官方</a> - <a href="//liam.page/attachment/attachment/Android/jd-gui-windows-1.3.0.zip">备用</a></li>
-<li><a href="https://github.com/java-decompiler/jd-gui/releases/download/v1.3.0/jd-gui-osx-1.3.0.tar" target="_blank" rel="noopener">Mac 版 - 官方</a> - <a href="//liam.page/attachment/attachment/Android/jd-gui-osx-1.3.0.tar">备用</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/java-decompiler/jd-gui/releases/download/v1.3.0/jd-gui-windows-1.3.0.zip">Windows 版 - 官方</a> - <a href="//liam.page/attachment/attachment/Android/jd-gui-windows-1.3.0.zip">备用</a></li>
+<li><a target="_blank" rel="noopener" href="https://github.com/java-decompiler/jd-gui/releases/download/v1.3.0/jd-gui-osx-1.3.0.tar">Mac 版 - 官方</a> - <a href="//liam.page/attachment/attachment/Android/jd-gui-osx-1.3.0.tar">备用</a></li>
 </ul>
 <p>使用 jd-gui 打开上一步得到的 <code>.jar</code> 文件，就能看到 <code>.class</code> 对应的 Java 源码了。</p>
 <p><img data-src="//liam.page/attachment/attachment/images/Android/jd-gui-view.png" alt="使用 jd-gui 查看 Java 源码"></p>
@@ -504,7 +508,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#解包-apk"><span class="nav-number">1.</span> <span class="nav-text">解包 .apk</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#处理-AndroidManifest-xml"><span class="nav-number">2.</span> <span class="nav-text">处理 AndroidManifest.xml</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#处理-dex-文件"><span class="nav-number">3.</span> <span class="nav-text">处理 .dex 文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#处理-jar-文件，得到-Java-源码"><span class="nav-number">4.</span> <span class="nav-text">处理 .jar 文件，得到 Java 源码</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%8C%85-apk"><span class="nav-number">1.</span> <span class="nav-text">解包 .apk</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%84%E7%90%86-AndroidManifest-xml"><span class="nav-number">2.</span> <span class="nav-text">处理 AndroidManifest.xml</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%84%E7%90%86-dex-%E6%96%87%E4%BB%B6"><span class="nav-number">3.</span> <span class="nav-text">处理 .dex 文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%84%E7%90%86-jar-%E6%96%87%E4%BB%B6%EF%BC%8C%E5%BE%97%E5%88%B0-Java-%E6%BA%90%E7%A0%81"><span class="nav-number">4.</span> <span class="nav-text">处理 .jar 文件，得到 Java 源码</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -540,7 +544,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -555,52 +559,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -638,9 +642,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -695,9 +699,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -765,7 +777,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

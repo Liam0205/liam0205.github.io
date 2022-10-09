@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -25,18 +25,19 @@
     var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="前文讨论了期权价格的决定因素并简单介绍了领口策略。 领口策略通过买入虚值看跌期权（后简称买入 PUT otm）并卖出虚值看涨期权（后简称卖出 CALL otm），在 CALL 有效期内放弃超额收益，在 PUT 有效期内控制风险。此篇我们在基础版领口策略的基础上进行一些扩展，以便能够让领口策略长期滚动起来，并持续获得收益/降低持仓成本。  此篇文章介绍的策略，是我从 Ming Ma 先达处学到，而后">
-<meta name="keywords" content="Option,Collar Strategy">
+  <meta name="description" content="前文讨论了期权价格的决定因素并简单介绍了领口策略。 领口策略通过买入虚值看跌期权（后简称买入 PUT otm）并卖出虚值看涨期权（后简称卖出 CALL otm），在 CALL 有效期内放弃超额收益，在 PUT 有效期内控制风险。此篇我们在基础版领口策略的基础上进行一些扩展，以便能够让领口策略长期滚动起来，并持续获得收益&#x2F;降低持仓成本。  此篇文章介绍的策略，是我从 Ming Ma 先达处">
 <meta property="og:type" content="article">
 <meta property="og:title" content="扩展版领口策略">
 <meta property="og:url" content="https://liam.page/2021/03/16/the-extended-callar-strategy/index.html">
 <meta property="og:site_name" content="始终">
-<meta property="og:description" content="前文讨论了期权价格的决定因素并简单介绍了领口策略。 领口策略通过买入虚值看跌期权（后简称买入 PUT otm）并卖出虚值看涨期权（后简称卖出 CALL otm），在 CALL 有效期内放弃超额收益，在 PUT 有效期内控制风险。此篇我们在基础版领口策略的基础上进行一些扩展，以便能够让领口策略长期滚动起来，并持续获得收益/降低持仓成本。  此篇文章介绍的策略，是我从 Ming Ma 先达处学到，而后">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2021-04-21T13:48:50.000Z">
+<meta property="og:description" content="前文讨论了期权价格的决定因素并简单介绍了领口策略。 领口策略通过买入虚值看跌期权（后简称买入 PUT otm）并卖出虚值看涨期权（后简称卖出 CALL otm），在 CALL 有效期内放弃超额收益，在 PUT 有效期内控制风险。此篇我们在基础版领口策略的基础上进行一些扩展，以便能够让领口策略长期滚动起来，并持续获得收益&#x2F;降低持仓成本。  此篇文章介绍的策略，是我从 Ming Ma 先达处">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-03-16T06:43:46.000Z">
+<meta property="article:modified_time" content="2021-04-21T13:48:50.292Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Option">
+<meta property="article:tag" content="Collar Strategy">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="扩展版领口策略">
-<meta name="twitter:description" content="前文讨论了期权价格的决定因素并简单介绍了领口策略。 领口策略通过买入虚值看跌期权（后简称买入 PUT otm）并卖出虚值看涨期权（后简称卖出 CALL otm），在 CALL 有效期内放弃超额收益，在 PUT 有效期内控制风险。此篇我们在基础版领口策略的基础上进行一些扩展，以便能够让领口策略长期滚动起来，并持续获得收益/降低持仓成本。  此篇文章介绍的策略，是我从 Ming Ma 先达处学到，而后">
 
 <link rel="canonical" href="https://liam.page/2021/03/16/the-extended-callar-strategy/">
 
@@ -292,14 +293,14 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>3k</span>
+              <span>3.1k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>5 分钟</span>
+              <span>6 分钟</span>
             </span>
 
         </div>
@@ -312,14 +313,14 @@
 
       
         <p><a href="/2021/03/15/price-of-option-and-the-collar-strategy/">前文</a>讨论了期权价格的决定因素并简单介绍了领口策略。</p>
-<p>领口策略通过买入虚值看跌期权（后简称买入 PUT otm）并卖出虚值看涨期权（后简称卖出 CALL otm），在 CALL 有效期内放弃超额收益，在 PUT 有效期内控制风险。此篇我们在基础版领口策略的基础上进行一些扩展，以便能够让领口策略长期滚动起来，并持续获得收益/降低持仓成本。</p>
+<p>领口策略通过买入虚值看跌期权（后简称买入 PUT otm）并卖出虚值看涨期权（后简称卖出 CALL otm），在 CALL 有效期内放弃超额收益，在 PUT 有效期内控制风险。此篇我们在基础版领口策略的基础上进行一些扩展，以便能够让领口策略长期滚动起来，并持续获得收益&#x2F;降低持仓成本。</p>
 <blockquote>
 <p>此篇文章介绍的策略，是我从 Ming Ma 先达处学到，而后加工整理的。感谢 Ming Ma 的无私分享和细心解读。</p>
 </blockquote>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>基础版的领口策略的 PUT 和 CALL 的过期时间相同，这有一点不好。因为从本性来说，我们对下跌的担忧是长久的，对上涨的期待也是长久的。因此，对于固定行权价的保护性 PUT 来说，我们期待它的过期时间长；对于固定行权价的对冲性 CALL 来说，我们期待它过期时间短，以便能够及时根据市场行情作出调整。这促使我们在构建领口策略的时候，买入远期的 PUT，卖出相对短期的 CALL。</p>
-<p>领口策略的本意，是利用卖出 CALL otm 的收入，抵消/降低买入 PUT otm 的成本。现在，我们打算买入远期 PUT otm。那么，它的价格就很难为短期 CALL otm 所抵消。在这种情况下，我们有两种选择。一是继续卖出更多的 CALL otm，二是选择也卖出一些 PUT otm。</p>
+<p>领口策略的本意，是利用卖出 CALL otm 的收入，抵消&#x2F;降低买入 PUT otm 的成本。现在，我们打算买入远期 PUT otm。那么，它的价格就很难为短期 CALL otm 所抵消。在这种情况下，我们有两种选择。一是继续卖出更多的 CALL otm，二是选择也卖出一些 PUT otm。</p>
 <p>若是继续卖出更多的 CALL otm，那么多出来的这部分 CALL，就会成为没有对应正股保护的敞口风险。构造领口策略是为了降低风险，因此，显然我们不会选择这种平白增加风险的行为。那么选择就很明朗了——卖出部分短期 PUT otm。</p>
 <p>现在，我们的策略由以下部分组成：</p>
 <ul>
@@ -328,14 +329,14 @@
 <li>卖出一份近期，价格稍高的 CALL otm；</li>
 <li>卖出一份近期，价格稍低的 PUT otm。</li>
 </ul>
-<p>最理想的情况，是在卖出的两份近期 option 到期之前，正股价格波动没有击穿 CALL/PUT 的行权价格。在这种情况下，两份期权都不会被对家行权，我们白赚权利金。</p>
+<p>最理想的情况，是在卖出的两份近期 option 到期之前，正股价格波动没有击穿 CALL&#x2F;PUT 的行权价格。在这种情况下，两份期权都不会被对家行权，我们白赚权利金。</p>
 <p>但若</p>
 <ul>
 <li>在近期 CALL 到期之前，上涨击穿 CALL 的行权价，则我们持有的一份正股，会被 CALL 走；此时正股被迫平仓，远期 PUT 的保护就失去了意义。这种情况应当补仓。</li>
 <li>或者，在近期 PUT 到期之前，下跌击穿 PUT 的行权价，则对家会 PUT 一份正股给我们；此时正股仓位高于远期 PUT 的保护，形成敞口风险。这种情况应当减仓。</li>
 </ul>
-<h2 id="补仓的策略"><a href="#补仓的策略" class="headerlink" title="补仓的策略"></a>补仓的策略</h2><p>无论是 CALL 还是 PUT 被击穿，恢复策略都涉及两个方面。一是正股，而是围绕正股当前价格的近期 PUT/CALL。我们先来讨论 CALL 被击穿时候，补仓的策略。</p>
-<p>对于近期 PUT/CALL 来说。</p>
+<h2 id="补仓的策略"><a href="#补仓的策略" class="headerlink" title="补仓的策略"></a>补仓的策略</h2><p>无论是 CALL 还是 PUT 被击穿，恢复策略都涉及两个方面。一是正股，而是围绕正股当前价格的近期 PUT&#x2F;CALL。我们先来讨论 CALL 被击穿时候，补仓的策略。</p>
+<p>对于近期 PUT&#x2F;CALL 来说。</p>
 <p>考虑 PUT。如果 CALL 被提前行权（在到期日之前被行权，仅适用于美式期权），则 PUT 依然在履约期内。此时，由于 1) CALL 被击穿，正股价格相对卖出 PUT otm 时要高，以及 2) 时间的推移，此前我们卖出的 PUT 合约，价格会下跌，低于卖出时的价格。于是我们可以将它买回来。对于 PUT 来说，我们的权利金不会损失。</p>
 <p>考虑 CALL。由于 CALL 被行权，合约结束，权利金完全落入我们的口袋。此时我们的权利金也不会损失。</p>
 <p>因此，我们的结论是，我们应当：</p>
@@ -350,7 +351,7 @@
 </ul>
 <p>考虑到我们购买远期 PUT 时，是为了在控制风险的情况下长期持有正股。<strong>在基本判断不发生变化的情况下</strong>，更好的选择应该是选择第一种方案：直接购入一份正股。</p>
 <h2 id="减仓的策略"><a href="#减仓的策略" class="headerlink" title="减仓的策略"></a>减仓的策略</h2><p>接下来我们讨论减仓的策略。</p>
-<p>同样地，对于近期 PUT/CALL 来说。</p>
+<p>同样地，对于近期 PUT&#x2F;CALL 来说。</p>
 <p>考虑 CALL。如果 PUT 被提前行权（在到期日之前被行权，仅适用于美式期权），则 CALL 依然在履约期内。此时，由于 1) PUT 被击穿，正股价格相对卖出 CALL otm 时要低，以及 2) 时间的推移，此前我们卖出的 CALL 合约，价格会下跌，低于卖出时的价格。于是我们可以将它买回来。对于 CALL 来说，我们的权利金不会损失。</p>
 <p>考虑 PUT。由于 PUT 被行权，合约结束，权利金完全落入我们的口袋。此时我们的权利金也不会损失。</p>
 <p>因此，我们的结论是，我们应当：</p>
@@ -511,7 +512,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#概述"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#补仓的策略"><span class="nav-number">2.</span> <span class="nav-text">补仓的策略</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#减仓的策略"><span class="nav-number">3.</span> <span class="nav-text">减仓的策略</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#风险的分析"><span class="nav-number">4.</span> <span class="nav-text">风险的分析</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E8%BF%B0"><span class="nav-number">1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A1%A5%E4%BB%93%E7%9A%84%E7%AD%96%E7%95%A5"><span class="nav-number">2.</span> <span class="nav-text">补仓的策略</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%87%8F%E4%BB%93%E7%9A%84%E7%AD%96%E7%95%A5"><span class="nav-number">3.</span> <span class="nav-text">减仓的策略</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A3%8E%E9%99%A9%E7%9A%84%E5%88%86%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">风险的分析</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -547,7 +548,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -562,52 +563,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -645,9 +646,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -702,9 +703,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -772,7 +781,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

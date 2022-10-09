@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,21 @@
   </script>
 
   <meta name="description" content="Kenneth Reitz 是公认的这个世界上 Python 代码写得最好的人之一。抱着学习的心态，我阅读了 Reitz 写的 envoy 模块的源码，将笔记记录如下。">
-<meta name="keywords" content="Python,Library,Subprocess">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Python envoy 模块源码剖析">
 <meta property="og:url" content="https://liam.page/2016/09/25/review-of-envoy/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="Kenneth Reitz 是公认的这个世界上 Python 代码写得最好的人之一。抱着学习的心态，我阅读了 Reitz 写的 envoy 模块的源码，将笔记记录如下。">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liam.page/uploads/images/python/review_envoy_01.png">
+<meta property="article:published_time" content="2016-09-25T03:48:07.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="Library">
+<meta property="article:tag" content="Subprocess">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Python envoy 模块源码剖析">
-<meta name="twitter:description" content="Kenneth Reitz 是公认的这个世界上 Python 代码写得最好的人之一。抱着学习的心态，我阅读了 Reitz 写的 envoy 模块的源码，将笔记记录如下。">
+<meta name="twitter:image" content="https://liam.page/uploads/images/python/review_envoy_01.png">
 
 <link rel="canonical" href="https://liam.page/2016/09/25/review-of-envoy/">
 
@@ -292,7 +296,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>10k</span>
+              <span>11k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -312,7 +316,7 @@
 
       
         <p>Kenneth Reitz 是公认的这个世界上 Python 代码写得最好的人之一。抱着学习的心态，我阅读了 Reitz 写的 <code>envoy</code> 模块的源码，将笔记记录如下。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h2><p>和 <code>requests</code> 模块一样，<code>envoy</code> 也是 Reitz 的作品，连官方描述都类似——Python Subprocesses for Humans。</p>
 <p>实际上，<code>envoy</code> 的核心代码非常少，总共只有不到 300 行代码，只是简单的对标准库 <code>subprocess</code> 的封装。但是，所谓短小精干，<code>envoy</code> 实现的接口简单易用，比裸用 <code>subprocess</code> 方便不少。</p>
@@ -322,15 +326,15 @@
 <li>程序：一般是一组CPU指令的集合构成的文件，静态存储在诸如硬盘之类的存储设备上。</li>
 <li>进程：当一个程序要被计算机运行时，就是在内存中产生该程序的一个运行时实例，我们就把这个实例叫做进程。</li>
 </ul>
-<p>简单来说，程序就是编译出来的二进制可执行文件，比如 Windows 里的 <code>.exe</code> 文件，<em>nix 里的 ELF 文件。操作系统将它们装载到内存空间并执行时的实例，就是进程。*</em>程序和进程之间隔着一个「装载」的步骤**。</p>
+<p>简单来说，程序就是编译出来的二进制可执行文件，比如 Windows 里的 <code>.exe</code> 文件，*nix 里的 ELF 文件。操作系统将它们装载到内存空间并执行时的实例，就是进程。<strong>程序和进程之间隔着一个「装载」的步骤</strong>。</p>
 <h3 id="Linux-里的进程"><a href="#Linux-里的进程" class="headerlink" title="Linux 里的进程"></a>Linux 里的进程</h3><blockquote>
 <p>以下实验均在 CentOS 5.4 环境下操作。</p>
 </blockquote>
 <p>首先，我们在终端里执行</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ps -eo pid,ppid,comm,cmd | less</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ps -eo pid,ppid,<span class="built_in">comm</span>,cmd | less</span><br></pre></td></tr></table></figure>
 
 <p>这里 <code>ps</code> 命令用来查询正在运行的进程，<code>-e</code> 表示我们想要查看所有的进程，<code>-o</code> 则选择我们想查看的列名称。这里我们查看 <code>pid</code>, <code>ppid</code>, <code>comm</code>, <code>cmd</code>。</p>
-<p><img data-src="/uploads/images/python/review_envoy_01.png" alt></p>
+<p><img data-src="/uploads/images/python/review_envoy_01.png"></p>
 <p>在这个输出结果中，每一行代表一个进程（表头除外），共分为 4 列。</p>
 <ul>
 <li>PID: Process IDentity，进程在当前系统中的唯一识别码，相当于我们的身份证号。</li>
@@ -338,17 +342,17 @@
 <li>COMMAND: 进程的简称。</li>
 <li>CMD: <strong>进程对应的程序</strong>及其运行时所带的参数。</li>
 </ul>
-<h3 id="从计算机启动到进程的创建"><a href="#从计算机启动到进程的创建" class="headerlink" title="从计算机启动到进程的创建"></a>从计算机启动到进程的创建</h3><p>计算机启动时，首先会从主板上的 <strong>BIOS</strong> (Basic Input/Output System) 中执行程序，从某个设备（比如软盘、硬盘、光盘、网络等）上启动计算机。而后，计算机会定位到所选的设备上，读取开头的 512 字节里的 <strong>MBR</strong> (Master Boot Record)。MBR 里记录着从存储设备启动 <strong>Boot Loader</strong> 的具体分区和位置。Boot Loder 里记录着操作系统名称、内核所在位置等信息，启动 Boot Loader 之后，它会帮我们<strong>加载 Kernel</strong>。内核负责两件事：对下负责管理硬件，对上负责提供系统调用。于是，内核首先会<strong>预留自己运行所需的内存空间</strong>，然后调用<strong>驱动程序 (drivers)</strong>检测计算机硬件，最后启动 <code>init</code> 进程，并将控制权交给这个进程。在 Linux 里，<code>init</code> 的 PID 是 <code>1</code>。<code>init</code> 进程负责设置计算机名称、时区，检测文件系统，挂载硬盘，清空临时文件，设置网络等操作。通常意义上说，当 <code>init</code> 完成这些工作，计算机就算启动完成了。</p>
+<h3 id="从计算机启动到进程的创建"><a href="#从计算机启动到进程的创建" class="headerlink" title="从计算机启动到进程的创建"></a>从计算机启动到进程的创建</h3><p>计算机启动时，首先会从主板上的 <strong>BIOS</strong> (Basic Input&#x2F;Output System) 中执行程序，从某个设备（比如软盘、硬盘、光盘、网络等）上启动计算机。而后，计算机会定位到所选的设备上，读取开头的 512 字节里的 <strong>MBR</strong> (Master Boot Record)。MBR 里记录着从存储设备启动 <strong>Boot Loader</strong> 的具体分区和位置。Boot Loder 里记录着操作系统名称、内核所在位置等信息，启动 Boot Loader 之后，它会帮我们<strong>加载 Kernel</strong>。内核负责两件事：对下负责管理硬件，对上负责提供系统调用。于是，内核首先会<strong>预留自己运行所需的内存空间</strong>，然后调用**驱动程序 (drivers)**检测计算机硬件，最后启动 <code>init</code> 进程，并将控制权交给这个进程。在 Linux 里，<code>init</code> 的 PID 是 <code>1</code>。<code>init</code> 进程负责设置计算机名称、时区，检测文件系统，挂载硬盘，清空临时文件，设置网络等操作。通常意义上说，当 <code>init</code> 完成这些工作，计算机就算启动完成了。</p>
 <p>我们小结一下，计算机启动的流程是：</p>
 <blockquote>
 <p>BIOS -&gt; MBR -&gt; Boot Loader -&gt; Kernel -&gt; 预留内存空间 -&gt; drivers -&gt; <code>init</code> -&gt; settings</p>
 </blockquote>
 <p>我们知道，运行于操作系统上的进程（包括 <code>init</code>）与操作系统交互，都是通过<strong>系统调用</strong>来完成的。然而 Linux 并没有提供创建新进程的系统调用。实际上，Linux 里创建新的进程这一动作，是通过 <code>fork</code> 和 <code>exec</code> 两个函数来实现的。</p>
 <p>我们先来看看 <code>fork</code> 函数的用法。</p>
-<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">pid_t</span> pid;</span><br><span class="line"><span class="keyword">if</span> (pid = fork()) &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">pid_t</span> pid;</span><br><span class="line"><span class="keyword">if</span> (pid = fork()) &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
 <p>调用 <code>fork</code> 函数后，新的进程（任务）和当前进程一起从代码的同一位置开始执行：从 <code>fork</code> 函数获得返回值。在这里，新的进程称为子进程 (Child Process)，当前进程相对应称之为父进程 (Parent Process)。不过，在子进程中，<code>fork</code> 函数返回 <code>0</code>；在父进程中，<code>fork</code> 函数则返回子进程的 PID。因此，在子进程中，表达式 <code>pid = fork()</code> 为 <code>false</code>，跳转到后续的 <code>else</code> 语句块继续执行；在父进程中，表达式 <code>pid = fork()</code> 为 <code>true</code>，继续执行语句块。</p>
-<p><code>fork</code> 函数的产生子进程的速度非常快。这是因为，通过 <code>fork</code> 产生的子进程，只是简单地分配了内存空间，并与父进程共享<strong>写时复制 (Copy on Write, COW)</strong>内存空间。这意味着，通过 <code>fork</code> 产生子进程的过程中，并没有内存中内容的复制，因此速度非常快。</p>
+<p><code>fork</code> 函数的产生子进程的速度非常快。这是因为，通过 <code>fork</code> 产生的子进程，只是简单地分配了内存空间，并与父进程共享**写时复制 (Copy on Write, COW)**内存空间。这意味着，通过 <code>fork</code> 产生子进程的过程中，并没有内存中内容的复制，因此速度非常快。</p>
 <p><code>fork</code> 产生的子进程，只是父进程的镜像。通过 <code>fork</code> 的返回值，我们可以在代码里判断是否是子进程。如果是子进程，就可以调用 <code>exec</code> 函数，使用新的程序（可执行映像文件）覆盖当前的映像，从而执行新的任务。</p>
 <p>不难发现，Linux 中所有的进程，不断追溯其父进程，都会最终追溯到 <code>init</code> 进程。</p>
 <h3 id="进程的终止"><a href="#进程的终止" class="headerlink" title="进程的终止"></a>进程的终止</h3><p>当一个进程执行 <code>exit</code> 函数之后，内核会释放它所打开的文件、占用的内存等资源，然后在操作系统内核中保留一些退出信息</p>
@@ -357,10 +361,10 @@
 <li>Exit Code</li>
 <li>CPU time taken by the process</li>
 </ul>
-<p>简而言之，进程退出后，会释放资源，然后在内核里留下一些诊断信息，成为<strong>僵尸进程 (Zombie Process)</strong>。进程退出后，将 PID 留在了操作系统内核中尚未释放。因此，该 PID 是不可以被后续的新进程使用的。因此，在 Linux 的设计中，父进程需要调用 <code>wait</code> 或者 <code>waitpid</code> 函数从内核中获取并处理子进程的诊断信息，并释放 PID（清扫僵尸进程）。</p>
-<p>如果子进程退出时，父进程尚在，但父进程始终不处理子进程退出后留下的僵尸进程，而不断因为业务逻辑产生新的子进程，那么僵尸进程就会不断积累，最终占满所有可用的 PID（没有进程槽了）。这样一来，在操作系统中就无法产生新的子进程了。（参见 <a href="https://zh.wikipedia.org/wiki/Fork%E7%82%B8%E5%BC%B9" target="_blank" rel="noopener">fork 炸弹</a>）因此，通过 <code>fork</code> 函数创建子进程之后，一定要注意 <code>wait</code> 子进程。</p>
+<p>简而言之，进程退出后，会释放资源，然后在内核里留下一些诊断信息，成为**僵尸进程 (Zombie Process)**。进程退出后，将 PID 留在了操作系统内核中尚未释放。因此，该 PID 是不可以被后续的新进程使用的。因此，在 Linux 的设计中，父进程需要调用 <code>wait</code> 或者 <code>waitpid</code> 函数从内核中获取并处理子进程的诊断信息，并释放 PID（清扫僵尸进程）。</p>
+<p>如果子进程退出时，父进程尚在，但父进程始终不处理子进程退出后留下的僵尸进程，而不断因为业务逻辑产生新的子进程，那么僵尸进程就会不断积累，最终占满所有可用的 PID（没有进程槽了）。这样一来，在操作系统中就无法产生新的子进程了。（参见 <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/Fork%E7%82%B8%E5%BC%B9">fork 炸弹</a>）因此，通过 <code>fork</code> 函数创建子进程之后，一定要注意 <code>wait</code> 子进程。</p>
 <p>如果父进程退出时，子进程尚在。这时候，没爹没娘的孤儿进程（Orphand Process）就会被 <code>init</code> 进程收养，直到它退出后被 <code>init</code> 处理。</p>
-<h2 id="envoy-源码剖析"><a href="#envoy-源码剖析" class="headerlink" title="envoy 源码剖析"></a><code>envoy</code> 源码剖析</h2><p>Reitz 的 <code>envoy</code> 项目地址是 <a href="https://github.com/kennethreitz/envoy" target="_blank" rel="noopener">https://github.com/kennethreitz/envoy</a>。为了保证本文的长期有效性，我将它 fork 到了这里 <a href="https://github.com/reviewlib/envoy" target="_blank" rel="noopener">https://github.com/reviewlib/envoy</a>。</p>
+<h2 id="envoy-源码剖析"><a href="#envoy-源码剖析" class="headerlink" title="envoy 源码剖析"></a><code>envoy</code> 源码剖析</h2><p>Reitz 的 <code>envoy</code> 项目地址是 <a target="_blank" rel="noopener" href="https://github.com/kennethreitz/envoy">https://github.com/kennethreitz/envoy</a>。为了保证本文的长期有效性，我将它 fork 到了这里 <a target="_blank" rel="noopener" href="https://github.com/reviewlib/envoy">https://github.com/reviewlib/envoy</a>。</p>
 <p><code>envoy</code> 的核心代码保存在 <code>./envoy/core.py</code> 当中。我们先就这份代码的语法点做分析，然后讨论它的结构。</p>
 <h3 id="库"><a href="#库" class="headerlink" title="库"></a>库</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> os</span><br><span class="line"><span class="keyword">import</span> sys</span><br><span class="line"><span class="keyword">import</span> shlex</span><br><span class="line"><span class="keyword">import</span> signal</span><br><span class="line"><span class="keyword">import</span> subprocess</span><br><span class="line"><span class="keyword">import</span> threading</span><br><span class="line"><span class="keyword">import</span> traceback</span><br></pre></td></tr></table></figure>
 
@@ -374,16 +378,16 @@
 <p>初始化函数 <code>__init__()</code> 直截了当，只是简单地对各个数据成员赋值。</p>
 <p>整个类的主要部分是 <code>run()</code> 函数，我们仔细深入进去观察一下。</p>
 <p>第一个值得注意的地方，是对环境变量的处理。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">environ = dict(os.environ)</span><br><span class="line">environ.update(env <span class="keyword">or</span> &#123;&#125;)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">environ = <span class="built_in">dict</span>(os.environ)</span><br><span class="line">environ.update(env <span class="keyword">or</span> &#123;&#125;)</span><br></pre></td></tr></table></figure>
 
 <p>首先，作者将 <code>os.environ</code> 转换成一个 Python 内建字典，保存在 <code>environ</code> 中。而后，用字典的 <code>update()</code> 方法，将用户传入的环境变量补充到 <code>environ</code> 中。这里，<code>update()</code> 方法有两个特点</p>
 <ul>
-<li>输入必须是一个非空的字典，因此作者<strong>利用短路求值 <code>env or {}</code> 的方式确保「非空」</strong>；</li>
+<li>输入必须是一个非空的字典，因此作者<strong>利用短路求值 <code>env or &#123;&#125;</code> 的方式确保「非空」</strong>；</li>
 <li>输入的 <code>env</code> 如果有与 <code>os.environ</code> 同名的环境变量，则会以 <code>env</code> 中的值为准，否则直接在 <code>environ</code> 中添加键值对。</li>
 </ul>
 <p>利用这两个特点，作者巧妙地实现了程序逻辑。</p>
 <p>第二个值得注意的地方，是在 <code>run()</code> 函数的内部，嵌套定义了 <code>target()</code> 函数。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">target</span><span class="params">()</span>:</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        self.process = subprocess.Popen(self.cmd,</span><br><span class="line">            universal_newlines=<span class="keyword">True</span>,</span><br><span class="line">            shell=<span class="keyword">False</span>,</span><br><span class="line">            env=environ,</span><br><span class="line">            stdin=subprocess.PIPE,</span><br><span class="line">            stdout=subprocess.PIPE,</span><br><span class="line">            stderr=subprocess.PIPE,</span><br><span class="line">            bufsize=<span class="number">0</span>,</span><br><span class="line">            cwd=cwd,</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> sys.version_info[<span class="number">0</span>] &gt;= <span class="number">3</span>:</span><br><span class="line">            self.out, self.err = self.process.communicate(</span><br><span class="line">                input = bytes(self.data, <span class="string">"UTF-8"</span>) <span class="keyword">if</span> self.data <span class="keyword">else</span> <span class="keyword">None</span></span><br><span class="line">            )</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            self.out, self.err = self.process.communicate(self.data)</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> exc:</span><br><span class="line">        self.exc = exc</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">target</span>():</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        self.process = subprocess.Popen(self.cmd,</span><br><span class="line">            universal_newlines=<span class="literal">True</span>,</span><br><span class="line">            shell=<span class="literal">False</span>,</span><br><span class="line">            env=environ,</span><br><span class="line">            stdin=subprocess.PIPE,</span><br><span class="line">            stdout=subprocess.PIPE,</span><br><span class="line">            stderr=subprocess.PIPE,</span><br><span class="line">            bufsize=<span class="number">0</span>,</span><br><span class="line">            cwd=cwd,</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> sys.version_info[<span class="number">0</span>] &gt;= <span class="number">3</span>:</span><br><span class="line">            self.out, self.err = self.process.communicate(</span><br><span class="line">                <span class="built_in">input</span> = <span class="built_in">bytes</span>(self.data, <span class="string">&quot;UTF-8&quot;</span>) <span class="keyword">if</span> self.data <span class="keyword">else</span> <span class="literal">None</span></span><br><span class="line">            )</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            self.out, self.err = self.process.communicate(self.data)</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> exc:</span><br><span class="line">        self.exc = exc</span><br></pre></td></tr></table></figure>
 
 <p>在 Python 中，函数定义是允许嵌套的，不过</p>
 <ul>
@@ -407,11 +411,11 @@
 <p>其次，线程 <code>thread</code> 可能因为超时而执行到当前代码，因此通过预定义的 <code>_is_alive()</code> 函数来判断线程是正常退出还是扔在超时运行。如果确实超时，那么首先应该终止子进程，然后尝试等待线程超时终止。如果线程仍然还活着，说明线程内的子进程没有被正确终止，那么首先杀死子进程，然后阻塞线程直到它完成。这样的设计，是<strong>确保子进程和线程都完全停止，防止僵尸进程的出现</strong>。</p>
 <p>最后，函数返回标准输出和标准错误的内容。</p>
 <h3 id="Response-类"><a href="#Response-类" class="headerlink" title="Response 类"></a><code>Response</code> 类</h3><p>我们来看 <code>Response</code> 类。这是一个模块内部使用的类，<code>Response</code> 类的每个实例都是 <code>Command</code> 类的实例调用 <code>run()</code> 方法后的执行结果信息。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Response</span><span class="params">(object)</span>:</span></span><br><span class="line">    <span class="string">"""A command's response"""</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span><span class="params">(self, process=None)</span>:</span></span><br><span class="line">        super(Response, self).__init__()</span><br><span class="line"></span><br><span class="line">        self._process = process</span><br><span class="line">        self.command = <span class="keyword">None</span></span><br><span class="line">        self.std_err = <span class="keyword">None</span></span><br><span class="line">        self.std_out = <span class="keyword">None</span></span><br><span class="line">        self.status_code = <span class="keyword">None</span></span><br><span class="line">        self.history = []</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__repr__</span><span class="params">(self)</span>:</span></span><br><span class="line">        <span class="keyword">if</span> len(self.command):</span><br><span class="line">            <span class="keyword">return</span> <span class="string">'&lt;Response [&#123;0&#125;]&gt;'</span>.format(self.command[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="string">'&lt;Response&gt;'</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Response</span>(<span class="title class_ inherited__">object</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;A command&#x27;s response&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, process=<span class="literal">None</span></span>):</span><br><span class="line">        <span class="built_in">super</span>(Response, self).__init__()</span><br><span class="line"></span><br><span class="line">        self._process = process</span><br><span class="line">        self.command = <span class="literal">None</span></span><br><span class="line">        self.std_err = <span class="literal">None</span></span><br><span class="line">        self.std_out = <span class="literal">None</span></span><br><span class="line">        self.status_code = <span class="literal">None</span></span><br><span class="line">        self.history = []</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__repr__</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">len</span>(self.command):</span><br><span class="line">            <span class="keyword">return</span> <span class="string">&#x27;&lt;Response [&#123;0&#125;]&gt;&#x27;</span>.<span class="built_in">format</span>(self.command[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="string">&#x27;&lt;Response&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
 
 <p>从只有一个 <code>__repr__()</code> 方法可以看出，<code>Response</code> 类几乎只是一个简单的数据结构，提供了可供打印的功能，仅此而已。那么作者为什么要设计这样一个类呢？这里我们留给读者思考。</p>
 <h3 id="expand-args-函数"><a href="#expand-args-函数" class="headerlink" title="expand_args 函数"></a><code>expand_args</code> 函数</h3><p><code>expand_args(command)</code> 函数接收一个字符串作为参数，并将之解析为一个个的命令。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">expand_args</span><span class="params">(command)</span>:</span></span><br><span class="line">    <span class="string">"""Parses command strings and returns a Popen-ready list."""</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Prepare arguments.</span></span><br><span class="line">    <span class="keyword">if</span> isinstance(command, (str, unicode)):</span><br><span class="line">        splitter = shlex.shlex(command.encode(<span class="string">'utf-8'</span>))</span><br><span class="line">        splitter.whitespace = <span class="string">'|'</span></span><br><span class="line">        splitter.whitespace_split = <span class="keyword">True</span></span><br><span class="line">        command = []</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> <span class="keyword">True</span>:</span><br><span class="line">            token = splitter.get_token()</span><br><span class="line">            <span class="keyword">if</span> token:</span><br><span class="line">                command.append(token)</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line">        command = list(map(shlex.split, command))</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> command</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">expand_args</span>(<span class="params">command</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Parses command strings and returns a Popen-ready list.&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="comment"># Prepare arguments.</span></span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">isinstance</span>(command, (<span class="built_in">str</span>, unicode)):</span><br><span class="line">        splitter = shlex.shlex(command.encode(<span class="string">&#x27;utf-8&#x27;</span>))</span><br><span class="line">        splitter.whitespace = <span class="string">&#x27;|&#x27;</span></span><br><span class="line">        splitter.whitespace_split = <span class="literal">True</span></span><br><span class="line">        command = []</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> <span class="literal">True</span>:</span><br><span class="line">            token = splitter.get_token()</span><br><span class="line">            <span class="keyword">if</span> token:</span><br><span class="line">                command.append(token)</span><br><span class="line">            <span class="keyword">else</span>:</span><br><span class="line">                <span class="keyword">break</span></span><br><span class="line"></span><br><span class="line">        command = <span class="built_in">list</span>(<span class="built_in">map</span>(shlex.split, command))</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> command</span><br></pre></td></tr></table></figure>
 
 <p>我们以 <code>&#39;cat inFile | sort | uniq&#39;</code> 为引数，传入 <code>expand_args</code> 函数，分析一下会发生什么。</p>
 <p>首先，作者用 <code>shlex.shlex()</code> 构造了一个词法分析器，并设置以管道符号 <code>|</code> 为标志，分割传入的字符串（或者 <code>unicode</code> 类型的实例，后不再重复）。加上之后的 <code>while</code> 循环，这基本相当于执行了 <code>command = command.split(&#39;|&#39;)</code> 的效果。</p>
@@ -422,9 +426,9 @@
 <li>一个可迭代的列表</li>
 </ul>
 <p>然后将函数作用在列表的每一个元素上，并返回一个列表。类似的函数还有 <code>reduce()</code> 函数（参考 Google 的 MapReduce 架构）。这里给出两个示例，供体会它们的作用</p>
-<figure class="highlight python"><figcaption><span>map.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python</span></span><br><span class="line">inIter = [<span class="string">'adam'</span>, <span class="string">'LISA'</span>, <span class="string">'barT'</span>]</span><br><span class="line">regNames = <span class="keyword">lambda</span> iter: map ((<span class="keyword">lambda</span> inStr: inStr.capitalize()), iter)</span><br><span class="line"><span class="keyword">print</span> regNames (inIter)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><figcaption><span>map.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python</span></span><br><span class="line">inIter = [<span class="string">&#x27;adam&#x27;</span>, <span class="string">&#x27;LISA&#x27;</span>, <span class="string">&#x27;barT&#x27;</span>]</span><br><span class="line">regNames = <span class="keyword">lambda</span> <span class="built_in">iter</span>: <span class="built_in">map</span> ((<span class="keyword">lambda</span> inStr: inStr.capitalize()), <span class="built_in">iter</span>)</span><br><span class="line"><span class="built_in">print</span> regNames (inIter)</span><br></pre></td></tr></table></figure>
 
-<figure class="highlight python"><figcaption><span>reduce.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python</span></span><br><span class="line">inIter = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]</span><br><span class="line">prod = <span class="keyword">lambda</span> iter: reduce ((<span class="keyword">lambda</span> x, y: x * y), iter)</span><br><span class="line"><span class="keyword">print</span> prod (inIter)</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><figcaption><span>reduce.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">#!/usr/bin/env python</span></span><br><span class="line">inIter = [<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>]</span><br><span class="line">prod = <span class="keyword">lambda</span> <span class="built_in">iter</span>: reduce ((<span class="keyword">lambda</span> x, y: x * y), <span class="built_in">iter</span>)</span><br><span class="line"><span class="built_in">print</span> prod (inIter)</span><br></pre></td></tr></table></figure>
 
 <p>最后，输入 <code>&#39;cat inFile | sort | uniq&#39;</code> 有输出 <code>[[&#39;cat&#39;, &#39;inFile&#39;], [&#39;sort&#39;], [&#39;uniq&#39;]]</code>。</p>
 <h3 id="run-函数"><a href="#run-函数" class="headerlink" title="run 函数"></a><code>run</code> 函数</h3><p><code>run(command, data=None, timeout=None, kill_timeout=None, env=None, cwd=None)</code> 函数是 <code>envoy</code> 模块的主要接口，用来在子进程里执行 Shell 命令。</p>
@@ -438,7 +442,7 @@
 <li><code>cwd</code> Current Working Directory，工作目录。</li>
 </ul>
 <p><code>run</code> 函数的实现相对来说是平铺直叙的，这里用注释简单说明一下各个部分都做了什么即可。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">run</span><span class="params">(command, data=None, timeout=None, kill_timeout=None, env=None, cwd=None)</span>:</span></span><br><span class="line">    <span class="string">"""Executes a given commmand and returns Response.</span></span><br><span class="line"><span class="string">    Blocks until process is complete, or timeout is reached.</span></span><br><span class="line"><span class="string">    """</span></span><br><span class="line"></span><br><span class="line">    <span class="string">'''对 `command` 做词法分析，拆分命令'''</span></span><br><span class="line">    command = expand_args(command)</span><br><span class="line"></span><br><span class="line">    history = []</span><br><span class="line">    <span class="keyword">for</span> c <span class="keyword">in</span> command:</span><br><span class="line"></span><br><span class="line">        <span class="string">'''模拟管道的作用，传入上一程序的标准输出'''</span></span><br><span class="line">        <span class="keyword">if</span> len(history):</span><br><span class="line">            <span class="comment"># due to broken pipe problems pass only first 10 KiB</span></span><br><span class="line">            data = history[<span class="number">-1</span>].std_out[<span class="number">0</span>:<span class="number">10</span>*<span class="number">1024</span>]</span><br><span class="line"></span><br><span class="line">        <span class="string">'''实际在子进程里执行命令'''</span></span><br><span class="line">        cmd = Command(c)</span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            out, err = cmd.run(data, timeout, kill_timeout, env, cwd)</span><br><span class="line">            status_code = cmd.returncode</span><br><span class="line">        <span class="keyword">except</span> OSError <span class="keyword">as</span> e:</span><br><span class="line">            out, err = <span class="string">''</span>, <span class="string">u"\n"</span>.join([e.strerror, traceback.format_exc()])</span><br><span class="line">            status_code = <span class="number">127</span></span><br><span class="line"></span><br><span class="line">        <span class="string">'''将执行结果保存在 `history` 当中'''</span></span><br><span class="line">        r = Response(process=cmd)</span><br><span class="line"></span><br><span class="line">        r.command = c</span><br><span class="line">        r.std_out = out</span><br><span class="line">        r.std_err = err</span><br><span class="line">        r.status_code = status_code</span><br><span class="line"></span><br><span class="line">        history.append(r)</span><br><span class="line"></span><br><span class="line">    <span class="string">'''函数返回最后一个管道（如果有）之后命令的输出和详细情况'''</span></span><br><span class="line">    r = history.pop()</span><br><span class="line">    r.history = history</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> r</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">run</span>(<span class="params">command, data=<span class="literal">None</span>, timeout=<span class="literal">None</span>, kill_timeout=<span class="literal">None</span>, env=<span class="literal">None</span>, cwd=<span class="literal">None</span></span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;Executes a given commmand and returns Response.</span></span><br><span class="line"><span class="string">    Blocks until process is complete, or timeout is reached.</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;对 `command` 做词法分析，拆分命令&#x27;&#x27;&#x27;</span></span><br><span class="line">    command = expand_args(command)</span><br><span class="line"></span><br><span class="line">    history = []</span><br><span class="line">    <span class="keyword">for</span> c <span class="keyword">in</span> command:</span><br><span class="line"></span><br><span class="line">        <span class="string">&#x27;&#x27;&#x27;模拟管道的作用，传入上一程序的标准输出&#x27;&#x27;&#x27;</span></span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">len</span>(history):</span><br><span class="line">            <span class="comment"># due to broken pipe problems pass only first 10 KiB</span></span><br><span class="line">            data = history[-<span class="number">1</span>].std_out[<span class="number">0</span>:<span class="number">10</span>*<span class="number">1024</span>]</span><br><span class="line"></span><br><span class="line">        <span class="string">&#x27;&#x27;&#x27;实际在子进程里执行命令&#x27;&#x27;&#x27;</span></span><br><span class="line">        cmd = Command(c)</span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            out, err = cmd.run(data, timeout, kill_timeout, env, cwd)</span><br><span class="line">            status_code = cmd.returncode</span><br><span class="line">        <span class="keyword">except</span> OSError <span class="keyword">as</span> e:</span><br><span class="line">            out, err = <span class="string">&#x27;&#x27;</span>, <span class="string">u&quot;\n&quot;</span>.join([e.strerror, traceback.format_exc()])</span><br><span class="line">            status_code = <span class="number">127</span></span><br><span class="line"></span><br><span class="line">        <span class="string">&#x27;&#x27;&#x27;将执行结果保存在 `history` 当中&#x27;&#x27;&#x27;</span></span><br><span class="line">        r = Response(process=cmd)</span><br><span class="line"></span><br><span class="line">        r.command = c</span><br><span class="line">        r.std_out = out</span><br><span class="line">        r.std_err = err</span><br><span class="line">        r.status_code = status_code</span><br><span class="line"></span><br><span class="line">        history.append(r)</span><br><span class="line"></span><br><span class="line">    <span class="string">&#x27;&#x27;&#x27;函数返回最后一个管道（如果有）之后命令的输出和详细情况&#x27;&#x27;&#x27;</span></span><br><span class="line">    r = history.pop()</span><br><span class="line">    r.history = history</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> r</span><br></pre></td></tr></table></figure>
 
 <h3 id="模块设计分析"><a href="#模块设计分析" class="headerlink" title="模块设计分析"></a>模块设计分析</h3><p>Kenneth Reitz <strong>不愧</strong>是公认的这个世界上 Python 代码写得最好的人之一——虽然 <code>envoy</code> 是对 <code>subprocess</code> 的简单封装，功能有限，但是代码结构非常优雅，内部实现的逐层封装十分完善。</p>
 <p>对于模块的用户（程序员）来说，<code>envoy</code> 几乎只有 <code>run</code> 这一个入口。而它的作用也很明确：开一个子进程，执行一条 Shell 命令，然后在规定时间内取得执行结果——中间的脏活累活（处理异常、超时、主进程阻塞等待、保存历史等等），<code>envoy</code> 都帮你做好了。</p>
@@ -586,7 +590,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#介绍"><span class="nav-number">1.</span> <span class="nav-text">介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#背景知识"><span class="nav-number">2.</span> <span class="nav-text">背景知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#程序和进程"><span class="nav-number">2.1.</span> <span class="nav-text">程序和进程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-里的进程"><span class="nav-number">2.2.</span> <span class="nav-text">Linux 里的进程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#从计算机启动到进程的创建"><span class="nav-number">2.3.</span> <span class="nav-text">从计算机启动到进程的创建</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#进程的终止"><span class="nav-number">2.4.</span> <span class="nav-text">进程的终止</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#envoy-源码剖析"><span class="nav-number">3.</span> <span class="nav-text">envoy 源码剖析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#库"><span class="nav-number">3.1.</span> <span class="nav-text">库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Command-类"><span class="nav-number">3.2.</span> <span class="nav-text">Command 类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Response-类"><span class="nav-number">3.3.</span> <span class="nav-text">Response 类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#expand-args-函数"><span class="nav-number">3.4.</span> <span class="nav-text">expand_args 函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#run-函数"><span class="nav-number">3.5.</span> <span class="nav-text">run 函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#模块设计分析"><span class="nav-number">3.6.</span> <span class="nav-text">模块设计分析</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF%E7%9F%A5%E8%AF%86"><span class="nav-number">2.</span> <span class="nav-text">背景知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A8%8B%E5%BA%8F%E5%92%8C%E8%BF%9B%E7%A8%8B"><span class="nav-number">2.1.</span> <span class="nav-text">程序和进程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Linux-%E9%87%8C%E7%9A%84%E8%BF%9B%E7%A8%8B"><span class="nav-number">2.2.</span> <span class="nav-text">Linux 里的进程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%8E%E8%AE%A1%E7%AE%97%E6%9C%BA%E5%90%AF%E5%8A%A8%E5%88%B0%E8%BF%9B%E7%A8%8B%E7%9A%84%E5%88%9B%E5%BB%BA"><span class="nav-number">2.3.</span> <span class="nav-text">从计算机启动到进程的创建</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%9B%E7%A8%8B%E7%9A%84%E7%BB%88%E6%AD%A2"><span class="nav-number">2.4.</span> <span class="nav-text">进程的终止</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#envoy-%E6%BA%90%E7%A0%81%E5%89%96%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">envoy 源码剖析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BA%93"><span class="nav-number">3.1.</span> <span class="nav-text">库</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Command-%E7%B1%BB"><span class="nav-number">3.2.</span> <span class="nav-text">Command 类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Response-%E7%B1%BB"><span class="nav-number">3.3.</span> <span class="nav-text">Response 类</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#expand-args-%E5%87%BD%E6%95%B0"><span class="nav-number">3.4.</span> <span class="nav-text">expand_args 函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#run-%E5%87%BD%E6%95%B0"><span class="nav-number">3.5.</span> <span class="nav-text">run 函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E8%AE%BE%E8%AE%A1%E5%88%86%E6%9E%90"><span class="nav-number">3.6.</span> <span class="nav-text">模块设计分析</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -622,7 +626,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -637,52 +641,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -720,9 +724,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -777,9 +781,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -847,7 +859,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 

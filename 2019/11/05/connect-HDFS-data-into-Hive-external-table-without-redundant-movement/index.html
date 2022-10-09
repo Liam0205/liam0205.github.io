@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 3.9.0">
+<meta name="generator" content="Hexo 6.0.0">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -26,17 +26,18 @@
   </script>
 
   <meta name="description" content="Hive 是个好东西，它能够把 SQL 查询自动转化为一系列 Map-Reduce 任务。但显然，如何将数据引入 Hive 也会是个问题。一个典型的场景是：你通过某种方式，生成了大量结构化的数据，保存在 HDFS 上。现在你希望 Hive 能够基于这些数据，建立数据库，从而能够使用 SQL 语句进行数据库操作。但与此同时，因为数据量十分庞大，你不希望产生数据拷贝、搬移，以免消耗无谓的存储资源和计算">
-<meta name="keywords" content="HDFS,Hive">
 <meta property="og:type" content="article">
 <meta property="og:title" content="将 HDFS 上的目录作为 Hive 外表分区同时避免数据拷贝">
 <meta property="og:url" content="https://liam.page/2019/11/05/connect-HDFS-data-into-Hive-external-table-without-redundant-movement/index.html">
 <meta property="og:site_name" content="始终">
 <meta property="og:description" content="Hive 是个好东西，它能够把 SQL 查询自动转化为一系列 Map-Reduce 任务。但显然，如何将数据引入 Hive 也会是个问题。一个典型的场景是：你通过某种方式，生成了大量结构化的数据，保存在 HDFS 上。现在你希望 Hive 能够基于这些数据，建立数据库，从而能够使用 SQL 语句进行数据库操作。但与此同时，因为数据量十分庞大，你不希望产生数据拷贝、搬移，以免消耗无谓的存储资源和计算">
-<meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2020-03-02T14:20:07.000Z">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-11-04T23:38:07.000Z">
+<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="HDFS">
+<meta property="article:tag" content="Hive">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="将 HDFS 上的目录作为 Hive 外表分区同时避免数据拷贝">
-<meta name="twitter:description" content="Hive 是个好东西，它能够把 SQL 查询自动转化为一系列 Map-Reduce 任务。但显然，如何将数据引入 Hive 也会是个问题。一个典型的场景是：你通过某种方式，生成了大量结构化的数据，保存在 HDFS 上。现在你希望 Hive 能够基于这些数据，建立数据库，从而能够使用 SQL 语句进行数据库操作。但与此同时，因为数据量十分庞大，你不希望产生数据拷贝、搬移，以免消耗无谓的存储资源和计算">
 
 <link rel="canonical" href="https://liam.page/2019/11/05/connect-HDFS-data-into-Hive-external-table-without-redundant-movement/">
 
@@ -292,7 +293,7 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>2.3k</span>
+              <span>2.4k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
@@ -313,26 +314,26 @@
       
         <p>Hive 是个好东西，它能够把 SQL 查询自动转化为一系列 Map-Reduce 任务。但显然，如何将数据引入 Hive 也会是个问题。一个典型的场景是：你通过某种方式，生成了大量结构化的数据，保存在 HDFS 上。现在你希望 Hive 能够基于这些数据，建立数据库，从而能够使用 SQL 语句进行数据库操作。但与此同时，因为数据量十分庞大，你不希望产生数据拷贝、搬移，以免消耗无谓的存储资源和计算资源。</p>
 <p>此篇介绍我近期的一个实践方案。</p>
-<a id="more"></a>
+<span id="more"></span>
 
 <h2 id="数据产出"><a href="#数据产出" class="headerlink" title="数据产出"></a>数据产出</h2><p>首先，你需要将数据以特定的格式产出到 HDFS 上。</p>
 <p>例如，这里我以 Spark Streaming 任务将制表符分隔的 4 列数据，以 GZip 的格式，输出到 HDFS 位置：<code>hdfs://namenode/path/to/data/&lt;date&gt;/&lt;hour&gt;/&lt;dstreamid&gt;</code>。其中 <code>&lt;date&gt;</code> 是数据产出的日期，<code>&lt;hour&gt;</code> 是数据产出的小时，<code>&lt;dstreamid&gt;</code> 是数据产出时，对应 Spark Streaming 的 Direct Stream 的 ID。于是有类似这样的目录结构：</p>
 <figure class="highlight shell"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">hdfs://namenode/path/to/data/2019-11-01/13/123456/_SUCCESS</span><br><span class="line">hdfs://namenode/path/to/data/2019-11-01/13/123456/part-00000.gz</span><br><span class="line">hdfs://namenode/path/to/data/2019-11-01/13/123456/part-00001.gz</span><br><span class="line">hdfs://namenode/path/to/data/2019-11-01/13/123456/part-00002.gz</span><br><span class="line">hdfs://namenode/path/to/data/2019-11-01/13/123456/part-00003.gz</span><br><span class="line">hdfs://namenode/path/to/data/2019-11-01/13/123456/part-00004.gz</span><br><span class="line">hdfs://namenode/path/to/data/2019-11-01/13/123456/part-00005.gz</span><br></pre></td></tr></table></figure>
 
 <h2 id="建立-Hive-表"><a href="#建立-Hive-表" class="headerlink" title="建立 Hive 表"></a>建立 Hive 表</h2><p>有了数据之后，我们需要建立与数据格式相对应的 Hive 表。注意，由于我们不希望对数据进行额外的搬移操作，所以这里需要建立一张外表（EXTERNAL TABLE）。例如，</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">EXTERNAL</span> <span class="keyword">TABLE</span> <span class="string">`table_name`</span> (</span><br><span class="line">  <span class="string">`field_1`</span> <span class="keyword">string</span>,</span><br><span class="line">  <span class="string">`field_2`</span> <span class="keyword">string</span>,</span><br><span class="line">  <span class="string">`field_3`</span> <span class="keyword">string</span>,</span><br><span class="line">  <span class="string">`field_4`</span> <span class="keyword">string</span>)</span><br><span class="line">PARTITIONED <span class="keyword">BY</span> (</span><br><span class="line">  <span class="string">`date`</span> <span class="keyword">string</span>,</span><br><span class="line">  <span class="string">`hour`</span> <span class="keyword">string</span>,</span><br><span class="line">  <span class="string">`dstreamid`</span> <span class="keyword">string</span>)</span><br><span class="line"><span class="keyword">ROW</span> <span class="keyword">FORMAT</span> SERDE</span><br><span class="line">  <span class="string">'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'</span></span><br><span class="line"><span class="keyword">WITH</span> SERDEPROPERTIES (</span><br><span class="line">  <span class="string">'field.delim'</span>=<span class="string">'\t'</span>,</span><br><span class="line">  <span class="string">'serialization.format'</span>=<span class="string">'\t'</span>)</span><br><span class="line"><span class="keyword">STORED</span> <span class="keyword">AS</span> INPUTFORMAT</span><br><span class="line">  <span class="string">'org.apache.hadoop.mapred.TextInputFormat'</span></span><br><span class="line">OUTPUTFORMAT</span><br><span class="line">  <span class="string">'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'</span></span><br><span class="line">LOCATION</span><br><span class="line">  <span class="string">'hdfs://namenode/path/to/data/'</span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">EXTERNAL</span> <span class="keyword">TABLE</span> `table_name` (</span><br><span class="line">  `field_1` string,</span><br><span class="line">  `field_2` string,</span><br><span class="line">  `field_3` string,</span><br><span class="line">  `field_4` string)</span><br><span class="line">PARTITIONED <span class="keyword">BY</span> (</span><br><span class="line">  `<span class="type">date</span>` string,</span><br><span class="line">  `<span class="keyword">hour</span>` string,</span><br><span class="line">  `dstreamid` string)</span><br><span class="line"><span class="type">ROW</span> FORMAT SERDE</span><br><span class="line">  <span class="string">&#x27;org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe&#x27;</span></span><br><span class="line"><span class="keyword">WITH</span> SERDEPROPERTIES (</span><br><span class="line">  <span class="string">&#x27;field.delim&#x27;</span><span class="operator">=</span><span class="string">&#x27;\t&#x27;</span>,</span><br><span class="line">  <span class="string">&#x27;serialization.format&#x27;</span><span class="operator">=</span><span class="string">&#x27;\t&#x27;</span>)</span><br><span class="line">STORED <span class="keyword">AS</span> INPUTFORMAT</span><br><span class="line">  <span class="string">&#x27;org.apache.hadoop.mapred.TextInputFormat&#x27;</span></span><br><span class="line">OUTPUTFORMAT</span><br><span class="line">  <span class="string">&#x27;org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat&#x27;</span></span><br><span class="line">LOCATION</span><br><span class="line">  <span class="string">&#x27;hdfs://namenode/path/to/data/&#x27;</span>;</span><br></pre></td></tr></table></figure>
 
 <p>这里，</p>
 <ul>
 <li>数据共有 4 个域，名字分别是 <code>field_1</code> 至 <code>field_4</code>（你可以根据实际情况设置恰当的域名字）。</li>
-<li>分区字段有三个，分别是 <code>date</code>/<code>hour</code>/<code>dstreamid</code>，与数据保存时的子路径名保持一致。</li>
+<li>分区字段有三个，分别是 <code>date</code>&#x2F;<code>hour</code>&#x2F;<code>dstreamid</code>，与数据保存时的子路径名保持一致。</li>
 <li>域分隔符是 <code>\t</code>，即制表符。</li>
 <li>输入格式是 <code>org.apache.hadoop.mapred.TextInputFormat</code>，即文本输入。</li>
 <li>数据位于 <code>hdfs://namenode/path/to/data/</code>，这是我们所有数据的完整路径。</li>
 <li>表名字是 <code>table_name</code>，你可以根据实际情况设置恰当的表名字。</li>
 </ul>
 <h2 id="将数据接入-Hive-表"><a href="#将数据接入-Hive-表" class="headerlink" title="将数据接入 Hive 表"></a>将数据接入 Hive 表</h2><p>有了数据并创建好 Hive 表之后，我们就可以将数据接入 Hive 表了。这里，我们需要用到 <code>ALTER TABLE</code> 语句。例如：</p>
-<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span></span><br><span class="line">  table_name</span><br><span class="line"><span class="keyword">ADD</span> <span class="keyword">IF</span> <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> <span class="keyword">PARTITION</span></span><br><span class="line">  (dt=<span class="string">'2019-11-01'</span>, <span class="keyword">hour</span>=<span class="string">'13'</span>, dstreamid=<span class="string">'123456'</span>)</span><br><span class="line">LOCATION</span><br><span class="line">  <span class="string">'hdfs://namenode/path/to/data/2019-11-01/13/123456'</span>;</span><br></pre></td></tr></table></figure>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ALTER</span> <span class="keyword">TABLE</span></span><br><span class="line">  table_name</span><br><span class="line"><span class="keyword">ADD</span> IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> <span class="keyword">PARTITION</span></span><br><span class="line">  (dt<span class="operator">=</span><span class="string">&#x27;2019-11-01&#x27;</span>, <span class="keyword">hour</span><span class="operator">=</span><span class="string">&#x27;13&#x27;</span>, dstreamid<span class="operator">=</span><span class="string">&#x27;123456&#x27;</span>)</span><br><span class="line">LOCATION</span><br><span class="line">  <span class="string">&#x27;hdfs://namenode/path/to/data/2019-11-01/13/123456&#x27;</span>;</span><br></pre></td></tr></table></figure>
 
 <p>这个语句表示：</p>
 <ul>
@@ -474,7 +475,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#数据产出"><span class="nav-number">1.</span> <span class="nav-text">数据产出</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#建立-Hive-表"><span class="nav-number">2.</span> <span class="nav-text">建立 Hive 表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#将数据接入-Hive-表"><span class="nav-number">3.</span> <span class="nav-text">将数据接入 Hive 表</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E4%BA%A7%E5%87%BA"><span class="nav-number">1.</span> <span class="nav-text">数据产出</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BB%BA%E7%AB%8B-Hive-%E8%A1%A8"><span class="nav-number">2.</span> <span class="nav-text">建立 Hive 表</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%86%E6%95%B0%E6%8D%AE%E6%8E%A5%E5%85%A5-Hive-%E8%A1%A8"><span class="nav-number">3.</span> <span class="nav-text">将数据接入 Hive 表</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -510,7 +511,7 @@
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/atom.xml" title="RSS → /atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
       </span>
   </div>
   <div class="cc-license motion-element" itemprop="license">
@@ -525,52 +526,52 @@
     </div>
     <ul class="links-of-blogroll-list">
         <li class="links-of-blogroll-item">
-          <a href="https://anyi.im/" title="https://anyi.im/" rel="noopener" target="_blank">Anyi</a>
+          <a href="https://anyi.im/" title="https:&#x2F;&#x2F;anyi.im&#x2F;" rel="noopener" target="_blank">Anyi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://chattymoney.com/" title="http://chattymoney.com/" rel="noopener" target="_blank">ChattyMoney</a>
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://qixinbo.info/" title="http://qixinbo.info/" rel="noopener" target="_blank">XinboQi</a>
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="http://www.fuzihao.org" title="http://www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
+          <a href="http://www.fuzihao.org/" title="http:&#x2F;&#x2F;www.fuzihao.org" rel="noopener" target="_blank">FuZihao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://ionizing.page/" title="https://ionizing.page/" rel="noopener" target="_blank">ChenLinjie</a>
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://yihui.name/" title="https://yihui.name/" rel="noopener" target="_blank">Yihui</a>
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.felixc.at/" title="https://blog.felixc.at/" rel="noopener" target="_blank">Felix</a>
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://wyydsb.xin/" title="https://wyydsb.xin/" rel="noopener" target="_blank">Gunjianpan</a>
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://joselynzhao.top/" title="https://joselynzhao.top/" rel="noopener" target="_blank">JoselynZhao</a>
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.dang.fan/" title="https://blog.dang.fan/" rel="noopener" target="_blank">DangFan</a>
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://harrychen.xyz" title="https://harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://blog.echen.me/" title="https://blog.echen.me/" rel="noopener" target="_blank">EdwinChen</a>
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://lltuo.com/" title="https://lltuo.com/" rel="noopener" target="_blank">Shadow</a>
+          <a href="https://lltuo.com/" title="https:&#x2F;&#x2F;lltuo.com&#x2F;" rel="noopener" target="_blank">Shadow</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://fengweiustc.github.io/" title="https://fengweiustc.github.io/" rel="noopener" target="_blank">WayneFung</a>
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://www.cyningsun.com/" title="https://www.cyningsun.com/" rel="noopener" target="_blank">CyningSun</a>
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
         </li>
         <li class="links-of-blogroll-item">
-          <a href="https://0o0blog.com/" title="https://0o0blog.com/" rel="noopener" target="_blank">Francis</a>
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
         </li>
     </ul>
   </div>
@@ -608,9 +609,9 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">42:31</span>
+    <span title="站点阅读时长">43:47</span>
 </div>
-  <div class="powered-by">由 <a href="https://hexo.io" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
 
         
@@ -665,9 +666,17 @@
   <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
   <script src="/lib/velocity/velocity.min.js"></script>
   <script src="/lib/velocity/velocity.ui.min.js"></script>
-<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
 <script src="/js/schemes/pisces.js"></script>
+
+
 <script src="/js/next-boot.js"></script>
+
   <script>
 var pjax = new Pjax({
   selectors: [
@@ -735,7 +744,9 @@ window.addEventListener('pjax:success', () => {
 
 
 
-  <script src="/js/local-search.js"></script>
+  
+<script src="/js/local-search.js"></script>
+
 
 
 
