@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2023-01-19T15:39:16.396Z</updated>
+  <updated>2023-01-19T16:37:57.558Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -17,9 +17,37 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>编写 iOS 越狱插件：从 NIC 中创建项目</title>
+    <link href="https://liam.page/2023/01/20/Build-an-iOS-Jailbreak-Tweak-init-project-from-NIC/"/>
+    <id>https://liam.page/2023/01/20/Build-an-iOS-Jailbreak-Tweak-init-project-from-NIC/</id>
+    <published>2023-01-19T16:21:45.000Z</published>
+    <updated>2023-01-19T16:37:57.558Z</updated>
+    
+    <content type="html"><![CDATA[<p>安装好 Theos 之后，我们便可以开始编写插件了。第一步，我们可以利用 Theos 提供的 New Instance Creator（NIC）来创建一个项目模板。这样一来，很多基本信息的文件，我们就不用手工编辑了。</p><span id="more"></span><h2 id="执行-NIC"><a href="#执行-NIC" class="headerlink" title="执行 NIC"></a>执行 NIC</h2><p>在安装好 Theos 的基础上，可以执行下列命令启动 NIC 程序。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="variable">$THEOS</span>/bin/nic.pl</span><br></pre></td></tr></table></figure><p>之后，NIC 会在终端上打印出一个列表，询问你想要创建何种类型的项目。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">$ <span class="variable">$THEOS</span>/bin/nic.pl</span><br><span class="line">NIC 2.0 - New Instance Creator</span><br><span class="line">------------------------------</span><br><span class="line">  [1.] iphone/activator_event</span><br><span class="line">  [2.] iphone/activator_listener</span><br><span class="line">  [3.] iphone/application</span><br><span class="line">  [4.] iphone/application_swift</span><br><span class="line">  [5.] iphone/control_center_module-11up</span><br><span class="line">  [6.] iphone/cydget</span><br><span class="line">  [7.] iphone/flipswitch_switch</span><br><span class="line">  [8.] iphone/framework</span><br><span class="line">  [9.] iphone/library</span><br><span class="line">  [10.] iphone/notification_center_widget</span><br><span class="line">  [11.] iphone/notification_center_widget-7up</span><br><span class="line">  [12.] iphone/preference_bundle</span><br><span class="line">  [13.] iphone/preference_bundle_swift</span><br><span class="line">  [14.] iphone/theme</span><br><span class="line">  [15.] iphone/tool</span><br><span class="line">  [16.] iphone/tool_swift</span><br><span class="line">  [17.] iphone/tweak</span><br><span class="line">  [18.] iphone/tweak_with_simple_preferences</span><br><span class="line">  [19.] iphone/xpc_service</span><br><span class="line">  [20.] iphone/xpc_service_modern</span><br><span class="line">Choose a Template (required):</span><br></pre></td></tr></table></figure><p>我们主要关注的是其中的 <code>iphone/tweak</code> 和 <code>iphone/tweak_with_simple_preferences</code>。后者会构造一个 <code>Preferences.plist</code> 文件，以便我们能在 iOS 的系统设置中配置该插件的行为。</p><p>这里我们选择 18。接下来，NIC 会交互式地要求我们键入一些插件的信息。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">Choose a Template (required): 18</span><br><span class="line">Project Name (required): PhantomSteps</span><br><span class="line">Package Name [com.yourcompany.phantomsteps]: page.liam.phantom_steps</span><br><span class="line">Author/Maintainer Name [Liam Huang]:</span><br><span class="line">[iphone/tweak_with_simple_preferences] MobileSubstrate Bundle filter [com.apple.springboard]: com.apple.Health</span><br><span class="line">[iphone/tweak_with_simple_preferences] List of applications to terminate upon installation (space-separated, <span class="string">&#x27;-&#x27;</span> <span class="keyword">for</span> none) [SpringBoard]: com.apple.Health</span><br><span class="line">Instantiating iphone/tweak_with_simple_preferences <span class="keyword">in</span> phantomsteps/...</span><br><span class="line">Done.</span><br></pre></td></tr></table></figure><p>这里，我们给项目起名为 <code>PhantomSteps</code>，其包名称为 <code>page.liam.phantom_steps</code>。你可以按需修改。MobileSubstrate Bundle filter 这一项是说，你可能影响的 App 的名字。List of applications to terminate upon installation 这一项则是说，在安装你的插件时，需要杀死的程序的名字。</p><h2 id="目录结构"><a href="#目录结构" class="headerlink" title="目录结构"></a>目录结构</h2><p>创建成功后，目录结构应该类似</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">$ tree .</span><br><span class="line">.</span><br><span class="line">├── Makefile</span><br><span class="line">├── PhantomSteps.plist</span><br><span class="line">├── Tweak.x</span><br><span class="line">├── control</span><br><span class="line">└── layout</span><br><span class="line">    └── Library</span><br><span class="line">        └── PreferenceLoader</span><br><span class="line">            └── Preferences</span><br><span class="line">                └── PhantomSteps</span><br><span class="line">                    └── Preferences.plist</span><br><span class="line"></span><br><span class="line">5 directories, 5 files</span><br></pre></td></tr></table></figure><p>这里</p><ul><li><code>PhantomSteps.plist</code> 记录了需要杀死的包的名称。</li><li><code>control</code> 包含了先前在 NIC 交互式环境中填写的信息。</li><li><code>Makefile</code> 是对应 GNU make 的文件。</li><li><code>Tweak.x</code> 是插件自身的代码。Theos 会从模板中创建一个带有各种注释的文件供参考。</li></ul>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;安装好 Theos 之后，我们便可以开始编写插件了。第一步，我们可以利用 Theos 提供的 New Instance Creator（NIC）来创建一个项目模板。这样一来，很多基本信息的文件，我们就不用手工编辑了。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Jailbreak" scheme="https://liam.page/categories/Jailbreak/"/>
+    
+    
+      <category term="Jailbreak" scheme="https://liam.page/tags/Jailbreak/"/>
+    
+      <category term="Development" scheme="https://liam.page/tags/Development/"/>
+    
+      <category term="Tweak" scheme="https://liam.page/tags/Tweak/"/>
+    
+      <category term="Theos" scheme="https://liam.page/tags/Theos/"/>
+    
+  </entry>
+  
+  <entry>
     <title>编写 iOS 越狱插件：安装 Theos</title>
-    <link href="https://liam.page/2023/01/19/Build-a-iOS-Jailbreak-Tweak-Install-Theos/"/>
-    <id>https://liam.page/2023/01/19/Build-a-iOS-Jailbreak-Tweak-Install-Theos/</id>
+    <link href="https://liam.page/2023/01/19/Build-an-iOS-Jailbreak-Tweak-Install-Theos/"/>
+    <id>https://liam.page/2023/01/19/Build-an-iOS-Jailbreak-Tweak-Install-Theos/</id>
     <published>2023-01-19T15:16:51.000Z</published>
     <updated>2023-01-19T15:39:16.396Z</updated>
     
@@ -489,11 +517,11 @@
       <category term="English" scheme="https://liam.page/categories/English/"/>
     
     
-      <category term="Complex Sentence" scheme="https://liam.page/tags/Complex-Sentence/"/>
-    
       <category term="Single Sentence" scheme="https://liam.page/tags/Single-Sentence/"/>
     
       <category term="Compound Sentence" scheme="https://liam.page/tags/Compound-Sentence/"/>
+    
+      <category term="Complex Sentence" scheme="https://liam.page/tags/Complex-Sentence/"/>
     
   </entry>
   
@@ -518,31 +546,6 @@
       <category term="Model Verbs" scheme="https://liam.page/tags/Model-Verbs/"/>
     
       <category term="Moods" scheme="https://liam.page/tags/Moods/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>英语语法之七：副词</title>
-    <link href="https://liam.page/2021/04/29/adverbs/"/>
-    <id>https://liam.page/2021/04/29/adverbs/</id>
-    <published>2021-04-29T13:47:12.000Z</published>
-    <updated>2021-04-30T14:47:48.000Z</updated>
-    
-    <content type="html"><![CDATA[<p>这是<a href="/series/#%E8%8B%B1%E6%96%87%E6%96%87%E6%B3%95">系列</a>文章的第七篇。<a href="/2021/04/21/adjectives/">前作</a>处理了形容词，此篇我们处理同为修饰词类的副词。</p><p>从被修饰的对象来说，相较而言，副词比形容词要复杂得多。形容词基本上只能用来修饰名词，但副词可以修饰除名此外的其他成分；甚至，副词还可以修饰一整个句子。</p><p>除去被修饰的对象，副词的复杂性，还体现在它在句子当中所处的位置。它可以出现在动词前，也可以出现在动词后；它可以紧挨着动词，也可以距离动词挺远；甚至，它可以独立成句。</p><p>除此二者之外，副词也有比较级和最高级。不过，副词的比较级和最高级和形容词规则几乎完全一样。唯独要注意的是，副词的典型词缀是 <code>-ly</code>。因此，在双音节的副词变为比较级和最高级时，若是以 <code>-ly</code> 结尾，则应保持不变，通过联合 <code>more</code> 及 <code>most</code> 来实现。</p><span id="more"></span><h2 id="两大法宝"><a href="#两大法宝" class="headerlink" title="两大法宝"></a>两大法宝</h2><p>如何以简御繁？这是很重要的问题。</p><p>从系列第一篇读至此的朋友，若是细心就会发现我们至今为止以简御繁的两大法宝：</p><ul><li>从表意上考量——我们相信文法是为表意服务的；</li><li>从修辞上考量——我们相信文法形成过程中，人们有趋同的修辞偏好。</li></ul><p>这两大法宝将在整个系列贯穿始终、提纲挈领。我们从表意上，把副词分为以下几大类，分别处理：</p><ul><li>表达方式方法的副词；</li><li>表达强调的副词；</li><li>修饰句子的副词。</li></ul><h2 id="表达方式方法的副词"><a href="#表达方式方法的副词" class="headerlink" title="表达方式方法的副词"></a>表达方式方法的副词</h2><p>表达方式方法的副词，在传统语法当中被称为「方式状语」。方式状语直接修饰动词，表达动作发出的方式方法。</p><p>至于副词的位置——因为方式状语直接修饰动词，所以理想状态，它应该距离动词较近；若不然，人们很难领会到二者之间修饰 - 被修饰的关系。又考虑到动词本身肯定比修饰语要重要一些，所以作为修饰语的副词，一般性应该要放在动词后面。这是表达方式方法的副词的典型位置。</p><p>接下来，我们按<a href="/2014/06/21/basic-sentence-and-the-complement/">五种基本句型</a>各举一例，说明表达方式方法的副词在句子中位置应当如何处理。</p><ul><li>The girl cries <em>sadly</em> after being betrayed by her ex-boyfriend. | 被前男友背叛后，女孩哭得很伤心。</li></ul><p>句子中，我们把表达方式方法的副词放在动词 cries 后面。可选的位置还有两个。一是放在 cries 之前。这样做是可以的，但是 cries 后面没有句子主干成分了（宾语、补语之类）；所以还是放在 cries 后面，凸显动词更佳。另一是放在整个 after 短语之后。但这样距离 cries 太远，反而距离另一个动词 betrayed 更近，造成句意不明。</p><ul><li>The girl swings her bat <em>vigorously</em>. | 女孩用力挥动她的棒球棒。</li></ul><p>句子中，我们把表达方式方法的副词，放在了句子最后面。可选的位置还有两个。一是和上例一样，放在动词 swing 后面。但这样就把句子的主干成分 her bat（句子中做宾语）挤到后面去了，不利于表意。另一是放在 swing 之前。这也属于可以考虑的方案，但此处宾语并不冗长，放在宾语之后距离被修饰的动词 swing 也不算太远，所以显得有些鸡肋。但如果换成下面的句子，副词就最好放在动词 swing 之前了——若不然，就距离动词太遥远了。</p><blockquote><p>The girl <em>vigorously</em> swings her brand new Italian aluminum alloy bat. | 女孩用力挥动她那崭新的意大利产铝合金棒球棒。</p></blockquote><ul><li>The girl becomes mature <em>gradually</em>. | 女孩逐渐变得成熟。</li></ul><p>句子中，我们表达方式方法的副词，放在了句子最后面。可选的位置还有两个。一个是放在动词 becomes 之前，这没问题。另一是放在动词 becomes 之后，变成「The girl becomes <em>gradually</em> mature.」。这样一来，因为副词既可以修饰动词，又可以修饰形容词，放在这里的 gradually 很容易让人困惑它到底是修饰 becomes 的还是修饰 mature 的。</p><ul><li>The girl gave him a jar of honey <em>readily</em>. | 女孩爽快地给了他一罐蜂蜜。</li></ul><p>句子中，我们把表达方式方法的副词，放在了句子最后面。可选的位置还有两个。一是放在动词 gave 之前，这没问题。另一是放在动词 gave 之后，变成「The girl gave <em>readily</em> him a jar of honey.」。这样做，表意上倒是不至于有歧义，但副词 readily 把句子的主干成分（直接宾语 + 间接宾语）挤到后面去了，所以在修辞上不好。</p><ul><li>The priest <em>happily</em> announced the boy and the girl man and wife. | 神父高兴地宣布男孩和女孩结为夫妻。</li></ul><p>句子中，我们把表达方式方法的副词放在了动词 announced 之前。可选的位置还有两个。一是放在动词 announced 之后，但这会让句子的主干成分（宾语 + 宾语补语）后移，在修辞上不佳。二是放在句子最后。但这个句子重点是要强调二者结为夫妻，若是将 happily 放在句子最后，一则显得我们在强调神父是高兴的，二则让副词和被修饰的动词距离过远。</p><h2 id="表达强调的副词"><a href="#表达强调的副词" class="headerlink" title="表达强调的副词"></a>表达强调的副词</h2><p>副词当中，还有一大类是表达强调的副词（Intensifier）。这些副词的修饰对象广泛，可以修饰几乎全部词类，特别是可以修饰几种主要词类：名词、动词、形容词、副词。因之，这些副词必须和被修饰的对象紧密相连（而且通常都是放在被修饰对象的前面）。若不然，可能会被误以为是修饰其他句子成分，表意出现漂移。</p><p>表达强调意味的副词，大致有三类。以下分别处理。</p><h3 id="强调范围的副词"><a href="#强调范围的副词" class="headerlink" title="强调范围的副词"></a>强调范围的副词</h3><p>表达强调的副词中，有一部分是用来强调所谈事物的范围的，将所谈事物的范围限定在一个小的范围内。这类副词加与不加、加在何处，对句子的表意影响很大。这类副词中，一个典型是「只有」。举例如下。</p><p>原句：Liam studied mathematics when he was young. | Liam 年轻时学习数学。</p><p>添加「只有」：</p><ul><li><em>Only</em> Liam studied mathematics when he was young. | 只有 Liam 年轻时学习数学。——别人年轻时不学。</li><li>Liam <em>only</em> studied mathematics when he was young. | Liam 年轻时只学习数学。——但没对数学做别的事情；比如对数学并不热爱。</li><li>Liam studied <em>only</em> mathematics when he was young. | Liam 年轻时只学习数学。——但没学别的学科。</li><li>Liam studied mathematics <em>only</em> when he was young. | Liam 只在年轻时学习数学。——长大之后不学了。</li></ul><p>不难发现，添加「只有」之后的四个变种，其表意各不相同，亦与原句表意不同。由此可见「这类副词加与不加、加在何处，对句子的表意影响很大」之说。此又印证「这些副词必须和被修饰的对象紧密相连」之言。</p><p>常见的用于强调表意范围的副词还有：</p><ul><li>only &#x2F; just &#x2F; merely | 只有</li><li>also | 也</li><li>especially &#x2F; particularly | 尤其、特别地</li><li>even | 更加、甚至、居然、恰如</li><li>exactly &#x2F; precisely | 恰恰</li><li>……</li></ul><h3 id="强调程度的副词"><a href="#强调程度的副词" class="headerlink" title="强调程度的副词"></a>强调程度的副词</h3><p>表达强调的副词中的第二类是强调程度的副词。这些副词也是句子表意中很重要的一部分；同样地，这类副词加与不加对句意影响很大。举一例：</p><ul><li>原句：Liam knows Wenyue well. | Liam 了解 Wenyue。</li><li>改程度：Liam knows Wenyue <em>rather</em> well. | Liam 还算了解 Wenyue。</li></ul><p>再举一例：</p><ul><li>原句：The task is done. | 任务已完成。</li><li>改程度：The task is <em>almost</em> done. | 任务已近完成。</li></ul><p>不难发现，这些表达程度的副词也是句子表意的重要组成部分。若是去掉它们，句子表意会发生巨大变化。常见的用于强调程度的副词不少，就不举例了。</p><h3 id="强调语气的副词"><a href="#强调语气的副词" class="headerlink" title="强调语气的副词"></a>强调语气的副词</h3><p>强调语气的副词看起来和强调程度的副词很像。但是，去掉句子当中强调语气的副词只是影响语气，不影响句子表意。举几例：</p><ul><li>Fat XXX looks <em>very much</em> a ball. | 胖子 XXX 看着就是个球。</li><li>XXX is <em>absolutely</em> insane. | XXX 绝对是疯了。</li><li>XXX <em>urgently</em> need being hospitalized. | XXX急需入院治疗。</li></ul><h2 id="修饰句子的副词"><a href="#修饰句子的副词" class="headerlink" title="修饰句子的副词"></a>修饰句子的副词</h2><p>这是一类特殊的副词。和一般（狭隘的）认知不同，有些副词可以用来修饰整个句子。举例来说：</p><ul><li><em>Therefore</em>, Wenyue is less than too fat. | 因此，Wenyue 还称不上太胖。</li><li><em>Frankly</em>, Wenyue is very much a gentleman. | 坦率地说，Wenyue 是个绅♂士。</li></ul><p>例中，无论是 <em>therefore</em> 还是 <em>frankly</em>，在句中都找不到被它们直接修饰的句子成分。这是因为它们都是修饰整个句子的副词。此二例中，看着相似，但实际仍有区别。第二例中的 <em>frankly</em>，实际是一条件状语从句的缩写：</p><blockquote><p>If we are specking frankly, Wenyue is very much a gentleman.</p></blockquote><p>对于这类从副词从句缩写而来的副词，我们称之为分离副词。此外，不难发现，分离副词前后的逗号，原就是两个句子之间的逗号。这种简化，最早应是出于修辞的考虑；简化之后保留逗号，则是出自表意的考虑。</p><p>第一例中的 <em>therefore</em> 本身能表达逻辑关系。因之，此类副词被称为连接副词。这些副词还有</p><ul><li>表达逻辑等号的：therefore, besides, futhermore, ...</li><li>表达逻辑不等号的：however, nonetheless, ...</li></ul><h2 id="跋"><a href="#跋" class="headerlink" title="跋"></a>跋</h2><p>此篇，我们通过「两大法宝」，串起了几大类副词，同时辨析了各类副词在句中的用法。所谓渔重于🐟，读者在了解各类副词用法的同时，更重要地是善用两大法宝，复习过去学过的文法和学习新的文法知识。</p><p>下一篇我们处理情态动词和虚拟语气。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;这是&lt;a href=&quot;/series/#%E8%8B%B1%E6%96%87%E6%96%87%E6%B3%95&quot;&gt;系列&lt;/a&gt;文章的第七篇。&lt;a href=&quot;/2021/04/21/adjectives/&quot;&gt;前作&lt;/a&gt;处理了形容词，此篇我们处理同为修饰词类的副词。&lt;/p&gt;
-&lt;p&gt;从被修饰的对象来说，相较而言，副词比形容词要复杂得多。形容词基本上只能用来修饰名词，但副词可以修饰除名此外的其他成分；甚至，副词还可以修饰一整个句子。&lt;/p&gt;
-&lt;p&gt;除去被修饰的对象，副词的复杂性，还体现在它在句子当中所处的位置。它可以出现在动词前，也可以出现在动词后；它可以紧挨着动词，也可以距离动词挺远；甚至，它可以独立成句。&lt;/p&gt;
-&lt;p&gt;除此二者之外，副词也有比较级和最高级。不过，副词的比较级和最高级和形容词规则几乎完全一样。唯独要注意的是，副词的典型词缀是 &lt;code&gt;-ly&lt;/code&gt;。因此，在双音节的副词变为比较级和最高级时，若是以 &lt;code&gt;-ly&lt;/code&gt; 结尾，则应保持不变，通过联合 &lt;code&gt;more&lt;/code&gt; 及 &lt;code&gt;most&lt;/code&gt; 来实现。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="English" scheme="https://liam.page/categories/English/"/>
-    
-    
-      <category term="Adverbs" scheme="https://liam.page/tags/Adverbs/"/>
     
   </entry>
   
