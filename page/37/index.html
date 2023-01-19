@@ -147,17 +147,17 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">386</span></a>
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">387</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
 
-    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">14</span></a>
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">15</span></a>
 
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">740</span></a>
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">743</span></a>
 
   </li>
         <li class="menu-item menu-item-系列">
@@ -230,6 +230,106 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/11/26/surrogate-in-Cpp/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar.webp">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2017/11/26/surrogate-in-Cpp/" class="post-title-link" itemprop="url">谈谈代理类</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2017 年 11 月 26 日 15:47:21" itemprop="dateCreated datePublished" datetime="2017-11-26T15:47:21+08:00">2017 年 11 月 26 日</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020 年 03 月 02 日 22:20:07" itemprop="dateModified" datetime="2020-03-02T22:20:07+08:00">2020 年 03 月 02 日</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          <br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>8.4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>15 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <blockquote>
+<p>本文以 C++ 为示例语言，但实际其中思想适用范围远大于 C++ 这一编程语言的范畴。</p>
+</blockquote>
+<p>我们知道，C++ 标准模板类库提供了一系列的容器。诸如 <code>std::vector&lt;ElementType&gt;</code> 的容器需要在声明时指定容器中所储存的元素的类型。例如，我们可以使用 <code>std::vector&lt;int&gt;</code> 声明一个包含整型数字的变长数组；而 <code>std::vector&lt;std::string&gt;</code> 则可以用来声明一个包含 <code>std::string</code> 的变长数组。</p>
+<p>显而易见，由于容器在声明时就已指定了其包含的元素的类型，容器内只能包含相同类型的元素。这与面向对象编程（Object-Oriented Programming, OOP, 使用继承和运行时动态绑定的编程方式）的思想似乎是矛盾的。因为 OOP 使用继承和动态绑定，允许程序员将相关但有不同的类的共性部分抽象成基类而将这些不同的部分分别作为子类独有的成员；若是容器内只能包含相同类型的元素，我们就无法直接在一个容器中包含同一个基类不同派生类的对象了——而在实际应用中，这种场景是存在的。</p>
+<p>在<a href="/2016/11/26/Introduction-to-CRTP-in-Cpp/">前作</a>中最后的示例（动物园的例子）中，我们通过保存基类指针（而不是对象本身）部分解决了这个问题。然而，在前例中，我们不可避免地还是需要使用 <code>new</code> 和 <code>delete</code> 来动态分配内存。此篇我们通过构建「代理类」来避免手工动态分配内存。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2017/11/26/surrogate-in-Cpp/#more" rel="contents">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -621,102 +721,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="https://liam.page/2017/09/17/LaTeX-multi-lingual/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar/avatar.webp">
-      <meta itemprop="name" content="Liam Huang">
-      <meta itemprop="description" content="虚室生白，吉祥止止">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="始终">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2017/09/17/LaTeX-multi-lingual/" class="post-title-link" itemprop="url">LaTeX 黑魔法（五）：在 LaTeX 中输出多国语言</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-calendar-o"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2017 年 09 月 17 日 00:00:00" itemprop="dateCreated datePublished" datetime="2017-09-17T00:00:00+08:00">2017 年 09 月 17 日</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020 年 03 月 02 日 22:20:07" itemprop="dateModified" datetime="2020-03-02T22:20:07+08:00">2020 年 03 月 02 日</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-folder-o"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/LaTeX/" itemprop="url" rel="index"><span itemprop="name">LaTeX</span></a>
-                </span>
-            </span>
-
-          <br>
-            <span class="post-meta-item" title="本文字数">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-file-word-o"></i>
-              </span>
-                <span class="post-meta-item-text">本文字数：</span>
-              <span>2.7k</span>
-            </span>
-            <span class="post-meta-item" title="阅读时长">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-clock-o"></i>
-              </span>
-                <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>5 分钟</span>
-            </span>
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>在 LaTeX 中输出英文之外的其他字符总是不那么自然，需要一些折腾。例如让 LaTeX 输出中文就走过了天元、CCT、<code>CJK</code>、<code>xeCJK</code> 这些路子。</p>
-<p>以现在（2017-09）来说，在 LaTeX 中混排中英双语已经不是什么难事，只需要使用 <code>xeCJK</code> 宏包或者 <a href="/2015/05/16/ctex-20-released/"><code>CTeX</code> 宏集</a>即可。但若是想要在一篇文档里排版多语言，则很多人就不知道怎么办了。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2017/09/17/LaTeX-multi-lingual/#more" rel="contents">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -788,20 +792,20 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">386</span>
+          <span class="site-state-item-count">387</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
             <a href="/categories/">
           
-        <span class="site-state-item-count">14</span>
+        <span class="site-state-item-count">15</span>
         <span class="site-state-item-name">分类</span></a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">740</span>
+        <span class="site-state-item-count">743</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -906,7 +910,7 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">44:04</span>
+    <span title="站点阅读时长">44:05</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
