@@ -6,7 +6,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://liam.page/"/>
-  <updated>2023-02-17T12:19:25.437Z</updated>
+  <updated>2023-03-17T04:13:41.922Z</updated>
   <id>https://liam.page/</id>
   
   <author>
@@ -15,6 +15,36 @@
   </author>
   
   <generator uri="http://hexo.io/">Hexo</generator>
+  
+  <entry>
+    <title>越狱后 iDevice 的重启、重启用户空间、软重启、注销、重建图标之间的关系</title>
+    <link href="https://liam.page/2023/03/17/difference-between-reboot-reboot-userspace-ldrestart-respring-and-unicache/"/>
+    <id>https://liam.page/2023/03/17/difference-between-reboot-reboot-userspace-ldrestart-respring-and-unicache/</id>
+    <published>2023-03-17T03:39:50.000Z</published>
+    <updated>2023-03-17T04:13:41.922Z</updated>
+    
+    <content type="html"><![CDATA[<p>越狱用户在将 iDevice 越狱后往往会接触到重启、重启用户空间、软重启、注销、重建图标这些概念。但中文互联网圈子内似乎还没有对它们做完整解释的帖子，故有此篇。</p><span id="more"></span><h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><h3 id="内核空间与用户空间"><a href="#内核空间与用户空间" class="headerlink" title="内核空间与用户空间"></a>内核空间与用户空间</h3><p>内存对于程序的运行是必不可少的。程序需要将自身的可执行代码以及运行过程中处理的数据结构存放在内存当中。操作系统内核也是一种程序，因此也和普通的用户应用程序一样需要内存。</p><p>为了安全起见，防止普通的用户应用程序不小心地（当然，也防止恶意地）访问并修改内核保存在内存中的内容，现代计算机的操作系统（iDevice 等手持设备也属于广义的计算机）会将整个内存寻址空间（这里的内存指得是虚拟内存）切出一块来单独给内核使用。这块空间就是所谓的内核空间。普通用户程序的权限较低，无权访问内核空间的内容，只能通过系统调用（System Call）来与内核进行交互。</p><p>与此相对应地，内核之外的所有其他用户应用程序都运行在内核空间之外的部分，即用户空间。</p><h3 id="launchd"><a href="#launchd" class="headerlink" title="launchd"></a><code>launchd</code></h3><p>在 macOS 和 iOS (包括衍生的 iPad OS 和 TVOS) 中，进程 ID（PID）为 1 的进程即是 <code>launchd</code>。这是操作系统内核启动后启动的第一个程序。它负责按需启动守护进程（不运行在前台的进程）和应用程序，并负责监控守护进程。操作系统启动后，所有后续启动的进程都是它的子子孙孙（直接或间接 <code>fork</code> 自 <code>launchd</code>）。</p><p><code>launchd</code> 还有一个配套的命令行应用程序 <code>launchctl</code>。它可以与 <code>launchd</code> 通讯，以便管理系统的各个守护进程。</p><h3 id="SpringBoard"><a href="#SpringBoard" class="headerlink" title="SpringBoard"></a>SpringBoard</h3><p>SpringBoard 是 iDevice 上管理主屏幕界面的标准应用程序。它也负责启动 WindowServer、启动 App 等工作。因此它也成为越狱后众多 Tweak 的注入目标。</p><h2 id="辨析"><a href="#辨析" class="headerlink" title="辨析"></a>辨析</h2><p>有了这些前置知识，我们就能对这些概念进行辨析了。</p><ul><li>重启（Reboot）：和普通意义上的「重启计算机」是同样的含义。它几乎相当于给设备断电，然后从零开始启动系统和其他应用程序。因此，如果你的 iDevice 运行的越狱不是完美越狱（Untethered Jailbreak），那么重启后将会丢掉越狱状态。在 iDevice 命令行中运行 <code>reboot</code> 可使设备重启。</li><li>重启用户空间（Reboot Userspace）：保持内核持续运行，但杀死所有运行在用户空间的进程，包括 <code>launchd</code>，然后重启。这种情况下，因为内核未受影响，所以重启用户空间后仍处于越狱状态。在 iDevice 命令行中运行 <code>launchctl reboot userspace</code> 可使设备重启用户空间。</li><li>软重启（<code>ldrestart</code>）：这是 Apple 官方提供的能力。和重启用户空间类似，但 <code>launchd</code> 本身并不会杀死然后重启。同样，为内核未受影响，所以重启用户空间后仍处于越狱状态。在 iDevice 命令行中运行 <code>ldrestart</code> 可使设备软重启。</li><li>注销（Respring）：杀死 SpringBoard，然后重启它。我们通常会在一些影响到 SpringBoard 的设置之后执行注销指令。显然，注销不会掉出越狱状态。在 iDevice 命令行中运行 <code>killall -9 backboardd</code> 可使设备注销。</li><li>重建图标（UICache）：SpringBoard 存有一份 App 图标、状态栏、Dock 等的缓存（UICache）。若你修改了这些内容，那么可能需要重建这一缓存来使你的变更生效。显然，重建图标不会掉出越狱状态。在 iDevice 命令行中运行 <code>uicache</code> 可使设备重建图标。</li></ul><p>注意，在重启用户空间和软重启的过程中，你可能有一定概率遇见内核错误（Kernel Panic），从而导致 iDevice 从重启用户空间&#x2F;软重启 fallback 到直接重启。这种情况，是会丢掉越狱状态的。</p><h2 id="插件"><a href="#插件" class="headerlink" title="插件"></a>插件</h2><p>Netskao 开发的 PowerSelector 插件可在控制中心（Control Center）中添加一个插件。点按该插件的图标后会弹出一个窗口。在窗口中可以按需选择关机、重启、重启用户空间、软重启、注销、重建图标等操作。可谓十分方便，在此推荐。</p>]]></content>
+    
+    <summary type="html">
+    
+      &lt;p&gt;越狱用户在将 iDevice 越狱后往往会接触到重启、重启用户空间、软重启、注销、重建图标这些概念。但中文互联网圈子内似乎还没有对它们做完整解释的帖子，故有此篇。&lt;/p&gt;
+    
+    </summary>
+    
+      <category term="Jailbreak and Reverse Engineering" scheme="https://liam.page/categories/Jailbreak-and-Reverse-Engineering/"/>
+    
+    
+      <category term="Reboot" scheme="https://liam.page/tags/Reboot/"/>
+    
+      <category term="Userspace" scheme="https://liam.page/tags/Userspace/"/>
+    
+      <category term="LDRestart" scheme="https://liam.page/tags/LDRestart/"/>
+    
+      <category term="Respring" scheme="https://liam.page/tags/Respring/"/>
+    
+      <category term="UICache" scheme="https://liam.page/tags/UICache/"/>
+    
+  </entry>
   
   <entry>
     <title>在 iOS 14.5.1/unc0ver 8.0.2 上解决电池用量信息无法载入的问题</title>
@@ -517,28 +547,6 @@
       <category term="Memory Model" scheme="https://liam.page/tags/Memory-Model/"/>
     
       <category term="Memory Order" scheme="https://liam.page/tags/Memory-Order/"/>
-    
-  </entry>
-  
-  <entry>
-    <title>论善良</title>
-    <link href="https://liam.page/2021/06/17/discussion-on-kind/"/>
-    <id>https://liam.page/2021/06/17/discussion-on-kind/</id>
-    <published>2021-06-17T13:07:31.000Z</published>
-    <updated>2021-06-17T15:52:46.000Z</updated>
-    
-    <content type="html"><![CDATA[<p>博客虽以技术文章为主，但仍夹杂有不少杂文。此篇讨论善良。</p><span id="more"></span><h2 id="善良是什么？"><a href="#善良是什么？" class="headerlink" title="善良是什么？"></a>善良是什么？</h2><p>善良一词，与我所见最早者，当出自《礼记·学记》。曰：「发虑宪，求善良，足以謏闻，不足以动众。」</p><p>按文言一贯作风，善良虽在现代汉语中成词已久，但在文言中大概是分别表意的。在文言文词典中，<a href="https://wyw.hwxnet.com/view/hwxE5hwx96hwx84.html">善</a>作名词表示「好的行为」，作形容词表示「赞许的」或是「熟悉」。显然，此处应取「值得赞许的」的含义。<a href="https://wyw.hwxnet.com/view/hwxE8hwx89hwxAF.html">良</a>作形容词表示「好」。因此，讲白了，文言中的「善良」大约就是人类品德中所有好的品德的集合体。</p><p>在现代汉语中，善良的表意某种意义上被圈定在「和善」、「心地好」这样的意思上了。</p><h2 id="人善被人欺？"><a href="#人善被人欺？" class="headerlink" title="人善被人欺？"></a>人善被人欺？</h2><p>大多数生长于传统中国家庭的孩子，大都从小被教育「要善良」。与之相应，孩子被要求「爱分享」、「乐于助人」等。</p><p>然而，步入社会之后，或多或少地，这些从小被教育要善良的孩子，都因「善良」吃过亏。其中不乏「屡教不改」抑或是「执迷不悔」的人，当然也有些人从此「黑化」或是抑郁。</p><p>这些时候，「孩子们」大约会想起父母的另一句话「害人之心不可有，防人之心不可无」。可是，爸爸妈妈，你们从来没教过我们要如何才能「防人」呀……</p><p>所以，到底要怎么办？</p><h2 id="善心？善举？"><a href="#善心？善举？" class="headerlink" title="善心？善举？"></a>善心？善举？</h2><p>面对这个问题，我们不能逃避。因为你能逃一次，但将来不断发生的事情，会不断质疑你的内心。最终逃无可逃，必须直面。</p><p>为了解决这个问题，我们将善良分为两个部分，或者说两个层次：善心和善举。善心是无条件的，行善举是有条件的。若是行善举会危害到自己的核心利益，那便要慎重。世人多被要求善良，却不分善举和善心。无差别的善举最终往往害人害己。</p><p>对于以善良为代表的一切「美好的德行」，都有<strong>论心不论迹</strong>。也就是说，我们要将善心和善举区分开来；而后，常怀善心，擅行善举。</p><h2 id="何时行善举？"><a href="#何时行善举？" class="headerlink" title="何时行善举？"></a>何时行善举？</h2><p>是否要行善举，这其实是一个选择题。</p><p>在我看来，这一选择题理当无有特殊性。也就是说，人生中其他类似的选择题如何做，这一道选择题就如何做。亦即，人自身的一切行为，都要有统一的标准去考量。不能因为善举于道德地位更高，就降低评判标准，而后决定施行，而不顾其可能带来的负面影响。</p><p>操作层面上，当意图行善时，脑回路里加一个步骤：这事儿做了之后最坏的结果自己能不能接受。如果不能接受的话，哪怕是善举，也慎重一些。</p><h2 id="不为善其与为恶异乎？"><a href="#不为善其与为恶异乎？" class="headerlink" title="不为善其与为恶异乎？"></a>不为善其与为恶异乎？</h2><p>或曰：「不为善者与为恶者，无异也」。曰：「道德绑架者也。」</p><p>有人认为，善而不为，其与恶无异。此类谬误有二。一者，忽略世界的多样性，将善恶二元对立，认为非善即恶。他们认为，不做善事就是恶；不作恶事就是善。二者，将善良至于绝对片面的语境之下，忽略实际情况，忽略自身自我，将善良狭隘化为一个放之四海而皆准的道德标尺。殊不知，因为行善举，而将自己置于无法承受的危险之下，实际上是忽略了自我。「我」都没有了，还谈什么善良呢？这不是善良，而是伪善。</p><p>这些人可能也会拿汉昭烈帝的「勿以善小而不为」来做例证。然而，刘备遗诏中的意思，是强调善举大小、影响范围，却没有教刘禅不分青红皂白应当一律行善。</p><p>因此，认为不行善举即是作恶的人，其实就是道德绑架罢了。</p><h2 id="真正的英雄主义"><a href="#真正的英雄主义" class="headerlink" title="真正的英雄主义"></a>真正的英雄主义</h2><p>罗曼·罗兰说：「世界上只有一种真正的英雄主义，就是认清了生活的真相后还依然热爱它」。</p><p>如何能做到这一点？</p><p>自己的善举可能为自己带来危害，这也是生活的真相之一。被伤害过后，你还愿意保持善良吗？被伤害过后，你能控制自己不去伤害别人吗？换言之，被伤害过后，你还热爱这个世界吗？</p><p>广义地看待善良，将善心和善举分开，常怀善心、擅行善举，则哪怕不能成为真的英雄，也常在成为英雄的路上了。</p>]]></content>
-    
-    <summary type="html">
-    
-      &lt;p&gt;博客虽以技术文章为主，但仍夹杂有不少杂文。此篇讨论善良。&lt;/p&gt;
-    
-    </summary>
-    
-      <category term="Miscellaneous" scheme="https://liam.page/categories/Miscellaneous/"/>
-    
-    
-      <category term="Kind" scheme="https://liam.page/tags/Kind/"/>
     
   </entry>
   
