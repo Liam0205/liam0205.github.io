@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
 <meta name="theme-color" content="#222">
-<meta name="generator" content="Hexo 6.0.0">
+<meta name="generator" content="Hexo 8.1.1">
   <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
@@ -34,10 +34,10 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="https://liam.page/uploads/images/python/review_envoy_01.png">
 <meta property="article:published_time" content="2016-09-25T03:48:07.000Z">
-<meta property="article:modified_time" content="2020-03-02T14:20:07.000Z">
+<meta property="article:modified_time" content="2026-01-15T09:34:25.544Z">
 <meta property="article:author" content="Liam Huang">
-<meta property="article:tag" content="Python">
 <meta property="article:tag" content="Library">
+<meta property="article:tag" content="Python">
 <meta property="article:tag" content="Subprocess">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="https://liam.page/uploads/images/python/review_envoy_01.png">
@@ -271,7 +271,7 @@
                   <i class="fa fa-calendar-check-o"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2020 年 03 月 02 日 22:20:07" itemprop="dateModified" datetime="2020-03-02T22:20:07+08:00">2020 年 03 月 02 日</time>
+                <time title="修改时间：2026 年 01 月 15 日 17:34:25" itemprop="dateModified" datetime="2026-01-15T17:34:25+08:00">2026 年 01 月 15 日</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -296,14 +296,14 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>11k</span>
+              <span>9.3k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>19 分钟</span>
+              <span>17 分钟</span>
             </span>
 
         </div>
@@ -361,7 +361,7 @@
 <li>Exit Code</li>
 <li>CPU time taken by the process</li>
 </ul>
-<p>简而言之，进程退出后，会释放资源，然后在内核里留下一些诊断信息，成为**僵尸进程 (Zombie Process)**。进程退出后，将 PID 留在了操作系统内核中尚未释放。因此，该 PID 是不可以被后续的新进程使用的。因此，在 Linux 的设计中，父进程需要调用 <code>wait</code> 或者 <code>waitpid</code> 函数从内核中获取并处理子进程的诊断信息，并释放 PID（清扫僵尸进程）。</p>
+<p>简而言之，进程退出后，会释放资源，然后在内核里留下一些诊断信息，成为<strong>僵尸进程 (Zombie Process)</strong>。进程退出后，将 PID 留在了操作系统内核中尚未释放。因此，该 PID 是不可以被后续的新进程使用的。因此，在 Linux 的设计中，父进程需要调用 <code>wait</code> 或者 <code>waitpid</code> 函数从内核中获取并处理子进程的诊断信息，并释放 PID（清扫僵尸进程）。</p>
 <p>如果子进程退出时，父进程尚在，但父进程始终不处理子进程退出后留下的僵尸进程，而不断因为业务逻辑产生新的子进程，那么僵尸进程就会不断积累，最终占满所有可用的 PID（没有进程槽了）。这样一来，在操作系统中就无法产生新的子进程了。（参见 <a target="_blank" rel="noopener" href="https://zh.wikipedia.org/wiki/Fork%E7%82%B8%E5%BC%B9">fork 炸弹</a>）因此，通过 <code>fork</code> 函数创建子进程之后，一定要注意 <code>wait</code> 子进程。</p>
 <p>如果父进程退出时，子进程尚在。这时候，没爹没娘的孤儿进程（Orphand Process）就会被 <code>init</code> 进程收养，直到它退出后被 <code>init</code> 处理。</p>
 <h2 id="envoy-源码剖析"><a href="#envoy-源码剖析" class="headerlink" title="envoy 源码剖析"></a><code>envoy</code> 源码剖析</h2><p>Reitz 的 <code>envoy</code> 项目地址是 <a target="_blank" rel="noopener" href="https://github.com/kennethreitz/envoy">https://github.com/kennethreitz/envoy</a>。为了保证本文的长期有效性，我将它 fork 到了这里 <a target="_blank" rel="noopener" href="https://github.com/reviewlib/envoy">https://github.com/reviewlib/envoy</a>。</p>
@@ -382,12 +382,12 @@
 
 <p>首先，作者将 <code>os.environ</code> 转换成一个 Python 内建字典，保存在 <code>environ</code> 中。而后，用字典的 <code>update()</code> 方法，将用户传入的环境变量补充到 <code>environ</code> 中。这里，<code>update()</code> 方法有两个特点</p>
 <ul>
-<li>输入必须是一个非空的字典，因此作者<strong>利用短路求值 <code>env or &#123;&#125;</code> 的方式确保「非空」</strong>；</li>
+<li>输入必须是一个非空的字典，因此作者<strong>利用短路求值 <code>env or {}</code> 的方式确保「非空」</strong>；</li>
 <li>输入的 <code>env</code> 如果有与 <code>os.environ</code> 同名的环境变量，则会以 <code>env</code> 中的值为准，否则直接在 <code>environ</code> 中添加键值对。</li>
 </ul>
 <p>利用这两个特点，作者巧妙地实现了程序逻辑。</p>
 <p>第二个值得注意的地方，是在 <code>run()</code> 函数的内部，嵌套定义了 <code>target()</code> 函数。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">target</span>():</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        self.process = subprocess.Popen(self.cmd,</span><br><span class="line">            universal_newlines=<span class="literal">True</span>,</span><br><span class="line">            shell=<span class="literal">False</span>,</span><br><span class="line">            env=environ,</span><br><span class="line">            stdin=subprocess.PIPE,</span><br><span class="line">            stdout=subprocess.PIPE,</span><br><span class="line">            stderr=subprocess.PIPE,</span><br><span class="line">            bufsize=<span class="number">0</span>,</span><br><span class="line">            cwd=cwd,</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> sys.version_info[<span class="number">0</span>] &gt;= <span class="number">3</span>:</span><br><span class="line">            self.out, self.err = self.process.communicate(</span><br><span class="line">                <span class="built_in">input</span> = <span class="built_in">bytes</span>(self.data, <span class="string">&quot;UTF-8&quot;</span>) <span class="keyword">if</span> self.data <span class="keyword">else</span> <span class="literal">None</span></span><br><span class="line">            )</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            self.out, self.err = self.process.communicate(self.data)</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> exc:</span><br><span class="line">        self.exc = exc</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">target</span>():</span><br><span class="line"></span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        <span class="variable language_">self</span>.process = subprocess.Popen(<span class="variable language_">self</span>.cmd,</span><br><span class="line">            universal_newlines=<span class="literal">True</span>,</span><br><span class="line">            shell=<span class="literal">False</span>,</span><br><span class="line">            env=environ,</span><br><span class="line">            stdin=subprocess.PIPE,</span><br><span class="line">            stdout=subprocess.PIPE,</span><br><span class="line">            stderr=subprocess.PIPE,</span><br><span class="line">            bufsize=<span class="number">0</span>,</span><br><span class="line">            cwd=cwd,</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> sys.version_info[<span class="number">0</span>] &gt;= <span class="number">3</span>:</span><br><span class="line">            <span class="variable language_">self</span>.out, <span class="variable language_">self</span>.err = <span class="variable language_">self</span>.process.communicate(</span><br><span class="line">                <span class="built_in">input</span> = <span class="built_in">bytes</span>(<span class="variable language_">self</span>.data, <span class="string">&quot;UTF-8&quot;</span>) <span class="keyword">if</span> <span class="variable language_">self</span>.data <span class="keyword">else</span> <span class="literal">None</span></span><br><span class="line">            )</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="variable language_">self</span>.out, <span class="variable language_">self</span>.err = <span class="variable language_">self</span>.process.communicate(<span class="variable language_">self</span>.data)</span><br><span class="line">    <span class="keyword">except</span> Exception <span class="keyword">as</span> exc:</span><br><span class="line">        <span class="variable language_">self</span>.exc = exc</span><br></pre></td></tr></table></figure>
 
 <p>在 Python 中，函数定义是允许嵌套的，不过</p>
 <ul>
@@ -405,13 +405,13 @@
 <li>达到超时时间限制。</li>
 </ul>
 <p>第四个值得注意的地方，是作者回收和处理在线程中运行的子进程任务的执行状态信息。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> self.exc:</span><br><span class="line">    <span class="keyword">raise</span> self.exc</span><br><span class="line"><span class="keyword">if</span> _is_alive(thread) :</span><br><span class="line">    _terminate_process(self.process)</span><br><span class="line">    thread.join(kill_timeout)</span><br><span class="line">    <span class="keyword">if</span> _is_alive(thread):</span><br><span class="line">        _kill_process(self.process)</span><br><span class="line">        thread.join()</span><br><span class="line">self.returncode = self.process.returncode</span><br><span class="line"><span class="keyword">return</span> self.out, self.err</span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> <span class="variable language_">self</span>.exc:</span><br><span class="line">    <span class="keyword">raise</span> <span class="variable language_">self</span>.exc</span><br><span class="line"><span class="keyword">if</span> _is_alive(thread) :</span><br><span class="line">    _terminate_process(<span class="variable language_">self</span>.process)</span><br><span class="line">    thread.join(kill_timeout)</span><br><span class="line">    <span class="keyword">if</span> _is_alive(thread):</span><br><span class="line">        _kill_process(<span class="variable language_">self</span>.process)</span><br><span class="line">        thread.join()</span><br><span class="line"><span class="variable language_">self</span>.returncode = <span class="variable language_">self</span>.process.returncode</span><br><span class="line"><span class="keyword">return</span> <span class="variable language_">self</span>.out, <span class="variable language_">self</span>.err</span><br></pre></td></tr></table></figure>
 
 <p>首先，子进程可能抛出异常，因此需要捕获和继续向上抛出异常。</p>
 <p>其次，线程 <code>thread</code> 可能因为超时而执行到当前代码，因此通过预定义的 <code>_is_alive()</code> 函数来判断线程是正常退出还是扔在超时运行。如果确实超时，那么首先应该终止子进程，然后尝试等待线程超时终止。如果线程仍然还活着，说明线程内的子进程没有被正确终止，那么首先杀死子进程，然后阻塞线程直到它完成。这样的设计，是<strong>确保子进程和线程都完全停止，防止僵尸进程的出现</strong>。</p>
 <p>最后，函数返回标准输出和标准错误的内容。</p>
 <h3 id="Response-类"><a href="#Response-类" class="headerlink" title="Response 类"></a><code>Response</code> 类</h3><p>我们来看 <code>Response</code> 类。这是一个模块内部使用的类，<code>Response</code> 类的每个实例都是 <code>Command</code> 类的实例调用 <code>run()</code> 方法后的执行结果信息。</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Response</span>(<span class="title class_ inherited__">object</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;A command&#x27;s response&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, process=<span class="literal">None</span></span>):</span><br><span class="line">        <span class="built_in">super</span>(Response, self).__init__()</span><br><span class="line"></span><br><span class="line">        self._process = process</span><br><span class="line">        self.command = <span class="literal">None</span></span><br><span class="line">        self.std_err = <span class="literal">None</span></span><br><span class="line">        self.std_out = <span class="literal">None</span></span><br><span class="line">        self.status_code = <span class="literal">None</span></span><br><span class="line">        self.history = []</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__repr__</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">len</span>(self.command):</span><br><span class="line">            <span class="keyword">return</span> <span class="string">&#x27;&lt;Response [&#123;0&#125;]&gt;&#x27;</span>.<span class="built_in">format</span>(self.command[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="string">&#x27;&lt;Response&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Response</span>(<span class="title class_ inherited__">object</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;A command&#x27;s response&quot;&quot;&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, process=<span class="literal">None</span></span>):</span><br><span class="line">        <span class="built_in">super</span>(Response, <span class="variable language_">self</span>).__init__()</span><br><span class="line"></span><br><span class="line">        <span class="variable language_">self</span>._process = process</span><br><span class="line">        <span class="variable language_">self</span>.command = <span class="literal">None</span></span><br><span class="line">        <span class="variable language_">self</span>.std_err = <span class="literal">None</span></span><br><span class="line">        <span class="variable language_">self</span>.std_out = <span class="literal">None</span></span><br><span class="line">        <span class="variable language_">self</span>.status_code = <span class="literal">None</span></span><br><span class="line">        <span class="variable language_">self</span>.history = []</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__repr__</span>(<span class="params">self</span>):</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">len</span>(<span class="variable language_">self</span>.command):</span><br><span class="line">            <span class="keyword">return</span> <span class="string">&#x27;&lt;Response [&#123;0&#125;]&gt;&#x27;</span>.<span class="built_in">format</span>(<span class="variable language_">self</span>.command[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            <span class="keyword">return</span> <span class="string">&#x27;&lt;Response&gt;&#x27;</span></span><br></pre></td></tr></table></figure>
 
 <p>从只有一个 <code>__repr__()</code> 方法可以看出，<code>Response</code> 类几乎只是一个简单的数据结构，提供了可供打印的功能，仅此而已。那么作者为什么要设计这样一个类呢？这里我们留给读者思考。</p>
 <h3 id="expand-args-函数"><a href="#expand-args-函数" class="headerlink" title="expand_args 函数"></a><code>expand_args</code> 函数</h3><p><code>expand_args(command)</code> 函数接收一个字符串作为参数，并将之解析为一个个的命令。</p>
@@ -704,7 +704,7 @@
 <div class="copyright">
   
   &copy; 2013 – 
-  <span itemprop="copyrightYear">2025</span>
+  <span itemprop="copyrightYear">2026</span>
   <span class="with-love">
     <i class="fa fa-user"></i>
   </span>
@@ -713,12 +713,12 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-area-chart"></i>
     </span>
-    <span title="站点总字数">1.5m</span>
+    <span title="站点总字数">1.3m</span>
     <span class="post-meta-divider">|</span>
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">45:20</span>
+    <span title="站点阅读时长">40:23</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
