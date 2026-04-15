@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是「从 C++ 到 Go」系列的第三篇，承接上一篇对集合、结构体与接口的讨论，进入 Go 最有特色的两个领域——并发模型与错误处理。对于 C++ 程序员来说，这两部分恰好是思维转换最大的地方：并发从「手动管理线程和锁」变成「goroutine + channel」，错误处理从「异常冒泡」变成「错误即返回值」。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 C++ 到 Go（三）：并发模型与错误处理">
+<meta property="og:url" content="https://liam.page/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是「从 C++ 到 Go」系列的第三篇，承接上一篇对集合、结构体与接口的讨论，进入 Go 最有特色的两个领域——并发模型与错误处理。对于 C++ 程序员来说，这两部分恰好是思维转换最大的地方：并发从「手动管理线程和锁」变成「goroutine + channel」，错误处理从「异常冒泡」变成「错误即返回值」。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-15T08:28:00.000Z">
+<meta property="article:modified_time" content="2026-04-15T08:28:25.261Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="编程语言">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>从 C++ 到 Go（三）：并发模型与错误处理 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">411</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">780</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 C++ 到 Go（三）：并发模型与错误处理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 04 月 15 日 16:28:00 / 修改时间：16:28:25" itemprop="dateCreated datePublished" datetime="2026-04-15T16:28:00+08:00">2026 年 04 月 15 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>11k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>19 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文是「从 C++ 到 Go」系列的第三篇，承接<a href="/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/">上一篇</a>对集合、结构体与接口的讨论，进入 Go 最有特色的两个领域——并发模型与错误处理。对于 C++ 程序员来说，这两部分恰好是思维转换最大的地方：并发从「手动管理线程和锁」变成「goroutine + channel」，错误处理从「异常冒泡」变成「错误即返回值」。</p>
+<span id="more"></span>
+
+<h2 id="并发"><a href="#并发" class="headerlink" title="并发"></a>并发</h2><h3 id="Goroutine：不是线程"><a href="#Goroutine：不是线程" class="headerlink" title="Goroutine：不是线程"></a>Goroutine：不是线程</h3><p>在 C++ 中启动一个线程需要 <code>std::thread</code>，每个线程占用 MB 级别的栈空间，创建和切换的成本都不低。Go 的 goroutine 完全不同——初始栈只有几 KB，可以动态增长，由 Go 运行时（而非操作系统）调度。创建数十万个 goroutine 是稀松平常的事。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">sayHello</span><span class="params">(name <span class="type">string</span>)</span></span> &#123;</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">3</span>; i++ &#123;</span><br><span class="line">        fmt.Printf(<span class="string">&quot;[%s] %d\n&quot;</span>, name, i)</span><br><span class="line">        time.Sleep(<span class="number">100</span> * time.Millisecond)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> sayHello(<span class="string">&quot;goroutine-A&quot;</span>)   <span class="comment">// go 关键字启动</span></span><br><span class="line"><span class="keyword">go</span> sayHello(<span class="string">&quot;goroutine-B&quot;</span>)</span><br><span class="line">sayHello(<span class="string">&quot;main&quot;</span>)              <span class="comment">// main 自身也在一个 goroutine 中</span></span><br></pre></td></tr></table></figure>
+
+<p><code>go</code> 关键字后跟一个函数调用，就启动了一个新的 goroutine。语法上比 C++ 的 <code>std::thread t(func, args...)</code> 简洁得多。</p>
+<p>一个关键的区别：<code>std::thread</code> 必须 <code>join</code> 或 <code>detach</code>，否则析构时程序会终止。Go 没有这个约束——但如果 <code>main</code> 函数返回，所有 goroutine 会被直接终止，不会等待它们完成。所以需要同步机制来协调。</p>
+<h3 id="Channel：goroutine-间的通信"><a href="#Channel：goroutine-间的通信" class="headerlink" title="Channel：goroutine 间的通信"></a>Channel：goroutine 间的通信</h3><p>Go 社区有一句经典格言：<strong>不要通过共享内存来通信，而要通过通信来共享内存</strong>。Channel 就是这句话的具体实现。</p>
+<p>用 C++ 的视角来理解，channel 本质上是一个封装好的 <code>std::queue</code> + <code>std::mutex</code> + <code>std::condition_variable</code>——一个线程安全的阻塞队列。Go 把这三样东西打包成了语言原语，并配上了简洁的语法。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">int</span>)       <span class="comment">// 无缓冲 channel</span></span><br><span class="line">ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">int</span>, <span class="number">10</span>)   <span class="comment">// 缓冲区大小为 10 的 channel</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="方向限定"><a href="#方向限定" class="headerlink" title="方向限定"></a>方向限定</h4><p>Channel 可以限定为只读或只写：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">producer</span><span class="params">(ch <span class="keyword">chan</span>&lt;- <span class="type">int</span>)</span></span> &#123;   <span class="comment">// chan&lt;- 只写</span></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">5</span>; i++ &#123;</span><br><span class="line">        ch &lt;- i</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">close</span>(ch)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">consumer</span><span class="params">(ch &lt;-<span class="keyword">chan</span> <span class="type">int</span>)</span></span> &#123;   <span class="comment">// &lt;-chan 只读</span></span><br><span class="line">    <span class="keyword">for</span> val := <span class="keyword">range</span> ch &#123;</span><br><span class="line">        fmt.Println(<span class="string">&quot;收到:&quot;</span>, val)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>chan&lt;-</code> 表示箭头「指向」channel——只能写入；<code>&lt;-chan</code> 表示箭头「从」channel 出来——只能读取。方向限定是编译期检查的，类似 C++ 中用 <code>const</code> 修饰参数来防止误写。</p>
+<h4 id="无缓冲-vs-有缓冲"><a href="#无缓冲-vs-有缓冲" class="headerlink" title="无缓冲 vs 有缓冲"></a>无缓冲 vs 有缓冲</h4><p>无缓冲 channel（<code>make(chan T)</code>）要求发送方和接收方同时就绪，类似面对面交接——发送方阻塞直到有人接收，接收方阻塞直到有人发送。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">string</span>)   <span class="comment">// 无缓冲</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">    val := &lt;-ch           <span class="comment">// 等待发送方</span></span><br><span class="line">    fmt.Println(<span class="string">&quot;收到:&quot;</span>, val)</span><br><span class="line">&#125;()</span><br><span class="line"></span><br><span class="line">ch &lt;- <span class="string">&quot;hello&quot;</span>             <span class="comment">// 等待接收方</span></span><br></pre></td></tr></table></figure>
+
+<p>如果在同一个 goroutine 中先发后收，就会死锁——没有人能完成另一端的握手。</p>
+<p>有缓冲 channel（<code>make(chan T, n)</code>）允许发送方在缓冲区未满时不阻塞，接收方在缓冲区非空时不阻塞。缓冲区大小就是队列的最大长度。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">buffered := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">string</span>, <span class="number">2</span>)</span><br><span class="line">buffered &lt;- <span class="string">&quot;hello&quot;</span>   <span class="comment">// 不阻塞</span></span><br><span class="line">buffered &lt;- <span class="string">&quot;world&quot;</span>   <span class="comment">// 不阻塞</span></span><br><span class="line"><span class="comment">// buffered &lt;- &quot;block&quot; // 阻塞！缓冲区已满</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="close-与-range"><a href="#close-与-range" class="headerlink" title="close 与 range"></a>close 与 range</h4><p>关闭 channel 是一个重要的信号机制：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">int</span>, <span class="number">5</span>)</span><br><span class="line">ch &lt;- <span class="number">1</span></span><br><span class="line">ch &lt;- <span class="number">2</span></span><br><span class="line">ch &lt;- <span class="number">3</span></span><br><span class="line"><span class="built_in">close</span>(ch)</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> val := <span class="keyword">range</span> ch &#123;   <span class="comment">// 读完 1, 2, 3 之后才退出</span></span><br><span class="line">    fmt.Println(<span class="string">&quot;读到:&quot;</span>, val)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">val, ok := &lt;-ch   <span class="comment">// val=0, ok=false</span></span><br></pre></td></tr></table></figure>
+
+<p><code>range</code> 循环在 channel 上的退出条件是两个同时满足：channel 已关闭，且缓冲区为空。换言之，<code>close</code> 不会丢弃缓冲区中的数据——所有已发送的值都会被消费完毕，之后 <code>range</code> 才退出。</p>
+<p>关闭后继续读取会返回零值和 <code>ok=false</code>，而不是 panic。但往已关闭的 channel 发送会 panic，重复关闭也会 panic。</p>
+<h5 id="多生产者的关闭问题"><a href="#多生产者的关闭问题" class="headerlink" title="多生产者的关闭问题"></a>多生产者的关闭问题</h5><p>如果有多个生产者向同一个 channel 发送数据，任何一个生产者直接 <code>close</code> 都是危险的——其他生产者可能还在发送，导致「向已关闭 channel 发送」的 panic。正确做法是用 <code>sync.WaitGroup</code> 等所有生产者完成后，再由一个单独的 goroutine 关闭 channel：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">int</span>, <span class="number">10</span>)</span><br><span class="line"><span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> id := <span class="number">0</span>; id &lt; <span class="number">3</span>; id++ &#123;</span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">(id <span class="type">int</span>)</span></span> &#123;</span><br><span class="line">        <span class="keyword">defer</span> wg.Done()</span><br><span class="line">        <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">3</span>; i++ &#123;</span><br><span class="line">            ch &lt;- id*<span class="number">10</span> + i</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 不能在这里 close！</span></span><br><span class="line">    &#125;(id)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">    wg.Wait()</span><br><span class="line">    <span class="built_in">close</span>(ch)   <span class="comment">// 所有生产者完成后，只关闭一次</span></span><br><span class="line">&#125;()</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> val := <span class="keyword">range</span> ch &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;收到:&quot;</span>, val)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="select：channel-的多路复用"><a href="#select：channel-的多路复用" class="headerlink" title="select：channel 的多路复用"></a><code>select</code>：channel 的多路复用</h3><p><code>select</code> 语句同时监听多个 channel 操作，哪个先就绪就执行哪个。这是 Go 并发编程中最强大的控制结构，没有直接的 C++ 对应物。</p>
+<p>一个典型场景是同时请求多个数据源，谁先返回用谁的结果，超时则放弃：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">search</span><span class="params">(engine <span class="type">string</span>, query <span class="type">string</span>)</span></span> &lt;-<span class="keyword">chan</span> <span class="type">string</span> &#123;</span><br><span class="line">    ch := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">string</span>, <span class="number">1</span>)</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        delay := time.Duration(<span class="number">100</span>+rand.Intn(<span class="number">500</span>)) * time.Millisecond</span><br><span class="line">        time.Sleep(delay)</span><br><span class="line">        ch &lt;- fmt.Sprintf(<span class="string">&quot;[%s] 搜索 %q 耗时 %v&quot;</span>, engine, query, delay)</span><br><span class="line">    &#125;()</span><br><span class="line">    <span class="keyword">return</span> ch</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">google := search(<span class="string">&quot;Google&quot;</span>, <span class="string">&quot;Go 语言&quot;</span>)</span><br><span class="line">bing := search(<span class="string">&quot;Bing&quot;</span>, <span class="string">&quot;Go 语言&quot;</span>)</span><br><span class="line">timeout := time.After(<span class="number">500</span> * time.Millisecond)</span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> &#123;</span><br><span class="line"><span class="keyword">case</span> r := &lt;-google:</span><br><span class="line">    fmt.Println(r)</span><br><span class="line"><span class="keyword">case</span> r := &lt;-bing:</span><br><span class="line">    fmt.Println(r)</span><br><span class="line"><span class="keyword">case</span> &lt;-timeout:</span><br><span class="line">    fmt.Println(<span class="string">&quot;超时&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>time.After</code> 返回一个 channel，在指定时间后发送一个值。把它放在 <code>select</code> 的一个 <code>case</code> 里，就实现了超时控制——如果 500ms 内没有搜索引擎返回结果，<code>timeout</code> 分支就会被选中。</p>
+<p><code>select</code> 也可以用于优雅退出：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">fibonacci</span><span class="params">(n <span class="type">int</span>, ch <span class="keyword">chan</span>&lt;- <span class="type">int</span>, quit &lt;-<span class="keyword">chan</span> <span class="keyword">struct</span>&#123;&#125;)</span></span> &#123;</span><br><span class="line">    a, b := <span class="number">0</span>, <span class="number">1</span></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; n; i++ &#123;</span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> ch &lt;- a:</span><br><span class="line">            a, b = b, a+b</span><br><span class="line">        <span class="keyword">case</span> &lt;-quit:</span><br><span class="line">            fmt.Println(<span class="string">&quot;fibonacci 被通知退出&quot;</span>)</span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">close</span>(ch)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里的 <code>quit</code> channel 类型是 <code>chan struct{}</code>。<code>struct{}</code> 是零大小的类型，不占内存，专门用来做纯信号传递——只关心「事件发生了」，不需要携带任何数据。</p>
+<h3 id="WaitGroup：等待一组-goroutine-完成"><a href="#WaitGroup：等待一组-goroutine-完成" class="headerlink" title="WaitGroup：等待一组 goroutine 完成"></a>WaitGroup：等待一组 goroutine 完成</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">5</span>; i++ &#123;</span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">(id <span class="type">int</span>)</span></span> &#123;</span><br><span class="line">        <span class="keyword">defer</span> wg.Done()</span><br><span class="line">        fmt.Printf(<span class="string">&quot;worker %d 完成\n&quot;</span>, id)</span><br><span class="line">    &#125;(i)</span><br><span class="line">&#125;</span><br><span class="line">wg.Wait()   <span class="comment">// 阻塞直到计数器归零</span></span><br></pre></td></tr></table></figure>
+
+<p><code>WaitGroup</code> 内部维护一个计数器：<code>Add(n)</code> 加 n，<code>Done()</code> 减 1，<code>Wait()</code> 阻塞到计数器为 0。类似 C++ 中手写一个 <code>std::atomic&lt;int&gt;</code> 配合 <code>std::condition_variable</code> 实现的倒计时门闩——但 Go 把它封装好了。</p>
+<h3 id="Mutex：传统互斥锁"><a href="#Mutex：传统互斥锁" class="headerlink" title="Mutex：传统互斥锁"></a>Mutex：传统互斥锁</h3><p>虽然 Go 鼓励用 channel 通信，但有些场景直接用锁更简洁。<code>sync.Mutex</code> 的用法和 C++ 的 <code>std::mutex</code> 几乎一样：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> mu sync.Mutex</span><br><span class="line">counter := <span class="number">0</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++ &#123;</span><br><span class="line">    wg.Add(<span class="number">1</span>)</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="keyword">defer</span> wg.Done()</span><br><span class="line">        mu.Lock()</span><br><span class="line">        counter++</span><br><span class="line">        mu.Unlock()</span><br><span class="line">    &#125;()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果不加锁会怎样？Go 的竞态检测器（<code>go run -race</code>）会直接报警：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">counter := <span class="number">0</span></span><br><span class="line"><span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">100</span>; i++ &#123;</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        counter++   <span class="comment">// 数据竞争！</span></span><br><span class="line">    &#125;()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>C++ 中类似场景是未定义行为（可能静默出错），Go 则提供了 <code>-race</code> 工具在运行时检测。</p>
+<h4 id="用-channel-代替锁"><a href="#用-channel-代替锁" class="headerlink" title="用 channel 代替锁"></a>用 channel 代替锁</h4><p>Go 的哲学是优先用 channel。同样的计数器可以这样实现：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">counterCh := <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="type">int</span>, <span class="number">1</span>)</span><br><span class="line">counterCh &lt;- <span class="number">0</span>   <span class="comment">// 初始值</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> i := <span class="number">0</span>; i &lt; <span class="number">1000</span>; i++ &#123;</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        val := &lt;-counterCh   <span class="comment">// 取出（相当于加锁）</span></span><br><span class="line">        val++</span><br><span class="line">        counterCh &lt;- val     <span class="comment">// 放回（相当于解锁）</span></span><br><span class="line">    &#125;()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>缓冲区大小为 1 的 channel 天然保证同一时刻只有一个 goroutine 持有数据。取出值相当于获取锁，放回相当于释放锁。如果把缓冲区改大，就可能有多个 goroutine 同时操作——所以大小必须严格为 1。</p>
+<h3 id="Context：取消与超时的传播"><a href="#Context：取消与超时的传播" class="headerlink" title="Context：取消与超时的传播"></a>Context：取消与超时的传播</h3><p><code>context.Context</code> 是 Go 并发编程中用于传递取消信号和超时的标准机制。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">worker</span><span class="params">(ctx context.Context, id <span class="type">int</span>)</span></span> &#123;</span><br><span class="line">    <span class="keyword">for</span> &#123;</span><br><span class="line">        <span class="keyword">select</span> &#123;</span><br><span class="line">        <span class="keyword">case</span> &lt;-ctx.Done():</span><br><span class="line">            fmt.Printf(<span class="string">&quot;worker %d 退出: %v\n&quot;</span>, id, ctx.Err())</span><br><span class="line">            <span class="keyword">return</span></span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            fmt.Printf(<span class="string">&quot;worker %d 工作中...\n&quot;</span>, id)</span><br><span class="line">            time.Sleep(<span class="number">200</span> * time.Millisecond)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">ctx, cancel := context.WithTimeout(context.Background(), <span class="number">500</span>*time.Millisecond)</span><br><span class="line"><span class="keyword">defer</span> cancel()</span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> worker(ctx, <span class="number">1</span>)</span><br><span class="line"><span class="keyword">go</span> worker(ctx, <span class="number">2</span>)</span><br></pre></td></tr></table></figure>
+
+<p><code>context.WithTimeout</code> 创建一个在指定时间后自动取消的 context。当超时到达或手动调用 <code>cancel()</code> 时，<code>ctx.Done()</code> 返回的 channel 被关闭，所有监听该 channel 的 goroutine 都会收到通知。</p>
+<p>Context 还可以用 <code>context.WithValue</code> 携带键值对数据，但社区共识是<strong>不要用它传递业务数据</strong>——它主要用于传递请求级别的元数据（如 trace ID、认证信息），业务数据应该通过函数参数显式传递。</p>
+<p>用 C++ 类比，context 类似于 <code>std::stop_token</code>（C++20），但更强大——它支持超时、可以携带元数据、并且形成树状结构（父 context 取消时，所有子 context 也会被取消）。</p>
+<h3 id="Goroutine-的局限"><a href="#Goroutine-的局限" class="headerlink" title="Goroutine 的局限"></a>Goroutine 的局限</h3><p>Goroutine 并非没有代价：</p>
+<ul>
+<li><strong>调试更难</strong>：goroutine 的调度不确定，bug 难以复现。</li>
+<li><strong>goroutine 泄漏</strong>：忘记关闭 channel 或没有退出机制，goroutine 会永远挂起，类似内存泄漏但更隐蔽。</li>
+<li><strong>无法绑定 CPU</strong>：Go 的调度器不暴露线程亲和性，对于需要精细控制 CPU 核心绑定的场景（如高频交易），Go 不如 C++。</li>
+<li><strong>GC 暂停</strong>：所有 goroutine 在垃圾回收时可能被短暂暂停，对延迟极度敏感的场景有影响。</li>
+</ul>
+<p>Go 没有暴露操作系统线程的 API。如果确实需要线程级控制，可以通过 <code>runtime.LockOSThread()</code> 将当前 goroutine 绑定到一个 OS 线程上——但这是边缘情况，绝大多数时候 goroutine 就是正确的选择。</p>
+<h2 id="错误处理"><a href="#错误处理" class="headerlink" title="错误处理"></a>错误处理</h2><h3 id="错误即返回值"><a href="#错误即返回值" class="headerlink" title="错误即返回值"></a>错误即返回值</h3><p>C++ 用异常处理错误——<code>throw</code> 抛出，<code>try-catch</code> 捕获，异常沿调用栈自动冒泡。Go 做了一个截然不同的选择：<strong>错误就是普通的返回值</strong>，调用方必须在每个调用点显式检查。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">divide</span><span class="params">(a, b <span class="type">float64</span>)</span></span> (<span class="type">float64</span>, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> b == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>, errors.New(<span class="string">&quot;除数不能为零&quot;</span>)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> a / b, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">result, err := divide(<span class="number">10</span>, <span class="number">0</span>)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;错误:&quot;</span>, err)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>error</code> 是一个内置接口，只有一个方法：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> <span class="type">error</span> <span class="keyword">interface</span> &#123;</span><br><span class="line">    Error() <span class="type">string</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>任何实现了 <code>Error() string</code> 的类型都是 error。<code>errors.New()</code> 创建最简单的错误值，<code>nil</code> 代表没有错误。</p>
+<p>这种设计的好处是<strong>错误路径完全可见</strong>——读代码时不需要猜测某个函数是否会抛出异常、抛出什么异常。代价是著名的 <code>if err != nil</code> 重复——这是 Go 社区中争议最多的话题之一，但也是 Go「显式优于隐式」哲学的直接体现。</p>
+<h3 id="fmt-Errorf-与-w：给错误加上下文"><a href="#fmt-Errorf-与-w：给错误加上下文" class="headerlink" title="fmt.Errorf 与 %w：给错误加上下文"></a>fmt.Errorf 与 %w：给错误加上下文</h3><p>实际开发中，底层函数返回的错误信息往往不够——调用方需要加上「我在做什么」的上下文：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">parsePort</span><span class="params">(s <span class="type">string</span>)</span></span> (<span class="type">int</span>, <span class="type">error</span>) &#123;</span><br><span class="line">    port, err := strconv.Atoi(s)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>, fmt.Errorf(<span class="string">&quot;无效的端口号 %q: %w&quot;</span>, s, err)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> port &lt; <span class="number">0</span> || port &gt; <span class="number">65535</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>, fmt.Errorf(<span class="string">&quot;端口号 %d 超出范围 [0, 65535]&quot;</span>, port)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> port, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>%w</code> 是关键——它把原始错误<strong>包装</strong>进新的错误消息里，形成一条错误链。类似 C++ 的 <code>std::throw_with_nested</code>，但这不是异常嵌套，而是值的嵌套。</p>
+<p>如果用 <code>%v</code> 而非 <code>%w</code>，原始错误的文本会被格式化进去，但链条断掉了——后续无法用 <code>errors.Is</code> 或 <code>errors.Unwrap</code> 找回原始错误。</p>
+<h3 id="自定义错误类型"><a href="#自定义错误类型" class="headerlink" title="自定义错误类型"></a>自定义错误类型</h3><p>只要实现了 <code>Error() string</code>，就是合法的 <code>error</code>。自定义错误类型可以携带结构化信息：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> ValidationError <span class="keyword">struct</span> &#123;</span><br><span class="line">    Field   <span class="type">string</span></span><br><span class="line">    Message <span class="type">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(e *ValidationError)</span></span> Error() <span class="type">string</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> fmt.Sprintf(<span class="string">&quot;验证失败 [%s]: %s&quot;</span>, e.Field, e.Message)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">validateAge</span><span class="params">(age <span class="type">int</span>)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> age &lt; <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> &amp;ValidationError&#123;Field: <span class="string">&quot;age&quot;</span>, Message: <span class="string">&quot;不能为负数&quot;</span>&#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> age &gt; <span class="number">150</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> &amp;ValidationError&#123;Field: <span class="string">&quot;age&quot;</span>, Message: <span class="string">&quot;不太合理&quot;</span>&#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>调用方用 <code>errors.As</code> 提取具体类型：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">err := validateAge(<span class="number">-5</span>)</span><br><span class="line"><span class="keyword">var</span> ve *ValidationError</span><br><span class="line"><span class="keyword">if</span> errors.As(err, &amp;ve) &#123;</span><br><span class="line">    fmt.Printf(<span class="string">&quot;字段: %s, 原因: %s\n&quot;</span>, ve.Field, ve.Message)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>errors.As</code> 类似 C++ 的 <code>dynamic_cast</code>——它沿着错误链逐层检查，找到匹配的类型就赋值给目标变量。即使错误被 <code>%w</code> 包装了好几层，<code>errors.As</code> 也能穿透找到它。</p>
+<p>C++ 中对应的写法是：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">try</span> &#123; ... &#125;</span><br><span class="line"><span class="built_in">catch</span> (<span class="type">const</span> ValidationError&amp; e) &#123;</span><br><span class="line">    std::cout &lt;&lt; e.field &lt;&lt; e.message;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Go 没有 <code>catch</code>，所以用 <code>errors.As</code> 手动做类型匹配。更显式，但也更啰嗦。</p>
+<h3 id="哨兵错误与-errors-Is"><a href="#哨兵错误与-errors-Is" class="headerlink" title="哨兵错误与 errors.Is"></a>哨兵错误与 errors.Is</h3><p>哨兵错误（Sentinel Error）是包级别的全局变量，代表特定的错误语义：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> ErrNotFound = errors.New(<span class="string">&quot;未找到&quot;</span>)</span><br><span class="line"><span class="keyword">var</span> ErrPermission = errors.New(<span class="string">&quot;权限不足&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">findUser</span><span class="params">(id <span class="type">int</span>)</span></span> (<span class="type">string</span>, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> id == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;&quot;</span>, ErrNotFound</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> id &lt; <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;&quot;</span>, ErrPermission</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;Liam&quot;</span>, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>检查时用 <code>errors.Is</code>，不要用 <code>==</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">_, err := findUser(<span class="number">0</span>)</span><br><span class="line"><span class="keyword">if</span> errors.Is(err, ErrNotFound) &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;用户未找到&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>为什么不用 <code>==</code>？因为如果错误被 <code>%w</code> 包装过，<code>==</code> 比较的是最外层的新错误对象，永远不等于原始哨兵。<code>errors.Is</code> 会沿着错误链逐层 Unwrap，直到找到匹配项。类似 C++ 中的错误码（如 <code>std::errc::no_such_file_or_directory</code>），但检查方式更安全。</p>
+<h3 id="错误包装与解包"><a href="#错误包装与解包" class="headerlink" title="错误包装与解包"></a>错误包装与解包</h3><p>把上述机制串联起来，看一个完整的错误链：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">loadConfig</span><span class="params">(path <span class="type">string</span>)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">    _, err := os.Open(path)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> fmt.Errorf(<span class="string">&quot;加载配置失败: %w&quot;</span>, err)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">err := loadConfig(<span class="string">&quot;/不存在的文件.toml&quot;</span>)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;错误:&quot;</span>, err)</span><br><span class="line">    <span class="comment">// 输出: 加载配置失败: open /不存在的文件.toml: no such file or directory</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> errors.Is(err, os.ErrNotExist) &#123;</span><br><span class="line">        fmt.Println(<span class="string">&quot;文件不存在&quot;</span>)     <span class="comment">// 穿透两层包装找到了底层错误</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    fmt.Println(<span class="string">&quot;原始错误:&quot;</span>, errors.Unwrap(err))</span><br><span class="line">    <span class="comment">// 输出: open /不存在的文件.toml: no such file or directory</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>整条链路是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">&quot;加载配置失败: open /不存在的文件.toml: no such file or directory&quot;</span><br><span class="line">  └── Unwrap → *os.PathError</span><br><span class="line">                  └── 内部包含 → os.ErrNotExist</span><br></pre></td></tr></table></figure>
+
+<p><code>errors.Is</code> 能一路穿透这些层级。这套机制让你可以在每一层加上业务上下文（「加载配置失败」），同时保留原始错误信息供底层判断。</p>
+<h3 id="errors-Is-与-errors-As-的对比"><a href="#errors-Is-与-errors-As-的对比" class="headerlink" title="errors.Is 与 errors.As 的对比"></a>errors.Is 与 errors.As 的对比</h3><table>
+<thead>
+<tr>
+<th></th>
+<th>errors.Is</th>
+<th>errors.As</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>目的</td>
+<td>判断错误链中是否包含某个<strong>特定值</strong></td>
+<td>判断错误链中是否包含某个<strong>特定类型</strong></td>
+</tr>
+<tr>
+<td>类比</td>
+<td><code>err == target</code>（但能穿透包装）</td>
+<td><code>dynamic_cast</code>（但能穿透包装）</td>
+</tr>
+<tr>
+<td>用法</td>
+<td><code>errors.Is(err, ErrNotFound)</code></td>
+<td><code>errors.As(err, &amp;ve)</code></td>
+</tr>
+<tr>
+<td>典型场景</td>
+<td>检查哨兵错误</td>
+<td>提取自定义错误类型中的字段</td>
+</tr>
+</tbody></table>
+<h3 id="panic-与-recover：真正的异常"><a href="#panic-与-recover：真正的异常" class="headerlink" title="panic 与 recover：真正的异常"></a>panic 与 recover：真正的异常</h3><p><code>panic</code> 才是 Go 里对应 C++ <code>throw</code> 的机制——它中断当前函数，逐层退栈执行 <code>defer</code>，直到被 <code>recover</code> 捕获或者程序崩溃。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">safeCall</span><span class="params">()</span></span> &#123;</span><br><span class="line">    <span class="keyword">defer</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        <span class="keyword">if</span> r := <span class="built_in">recover</span>(); r != <span class="literal">nil</span> &#123;</span><br><span class="line">            fmt.Println(<span class="string">&quot;捕获 panic:&quot;</span>, r)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;()</span><br><span class="line"></span><br><span class="line">    fmt.Println(<span class="string">&quot;即将 panic&quot;</span>)</span><br><span class="line">    <span class="built_in">panic</span>(<span class="string">&quot;出了大问题&quot;</span>)</span><br><span class="line">    <span class="comment">// 下面的代码不会执行</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>recover</code> 只能在 <code>defer</code> 函数中调用，用于捕获当前 goroutine 的 panic。如果没有 panic 发生，<code>recover</code> 返回 <code>nil</code>。</p>
+<p>但 Go 社区的共识是：<strong>几乎不应该用 panic</strong>。它只适用于三种场景：</p>
+<ol>
+<li>程序逻辑上不可能到达的分支，类似 C++ 的 <code>assert</code>。</li>
+<li>初始化阶段的致命错误——配置文件缺失、数据库连不上。</li>
+<li>标准库内部优化——如 <code>encoding/json</code> 内部用 panic 跳出深层递归，外层统一 recover，但这是库的实现细节，不会暴露给调用者。</li>
+</ol>
+<p>日常的错误处理，全部用 <code>return error</code>。如果你在业务代码里写了 <code>panic</code>，大概率是设计出了问题。</p>
+<h3 id="Go-与-C-错误处理的全景对比"><a href="#Go-与-C-错误处理的全景对比" class="headerlink" title="Go 与 C++ 错误处理的全景对比"></a>Go 与 C++ 错误处理的全景对比</h3><table>
+<thead>
+<tr>
+<th>概念</th>
+<th>C++</th>
+<th>Go</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>常规错误</td>
+<td><code>throw</code> &#x2F; <code>try-catch</code></td>
+<td><code>return error</code></td>
+</tr>
+<tr>
+<td>错误携带信息</td>
+<td>自定义异常类</td>
+<td>自定义 error 类型</td>
+</tr>
+<tr>
+<td>添加上下文</td>
+<td><code>std::throw_with_nested</code></td>
+<td><code>fmt.Errorf(&quot;%w&quot;, err)</code></td>
+</tr>
+<tr>
+<td>按值匹配</td>
+<td><code>catch</code> + 比较错误码</td>
+<td><code>errors.Is(err, sentinel)</code></td>
+</tr>
+<tr>
+<td>按类型匹配</td>
+<td><code>catch (Type&amp; e)</code></td>
+<td><code>errors.As(err, &amp;target)</code></td>
+</tr>
+<tr>
+<td>致命崩溃</td>
+<td><code>std::terminate</code></td>
+<td><code>panic</code></td>
+</tr>
+<tr>
+<td>拦截崩溃</td>
+<td>无标准机制</td>
+<td><code>defer</code> + <code>recover</code></td>
+</tr>
+</tbody></table>
+<p>C++ 的异常机制更强大（自动冒泡、栈展开），但也更不透明——函数签名上看不出它会不会抛异常、抛什么异常（<code>noexcept</code> 只是提示，不是强制）。Go 的方式更冗长，但每个可能出错的调用点都清清楚楚写在代码里。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>并发和错误处理是 Go 与 C++ 差异最剧烈的两个领域。</p>
+<p>在并发方面，C++ 给你全部的底层控制——线程、互斥量、条件变量、原子操作、内存序——代价是手动管理的复杂性。Go 把并发抽象成 goroutine 和 channel，用 <code>select</code> 实现多路复用，用 <code>context</code> 传播取消信号，大幅降低了编写并发代码的门槛。这种抽象在绝大多数场景下够用，但也意味着你放弃了对线程绑定、内存序等底层细节的控制。</p>
+<p>在错误处理方面，C++ 的异常是「乐观路径优先」——正常代码一路写下去，异常自动冒泡到合适的 <code>catch</code>。Go 是「悲观路径优先」——每个函数调用都要检查错误，错误路径和正常路径在代码中的地位完全对等。这让 Go 代码的错误处理更加显式和可预测，代价是 <code>if err != nil</code> 的冗余。</p>
+<p>两种哲学各有拥趸。但理解它们背后的设计取舍，比争论谁更「好」有意义得多。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/" title="从 C++ 到 Go（三）：并发模型与错误处理">https://liam.page/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/" rel="tag"># 编程语言</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/" rel="prev" title="从 C++ 到 Go（二）：集合、结构体与接口">
+      <i class="fa fa-chevron-left"></i> 从 C++ 到 Go（二）：集合、结构体与接口
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B9%B6%E5%8F%91"><span class="nav-number">1.</span> <span class="nav-text">并发</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Goroutine%EF%BC%9A%E4%B8%8D%E6%98%AF%E7%BA%BF%E7%A8%8B"><span class="nav-number">1.1.</span> <span class="nav-text">Goroutine：不是线程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Channel%EF%BC%9Agoroutine-%E9%97%B4%E7%9A%84%E9%80%9A%E4%BF%A1"><span class="nav-number">1.2.</span> <span class="nav-text">Channel：goroutine 间的通信</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%96%B9%E5%90%91%E9%99%90%E5%AE%9A"><span class="nav-number">1.2.1.</span> <span class="nav-text">方向限定</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E6%97%A0%E7%BC%93%E5%86%B2-vs-%E6%9C%89%E7%BC%93%E5%86%B2"><span class="nav-number">1.2.2.</span> <span class="nav-text">无缓冲 vs 有缓冲</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#close-%E4%B8%8E-range"><span class="nav-number">1.2.3.</span> <span class="nav-text">close 与 range</span></a><ol class="nav-child"><li class="nav-item nav-level-5"><a class="nav-link" href="#%E5%A4%9A%E7%94%9F%E4%BA%A7%E8%80%85%E7%9A%84%E5%85%B3%E9%97%AD%E9%97%AE%E9%A2%98"><span class="nav-number">1.2.3.1.</span> <span class="nav-text">多生产者的关闭问题</span></a></li></ol></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#select%EF%BC%9Achannel-%E7%9A%84%E5%A4%9A%E8%B7%AF%E5%A4%8D%E7%94%A8"><span class="nav-number">1.3.</span> <span class="nav-text">select：channel 的多路复用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#WaitGroup%EF%BC%9A%E7%AD%89%E5%BE%85%E4%B8%80%E7%BB%84-goroutine-%E5%AE%8C%E6%88%90"><span class="nav-number">1.4.</span> <span class="nav-text">WaitGroup：等待一组 goroutine 完成</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Mutex%EF%BC%9A%E4%BC%A0%E7%BB%9F%E4%BA%92%E6%96%A5%E9%94%81"><span class="nav-number">1.5.</span> <span class="nav-text">Mutex：传统互斥锁</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E7%94%A8-channel-%E4%BB%A3%E6%9B%BF%E9%94%81"><span class="nav-number">1.5.1.</span> <span class="nav-text">用 channel 代替锁</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Context%EF%BC%9A%E5%8F%96%E6%B6%88%E4%B8%8E%E8%B6%85%E6%97%B6%E7%9A%84%E4%BC%A0%E6%92%AD"><span class="nav-number">1.6.</span> <span class="nav-text">Context：取消与超时的传播</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Goroutine-%E7%9A%84%E5%B1%80%E9%99%90"><span class="nav-number">1.7.</span> <span class="nav-text">Goroutine 的局限</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E5%A4%84%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">错误处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E5%8D%B3%E8%BF%94%E5%9B%9E%E5%80%BC"><span class="nav-number">2.1.</span> <span class="nav-text">错误即返回值</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#fmt-Errorf-%E4%B8%8E-w%EF%BC%9A%E7%BB%99%E9%94%99%E8%AF%AF%E5%8A%A0%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="nav-number">2.2.</span> <span class="nav-text">fmt.Errorf 与 %w：给错误加上下文</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E9%94%99%E8%AF%AF%E7%B1%BB%E5%9E%8B"><span class="nav-number">2.3.</span> <span class="nav-text">自定义错误类型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%93%A8%E5%85%B5%E9%94%99%E8%AF%AF%E4%B8%8E-errors-Is"><span class="nav-number">2.4.</span> <span class="nav-text">哨兵错误与 errors.Is</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E5%8C%85%E8%A3%85%E4%B8%8E%E8%A7%A3%E5%8C%85"><span class="nav-number">2.5.</span> <span class="nav-text">错误包装与解包</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#errors-Is-%E4%B8%8E-errors-As-%E7%9A%84%E5%AF%B9%E6%AF%94"><span class="nav-number">2.6.</span> <span class="nav-text">errors.Is 与 errors.As 的对比</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#panic-%E4%B8%8E-recover%EF%BC%9A%E7%9C%9F%E6%AD%A3%E7%9A%84%E5%BC%82%E5%B8%B8"><span class="nav-number">2.7.</span> <span class="nav-text">panic 与 recover：真正的异常</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Go-%E4%B8%8E-C-%E9%94%99%E8%AF%AF%E5%A4%84%E7%90%86%E7%9A%84%E5%85%A8%E6%99%AF%E5%AF%B9%E6%AF%94"><span class="nav-number">2.8.</span> <span class="nav-text">Go 与 C++ 错误处理的全景对比</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">411</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">780</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">41:17</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '47575196d948244d80eef555fd67f41a',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
