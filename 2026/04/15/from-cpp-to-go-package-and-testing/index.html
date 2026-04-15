@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是「从 C++ 到 Go」系列的第四篇，承接上一篇对并发模型与错误处理的讨论，进入 Go 项目的工程化领域——包管理与测试。对于 C++ 程序员来说，这两部分的体验差异可能是整个系列中最令人愉悦的：C++ 的构建系统和测试框架需要大量外部工具的配合，而 Go 把这一切内置了。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 C++ 到 Go（四）：包管理与测试">
+<meta property="og:url" content="https://liam.page/2026/04/15/from-cpp-to-go-package-and-testing/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是「从 C++ 到 Go」系列的第四篇，承接上一篇对并发模型与错误处理的讨论，进入 Go 项目的工程化领域——包管理与测试。对于 C++ 程序员来说，这两部分的体验差异可能是整个系列中最令人愉悦的：C++ 的构建系统和测试框架需要大量外部工具的配合，而 Go 把这一切内置了。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-15T09:26:51.000Z">
+<meta property="article:modified_time" content="2026-04-15T09:27:12.389Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="编程语言">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/04/15/from-cpp-to-go-package-and-testing/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>从 C++ 到 Go（四）：包管理与测试 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">412</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">780</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/04/15/from-cpp-to-go-package-and-testing/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 C++ 到 Go（四）：包管理与测试
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 04 月 15 日 17:26:51 / 修改时间：17:27:12" itemprop="dateCreated datePublished" datetime="2026-04-15T17:26:51+08:00">2026 年 04 月 15 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>12 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文是「从 C++ 到 Go」系列的第四篇，承接<a href="/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/">上一篇</a>对并发模型与错误处理的讨论，进入 Go 项目的工程化领域——包管理与测试。对于 C++ 程序员来说，这两部分的体验差异可能是整个系列中最令人愉悦的：C++ 的构建系统和测试框架需要大量外部工具的配合，而 Go 把这一切内置了。</p>
+<span id="more"></span>
+
+<h2 id="包管理与项目组织"><a href="#包管理与项目组织" class="headerlink" title="包管理与项目组织"></a>包管理与项目组织</h2><h3 id="目录即包"><a href="#目录即包" class="headerlink" title="目录即包"></a>目录即包</h3><p>Go 的核心规则很简单：<strong>一个目录对应一个包</strong>。同一目录下的所有 <code>.go</code> 文件必须声明相同的 <code>package</code> 名。以下是一个典型的多包项目结构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">10_packages/</span><br><span class="line">├── main.go                  ← package main（入口）</span><br><span class="line">├── mathutil/</span><br><span class="line">│   └── mathutil.go          ← package mathutil</span><br><span class="line">├── stringutil/</span><br><span class="line">│   └── stringutil.go        ← package stringutil</span><br><span class="line">├── models/</span><br><span class="line">│   ├── user.go              ← package models</span><br><span class="line">│   └── product.go           ← package models（同包，多文件）</span><br><span class="line">└── service/</span><br><span class="line">    └── service.go           ← package service（依赖 models + stringutil）</span><br></pre></td></tr></table></figure>
+
+<p><code>models/</code> 目录下有 <code>user.go</code> 和 <code>product.go</code>，两个文件都声明 <code>package models</code>。它们之间可以直接互相访问所有标识符——包括小写的——就像在同一个文件里一样。</p>
+<p>对比 C++：C++ 的命名空间和文件系统没有绑定关系——你可以在任意文件里打开任意命名空间。Go 强制了目录和包的一一对应，结构更刚性，但也更清晰。这一点和 Java 的做法（<code>com.example.models</code> 对应 <code>com/example/models/</code>）类似。</p>
+<h3 id="可见性：大小写决定一切"><a href="#可见性：大小写决定一切" class="headerlink" title="可见性：大小写决定一切"></a>可见性：大小写决定一切</h3><p>在<a href="/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/">第二篇</a>讨论结构体时提到过，Go 用首字母大小写控制可见性。在包的语境下，这个规则的意义更加明确：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// mathutil/mathutil.go</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Abs</span><span class="params">(x <span class="type">float64</span>)</span></span> <span class="type">float64</span> &#123; ... &#125;          <span class="comment">// 大写：包外可见（exported）</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">clamp</span><span class="params">(val, min, max <span class="type">float64</span>)</span></span> <span class="type">float64</span> &#123; ... &#125;  <span class="comment">// 小写：包内可见（unexported）</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">ClampToUnit</span><span class="params">(val <span class="type">float64</span>)</span></span> <span class="type">float64</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> clamp(val, <span class="number">0</span>, <span class="number">1</span>)  <span class="comment">// 同包内可以调用小写函数</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从包外调用 <code>mathutil.Abs</code> 没问题，但 <code>mathutil.clamp</code> 会导致编译错误。同样，结构体的小写字段也只能通过方法间接访问：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// models/user.go</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> User <span class="keyword">struct</span> &#123;</span><br><span class="line">    ID   <span class="type">int</span></span><br><span class="line">    Name <span class="type">string</span></span><br><span class="line">    role <span class="type">string</span>   <span class="comment">// 包外不可见</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewUser</span><span class="params">(id <span class="type">int</span>, name <span class="type">string</span>, age <span class="type">int</span>, role <span class="type">string</span>)</span></span> *User &#123;</span><br><span class="line">    <span class="keyword">return</span> &amp;User&#123;ID: id, Name: name, Age: age, role: role&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(u *User)</span></span> Role() <span class="type">string</span> &#123; <span class="keyword">return</span> u.role &#125;  <span class="comment">// 只读访问</span></span><br></pre></td></tr></table></figure>
+
+<p>C++ 用 <code>public</code>&#x2F;<code>private</code> 关键字做类级封装，Go 用首字母大小写做包级封装——粒度更粗，但规则更简单。</p>
+<h4 id="包的封装粒度问题"><a href="#包的封装粒度问题" class="headerlink" title="包的封装粒度问题"></a>包的封装粒度问题</h4><p>包级可见性意味着同一个包内的所有代码互相「裸奔」。如果一个包膨胀到几十个不相关的结构体，它们之间就没有封装可言了。Go 社区推荐<strong>按职责&#x2F;领域拆包</strong>，而不是按类型归类：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">// 不推荐：按类型归类（Java/C++ 习惯）</span><br><span class="line">models/      ← 所有数据类型</span><br><span class="line">services/    ← 所有业务逻辑</span><br><span class="line">utils/       ← 所有工具函数</span><br><span class="line"></span><br><span class="line">// 推荐：按领域拆包</span><br><span class="line">user/        ← User 类型 + 用户相关的全部逻辑</span><br><span class="line">order/       ← Order 类型 + 订单相关的全部逻辑</span><br><span class="line">auth/        ← 认证相关</span><br></pre></td></tr></table></figure>
+
+<p>每个包内聚地处理一个领域。判断一个包是否合理的经验法则是：<strong>它的公开 API 能否用一段话说清楚</strong>。如果描述一个包需要列举四五件不太相关的事，那它应该被拆开。如果包名叫 <code>common</code> 或 <code>utils</code>，那几乎一定有问题。</p>
+<h3 id="导入路径"><a href="#导入路径" class="headerlink" title="导入路径"></a>导入路径</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> <span class="string">&quot;learn-go/10_packages/mathutil&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>导入路径由 <code>go.mod</code> 中声明的模块名（<code>learn-go</code>）加上从模块根目录到包目录的相对路径（<code>10_packages/mathutil</code>）构成。</p>
+<p>对比 C++：<code>#include &quot;mathutil/mathutil.h&quot;</code> 依赖头文件搜索路径，编译器和构建系统各管一段。Go 把路径规则统一了——导入路径就是包的唯一标识，没有歧义。</p>
+<p>跨包调用时，通过包名访问导出的标识符：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;learn-go/10_packages/mathutil&quot;</span></span><br><span class="line">    <span class="string">&quot;learn-go/10_packages/models&quot;</span></span><br><span class="line">    <span class="string">&quot;learn-go/10_packages/service&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">mathutil.Abs(<span class="number">-3.14</span>)</span><br><span class="line">user := models.NewUser(<span class="number">1</span>, <span class="string">&quot;liam&quot;</span>, <span class="number">25</span>, <span class="string">&quot;admin&quot;</span>)</span><br><span class="line">service.Greet(user)</span><br></pre></td></tr></table></figure>
+
+<h3 id="internal-目录"><a href="#internal-目录" class="headerlink" title="internal/ 目录"></a><code>internal/</code> 目录</h3><p>Go 编译器<strong>强制</strong>保证 <code>internal/</code> 下的包只能被其父目录树中的代码导入。这是 Go 唯一的「硬性」包访问控制，比大小写规则更强：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">myservice/</span><br><span class="line">├── handler.go</span><br><span class="line">├── internal/</span><br><span class="line">│   ├── cache/       ← 只有 myservice/ 下的代码能导入</span><br><span class="line">│   └── validation/</span><br></pre></td></tr></table></figure>
+
+<p>C++ 没有对应的编译器机制——只能用文档或代码审查来「建议」不要使用内部头文件。</p>
+<h3 id="init-函数"><a href="#init-函数" class="headerlink" title="init 函数"></a><code>init</code> 函数</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">init</span><span class="params">()</span></span> &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;[init] main 包初始化完成&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>init</code> 函数在包被导入时自动执行，先于 <code>main</code>。它没有参数也没有返回值，一个包可以有多个 <code>init</code>。</p>
+<p>类比 C++：类似全局变量的构造函数——在 <code>main</code> 之前执行。但 C++ 的全局构造顺序在不同编译单元之间是未定义的（Static Initialization Order Fiasco）。Go 的 <code>init</code> 执行顺序是确定的：按导入依赖的拓扑排序，同一包内按文件名字母序。</p>
+<p>实际用途包括注册数据库驱动、检查环境变量等。但不宜滥用——<code>init</code> 里做太多事会让代码难以测试和理解。</p>
+<h3 id="go-mod：依赖管理"><a href="#go-mod：依赖管理" class="headerlink" title="go mod：依赖管理"></a><code>go mod</code>：依赖管理</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">module learn-go</span><br><span class="line"></span><br><span class="line">go 1.26.2</span><br></pre></td></tr></table></figure>
+
+<p><code>go.mod</code> 声明模块名和 Go 版本。引入第三方依赖时：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">go get github.com/fatih/color</span><br></pre></td></tr></table></figure>
+
+<p>会自动更新 <code>go.mod</code>（添加依赖声明）和 <code>go.sum</code>（记录依赖的哈希校验）。</p>
+<p>对比 C++：Go 的 <code>go mod</code> 相当于 CMake + Conan&#x2F;vcpkg 的组合——但它是语言内置的、开箱即用的。C++ 的依赖管理历来是最大的痛点之一；Go 从 1.11 开始就有了官方方案。</p>
+<h3 id="循环依赖"><a href="#循环依赖" class="headerlink" title="循环依赖"></a>循环依赖</h3><p>Go 编译器禁止循环导入（A 导入 B，B 又导入 A）。C++ 靠前向声明可以绕过，Go 不行。遇到循环依赖通常意味着两个包应该合并，或者应该抽出一个接口包让两边都依赖接口而非彼此——这也是 Go 隐式接口的一个实际好处。</p>
+<h2 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h2><h3 id="零配置的测试工具"><a href="#零配置的测试工具" class="headerlink" title="零配置的测试工具"></a>零配置的测试工具</h3><p>Go 的测试框架是语言内置的，只要遵守三条规则：</p>
+<ol>
+<li>文件名以 <code>_test.go</code> 结尾</li>
+<li>函数名以 <code>Test</code> 开头，后跟大写字母（如 <code>TestAbs</code>，不能是 <code>Testabs</code>）</li>
+<li>函数签名固定为 <code>func TestXxx(t *testing.T)</code></li>
+</ol>
+<p><code>go test</code> 会自动发现并运行所有匹配的函数。</p>
+<p>对比 C++：Google Test 需要 <code>#include &lt;gtest/gtest.h&gt;</code>，用宏 <code>TEST(Suite, Name)</code> 注册用例，还需要在 CMake 中配置链接。Go 把这一切内置了——零配置。</p>
+<p>最简单的测试：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// mathutil/mathutil_test.go</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestAbs</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    got := Abs(<span class="number">-3.14</span>)</span><br><span class="line">    want := <span class="number">3.14</span></span><br><span class="line">    <span class="keyword">if</span> got != want &#123;</span><br><span class="line">        t.Errorf(<span class="string">&quot;Abs(-3.14) = %f, want %f&quot;</span>, got, want)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>没有断言宏（<code>EXPECT_EQ</code>），没有匹配器（<code>ASSERT_THAT</code>）——就是 <code>if</code> 加 <code>t.Errorf</code>。Go 社区认为测试代码应该和普通代码一样，用基本的语言构造就够了。</p>
+<h3 id="表驱动测试"><a href="#表驱动测试" class="headerlink" title="表驱动测试"></a>表驱动测试</h3><p>这是 Go 社区<strong>最核心的测试惯例</strong>——定义一张用例表，循环遍历：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestMax</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    tests := []<span class="keyword">struct</span> &#123;</span><br><span class="line">        name     <span class="type">string</span></span><br><span class="line">        a, b     <span class="type">float64</span></span><br><span class="line">        expected <span class="type">float64</span></span><br><span class="line">    &#125;&#123;</span><br><span class="line">        &#123;<span class="string">&quot;both positive&quot;</span>, <span class="number">3</span>, <span class="number">5</span>, <span class="number">5</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;both negative&quot;</span>, <span class="number">-3</span>, <span class="number">-5</span>, <span class="number">-3</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;mixed&quot;</span>, <span class="number">-1</span>, <span class="number">1</span>, <span class="number">1</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;equal&quot;</span>, <span class="number">7</span>, <span class="number">7</span>, <span class="number">7</span>&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;zero and positive&quot;</span>, <span class="number">0</span>, <span class="number">3</span>, <span class="number">3</span>&#125;,</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> _, tt := <span class="keyword">range</span> tests &#123;</span><br><span class="line">        t.Run(tt.name, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">            got := Max(tt.a, tt.b)</span><br><span class="line">            <span class="keyword">if</span> got != tt.expected &#123;</span><br><span class="line">                t.Errorf(<span class="string">&quot;Max(%f, %f) = %f, want %f&quot;</span>, tt.a, tt.b, got, tt.expected)</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>添加新用例只需要在表里加一行，测试逻辑只写一次。<code>t.Run</code> 创建子测试，输出中能看到每个用例的名字（如 <code>TestMax/both_positive</code>），失败时一目了然。</p>
+<p>对比 C++ Google Test 的参数化测试（<code>INSTANTIATE_TEST_SUITE_P</code>）：Go 的方式更直接——就是一个切片加一个循环，没有宏。</p>
+<h3 id="test-go-的特殊身份"><a href="#test-go-的特殊身份" class="headerlink" title="_test.go 的特殊身份"></a><code>_test.go</code> 的特殊身份</h3><p><code>_test.go</code> 文件属于同一个包，因此<strong>可以访问未导出的函数和字段</strong>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// mathutil/mathutil_test.go</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestClamp</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    <span class="comment">// clamp 是小写函数，包外不可见</span></span><br><span class="line">    <span class="comment">// 但 _test.go 属于同一个包，可以直接调用</span></span><br><span class="line">    got := clamp(<span class="number">0.5</span>, <span class="number">0</span>, <span class="number">1</span>)</span><br><span class="line">    <span class="comment">// ...</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// models/models_test.go</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestNewUser</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    user := NewUser(<span class="number">1</span>, <span class="string">&quot;liam&quot;</span>, <span class="number">25</span>, <span class="string">&quot;admin&quot;</span>)</span><br><span class="line">    <span class="comment">// role 是小写字段，但 _test.go 在同包内，可以直接访问</span></span><br><span class="line">    <span class="keyword">if</span> user.role != <span class="string">&quot;admin&quot;</span> &#123;</span><br><span class="line">        t.Errorf(<span class="string">&quot;role = %q, want %q&quot;</span>, user.role, <span class="string">&quot;admin&quot;</span>)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这意味着不需要为了测试而把内部函数暴露出去。C++ 中经常为了测试把 <code>private</code> 方法改成 <code>protected</code>，或者用 <code>friend class TestFoo</code>——Go 不需要这种妥协。</p>
+<h3 id="浮点数比较"><a href="#浮点数比较" class="headerlink" title="浮点数比较"></a>浮点数比较</h3><p>浮点测试不能直接用 <code>==</code>，需要一个容差：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestDistance</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    got := Distance(<span class="number">0</span>, <span class="number">0</span>, <span class="number">3</span>, <span class="number">4</span>)</span><br><span class="line">    want := <span class="number">5.0</span></span><br><span class="line">    <span class="keyword">if</span> math.Abs(got-want) &gt; <span class="number">1e-9</span> &#123;</span><br><span class="line">        t.Errorf(<span class="string">&quot;Distance(0,0,3,4) = %f, want %f&quot;</span>, got, want)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>和 C++ 中 Google Test 的 <code>EXPECT_NEAR(got, want, epsilon)</code> 是一回事，只是没有封装成专用宏。</p>
+<h3 id="基准测试"><a href="#基准测试" class="headerlink" title="基准测试"></a>基准测试</h3><p>Go 的基准测试同样内置，函数名以 <code>Benchmark</code> 开头，参数是 <code>*testing.B</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">BenchmarkDistance</span><span class="params">(b *testing.B)</span></span> &#123;</span><br><span class="line">    <span class="keyword">for</span> b.Loop() &#123;</span><br><span class="line">        Distance(<span class="number">0</span>, <span class="number">0</span>, <span class="number">3</span>, <span class="number">4</span>)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>运行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ go <span class="built_in">test</span> ./10_packages/mathutil/ -bench=. -benchmem</span><br><span class="line"></span><br><span class="line">BenchmarkDistance-10    638863249    1.661 ns/op    0 B/op    0 allocs/op</span><br><span class="line">BenchmarkAbs-10        730947772    1.749 ns/op    0 B/op    0 allocs/op</span><br></pre></td></tr></table></figure>
+
+<p><code>b.Loop()</code> 由框架控制迭代次数，自动运行足够多次以得到稳定的统计结果。输出中各列的含义：</p>
+<table>
+<thead>
+<tr>
+<th>列</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>638863249</code></td>
+<td>总迭代次数</td>
+</tr>
+<tr>
+<td><code>1.661 ns/op</code></td>
+<td>每次调用耗时</td>
+</tr>
+<tr>
+<td><code>0 B/op</code></td>
+<td>每次调用的堆内存分配量</td>
+</tr>
+<tr>
+<td><code>0 allocs/op</code></td>
+<td>每次调用的堆分配次数</td>
+</tr>
+</tbody></table>
+<p>对比 C++：类似 Google Benchmark（<code>benchmark::DoNotOptimize</code>），但同样不需要额外依赖。</p>
+<p>涉及内存分配的函数，基准测试能清晰反映开销：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">$ go <span class="built_in">test</span> ./10_packages/stringutil/ -bench=. -benchmem</span><br><span class="line"></span><br><span class="line">BenchmarkReverse-10    7497547    133.9 ns/op    192 B/op    2 allocs/op</span><br></pre></td></tr></table></figure>
+
+<p><code>Reverse</code> 函数每次调用分配了 192 字节（<code>[]rune</code> 转换和 <code>string</code> 构建各一次），这在性能敏感的场景下就是优化的方向。</p>
+<h3 id="覆盖率"><a href="#覆盖率" class="headerlink" title="覆盖率"></a>覆盖率</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">$ go <span class="built_in">test</span> ./10_packages/... -cover</span><br><span class="line"></span><br><span class="line">learn-go/10_packages/mathutil      coverage: 93.3% of statements</span><br><span class="line">learn-go/10_packages/models        coverage: 100.0% of statements</span><br><span class="line">learn-go/10_packages/stringutil    coverage: 92.3% of statements</span><br></pre></td></tr></table></figure>
+
+<p>想看具体哪些行没覆盖到，可以生成 HTML 报告：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">go <span class="built_in">test</span> ./10_packages/mathutil/ -coverprofile=coverage.out</span><br><span class="line">go tool cover -html=coverage.out</span><br></pre></td></tr></table></figure>
+
+<p>浏览器中绿色是已覆盖的行，红色是未覆盖的。</p>
+<h3 id="常用命令速查"><a href="#常用命令速查" class="headerlink" title="常用命令速查"></a>常用命令速查</h3><table>
+<thead>
+<tr>
+<th>命令</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>go test ./...</code></td>
+<td>递归运行所有测试</td>
+</tr>
+<tr>
+<td><code>go test -v</code></td>
+<td>显示每个用例的详细输出</td>
+</tr>
+<tr>
+<td><code>go test -run TestMax</code></td>
+<td>只运行名字匹配的测试</td>
+</tr>
+<tr>
+<td><code>go test -run TestMax/mixed</code></td>
+<td>运行特定子测试</td>
+</tr>
+<tr>
+<td><code>go test -cover</code></td>
+<td>显示覆盖率</td>
+</tr>
+<tr>
+<td><code>go test -bench=. -benchmem</code></td>
+<td>运行基准测试</td>
+</tr>
+<tr>
+<td><code>go test -race</code></td>
+<td>开启竞态检测</td>
+</tr>
+</tbody></table>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>包管理和测试这两个领域，集中体现了 Go「工具链内置」的设计哲学。</p>
+<p>C++ 的构建和测试生态是碎片化的——构建用 CMake 或 Bazel，包管理用 Conan 或 vcpkg，测试用 Google Test 或 Catch2，基准测试用 Google Benchmark，覆盖率用 lcov 或 gcov。每个工具都很强大，但把它们组合起来需要大量的配置工作。Go 把这些全部内置进 <code>go</code> 命令——<code>go build</code>、<code>go test</code>、<code>go test -bench</code>、<code>go test -cover</code>——零配置，一个二进制搞定一切。</p>
+<p>在包的组织上，Go 用「目录即包」和「大小写可见性」两条简单规则取代了 C++ 的头文件&#x2F;命名空间&#x2F;访问修饰符体系。规则更少，灵活性也更低，但换来的是整个社区的代码结构高度一致——你拿到任何一个 Go 项目，目录布局都是熟悉的。</p>
+<p>在测试方面，Go 没有断言库、没有 mock 框架、没有测试运行器——就是 <code>if</code> 加 <code>t.Errorf</code>。这种「反框架」的做法初看简陋，但实践中发现它降低了测试代码的理解门槛，也避免了测试框架本身成为维护负担。表驱动测试模式用最基本的语言构造（结构体切片 + 循环）替代了复杂的参数化测试宏，效果却同样好。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/04/15/from-cpp-to-go-package-and-testing/" title="从 C++ 到 Go（四）：包管理与测试">https://liam.page/2026/04/15/from-cpp-to-go-package-and-testing/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/" rel="tag"># 编程语言</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/" rel="prev" title="从 C++ 到 Go（三）：并发模型与错误处理">
+      <i class="fa fa-chevron-left"></i> 从 C++ 到 Go（三）：并发模型与错误处理
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8C%85%E7%AE%A1%E7%90%86%E4%B8%8E%E9%A1%B9%E7%9B%AE%E7%BB%84%E7%BB%87"><span class="nav-number">1.</span> <span class="nav-text">包管理与项目组织</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%AE%E5%BD%95%E5%8D%B3%E5%8C%85"><span class="nav-number">1.1.</span> <span class="nav-text">目录即包</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AF%E8%A7%81%E6%80%A7%EF%BC%9A%E5%A4%A7%E5%B0%8F%E5%86%99%E5%86%B3%E5%AE%9A%E4%B8%80%E5%88%87"><span class="nav-number">1.2.</span> <span class="nav-text">可见性：大小写决定一切</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8C%85%E7%9A%84%E5%B0%81%E8%A3%85%E7%B2%92%E5%BA%A6%E9%97%AE%E9%A2%98"><span class="nav-number">1.2.1.</span> <span class="nav-text">包的封装粒度问题</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AF%BC%E5%85%A5%E8%B7%AF%E5%BE%84"><span class="nav-number">1.3.</span> <span class="nav-text">导入路径</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#internal-%E7%9B%AE%E5%BD%95"><span class="nav-number">1.4.</span> <span class="nav-text">internal&#x2F; 目录</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#init-%E5%87%BD%E6%95%B0"><span class="nav-number">1.5.</span> <span class="nav-text">init 函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#go-mod%EF%BC%9A%E4%BE%9D%E8%B5%96%E7%AE%A1%E7%90%86"><span class="nav-number">1.6.</span> <span class="nav-text">go mod：依赖管理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96"><span class="nav-number">1.7.</span> <span class="nav-text">循环依赖</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B5%8B%E8%AF%95"><span class="nav-number">2.</span> <span class="nav-text">测试</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9B%B6%E9%85%8D%E7%BD%AE%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7"><span class="nav-number">2.1.</span> <span class="nav-text">零配置的测试工具</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A1%A8%E9%A9%B1%E5%8A%A8%E6%B5%8B%E8%AF%95"><span class="nav-number">2.2.</span> <span class="nav-text">表驱动测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#test-go-%E7%9A%84%E7%89%B9%E6%AE%8A%E8%BA%AB%E4%BB%BD"><span class="nav-number">2.3.</span> <span class="nav-text">_test.go 的特殊身份</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B5%AE%E7%82%B9%E6%95%B0%E6%AF%94%E8%BE%83"><span class="nav-number">2.4.</span> <span class="nav-text">浮点数比较</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9F%BA%E5%87%86%E6%B5%8B%E8%AF%95"><span class="nav-number">2.5.</span> <span class="nav-text">基准测试</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A6%86%E7%9B%96%E7%8E%87"><span class="nav-number">2.6.</span> <span class="nav-text">覆盖率</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4%E9%80%9F%E6%9F%A5"><span class="nav-number">2.7.</span> <span class="nav-text">常用命令速查</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">3.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">412</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">780</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">41:30</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/04/15/from-cpp-to-go-package-and-testing/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '36a53ccd268deb278e351fb4ce2bbcb9',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
