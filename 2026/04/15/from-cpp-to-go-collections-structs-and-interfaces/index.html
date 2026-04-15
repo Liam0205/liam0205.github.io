@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是「从 C++ 到 Go」系列的第二篇，承接上一篇对基础语法、类型系统和函数的讨论，继续深入 Go 的核心数据结构（数组、切片、Map）、结构体与方法、以及接口机制。对于 C++ 程序员来说，这三部分恰好覆盖了 Go 与 C++ 差异最集中的区域——从 std::vector 到切片、从类继承到组合与接口。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 C++ 到 Go（二）：集合、结构体与接口">
+<meta property="og:url" content="https://liam.page/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是「从 C++ 到 Go」系列的第二篇，承接上一篇对基础语法、类型系统和函数的讨论，继续深入 Go 的核心数据结构（数组、切片、Map）、结构体与方法、以及接口机制。对于 C++ 程序员来说，这三部分恰好覆盖了 Go 与 C++ 差异最集中的区域——从 std::vector 到切片、从类继承到组合与接口。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-15T07:08:17.000Z">
+<meta property="article:modified_time" content="2026-04-15T07:08:40.878Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="编程语言">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>从 C++ 到 Go（二）：集合、结构体与接口 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">410</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">780</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 C++ 到 Go（二）：集合、结构体与接口
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 04 月 15 日 15:08:17 / 修改时间：15:08:40" itemprop="dateCreated datePublished" datetime="2026-04-15T15:08:17+08:00">2026 年 04 月 15 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>7.3k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>13 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文是「从 C++ 到 Go」系列的第二篇，承接<a href="/2026/04/15/from-cpp-to-go-basics-types-control-flow-and-functions/">上一篇</a>对基础语法、类型系统和函数的讨论，继续深入 Go 的核心数据结构（数组、切片、Map）、结构体与方法、以及接口机制。对于 C++ 程序员来说，这三部分恰好覆盖了 Go 与 C++ 差异最集中的区域——从 <code>std::vector</code> 到切片、从类继承到组合与接口。</p>
+<span id="more"></span>
+
+<h2 id="数组与切片"><a href="#数组与切片" class="headerlink" title="数组与切片"></a>数组与切片</h2><h3 id="数组：值类型，极少直接使用"><a href="#数组：值类型，极少直接使用" class="headerlink" title="数组：值类型，极少直接使用"></a>数组：值类型，极少直接使用</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">a := [<span class="number">3</span>]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;       <span class="comment">// 固定长度</span></span><br><span class="line">b := [...]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>&#125;  <span class="comment">// 编译器推断长度</span></span><br></pre></td></tr></table></figure>
+
+<p>Go 的数组是值类型——赋值和传参都会完整复制，这一点和 C++ 的 <code>std::array</code> 一致。<code>[3]int</code> 和 <code>[4]int</code> 是不同类型，不能互相赋值。在实际开发中，数组很少直接使用，切片才是日常的主角。</p>
+<h3 id="切片：底层数组的视图"><a href="#切片：底层数组的视图" class="headerlink" title="切片：底层数组的视图"></a>切片：底层数组的视图</h3><p>正如<a href="/2026/04/15/from-cpp-to-go-basics-types-control-flow-and-functions/">上一篇</a>在讨论 <code>append</code> 语义时所提到的，切片本质上是底层数组的一个视图，类似 C++20 的 <code>std::span</code>，但额外维护了一个 <code>cap</code> 字段并配合 <code>append</code> 可以触发扩容。切片可以从数组上截取，也可以从另一个切片上截取：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">src := []<span class="type">int</span>&#123;<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>, <span class="number">50</span>&#125;</span><br><span class="line">a := src[<span class="number">1</span>:<span class="number">3</span>]   <span class="comment">// [20 30]，半开区间 [low, high)</span></span><br><span class="line">b := src[:<span class="number">3</span>]    <span class="comment">// [10 20 30]，省略 low 默认 0</span></span><br><span class="line">c := src[<span class="number">2</span>:]    <span class="comment">// [30 40 50]，省略 high 默认 len</span></span><br></pre></td></tr></table></figure>
+
+<p>这里有一个关键事实：截取不复制数据，新切片和原切片共享同一块底层内存。</p>
+<h4 id="共享底层数组"><a href="#共享底层数组" class="headerlink" title="共享底层数组"></a>共享底层数组</h4><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">original := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>&#125;</span><br><span class="line">sub := original[<span class="number">1</span>:<span class="number">4</span>]   <span class="comment">// [2 3 4]</span></span><br><span class="line"></span><br><span class="line">sub[<span class="number">0</span>] = <span class="number">99</span></span><br><span class="line">fmt.Println(original)   <span class="comment">// [1 99 3 4 5]，被修改了</span></span><br></pre></td></tr></table></figure>
+
+<p>修改 <code>sub</code> 会直接影响 <code>original</code>。这一点无论原始数据是数组还是切片都一样——切片只是视图，底层只有一份数据。可以通过比较首元素地址来验证两个切片是否共享底层数组：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fmt.Println(&amp;sub[<span class="number">0</span>] == &amp;original[<span class="number">1</span>])   <span class="comment">// true</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="append-与共享的断裂"><a href="#append-与共享的断裂" class="headerlink" title="append 与共享的断裂"></a><code>append</code> 与共享的断裂</h4><p><code>append</code> 在容量（cap）足够时直接在底层数组上追加，不够时分配新数组。这导致了一个微妙的行为：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">original := []<span class="type">int</span>&#123;<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>, <span class="number">50</span>&#125;</span><br><span class="line">sub := original[<span class="number">1</span>:<span class="number">4</span>]   <span class="comment">// [20 30 40]，cap=4</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// cap 内 append：不扩容，直接写入原数组</span></span><br><span class="line">sub = <span class="built_in">append</span>(sub, <span class="number">99</span>)</span><br><span class="line">fmt.Println(original)   <span class="comment">// [10 20 30 40 99]，original[4] 被静默覆盖！</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 超出 cap：扩容，分配新数组</span></span><br><span class="line">sub = <span class="built_in">append</span>(sub, <span class="number">77</span>)</span><br><span class="line">fmt.Println(&amp;sub[<span class="number">0</span>] == &amp;original[<span class="number">1</span>])   <span class="comment">// false，已断开共享</span></span><br></pre></td></tr></table></figure>
+
+<p>第一次 <code>append</code> 时 cap 够用，<code>99</code> 被写入了 <code>original[4]</code> 的位置——这是切片最大的陷阱，因为你以为在操作 <code>sub</code>，实际上悄悄改了 <code>original</code>。</p>
+<p>要避免这个问题，可以使用三索引切片语法限制 cap：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sub := original[<span class="number">1</span>:<span class="number">4</span>:<span class="number">4</span>]   <span class="comment">// len=3, cap=3，cap 被限制</span></span><br></pre></td></tr></table></figure>
+
+<p>三个索引都是相对于原数组的位置：<code>[low:high:max]</code>，其中 <code>len = high - low</code>，<code>cap = max - low</code>。当 <code>high == max</code> 时 cap 等于 len，任何 <code>append</code> 都会立即触发扩容，避免了静默覆盖。注意三索引切片仍然共享底层数组——它限制的是 <code>append</code> 的行为，不是直接修改。</p>
+<p>要完全独立的副本，唯一的方式是 <code>copy</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">safeCopy := <span class="built_in">make</span>([]<span class="type">int</span>, <span class="built_in">len</span>(sub))</span><br><span class="line"><span class="built_in">copy</span>(safeCopy, sub)</span><br></pre></td></tr></table></figure>
+
+<h4 id="删除切片元素"><a href="#删除切片元素" class="headerlink" title="删除切片元素"></a>删除切片元素</h4><p>Go 没有内置的切片删除函数，惯用写法是：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">nums := []<span class="type">int</span>&#123;<span class="number">10</span>, <span class="number">20</span>, <span class="number">30</span>, <span class="number">40</span>, <span class="number">50</span>&#125;</span><br><span class="line">nums = <span class="built_in">append</span>(nums[:<span class="number">2</span>], nums[<span class="number">3</span>:]...)   <span class="comment">// 删除索引 2 的元素</span></span><br><span class="line">fmt.Println(nums)   <span class="comment">// [10 20 40 50]</span></span><br></pre></td></tr></table></figure>
+
+<p>这个操作是原地的——<code>nums[:2]</code> 的 cap 足够容纳后续元素，所以 <code>append</code> 在原数组上将后面的元素向前搬移，不会分配新内存。和 C++ 的 <code>std::vector::erase</code> 一样，时间复杂度 O(n)。</p>
+<h2 id="Map"><a href="#Map" class="headerlink" title="Map"></a>Map</h2><p>Go 的 <code>map</code> 是哈希表，对应 C++ 的 <code>std::unordered_map</code>。Go 没有内置的有序 map。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">scores := <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span>&#123;</span><br><span class="line">    <span class="string">&quot;Go&quot;</span>:  <span class="number">95</span>,</span><br><span class="line">    <span class="string">&quot;C++&quot;</span>: <span class="number">90</span>,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="读取不存在的-key"><a href="#读取不存在的-key" class="headerlink" title="读取不存在的 key"></a>读取不存在的 key</h3><p>C++ 的 <code>operator[]</code> 会在 key 不存在时插入默认值——这是一个经典陷阱。Go 更安全：读取不存在的 key 返回零值，但不会插入。要区分「不存在」和「值恰好为零」，使用 comma-ok 模式：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">val, ok := scores[<span class="string">&quot;Python&quot;</span>]   <span class="comment">// val=0, ok=false</span></span><br><span class="line"><span class="keyword">if</span> ok &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;found:&quot;</span>, val)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="遍历顺序不保证"><a href="#遍历顺序不保证" class="headerlink" title="遍历顺序不保证"></a>遍历顺序不保证</h3><p>Go 故意将 map 遍历随机化——每次运行的顺序可能不同，防止程序依赖于遍历顺序。C++ 的 <code>std::unordered_map</code> 也不保证顺序，但 Go 在这一点上更激进。</p>
+<h3 id="嵌套-map"><a href="#嵌套-map" class="headerlink" title="嵌套 map"></a>嵌套 map</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">m := <span class="keyword">map</span>[<span class="type">string</span>]<span class="keyword">map</span>[<span class="type">string</span>]<span class="type">int</span>&#123;</span><br><span class="line">    <span class="string">&quot;math&quot;</span>: &#123;<span class="string">&quot;algebra&quot;</span>: <span class="number">90</span>, <span class="string">&quot;calculus&quot;</span>: <span class="number">85</span>&#125;,</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>嵌套 map 的陷阱在于，往不存在的外层 key 写入时内层 map 是 nil：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">m[<span class="string">&quot;physics&quot;</span>][<span class="string">&quot;optics&quot;</span>] = <span class="number">92</span>   <span class="comment">// panic！m[&quot;physics&quot;] 是 nil map</span></span><br></pre></td></tr></table></figure>
+
+<p>必须先初始化内层。实际开发中，如果嵌套变复杂，通常用结构体替代嵌套 map，更清晰也更安全。</p>
+<h3 id="并发安全"><a href="#并发安全" class="headerlink" title="并发安全"></a>并发安全</h3><p>Go 的 map 不是并发安全的，这一点和 C++ 的 <code>std::unordered_map</code> 一样。但 Go 更激进——运行时检测到并发读写会<strong>直接 panic</strong>，而非 C++ 的未定义行为（可能静默出错）。需要并发访问时，用 <code>sync.Mutex</code> 保护：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> mu sync.Mutex</span><br><span class="line">m := <span class="keyword">map</span>[<span class="type">int</span>]<span class="type">int</span>&#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">    mu.Lock()</span><br><span class="line">    m[<span class="number">1</span>] = <span class="number">1</span></span><br><span class="line">    mu.Unlock()</span><br><span class="line">&#125;()</span><br></pre></td></tr></table></figure>
+
+<h2 id="结构体与方法"><a href="#结构体与方法" class="headerlink" title="结构体与方法"></a>结构体与方法</h2><h3 id="定义与创建"><a href="#定义与创建" class="headerlink" title="定义与创建"></a>定义与创建</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Point <span class="keyword">struct</span> &#123;</span><br><span class="line">    X, Y <span class="type">float64</span>    <span class="comment">// 大写开头：包外可见（public）</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> User <span class="keyword">struct</span> &#123;</span><br><span class="line">    Name <span class="type">string</span></span><br><span class="line">    Age  <span class="type">int</span></span><br><span class="line">    role <span class="type">string</span>     <span class="comment">// 小写开头：包外不可见（private）</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Go 用首字母大小写控制可见性，没有 <code>public</code>&#x2F;<code>private</code> 关键字。并且可见性的粒度是<strong>包</strong>而不是结构体——同一个包内的所有代码都能访问小写字段。这意味着 Go 用包的拆分来实现 C++ 用 class 做的封装。如果一个包膨胀到几十个结构体，它们之间就没有封装可言了，因此 Go 社区倾向于把不同职责拆成不同的包。</p>
+<p>创建结构体的方式：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">p1 := Point&#123;X: <span class="number">3</span>, Y: <span class="number">4</span>&#125;    <span class="comment">// 命名字段</span></span><br><span class="line">p2 := &amp;Point&#123;X: <span class="number">5</span>, Y: <span class="number">6</span>&#125;   <span class="comment">// 取指针，类似 C++ 的 new</span></span><br><span class="line">p3 := Point&#123;&#125;               <span class="comment">// 零值，所有字段自动初始化</span></span><br></pre></td></tr></table></figure>
+
+<p>结构体是值类型，赋值会完整复制。指针访问字段不需要 <code>-&gt;</code>，Go 自动解引用：<code>p2.X</code> 等同于 <code>(*p2).X</code>。</p>
+<h3 id="方法：值接收者与指针接收者"><a href="#方法：值接收者与指针接收者" class="headerlink" title="方法：值接收者与指针接收者"></a>方法：值接收者与指针接收者</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(p Point)</span></span> Distance(other Point) <span class="type">float64</span> &#123;   <span class="comment">// 值接收者</span></span><br><span class="line">    dx := p.X - other.X</span><br><span class="line">    dy := p.Y - other.Y</span><br><span class="line">    <span class="keyword">return</span> math.Sqrt(dx*dx + dy*dy)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(p *Point)</span></span> Translate(dx, dy <span class="type">float64</span>) &#123;       <span class="comment">// 指针接收者</span></span><br><span class="line">    p.X += dx</span><br><span class="line">    p.Y += dy</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>值接收者不修改接收者本身，类似 C++ 的 <code>const</code> 成员函数；指针接收者可以修改，类似非 <code>const</code> 成员函数。Go 在方法调用时会自动取地址或解引用——<code>p.Translate(1, 2)</code> 自动变成 <code>(&amp;p).Translate(1, 2)</code>。</p>
+<p>但 Go 没有 <code>const</code> 指针。C++ 中可以用 <code>const Point*</code> 或 <code>const Point&amp;</code> 防止意外修改传入的参数，Go 做不到。传指针以避免大结构体的拷贝开销是常见做法，但编译器不会帮你阻止对传入指针的修改——只能靠纪律和代码审查。</p>
+<h3 id="没有构造函数和析构函数"><a href="#没有构造函数和析构函数" class="headerlink" title="没有构造函数和析构函数"></a>没有构造函数和析构函数</h3><p>Go 的结构体没有构造函数，惯例是用 <code>NewXxx</code> 工厂函数：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewUser</span><span class="params">(name <span class="type">string</span>, age <span class="type">int</span>)</span></span> *User &#123;</span><br><span class="line">    <span class="keyword">return</span> &amp;User&#123;Name: name, Age: age, role: <span class="string">&quot;member&quot;</span>&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>NewUser</code> 能访问小写的 <code>role</code> 字段，不是因为什么特殊权限，而是因为它和 <code>User</code> 在同一个包内。</p>
+<p>Go 也没有析构函数。资源清理用显式的 <code>Close</code> 方法加 <code>defer</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">store, err := NewUserStore(<span class="string">&quot;...&quot;</span>)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123; ... &#125;</span><br><span class="line"><span class="keyword">defer</span> store.Close()</span><br></pre></td></tr></table></figure>
+
+<p>和 C++ RAII 的关键区别在于：C++ 的析构函数由编译器保证在对象离开作用域时自动调用；Go 的 <code>defer</code> 需要调用者手动写，忘了就泄漏。此外 <code>defer</code> 是函数级别的，不是块级别的——在循环内 <code>defer</code> 会堆积到函数返回时才一起执行。</p>
+<p>对于需要长期持有资源的场景（如数据库连接贯穿整个服务生命周期），Go 的惯例是在 <code>main</code> 中创建资源，通过参数显式注入到需要的地方，<code>defer</code> 负责在程序退出时收尾——和 C++ 中在 <code>main</code> 里持有资源的做法是同一个时机，只是 Go 不鼓励用单例模式，偏好显式的依赖注入。</p>
+<h3 id="匿名嵌入：Go-的「继承替代品」"><a href="#匿名嵌入：Go-的「继承替代品」" class="headerlink" title="匿名嵌入：Go 的「继承替代品」"></a>匿名嵌入：Go 的「继承替代品」</h3><p>Go 没有继承。替代方案是匿名嵌入——被嵌入类型的字段和方法会自动提升到外层：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Animal <span class="keyword">struct</span>&#123; Name <span class="type">string</span> &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(a Animal)</span></span> Speak() <span class="type">string</span> &#123; <span class="keyword">return</span> a.Name + <span class="string">&quot; makes a sound&quot;</span> &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Dog <span class="keyword">struct</span> &#123;</span><br><span class="line">    Animal          <span class="comment">// 匿名嵌入，不写字段名</span></span><br><span class="line">    Breed <span class="type">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(d Dog)</span></span> Speak() <span class="type">string</span> &#123; <span class="keyword">return</span> d.Name + <span class="string">&quot; barks&quot;</span> &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Cat <span class="keyword">struct</span> &#123;</span><br><span class="line">    Animal          <span class="comment">// Cat 不重写 Speak，自动使用 Animal 的</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>Dog</code> 可以直接访问 <code>d.Name</code>（从 <code>Animal</code> 提升上来），也可以「重写」方法。<code>Cat</code> 没有自己的 <code>Speak</code>，调用时自动使用 <code>Animal</code> 的版本。</p>
+<p>但这<strong>不是真正的继承</strong>——<code>Dog</code> 不能赋值给 <code>Animal</code> 类型的变量。要实现多态，必须通过接口。</p>
+<h2 id="接口"><a href="#接口" class="headerlink" title="接口"></a>接口</h2><h3 id="隐式实现"><a href="#隐式实现" class="headerlink" title="隐式实现"></a>隐式实现</h3><p>Go 的接口只声明方法签名：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Shape <span class="keyword">interface</span> &#123;</span><br><span class="line">    Area() <span class="type">float64</span></span><br><span class="line">    Perimeter() <span class="type">float64</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>任何类型只要实现了接口要求的所有方法，就自动满足该接口，不需要 <code>implements</code> 声明：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Circle <span class="keyword">struct</span>&#123; Radius <span class="type">float64</span> &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c Circle)</span></span> Area() <span class="type">float64</span>      &#123; <span class="keyword">return</span> math.Pi * c.Radius * c.Radius &#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c Circle)</span></span> Perimeter() <span class="type">float64</span> &#123; <span class="keyword">return</span> <span class="number">2</span> * math.Pi * c.Radius &#125;</span><br><span class="line"><span class="comment">// Circle 自动满足 Shape</span></span><br></pre></td></tr></table></figure>
+
+<p>这和 C++ 必须显式写 <code>class Circle : public Shape</code> 形成鲜明对比。隐式实现的好处是，你可以为别人写的类型定义新接口——只要方法签名对得上。</p>
+<h3 id="多态"><a href="#多态" class="headerlink" title="多态"></a>多态</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">PrintShapeInfo</span><span class="params">(s Shape)</span></span> &#123;</span><br><span class="line">    fmt.Printf(<span class="string">&quot;面积: %.2f, 周长: %.2f\n&quot;</span>, s.Area(), s.Perimeter())</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">PrintShapeInfo(Circle&#123;Radius: <span class="number">5</span>&#125;)</span><br><span class="line">PrintShapeInfo(Rectangle&#123;Width: <span class="number">3</span>, Height: <span class="number">4</span>&#125;)</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>PrintShapeInfo</code> 内部，只能调用 <code>Shape</code> 接口声明的方法。即使具体类型有其他方法（比如 <code>String()</code>），通过 <code>Shape</code> 也看不到——这和 C++ 中通过基类指针只能调用基类声明的虚函数是一样的。要访问其他方法，需要类型断言。</p>
+<h3 id="接口变量的本质"><a href="#接口变量的本质" class="headerlink" title="接口变量的本质"></a>接口变量的本质</h3><p>一个重要的心智模型：Go 的接口变量本质上是一个胖指针 <code>(类型信息, 数据指针)</code>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> s Shape             <span class="comment">// (nil, nil)，类似 C++ 的 Shape* s = nullptr</span></span><br><span class="line">s = Circle&#123;Radius: <span class="number">5</span>&#125;  <span class="comment">// (Circle, &amp;data)，绑定到具体类型</span></span><br></pre></td></tr></table></figure>
+
+<p>它<strong>不是</strong>具体类型的实例（不等于 C++ 中实例化一个抽象类），而是一个始终指向别处的间接引用。和 C++ 基类指针的区别在于自动解引用——<code>s.Area()</code> 不需要写 <code>s-&gt;Area()</code>。和 C++ 引用的区别在于它可以是 nil、可以重新赋值。</p>
+<h3 id="类型断言与类型开关"><a href="#类型断言与类型开关" class="headerlink" title="类型断言与类型开关"></a>类型断言与类型开关</h3><p>类型断言是 Go 版的 <code>dynamic_cast</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> c, ok := s.(Circle); ok &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;半径:&quot;</span>, c.Radius)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>失败时有两种行为——带 <code>ok</code> 返回 <code>false</code>（类似 <code>dynamic_cast</code> 指针版返回 <code>nullptr</code>），不带 <code>ok</code> 直接 panic（类似 <code>dynamic_cast</code> 引用版抛 <code>std::bad_cast</code>）。</p>
+<p>类型开关用于多路分发：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">switch</span> v := s.(<span class="keyword">type</span>) &#123;</span><br><span class="line"><span class="keyword">case</span> Circle:</span><br><span class="line">    fmt.Println(<span class="string">&quot;圆形, 半径:&quot;</span>, v.Radius)</span><br><span class="line"><span class="keyword">case</span> Rectangle:</span><br><span class="line">    fmt.Println(<span class="string">&quot;矩形:&quot;</span>, v.Width, <span class="string">&quot;x&quot;</span>, v.Height)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接口组合"><a href="#接口组合" class="headerlink" title="接口组合"></a>接口组合</h3><p>多个接口可以组合成新接口：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Stringer <span class="keyword">interface</span> &#123;</span><br><span class="line">    String() <span class="type">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> PrintableShape <span class="keyword">interface</span> &#123;</span><br><span class="line">    Shape</span><br><span class="line">    Stringer</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>一个类型必须同时满足 <code>Shape</code> 和 <code>Stringer</code> 的所有方法，才能赋值给 <code>PrintableShape</code>。这类似 C++ 的多重继承纯虚基类，但不存在菱形继承问题。</p>
+<h3 id="方法集规则"><a href="#方法集规则" class="headerlink" title="方法集规则"></a>方法集规则</h3><p>值接收者和指针接收者对接口满足的影响是一个微妙但重要的规则：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Mover <span class="keyword">interface</span>&#123; Move() &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(d Dog)</span></span> Speak() <span class="type">string</span> &#123;&#125;    <span class="comment">// 值接收者</span></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(d *Dog)</span></span> Move() &#123;&#125;           <span class="comment">// 指针接收者</span></span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>接收者类型</th>
+<th>谁能满足接口</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>值接收者 <code>(t T)</code></td>
+<td><code>T</code> 和 <code>*T</code> 都行</td>
+</tr>
+<tr>
+<td>指针接收者 <code>(t *T)</code></td>
+<td>只有 <code>*T</code></td>
+</tr>
+</tbody></table>
+<p>严格来说，如果 <code>Move()</code> 定义在 <code>*Dog</code> 上，那么满足 <code>Mover</code> 接口的是 <code>*Dog</code>，而不是 <code>Dog</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> m Mover = &amp;Dog&#123;&#125;   <span class="comment">// OK</span></span><br><span class="line"><span class="keyword">var</span> m Mover = Dog&#123;&#125;    <span class="comment">// 编译错误</span></span><br></pre></td></tr></table></figure>
+
+<p>日常说话时会偷懒说「Dog 实现了 Mover」，但类型系统的真相是「*Dog 实现了 Mover」。</p>
+<h3 id="接口与-nil-的陷阱"><a href="#接口与-nil-的陷阱" class="headerlink" title="接口与 nil 的陷阱"></a>接口与 nil 的陷阱</h3><p>接口内部是 <code>(类型信息, 值)</code> 两个字段。只有两者都为 nil 时，接口才等于 nil：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> s Shape          <span class="comment">// (nil, nil) → s == nil 是 true</span></span><br><span class="line"><span class="keyword">var</span> cp *Circle       <span class="comment">// nil 指针</span></span><br><span class="line">s = cp               <span class="comment">// (*Circle, nil) → s == nil 是 false！</span></span><br></pre></td></tr></table></figure>
+
+<p>这在错误处理中最容易踩坑：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetShape</span><span class="params">()</span></span> Shape &#123;</span><br><span class="line">    <span class="keyword">var</span> c *Circle    <span class="comment">// nil</span></span><br><span class="line">    <span class="keyword">return</span> c         <span class="comment">// 返回 (*Circle, nil)，不是 nil 接口！</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">s := GetShape()</span><br><span class="line"><span class="keyword">if</span> s == <span class="literal">nil</span> &#123; ... &#125;  <span class="comment">// 永远不会进入</span></span><br></pre></td></tr></table></figure>
+
+<p>正确做法是显式返回 <code>nil</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">GetShape</span><span class="params">()</span></span> Shape &#123;</span><br><span class="line">    c := getCircle()</span><br><span class="line">    <span class="keyword">if</span> c == <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>   <span class="comment">// 返回 (nil, nil)</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> c</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这三部分内容——集合、结构体、接口——集中体现了 Go 与 C++ 在设计哲学上的分歧。</p>
+<p>Go 用切片视图代替了 <code>std::vector</code> 的自包含设计，获得了轻量和灵活，代价是共享底层数组带来的隐式耦合。Go 用包级可见性代替了类级封装，用 <code>NewXxx</code> 工厂函数和 <code>defer Close()</code> 代替了构造&#x2F;析构函数和 RAII，简化了对象生命周期模型，代价是资源管理的责任从编译器转移到了程序员。Go 用隐式接口实现代替了显式继承，消除了继承层次的复杂性，代价是失去了编译器对「这个类型打算实现这个接口」的文档化声明。</p>
+<p>这些取舍是否值得，取决于项目的规模和团队的习惯。但理解这些差异的存在，是从 C++ 程序员顺利过渡到 Go 程序员的关键一步。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/" title="从 C++ 到 Go（二）：集合、结构体与接口">https://liam.page/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/" rel="tag"># 编程语言</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/15/from-cpp-to-go-basics-types-control-flow-and-functions/" rel="prev" title="从 C++ 到 Go（一）：基础语法、类型系统与函数">
+      <i class="fa fa-chevron-left"></i> 从 C++ 到 Go（一）：基础语法、类型系统与函数
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E7%BB%84%E4%B8%8E%E5%88%87%E7%89%87"><span class="nav-number">1.</span> <span class="nav-text">数组与切片</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E7%BB%84%EF%BC%9A%E5%80%BC%E7%B1%BB%E5%9E%8B%EF%BC%8C%E6%9E%81%E5%B0%91%E7%9B%B4%E6%8E%A5%E4%BD%BF%E7%94%A8"><span class="nav-number">1.1.</span> <span class="nav-text">数组：值类型，极少直接使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%87%E7%89%87%EF%BC%9A%E5%BA%95%E5%B1%82%E6%95%B0%E7%BB%84%E7%9A%84%E8%A7%86%E5%9B%BE"><span class="nav-number">1.2.</span> <span class="nav-text">切片：底层数组的视图</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%85%B1%E4%BA%AB%E5%BA%95%E5%B1%82%E6%95%B0%E7%BB%84"><span class="nav-number">1.2.1.</span> <span class="nav-text">共享底层数组</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#append-%E4%B8%8E%E5%85%B1%E4%BA%AB%E7%9A%84%E6%96%AD%E8%A3%82"><span class="nav-number">1.2.2.</span> <span class="nav-text">append 与共享的断裂</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%88%A0%E9%99%A4%E5%88%87%E7%89%87%E5%85%83%E7%B4%A0"><span class="nav-number">1.2.3.</span> <span class="nav-text">删除切片元素</span></a></li></ol></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Map"><span class="nav-number">2.</span> <span class="nav-text">Map</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%BB%E5%8F%96%E4%B8%8D%E5%AD%98%E5%9C%A8%E7%9A%84-key"><span class="nav-number">2.1.</span> <span class="nav-text">读取不存在的 key</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%81%8D%E5%8E%86%E9%A1%BA%E5%BA%8F%E4%B8%8D%E4%BF%9D%E8%AF%81"><span class="nav-number">2.2.</span> <span class="nav-text">遍历顺序不保证</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B5%8C%E5%A5%97-map"><span class="nav-number">2.3.</span> <span class="nav-text">嵌套 map</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B9%B6%E5%8F%91%E5%AE%89%E5%85%A8"><span class="nav-number">2.4.</span> <span class="nav-text">并发安全</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%93%E6%9E%84%E4%BD%93%E4%B8%8E%E6%96%B9%E6%B3%95"><span class="nav-number">3.</span> <span class="nav-text">结构体与方法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%9A%E4%B9%89%E4%B8%8E%E5%88%9B%E5%BB%BA"><span class="nav-number">3.1.</span> <span class="nav-text">定义与创建</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%96%B9%E6%B3%95%EF%BC%9A%E5%80%BC%E6%8E%A5%E6%94%B6%E8%80%85%E4%B8%8E%E6%8C%87%E9%92%88%E6%8E%A5%E6%94%B6%E8%80%85"><span class="nav-number">3.2.</span> <span class="nav-text">方法：值接收者与指针接收者</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B2%A1%E6%9C%89%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0%E5%92%8C%E6%9E%90%E6%9E%84%E5%87%BD%E6%95%B0"><span class="nav-number">3.3.</span> <span class="nav-text">没有构造函数和析构函数</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8C%BF%E5%90%8D%E5%B5%8C%E5%85%A5%EF%BC%9AGo-%E7%9A%84%E3%80%8C%E7%BB%A7%E6%89%BF%E6%9B%BF%E4%BB%A3%E5%93%81%E3%80%8D"><span class="nav-number">3.4.</span> <span class="nav-text">匿名嵌入：Go 的「继承替代品」</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3"><span class="nav-number">4.</span> <span class="nav-text">接口</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%9A%90%E5%BC%8F%E5%AE%9E%E7%8E%B0"><span class="nav-number">4.1.</span> <span class="nav-text">隐式实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%9A%E6%80%81"><span class="nav-number">4.2.</span> <span class="nav-text">多态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3%E5%8F%98%E9%87%8F%E7%9A%84%E6%9C%AC%E8%B4%A8"><span class="nav-number">4.3.</span> <span class="nav-text">接口变量的本质</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%B1%BB%E5%9E%8B%E6%96%AD%E8%A8%80%E4%B8%8E%E7%B1%BB%E5%9E%8B%E5%BC%80%E5%85%B3"><span class="nav-number">4.4.</span> <span class="nav-text">类型断言与类型开关</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3%E7%BB%84%E5%90%88"><span class="nav-number">4.5.</span> <span class="nav-text">接口组合</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%96%B9%E6%B3%95%E9%9B%86%E8%A7%84%E5%88%99"><span class="nav-number">4.6.</span> <span class="nav-text">方法集规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3%E4%B8%8E-nil-%E7%9A%84%E9%99%B7%E9%98%B1"><span class="nav-number">4.7.</span> <span class="nav-text">接口与 nil 的陷阱</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">410</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">780</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">40:58</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '826585608f773804bf480165faeb928c',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
