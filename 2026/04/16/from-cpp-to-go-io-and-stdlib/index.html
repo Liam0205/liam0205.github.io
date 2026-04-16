@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是「从 C++ 到 Go」系列的第六篇，承接上一篇对泛型的讨论，进入 Go 标准库中最核心的一块领域——IO 与数据序列化。C++ 程序员对 iostream 的复杂继承体系和 nlohmann&#x2F;json 的手动映射不会陌生；Go 用两个极简接口和声明式的 struct tag 取代了这一切。本篇覆盖 io.Reader&#x2F;io.Writer 接口、文件读写、JSON 序列化">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 C++ 到 Go（六）：IO 与标准库">
+<meta property="og:url" content="https://liam.page/2026/04/16/from-cpp-to-go-io-and-stdlib/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是「从 C++ 到 Go」系列的第六篇，承接上一篇对泛型的讨论，进入 Go 标准库中最核心的一块领域——IO 与数据序列化。C++ 程序员对 iostream 的复杂继承体系和 nlohmann&#x2F;json 的手动映射不会陌生；Go 用两个极简接口和声明式的 struct tag 取代了这一切。本篇覆盖 io.Reader&#x2F;io.Writer 接口、文件读写、JSON 序列化">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-16T03:12:14.000Z">
+<meta property="article:modified_time" content="2026-04-16T03:12:50.733Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="编程语言">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/04/16/from-cpp-to-go-io-and-stdlib/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>从 C++ 到 Go（六）：IO 与标准库 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">414</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">780</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/04/16/from-cpp-to-go-io-and-stdlib/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 C++ 到 Go（六）：IO 与标准库
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 04 月 16 日 11:12:14 / 修改时间：11:12:50" itemprop="dateCreated datePublished" datetime="2026-04-16T11:12:14+08:00">2026 年 04 月 16 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>11k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>19 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文是「从 C++ 到 Go」系列的第六篇，承接<a href="/2026/04/16/from-cpp-to-go-generics/">上一篇</a>对泛型的讨论，进入 Go 标准库中最核心的一块领域——IO 与数据序列化。C++ 程序员对 iostream 的复杂继承体系和 nlohmann&#x2F;json 的手动映射不会陌生；Go 用两个极简接口和声明式的 struct tag 取代了这一切。本篇覆盖 <code>io.Reader</code>&#x2F;<code>io.Writer</code> 接口、文件读写、JSON 序列化，以及用标准库写 HTTP 服务。</p>
+<span id="more"></span>
+
+<h2 id="io-Reader-与-io-Writer"><a href="#io-Reader-与-io-Writer" class="headerlink" title="io.Reader 与 io.Writer"></a><code>io.Reader</code> 与 <code>io.Writer</code></h2><p>Go 标准库的 IO 设计围绕两个接口：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Reader <span class="keyword">interface</span> &#123;</span><br><span class="line">    Read(p []<span class="type">byte</span>) (n <span class="type">int</span>, err <span class="type">error</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Writer <span class="keyword">interface</span> &#123;</span><br><span class="line">    Write(p []<span class="type">byte</span>) (n <span class="type">int</span>, err <span class="type">error</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>任何类型只要实现了这一个方法，就能参与 IO 管道。满足 <code>Reader</code> 的类型极多：<code>os.File</code>、<code>strings.Reader</code>、<code>bytes.Buffer</code>、<code>http.Response.Body</code>、<code>gzip.Reader</code>……<code>Writer</code> 也一样：<code>os.File</code>、<code>bytes.Buffer</code>、<code>http.ResponseWriter</code>、<code>gzip.Writer</code>……</p>
+<p>对比 C++：iostream 体系也是类似思路，但基于类继承，层次深且复杂（<code>std::ios_base</code> → <code>std::basic_ios</code> → <code>std::basic_istream</code> → ……）。Go 的接口是隐式实现的——不需要声明「我实现了 <code>io.Reader</code>」，只要有 <code>Read</code> 方法就行。</p>
+<p>这意味着你可以写一个函数接受 <code>io.Reader</code>，它同时能处理文件、网络流、内存缓冲区、压缩流——调用方决定数据从哪来，函数本身不关心：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">countLines</span><span class="params">(r io.Reader)</span></span> (<span class="type">int</span>, <span class="type">error</span>) &#123;</span><br><span class="line">    scanner := bufio.NewScanner(r)</span><br><span class="line">    count := <span class="number">0</span></span><br><span class="line">    <span class="keyword">for</span> scanner.Scan() &#123;</span><br><span class="line">        count++</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> count, scanner.Err()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>传文件进来就是读文件，传字符串进来就是读字符串：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 用字符串当 IO 源——测试时特别有用，不需要创建真实文件</span></span><br><span class="line">r := strings.NewReader(<span class="string">&quot;line 1\nline 2\nline 3\n&quot;</span>)</span><br><span class="line">lines, _ := countLines(r) <span class="comment">// 3</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 用文件当 IO 源</span></span><br><span class="line">f, _ := os.Open(<span class="string">&quot;data.txt&quot;</span>)</span><br><span class="line"><span class="keyword">defer</span> f.Close()</span><br><span class="line">lines, _ = countLines(f)</span><br></pre></td></tr></table></figure>
+
+<p><code>strings.NewReader</code> 把一个 <code>string</code> 包装成 <code>io.Reader</code>。这在单元测试中特别好用——不需要创建临时文件就能测试所有读取逻辑。</p>
+<h3 id="io-Copy"><a href="#io-Copy" class="headerlink" title="io.Copy"></a><code>io.Copy</code></h3><p><code>io.Copy(dst Writer, src Reader)</code> 从 <code>src</code> 读取所有数据写入 <code>dst</code>，是 Go IO 管道的核心操作——类似 Unix 的管道 <code>cat file | cmd</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 字符串 → 标准输出</span></span><br><span class="line">src := strings.NewReader(<span class="string">&quot;Hello from io.Copy!\n&quot;</span>)</span><br><span class="line">io.Copy(os.Stdout, src)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 还可以：</span></span><br><span class="line"><span class="comment">// 文件 → 标准输出：io.Copy(os.Stdout, file)</span></span><br><span class="line"><span class="comment">// 网络 → 文件：    io.Copy(file, response.Body)</span></span><br></pre></td></tr></table></figure>
+
+<p><code>os.Stdout</code> 也实现了 <code>io.Writer</code>——所以它能作为 <code>io.Copy</code> 的目标。这种「一切皆接口」的设计让组合变得极其自然。</p>
+<h2 id="文件读写"><a href="#文件读写" class="headerlink" title="文件读写"></a>文件读写</h2><p>Go 的文件操作围绕 <code>os.File</code> 展开，它同时实现了 <code>io.Reader</code> 和 <code>io.Writer</code>。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// --- 写文件 ---</span></span><br><span class="line"><span class="comment">// os.Create：文件已存在则截断为空，不存在则创建</span></span><br><span class="line">f, err := os.Create(<span class="string">&quot;demo.txt&quot;</span>)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    fmt.Println(<span class="string">&quot;创建文件失败:&quot;</span>, err)</span><br><span class="line">    <span class="keyword">return</span></span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">defer</span> f.Close()</span><br><span class="line"></span><br><span class="line"><span class="comment">// f 实现了 io.Writer，可以直接用 fmt.Fprintln 写入</span></span><br><span class="line">fmt.Fprintln(f, <span class="string">&quot;第一行：Hello, Go!&quot;</span>)</span><br><span class="line">fmt.Fprintln(f, <span class="string">&quot;第二行：文件 IO 演示&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// --- 读取整个文件 ---</span></span><br><span class="line"><span class="comment">// os.ReadFile：一次读完，返回 []byte。适合小文件。</span></span><br><span class="line">data, err := os.ReadFile(<span class="string">&quot;demo.txt&quot;</span>)</span><br><span class="line">fmt.Println(<span class="type">string</span>(data))</span><br><span class="line"></span><br><span class="line"><span class="comment">// --- 流式读取 ---</span></span><br><span class="line"><span class="comment">// 大文件应该用 bufio.Scanner 逐行处理，而不是一次性加载到内存</span></span><br><span class="line">f2, _ := os.Open(<span class="string">&quot;demo.txt&quot;</span>) <span class="comment">// os.Open = 只读模式</span></span><br><span class="line"><span class="keyword">defer</span> f2.Close()</span><br><span class="line">lines, _ := countLines(f2) <span class="comment">// f2 满足 io.Reader</span></span><br></pre></td></tr></table></figure>
+
+<p>对比 C++：C++ 用 <code>std::ifstream</code> &#x2F; <code>std::ofstream</code>，打开模式通过 <code>std::ios::in</code> &#x2F; <code>std::ios::out</code> 等标志控制。Go 用 <code>os.Open</code>（只读）&#x2F; <code>os.Create</code>（创建或截断）&#x2F; <code>os.OpenFile</code>（完整控制），API 更扁平。</p>
+<h3 id="defer-f-Close-与-RAII"><a href="#defer-f-Close-与-RAII" class="headerlink" title="defer f.Close() 与 RAII"></a><code>defer f.Close()</code> 与 RAII</h3><p>资源清理是 C++ 程序员最关心的问题之一。C++ 有 RAII——<code>ifstream</code> 离开作用域自动关闭，不需要写任何清理代码。Go 没有析构函数，必须手动 <code>defer f.Close()</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">f, err := os.Open(<span class="string">&quot;data.txt&quot;</span>)</span><br><span class="line"><span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> err</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">defer</span> f.Close() <span class="comment">// 不管后续如何 return，文件都会被关闭</span></span><br></pre></td></tr></table></figure>
+
+<p><code>defer</code> 保证函数返回前执行，但它是需要显式写出的——忘了写就会泄漏资源。Go 没有宏，没有 RAII，也没有语法糖能进一步简化这个模式。这是 Go「显式优于隐式」哲学的体现：每个资源的获取和释放都在代码中清晰可见，但代价是多写一行 <code>defer</code>。对于习惯了 RAII 的 C++ 程序员来说，这可能是最需要适应的地方。</p>
+<h2 id="JSON"><a href="#JSON" class="headerlink" title="JSON"></a>JSON</h2><p>Go 的 <code>encoding/json</code> 包通过 struct tag 来控制 JSON 字段映射。</p>
+<h3 id="序列化与反序列化"><a href="#序列化与反序列化" class="headerlink" title="序列化与反序列化"></a>序列化与反序列化</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Book <span class="keyword">struct</span> &#123;</span><br><span class="line">    Title  <span class="type">string</span>  <span class="string">`json:&quot;title&quot;`</span>          <span class="comment">// JSON 字段名为 &quot;title&quot;</span></span><br><span class="line">    Author <span class="type">string</span>  <span class="string">`json:&quot;author&quot;`</span></span><br><span class="line">    Price  <span class="type">float64</span> <span class="string">`json:&quot;price&quot;`</span></span><br><span class="line">    ISBN   <span class="type">string</span>  <span class="string">`json:&quot;isbn,omitempty&quot;`</span> <span class="comment">// omitempty：空值时省略该字段</span></span><br><span class="line">    Notes  <span class="type">string</span>  <span class="string">`json:&quot;-&quot;`</span>              <span class="comment">// &quot;-&quot;：永远不序列化</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>struct tag 是写在字段声明后面的反引号字符串。对比 C++：C++ 没有内置的 JSON 支持，通常用 nlohmann&#x2F;json 等第三方库，需要手写 <code>to_json</code> &#x2F; <code>from_json</code> 函数或宏来映射字段。Go 的 struct tag 是声明式的——在类型定义里写一次，序列化和反序列化自动处理。</p>
+<p>序列化用 <code>json.Marshal</code>，反序列化用 <code>json.Unmarshal</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 序列化：struct → JSON</span></span><br><span class="line">book := Book&#123;</span><br><span class="line">    Title: <span class="string">&quot;The Go Programming Language&quot;</span>,</span><br><span class="line">    Author: <span class="string">&quot;Donovan &amp; Kernighan&quot;</span>,</span><br><span class="line">    Price: <span class="number">79.0</span>,</span><br><span class="line">    ISBN: <span class="string">&quot;978-0134190440&quot;</span>,</span><br><span class="line">    Notes: <span class="string">&quot;内部备注，不会出现在 JSON 中&quot;</span>,</span><br><span class="line">&#125;</span><br><span class="line">jsonBytes, _ := json.Marshal(book)</span><br><span class="line"><span class="comment">// &#123;&quot;title&quot;:&quot;The Go Programming Language&quot;,&quot;author&quot;:&quot;Donovan &amp; Kernighan&quot;,&quot;price&quot;:79,&quot;isbn&quot;:&quot;978-0134190440&quot;&#125;</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// MarshalIndent：带缩进的格式化输出，适合调试</span></span><br><span class="line">prettyJSON, _ := json.MarshalIndent(book, <span class="string">&quot;&quot;</span>, <span class="string">&quot;  &quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="comment">// omitempty 效果：ISBN 为空时不出现在 JSON 中</span></span><br><span class="line">book2 := Book&#123;Title: <span class="string">&quot;Go in Action&quot;</span>, Author: <span class="string">&quot;Kennedy&quot;</span>, Price: <span class="number">55.0</span>&#125;</span><br><span class="line">json.Marshal(book2)</span><br><span class="line"><span class="comment">// &#123;&quot;title&quot;:&quot;Go in Action&quot;,&quot;author&quot;:&quot;Kennedy&quot;,&quot;price&quot;:55&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>反序列化需要传指针：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">jsonStr := <span class="string">`&#123;&quot;title&quot;:&quot;Concurrency in Go&quot;,&quot;author&quot;:&quot;Cox-Buday&quot;,&quot;price&quot;:45.5&#125;`</span></span><br><span class="line"><span class="keyword">var</span> parsed Book</span><br><span class="line">err := json.Unmarshal([]<span class="type">byte</span>(jsonStr), &amp;parsed)</span><br></pre></td></tr></table></figure>
+
+<p>「Marshal」这个词来自通信领域，原意是「将数据按照协议格式编排好，准备传输」，比「serialize」更强调「为传输做准备」的语义。Go、Java（<code>json.Marshal</code> &#x2F; <code>json.Unmarshal</code>）和一些 RPC 框架（Protocol Buffers）都沿用了这个术语。</p>
+<h4 id="序列化何时失败"><a href="#序列化何时失败" class="headerlink" title="序列化何时失败"></a>序列化何时失败</h4><p><code>json.Marshal</code> 在大多数情况下都会成功，但有几种常见的失败场景：</p>
+<ul>
+<li><strong>循环引用</strong>：结构体中存在指针环（A 指向 B，B 指向 A），会导致无限递归，触发 <code>json: unsupported value: encountered a cycle</code>。</li>
+<li><strong>不可序列化的类型</strong>：<code>chan</code>、<code>func</code>、<code>complex64</code>&#x2F;<code>complex128</code> 等类型无法表示为 JSON。</li>
+<li><strong><code>NaN</code> 和 <code>Inf</code></strong>：JSON 标准不支持 <code>NaN</code> 和正负无穷，<code>json.Marshal</code> 会返回错误。</li>
+</ul>
+<h4 id="反序列化的宽容性"><a href="#反序列化的宽容性" class="headerlink" title="反序列化的宽容性"></a>反序列化的宽容性</h4><p>JSON 中存在但结构体中没有定义的字段会被<strong>静默忽略</strong>——不会报错。这在 API 演进时很有用：服务端新增字段不会导致旧版本的客户端解析失败。反过来，结构体中有但 JSON 中没有的字段保持零值。</p>
+<h3 id="复杂结构的-JSON"><a href="#复杂结构的-JSON" class="headerlink" title="复杂结构的 JSON"></a>复杂结构的 JSON</h3><p>实际项目中的 JSON 往往包含嵌套结构、切片和 map。Go 的 <code>encoding/json</code> 能自然地处理这些情况：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Role <span class="keyword">struct</span> &#123;</span><br><span class="line">    Name        <span class="type">string</span>   <span class="string">`json:&quot;name&quot;`</span></span><br><span class="line">    Permissions []<span class="type">string</span> <span class="string">`json:&quot;permissions&quot;`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> User <span class="keyword">struct</span> &#123;</span><br><span class="line">    ID       <span class="type">string</span>            <span class="string">`json:&quot;id&quot;`</span></span><br><span class="line">    Username <span class="type">string</span>            <span class="string">`json:&quot;username&quot;`</span></span><br><span class="line">    IsActive <span class="type">bool</span>              <span class="string">`json:&quot;is_active&quot;`</span></span><br><span class="line">    Roles    []Role            <span class="string">`json:&quot;roles&quot;`</span>              <span class="comment">// 嵌套的结构体切片</span></span><br><span class="line">    Metadata <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">string</span> <span class="string">`json:&quot;metadata,omitempty&quot;`</span> <span class="comment">// map 类型</span></span><br><span class="line">    Manager  *User             <span class="string">`json:&quot;manager,omitempty&quot;`</span>  <span class="comment">// 递归嵌套（必须是指针）</span></span><br><span class="line">    Tags     []<span class="type">string</span>          <span class="string">`json:&quot;tags,omitempty&quot;`</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>序列化出来的 JSON 结构和 Go 的结构体层次一一对应：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;U002&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;username&quot;</span><span class="punctuation">:</span> <span class="string">&quot;liam&quot;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;is_active&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;roles&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span></span><br><span class="line">    <span class="punctuation">&#123;</span><span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;admin&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;permissions&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;read&quot;</span><span class="punctuation">,</span> <span class="string">&quot;write&quot;</span><span class="punctuation">,</span> <span class="string">&quot;delete&quot;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="punctuation">&#123;</span><span class="attr">&quot;name&quot;</span><span class="punctuation">:</span> <span class="string">&quot;user&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;permissions&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;read&quot;</span><span class="punctuation">]</span><span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">]</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;metadata&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="attr">&quot;department&quot;</span><span class="punctuation">:</span> <span class="string">&quot;engineering&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;location&quot;</span><span class="punctuation">:</span> <span class="string">&quot;shanghai&quot;</span><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;manager&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span><span class="attr">&quot;id&quot;</span><span class="punctuation">:</span> <span class="string">&quot;U001&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;username&quot;</span><span class="punctuation">:</span> <span class="string">&quot;boss&quot;</span><span class="punctuation">,</span> <span class="attr">&quot;is_active&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;tags&quot;</span><span class="punctuation">:</span> <span class="punctuation">[</span><span class="string">&quot;golang&quot;</span><span class="punctuation">,</span> <span class="string">&quot;cpp&quot;</span><span class="punctuation">]</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>注意 <code>Manager</code> 字段必须是指针（<code>*User</code>）——因为 <code>User</code> 嵌套 <code>User</code> 会导致无限递归的类型定义，指针打破了这个循环。反序列化时，如果 JSON 中没有 <code>manager</code> 字段，指针保持 <code>nil</code>。</p>
+<h3 id="动态-JSON-与-map-string-any"><a href="#动态-JSON-与-map-string-any" class="headerlink" title="动态 JSON 与 map[string]any"></a>动态 JSON 与 <code>map[string]any</code></h3><p>当 JSON 结构不确定时，可以用 <code>map[string]any</code> 接收：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">dynamicJSON := <span class="string">`&#123;&quot;name&quot;:&quot;Go&quot;,&quot;year&quot;:2009,&quot;compiled&quot;:true&#125;`</span></span><br><span class="line"><span class="keyword">var</span> dynamic <span class="keyword">map</span>[<span class="type">string</span>]any</span><br><span class="line">json.Unmarshal([]<span class="type">byte</span>(dynamicJSON), &amp;dynamic)</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> k, v := <span class="keyword">range</span> dynamic &#123;</span><br><span class="line">    fmt.Printf(<span class="string">&quot;%s: %v (%T)\n&quot;</span>, k, v, v)</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// name: Go (string)</span></span><br><span class="line"><span class="comment">// year: 2009 (float64)  ← 注意：不是 int！</span></span><br><span class="line"><span class="comment">// compiled: true (bool)</span></span><br></pre></td></tr></table></figure>
+
+<p>一个重要的陷阱：<strong>JSON 的数字统一被解析为 <code>float64</code></strong>，即使原始值是整数。这是因为 JSON 规范不区分整数和浮点数——所有数字都是 <code>number</code> 类型。如果需要 <code>int</code>，要手动转换：<code>int(dynamic[&quot;year&quot;].(float64))</code>。</p>
+<h4 id="大整数的精度问题"><a href="#大整数的精度问题" class="headerlink" title="大整数的精度问题"></a>大整数的精度问题</h4><p><code>float64</code> 只有 53 位有效数字（IEEE 754），超过 2^53 的整数会丢失精度。如果你的 JSON 包含大整数（比如雪花 ID、纳秒时间戳），用 <code>map[string]any</code> 接收就会出问题。解决方案是用 <code>json.Decoder</code> 配合 <code>UseNumber()</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">decoder := json.NewDecoder(strings.NewReader(jsonStr))</span><br><span class="line">decoder.UseNumber()</span><br><span class="line">decoder.Decode(&amp;dynamic)</span><br><span class="line"></span><br><span class="line"><span class="comment">// 此时数字类型是 json.Number（本质是字符串），不会丢失精度</span></span><br><span class="line"><span class="comment">// 需要时再手动转换：</span></span><br><span class="line">n, _ := dynamic[<span class="string">&quot;big_id&quot;</span>].(json.Number).Int64()</span><br></pre></td></tr></table></figure>
+
+<p>用良定义的结构体接收就不存在这个问题——<code>int64</code> 字段会被正确解析为整数，不经过 <code>float64</code> 中转。所以 <code>map[string]any</code> 适合的场景通常是：接收结构完全未知的外部 JSON（如第三方 API 的透传字段），或者做格式探测和预处理。能定义结构体的场景，优先用结构体。</p>
+<h3 id="处理不规范的-JSON"><a href="#处理不规范的-JSON" class="headerlink" title="处理不规范的 JSON"></a>处理不规范的 JSON</h3><p>当 JSON 来自大语言模型等不太规范的来源时，常常会遇到问题：被包裹在 Markdown 代码块里、尾部多余的逗号、字段名没有加引号、包含注释……Go 标准库的 <code>json.Unmarshal</code> 对格式极其严格，这些全部会报错。</p>
+<p>最简单的预处理是剥离 Markdown 代码块标记：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">sanitizeModelJSON</span><span class="params">(raw <span class="type">string</span>)</span></span> <span class="type">string</span> &#123;</span><br><span class="line">    s := strings.TrimSpace(raw)</span><br><span class="line">    s = strings.TrimPrefix(s, <span class="string">&quot;```json&quot;</span>)</span><br><span class="line">    s = strings.TrimPrefix(s, <span class="string">&quot;```&quot;</span>)</span><br><span class="line">    s = strings.TrimSuffix(s, <span class="string">&quot;```&quot;</span>)</span><br><span class="line">    <span class="keyword">return</span> strings.TrimSpace(s)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但靠字符串替换应对更复杂的语法错误（缺少引号、包含注释）是不靠谱的。Go 标准库没有提供宽松模式（如 <code>AllowTrailingCommas</code>）。如果需要处理严重不合法的 JSON 或 JSON5 变体，业界的做法是引入第三方库，比如支持注释、尾逗号和无引号 key 的 JSON5 解析器。</p>
+<h3 id="JSON-与-io-Writer-的结合"><a href="#JSON-与-io-Writer-的结合" class="headerlink" title="JSON 与 io.Writer 的结合"></a>JSON 与 <code>io.Writer</code> 的结合</h3><p><code>json.NewEncoder</code> 接受 <code>io.Writer</code>，可以直接将 JSON 写入文件、网络连接或标准输出——不需要先序列化成 <code>[]byte</code> 再手动写入：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">encoder := json.NewEncoder(os.Stdout)</span><br><span class="line">encoder.SetIndent(<span class="string">&quot;&quot;</span>, <span class="string">&quot;  &quot;</span>)</span><br><span class="line">encoder.Encode(book)</span><br></pre></td></tr></table></figure>
+
+<p>这在 HTTP handler 中特别实用，因为 <code>http.ResponseWriter</code> 也是 <code>io.Writer</code>。</p>
+<h2 id="HTTP-服务"><a href="#HTTP-服务" class="headerlink" title="HTTP 服务"></a>HTTP 服务</h2><p>Go 标准库的 <code>net/http</code> 可以直接写生产级的 HTTP 服务，不需要第三方框架。这是 Go 在服务端领域的杀手锏。</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">handleHello</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;</span><br><span class="line">    name := r.URL.Query().Get(<span class="string">&quot;name&quot;</span>)</span><br><span class="line">    <span class="keyword">if</span> name == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">        name = <span class="string">&quot;世界&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">    fmt.Fprintf(w, <span class="string">&quot;你好, %s!\n&quot;</span>, name)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">handleJSON</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;</span><br><span class="line">    w.Header().Set(<span class="string">&quot;Content-Type&quot;</span>, <span class="string">&quot;application/json&quot;</span>)</span><br><span class="line">    data := <span class="keyword">map</span>[<span class="type">string</span>]any&#123;</span><br><span class="line">        <span class="string">&quot;language&quot;</span>: <span class="string">&quot;Go&quot;</span>,</span><br><span class="line">        <span class="string">&quot;features&quot;</span>: []<span class="type">string</span>&#123;<span class="string">&quot;goroutine&quot;</span>, <span class="string">&quot;channel&quot;</span>, <span class="string">&quot;generics&quot;</span>&#125;,</span><br><span class="line">    &#125;</span><br><span class="line">    json.NewEncoder(w).Encode(data)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Go 的 HTTP 处理函数签名固定为 <code>func(w http.ResponseWriter, r *http.Request)</code>。<code>w</code> 实现了 <code>io.Writer</code>——所以之前学的 <code>fmt.Fprintf</code>、<code>json.NewEncoder</code> 都可以直接往 HTTP 响应里写。<code>r.Body</code> 是 <code>io.Reader</code>——用 <code>io.ReadAll</code> 或 <code>json.NewDecoder</code> 读取请求体。一切都回到了 <code>Reader</code> &#x2F; <code>Writer</code> 这两个核心接口。</p>
+<p>对比 C++：用 Boost.Beast 写同样的功能大约需要 100+ 行，还需要手动处理 TCP 连接、HTTP 解析、响应构建。Go 的 <code>net/http</code> 把这些全封装好了。</p>
+<h3 id="读取请求体"><a href="#读取请求体" class="headerlink" title="读取请求体"></a>读取请求体</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">handleEcho</span><span class="params">(w http.ResponseWriter, r *http.Request)</span></span> &#123;</span><br><span class="line">    <span class="keyword">if</span> r.Method != http.MethodPost &#123;</span><br><span class="line">        http.Error(w, <span class="string">&quot;只接受 POST 请求&quot;</span>, http.StatusMethodNotAllowed)</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    body, err := io.ReadAll(r.Body)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        http.Error(w, <span class="string">&quot;读取请求体失败&quot;</span>, http.StatusInternalServerError)</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">defer</span> r.Body.Close()</span><br><span class="line"></span><br><span class="line">    w.Header().Set(<span class="string">&quot;Content-Type&quot;</span>, <span class="string">&quot;application/json&quot;</span>)</span><br><span class="line">    resp := <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">string</span>&#123;</span><br><span class="line">        <span class="string">&quot;echo&quot;</span>:   <span class="type">string</span>(body),</span><br><span class="line">        <span class="string">&quot;method&quot;</span>: r.Method,</span><br><span class="line">    &#125;</span><br><span class="line">    json.NewEncoder(w).Encode(resp)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果想让 echo 更智能——当请求体是 JSON 时按 JSON 结构嵌入响应，否则作为字符串回显——可以检查 <code>Content-Type</code> 并尝试解析：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">contentType := r.Header.Get(<span class="string">&quot;Content-Type&quot;</span>)</span><br><span class="line">resp := <span class="keyword">map</span>[<span class="type">string</span>]any&#123;<span class="string">&quot;method&quot;</span>: r.Method, <span class="string">&quot;path&quot;</span>: r.URL.Path&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> strings.Contains(contentType, <span class="string">&quot;application/json&quot;</span>) &#123;</span><br><span class="line">    <span class="keyword">var</span> jsonBody <span class="keyword">map</span>[<span class="type">string</span>]any</span><br><span class="line">    <span class="keyword">if</span> err := json.Unmarshal(body, &amp;jsonBody); err == <span class="literal">nil</span> &#123;</span><br><span class="line">        resp[<span class="string">&quot;echo&quot;</span>] = jsonBody <span class="comment">// 作为 JSON 对象嵌入</span></span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        resp[<span class="string">&quot;echo&quot;</span>] = <span class="type">string</span>(body) <span class="comment">// 解析失败，回退为字符串</span></span><br><span class="line">        resp[<span class="string">&quot;note&quot;</span>] = <span class="string">&quot;Invalid JSON payload&quot;</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    resp[<span class="string">&quot;echo&quot;</span>] = <span class="type">string</span>(body)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="注册路由与启动"><a href="#注册路由与启动" class="headerlink" title="注册路由与启动"></a>注册路由与启动</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">http.HandleFunc(<span class="string">&quot;/&quot;</span>, handleRoot)</span><br><span class="line">http.HandleFunc(<span class="string">&quot;/hello&quot;</span>, handleHello)</span><br><span class="line">http.HandleFunc(<span class="string">&quot;/json&quot;</span>, handleJSON)</span><br><span class="line">http.HandleFunc(<span class="string">&quot;/echo&quot;</span>, handleEcho)</span><br><span class="line"></span><br><span class="line">log.Fatal(http.ListenAndServe(<span class="string">&quot;:8080&quot;</span>, <span class="literal">nil</span>))</span><br></pre></td></tr></table></figure>
+
+<p><code>ListenAndServe</code> 阻塞运行，内部为每个连接启动一个 goroutine——handler 天然是并发执行的。如果 handler 访问共享状态，需要加锁或用 channel，这就回到了<a href="/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/">第三篇</a>讨论的并发知识。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>Go 标准库的 IO 设计围绕 <code>io.Reader</code> 和 <code>io.Writer</code> 两个接口展开，这是整个标准库最核心的抽象。文件、网络、内存缓冲区、压缩流、HTTP 请求和响应——全部通过这两个接口统一起来。函数接受 <code>io.Reader</code> 参数，就自动获得了处理一切数据源的能力；函数接受 <code>io.Writer</code> 参数，就能往一切目标写数据。这种组合能力来自接口的隐式实现——不需要继承、不需要适配器，只要方法签名匹配就行。</p>
+<p>C++ 的 iostream 试图做同样的事，但基于类继承的设计让它变得笨重：层次深、虚函数开销、格式化状态全局共享。Go 的接口没有这些包袱。JSON 处理也是类似的对比——C++ 需要第三方库和手动映射，Go 用 struct tag 声明式地完成。HTTP 服务更是如此——Go 标准库开箱即用的 <code>net/http</code> 对应着 C++ 需要 Boost.Beast 或其他库才能做到的事。</p>
+<p>没有 RAII 是 Go 程序员需要付出的代价——每个资源都要显式 <code>defer Close()</code>。这不如 C++ 的析构函数优雅，但保持了「每一行代码都能被直接读懂」的透明性。Go 的设计哲学始终如此：用少量正交的概念（接口、<code>defer</code>、struct tag）覆盖大量场景，而不是为每个场景设计专用的语法。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/04/16/from-cpp-to-go-io-and-stdlib/" title="从 C++ 到 Go（六）：IO 与标准库">https://liam.page/2026/04/16/from-cpp-to-go-io-and-stdlib/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/" rel="tag"># 编程语言</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/16/from-cpp-to-go-generics/" rel="prev" title="从 C++ 到 Go（五）：泛型">
+      <i class="fa fa-chevron-left"></i> 从 C++ 到 Go（五）：泛型
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#io-Reader-%E4%B8%8E-io-Writer"><span class="nav-number">1.</span> <span class="nav-text">io.Reader 与 io.Writer</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#io-Copy"><span class="nav-number">1.1.</span> <span class="nav-text">io.Copy</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%87%E4%BB%B6%E8%AF%BB%E5%86%99"><span class="nav-number">2.</span> <span class="nav-text">文件读写</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#defer-f-Close-%E4%B8%8E-RAII"><span class="nav-number">2.1.</span> <span class="nav-text">defer f.Close() 与 RAII</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JSON"><span class="nav-number">3.</span> <span class="nav-text">JSON</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BA%8F%E5%88%97%E5%8C%96%E4%B8%8E%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96"><span class="nav-number">3.1.</span> <span class="nav-text">序列化与反序列化</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%BA%8F%E5%88%97%E5%8C%96%E4%BD%95%E6%97%B6%E5%A4%B1%E8%B4%A5"><span class="nav-number">3.1.1.</span> <span class="nav-text">序列化何时失败</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E7%9A%84%E5%AE%BD%E5%AE%B9%E6%80%A7"><span class="nav-number">3.1.2.</span> <span class="nav-text">反序列化的宽容性</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%8D%E6%9D%82%E7%BB%93%E6%9E%84%E7%9A%84-JSON"><span class="nav-number">3.2.</span> <span class="nav-text">复杂结构的 JSON</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8A%A8%E6%80%81-JSON-%E4%B8%8E-map-string-any"><span class="nav-number">3.3.</span> <span class="nav-text">动态 JSON 与 map[string]any</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%A4%A7%E6%95%B4%E6%95%B0%E7%9A%84%E7%B2%BE%E5%BA%A6%E9%97%AE%E9%A2%98"><span class="nav-number">3.3.1.</span> <span class="nav-text">大整数的精度问题</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%84%E7%90%86%E4%B8%8D%E8%A7%84%E8%8C%83%E7%9A%84-JSON"><span class="nav-number">3.4.</span> <span class="nav-text">处理不规范的 JSON</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#JSON-%E4%B8%8E-io-Writer-%E7%9A%84%E7%BB%93%E5%90%88"><span class="nav-number">3.5.</span> <span class="nav-text">JSON 与 io.Writer 的结合</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HTTP-%E6%9C%8D%E5%8A%A1"><span class="nav-number">4.</span> <span class="nav-text">HTTP 服务</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AF%BB%E5%8F%96%E8%AF%B7%E6%B1%82%E4%BD%93"><span class="nav-number">4.1.</span> <span class="nav-text">读取请求体</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C%E8%B7%AF%E7%94%B1%E4%B8%8E%E5%90%AF%E5%8A%A8"><span class="nav-number">4.2.</span> <span class="nav-text">注册路由与启动</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">414</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">780</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">42:03</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/04/16/from-cpp-to-go-io-and-stdlib/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '44ad0c2052b992a70a9b7f525ef8b671',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
