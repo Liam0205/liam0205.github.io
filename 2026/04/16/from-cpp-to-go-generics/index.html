@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是「从 C++ 到 Go」系列的第五篇，承接上一篇对包管理与测试的讨论，进入 Go 1.18 引入的泛型系统。对于 C++ 程序员来说，模板是最强大也最复杂的语言特性之一；Go 的泛型是一个有趣的对照——它花了十多年才加入语言，设计上刻意做了大量简化。理解这些取舍，比学会语法本身更有价值。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 C++ 到 Go（五）：泛型">
+<meta property="og:url" content="https://liam.page/2026/04/16/from-cpp-to-go-generics/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是「从 C++ 到 Go」系列的第五篇，承接上一篇对包管理与测试的讨论，进入 Go 1.18 引入的泛型系统。对于 C++ 程序员来说，模板是最强大也最复杂的语言特性之一；Go 的泛型是一个有趣的对照——它花了十多年才加入语言，设计上刻意做了大量简化。理解这些取舍，比学会语法本身更有价值。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-16T03:08:52.000Z">
+<meta property="article:modified_time" content="2026-04-16T03:09:12.770Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="编程语言">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/04/16/from-cpp-to-go-generics/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>从 C++ 到 Go（五）：泛型 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">413</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">780</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/04/16/from-cpp-to-go-generics/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 C++ 到 Go（五）：泛型
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 04 月 16 日 11:08:52 / 修改时间：11:09:12" itemprop="dateCreated datePublished" datetime="2026-04-16T11:08:52+08:00">2026 年 04 月 16 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>7.9k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>14 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文是「从 C++ 到 Go」系列的第五篇，承接<a href="/2026/04/15/from-cpp-to-go-package-and-testing/">上一篇</a>对包管理与测试的讨论，进入 Go 1.18 引入的泛型系统。对于 C++ 程序员来说，模板是最强大也最复杂的语言特性之一；Go 的泛型是一个有趣的对照——它花了十多年才加入语言，设计上刻意做了大量简化。理解这些取舍，比学会语法本身更有价值。</p>
+<span id="more"></span>
+
+<h2 id="泛型函数与类型参数"><a href="#泛型函数与类型参数" class="headerlink" title="泛型函数与类型参数"></a>泛型函数与类型参数</h2><p>没有泛型时，想写一个通用的 <code>Max</code> 函数，要么为每种类型写一遍，要么用 <code>interface{}</code> 丢掉类型安全：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">MaxInt</span><span class="params">(a, b <span class="type">int</span>)</span></span> <span class="type">int</span> &#123; ... &#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">MaxFloat</span><span class="params">(a, b <span class="type">float64</span>)</span></span> <span class="type">float64</span> &#123; ... &#125;</span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">MaxString</span><span class="params">(a, b <span class="type">string</span>)</span></span> <span class="type">string</span> &#123; ... &#125;</span><br></pre></td></tr></table></figure>
+
+<p>有了泛型，一个函数搞定所有可比较的类型：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Max</span>[<span class="title">T</span> <span class="title">cmp</span>.<span class="title">Ordered</span>]<span class="params">(a, b T)</span></span> T &#123;</span><br><span class="line">    <span class="keyword">if</span> a &gt; b &#123;</span><br><span class="line">        <span class="keyword">return</span> a</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> b</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>[T cmp.Ordered]</code> 声明了一个类型参数 <code>T</code>，约束为 <code>cmp.Ordered</code>——支持 <code>&lt;</code>、<code>&gt;</code>、<code>&lt;=</code>、<code>&gt;=</code> 的类型集合。调用时编译器自动推断类型参数：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Max(<span class="number">3</span>, <span class="number">5</span>)             <span class="comment">// T = int</span></span><br><span class="line">Max(<span class="number">3.14</span>, <span class="number">2.71</span>)       <span class="comment">// T = float64</span></span><br><span class="line">Max(<span class="string">&quot;go&quot;</span>, <span class="string">&quot;cpp&quot;</span>)      <span class="comment">// T = string</span></span><br><span class="line">Max[<span class="type">int</span>](<span class="number">10</span>, <span class="number">20</span>)      <span class="comment">// 也可以显式指定（通常不需要）</span></span><br></pre></td></tr></table></figure>
+
+<p>对比 C++ 模板，语法上几乎一一对应：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span></span><br><span class="line"><span class="function">T <span class="title">Max</span><span class="params">(T a, T b)</span> </span>&#123; <span class="keyword">return</span> a &gt; b ? a : b; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>但关键区别在于：C++ 模板是鸭子类型——编译器在实例化时才检查 <code>T</code> 是否支持 <code>&gt;</code>，如果不支持，错误信息可能极其冗长（尤其在嵌套模板中）。Go 的约束是提前声明的契约：如果 <code>T</code> 不满足 <code>cmp.Ordered</code>，编译器直接在调用点报错，信息清晰。这正是 C++20 Concepts 试图解决的问题：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt;std::totally_ordered T&gt;</span></span><br><span class="line"><span class="function">T <span class="title">Max</span><span class="params">(T a, T b)</span> </span>&#123; <span class="keyword">return</span> a &gt; b ? a : b; &#125;</span><br></pre></td></tr></table></figure>
+
+<p>不同的是，Go 从一开始就强制使用约束，没有「不带约束的模板」这个选项。</p>
+<h3 id="多个类型参数"><a href="#多个类型参数" class="headerlink" title="多个类型参数"></a>多个类型参数</h3><p>类型参数可以有多个，用逗号分隔。下面的 <code>Zip</code> 函数把两个不同类型的切片配对：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Zip</span>[<span class="title">T</span> <span class="title">any</span>, <span class="title">U</span> <span class="title">any</span>]<span class="params">(ts []T, us []U)</span></span> []<span class="keyword">struct</span> &#123;</span><br><span class="line">    First  T</span><br><span class="line">    Second U</span><br><span class="line">&#125; &#123;</span><br><span class="line">    minLen := <span class="built_in">len</span>(ts)</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(us) &lt; minLen &#123;</span><br><span class="line">        minLen = <span class="built_in">len</span>(us)</span><br><span class="line">    &#125;</span><br><span class="line">    result := <span class="built_in">make</span>([]<span class="keyword">struct</span> &#123;</span><br><span class="line">        First  T</span><br><span class="line">        Second U</span><br><span class="line">    &#125;, minLen)</span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; minLen; i++ &#123;</span><br><span class="line">        result[i].First = ts[i]</span><br><span class="line">        result[i].Second = us[i]</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">names := []<span class="type">string</span>&#123;<span class="string">&quot;Go&quot;</span>, <span class="string">&quot;C++&quot;</span>, <span class="string">&quot;Rust&quot;</span>&#125;</span><br><span class="line">years := []<span class="type">int</span>&#123;<span class="number">2009</span>, <span class="number">1985</span>, <span class="number">2010</span>&#125;</span><br><span class="line">pairs := Zip(names, years) <span class="comment">// T = string, U = int，自动推断</span></span><br></pre></td></tr></table></figure>
+
+<p>这里 <code>T</code> 和 <code>U</code> 各自独立，可以是不同类型。值得一提的是，Go 允许连续多个类型参数共享同一个约束时省略写法——<code>[T, U any]</code> 等价于 <code>[T any, U any]</code>。这和函数参数的 <code>func foo(a, b int)</code> 是同一套规则。但要注意：共享约束不意味着类型相同，<code>T</code> 和 <code>U</code> 在实例化时可以是完全不同的类型。</p>
+<h2 id="约束"><a href="#约束" class="headerlink" title="约束"></a>约束</h2><p>Go 的约束（constraint）就是接口。三种最常用的内置约束：</p>
+<table>
+<thead>
+<tr>
+<th>约束</th>
+<th>含义</th>
+<th>C++ 对应</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>any</code></td>
+<td>任意类型（&#x3D; <code>interface{}</code>）</td>
+<td>无约束模板</td>
+</tr>
+<tr>
+<td><code>comparable</code></td>
+<td>支持 <code>==</code> 和 <code>!=</code> 的类型</td>
+<td><code>std::equality_comparable</code></td>
+</tr>
+<tr>
+<td><code>cmp.Ordered</code></td>
+<td>支持 <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code> 的类型（数值 + 字符串）</td>
+<td><code>std::totally_ordered</code></td>
+</tr>
+</tbody></table>
+<h3 id="comparable-约束"><a href="#comparable-约束" class="headerlink" title="comparable 约束"></a><code>comparable</code> 约束</h3><p><code>Contains</code> 在切片中查找元素。因为需要用 <code>==</code> 比较，所以约束是 <code>comparable</code> 而非 <code>any</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Contains</span>[<span class="title">T</span> <span class="title">comparable</span>]<span class="params">(slice []T, target T)</span></span> <span class="type">bool</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> _, v := <span class="keyword">range</span> slice &#123;</span><br><span class="line">        <span class="keyword">if</span> v == target &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">true</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Contains([]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&#125;, <span class="number">3</span>)           <span class="comment">// true</span></span><br><span class="line">Contains([]<span class="type">string</span>&#123;<span class="string">&quot;Go&quot;</span>, <span class="string">&quot;C++&quot;</span>&#125;, <span class="string">&quot;Go&quot;</span>) <span class="comment">// true</span></span><br></pre></td></tr></table></figure>
+
+<p>如果把约束改成 <code>any</code>，编译器会拒绝 <code>==</code> 操作——因为不是所有类型都支持相等比较（比如包含切片字段的结构体）。</p>
+<h3 id="自定义类型集约束"><a href="#自定义类型集约束" class="headerlink" title="自定义类型集约束"></a>自定义类型集约束</h3><p>Go 扩展了接口语法，允许用 <code>|</code> 列出允许的具体类型：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Number <span class="keyword">interface</span> &#123;</span><br><span class="line">    <span class="type">int</span> | <span class="type">int8</span> | <span class="type">int16</span> | <span class="type">int32</span> | <span class="type">int64</span> |</span><br><span class="line">        <span class="type">float32</span> | <span class="type">float64</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Sum</span>[<span class="title">T</span> <span class="title">Number</span>]<span class="params">(nums []T)</span></span> T &#123;</span><br><span class="line">    <span class="keyword">var</span> total T <span class="comment">// 零值初始化</span></span><br><span class="line">    <span class="keyword">for</span> _, n := <span class="keyword">range</span> nums &#123;</span><br><span class="line">        total += n</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> total</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">Sum([]<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>&#125;)         <span class="comment">// 15</span></span><br><span class="line">Sum([]<span class="type">float64</span>&#123;<span class="number">1.1</span>, <span class="number">2.2</span>, <span class="number">3.3</span>&#125;)     <span class="comment">// 6.6</span></span><br></pre></td></tr></table></figure>
+
+<p><code>Number</code> 接口不声明任何方法，而是用 <code>|</code> 枚举了一组类型——只有这些类型（及其底层类型匹配的自定义类型）才能满足约束。这在 C++ 里没有直接对应——C++ 模板可以接受任何支持 <code>+=</code> 的类型，Go 必须显式列出。更安全，但也更死板。</p>
+<h3 id="方法约束"><a href="#方法约束" class="headerlink" title="方法约束"></a>方法约束</h3><p>约束也可以要求方法——和普通接口完全一样：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Stringer <span class="keyword">interface</span> &#123;</span><br><span class="line">    String() <span class="type">string</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">JoinStrings</span>[<span class="title">T</span> <span class="title">Stringer</span>]<span class="params">(items []T, sep <span class="type">string</span>)</span></span> <span class="type">string</span> &#123;</span><br><span class="line">    parts := <span class="built_in">make</span>([]<span class="type">string</span>, <span class="built_in">len</span>(items))</span><br><span class="line">    <span class="keyword">for</span> i, item := <span class="keyword">range</span> items &#123;</span><br><span class="line">        parts[i] = item.String()</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> strings.Join(parts, sep)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>任何实现了 <code>String()</code> 方法的类型都能传入 <code>JoinStrings</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> City <span class="keyword">struct</span> &#123;</span><br><span class="line">    Name       <span class="type">string</span></span><br><span class="line">    Population <span class="type">int</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(c City)</span></span> String() <span class="type">string</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> fmt.Sprintf(<span class="string">&quot;%s(%d万)&quot;</span>, c.Name, c.Population/<span class="number">10000</span>)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">cities := []City&#123;&#123;<span class="string">&quot;上海&quot;</span>, <span class="number">24870000</span>&#125;, &#123;<span class="string">&quot;北京&quot;</span>, <span class="number">21540000</span>&#125;, &#123;<span class="string">&quot;深圳&quot;</span>, <span class="number">17560000</span>&#125;&#125;</span><br><span class="line">JoinStrings(cities, <span class="string">&quot; | &quot;</span>) <span class="comment">// &quot;上海(2487万) | 北京(2154万) | 深圳(1756万)&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>类型集和方法要求还可以组合在同一个接口里——既限定类型范围，又要求实现某些方法。</p>
+<h2 id="泛型类型"><a href="#泛型类型" class="headerlink" title="泛型类型"></a>泛型类型</h2><p>泛型不仅可以用于函数，也可以用于结构体定义。下面是一个泛型栈：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Stack[T any] <span class="keyword">struct</span> &#123;</span><br><span class="line">    items []T</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Stack[T])</span></span> Push(val T) &#123;</span><br><span class="line">    s.items = <span class="built_in">append</span>(s.items, val)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Stack[T])</span></span> Pop() (T, <span class="type">bool</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(s.items) == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">var</span> zero T</span><br><span class="line">        <span class="keyword">return</span> zero, <span class="literal">false</span></span><br><span class="line">    &#125;</span><br><span class="line">    last := s.items[<span class="built_in">len</span>(s.items)<span class="number">-1</span>]</span><br><span class="line">    s.items = s.items[:<span class="built_in">len</span>(s.items)<span class="number">-1</span>]</span><br><span class="line">    <span class="keyword">return</span> last, <span class="literal">true</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Stack[T])</span></span> Peek() (T, <span class="type">bool</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(s.items) == <span class="number">0</span> &#123;</span><br><span class="line">        <span class="keyword">var</span> zero T</span><br><span class="line">        <span class="keyword">return</span> zero, <span class="literal">false</span></span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> s.items[<span class="built_in">len</span>(s.items)<span class="number">-1</span>], <span class="literal">true</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Stack[T])</span></span> Len() <span class="type">int</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">len</span>(s.items)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用时指定具体类型，和 C++ 的 <code>Stack&lt;int&gt;</code> 对应（方括号换成了尖括号）：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">var</span> intStack Stack[<span class="type">int</span>]</span><br><span class="line">intStack.Push(<span class="number">10</span>)</span><br><span class="line">intStack.Push(<span class="number">20</span>)</span><br><span class="line">val, ok := intStack.Pop() <span class="comment">// val = 20, ok = true</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> strStack Stack[<span class="type">string</span>]</span><br><span class="line">strStack.Push(<span class="string">&quot;hello&quot;</span>)</span><br><span class="line">strStack.Push(<span class="string">&quot;world&quot;</span>)</span><br><span class="line">top, _ := strStack.Peek() <span class="comment">// top = &quot;world&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>注意 <code>Pop</code> 中的 <code>var zero T</code>——当需要返回零值时，声明一个未初始化的变量即可（Go 的零值保证）。C++ 模板里对应的是 <code>T{}</code>。</p>
+<p>同样的思路可以做出 <code>Pair</code>，类似 C++ 的 <code>std::pair&lt;T, U&gt;</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Pair[T, U any] <span class="keyword">struct</span> &#123;</span><br><span class="line">    First  T</span><br><span class="line">    Second U</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewPair</span>[<span class="title">T</span>, <span class="title">U</span> <span class="title">any</span>]<span class="params">(first T, second U)</span></span> Pair[T, U] &#123;</span><br><span class="line">    <span class="keyword">return</span> Pair[T, U]&#123;First: first, Second: second&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">p := NewPair(<span class="string">&quot;Go&quot;</span>, <span class="number">2009</span>)   <span class="comment">// Pair[string, int]</span></span><br><span class="line">p2 := NewPair(<span class="number">3.14</span>, <span class="literal">true</span>)  <span class="comment">// Pair[float64, bool]</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="Map、Filter、Reduce"><a href="#Map、Filter、Reduce" class="headerlink" title="Map、Filter、Reduce"></a>Map、Filter、Reduce</h2><p>这三个在 C++ 里是 <code>&lt;algorithm&gt;</code> 的 <code>std::transform</code>、<code>std::copy_if</code>、<code>std::accumulate</code>。Go 在 1.18 之前做不到类型安全的通用版本——只能用 <code>interface{}</code> 加类型断言，或者为每种类型手写。泛型解决了这个问题：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Map</span>[<span class="title">T</span>, <span class="title">U</span> <span class="title">any</span>]<span class="params">(slice []T, fn <span class="keyword">func</span>(T)</span></span> U) []U &#123;</span><br><span class="line">    result := <span class="built_in">make</span>([]U, <span class="built_in">len</span>(slice))</span><br><span class="line">    <span class="keyword">for</span> i, v := <span class="keyword">range</span> slice &#123;</span><br><span class="line">        result[i] = fn(v)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Filter</span>[<span class="title">T</span> <span class="title">any</span>]<span class="params">(slice []T, predicate <span class="keyword">func</span>(T)</span></span> <span class="type">bool</span>) []T &#123;</span><br><span class="line">    <span class="keyword">var</span> result []T</span><br><span class="line">    <span class="keyword">for</span> _, v := <span class="keyword">range</span> slice &#123;</span><br><span class="line">        <span class="keyword">if</span> predicate(v) &#123;</span><br><span class="line">            result = <span class="built_in">append</span>(result, v)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Reduce</span>[<span class="title">T</span>, <span class="title">U</span> <span class="title">any</span>]<span class="params">(slice []T, initial U, fn <span class="keyword">func</span>(U, T)</span></span> U) U &#123;</span><br><span class="line">    acc := initial</span><br><span class="line">    <span class="keyword">for</span> _, v := <span class="keyword">range</span> slice &#123;</span><br><span class="line">        acc = fn(acc, v)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> acc</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>用起来：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">numbers := []<span class="type">int</span>&#123;<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>, <span class="number">9</span>, <span class="number">10</span>&#125;</span><br><span class="line"></span><br><span class="line">squares := Map(numbers, <span class="function"><span class="keyword">func</span><span class="params">(n <span class="type">int</span>)</span></span> <span class="type">int</span> &#123; <span class="keyword">return</span> n * n &#125;)</span><br><span class="line">evens := Filter(numbers, <span class="function"><span class="keyword">func</span><span class="params">(n <span class="type">int</span>)</span></span> <span class="type">bool</span> &#123; <span class="keyword">return</span> n%<span class="number">2</span> == <span class="number">0</span> &#125;)</span><br><span class="line">sum := Reduce(numbers, <span class="number">0</span>, <span class="function"><span class="keyword">func</span><span class="params">(acc, n <span class="type">int</span>)</span></span> <span class="type">int</span> &#123; <span class="keyword">return</span> acc + n &#125;)</span><br></pre></td></tr></table></figure>
+
+<p>这里传入的匿名函数就是 Go 的闭包——语法上类似 C++ 的 lambda，但没有显式的捕获列表。Go 闭包自动捕获外围作用域的变量，且捕获的是变量本身（引用语义），类似 C++ 的 <code>[&amp;]</code>。</p>
+<p>注意 <code>Reduce</code> 的签名：<code>T</code> 和 <code>U</code> 可以是不同类型。如果切片元素是 <code>string</code> 而初始值是 <code>int</code>（比如统计总长度），传入的 <code>fn</code> 需要自己处理类型转换——泛型保证的是类型安全，而非类型自动转换。</p>
+<p>也可以组合使用——偶数的平方和：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sumOfEvenSquares := Reduce(</span><br><span class="line">    Map(</span><br><span class="line">        Filter(numbers, <span class="function"><span class="keyword">func</span><span class="params">(n <span class="type">int</span>)</span></span> <span class="type">bool</span> &#123; <span class="keyword">return</span> n%<span class="number">2</span> == <span class="number">0</span> &#125;),</span><br><span class="line">        <span class="function"><span class="keyword">func</span><span class="params">(n <span class="type">int</span>)</span></span> <span class="type">int</span> &#123; <span class="keyword">return</span> n * n &#125;,</span><br><span class="line">    ),</span><br><span class="line">    <span class="number">0</span>,</span><br><span class="line">    <span class="function"><span class="keyword">func</span><span class="params">(acc, n <span class="type">int</span>)</span></span> <span class="type">int</span> &#123; <span class="keyword">return</span> acc + n &#125;,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p>能用，但不如 C++ ranges（<code>numbers | filter(...) | transform(...)</code>）或函数式语言的链式调用优雅。Go 社区的态度是：嵌套太深就拆成几行，可读性优先。</p>
+<h2 id="为什么需要泛型：Future-模式"><a href="#为什么需要泛型：Future-模式" class="headerlink" title="为什么需要泛型：Future 模式"></a>为什么需要泛型：Future 模式</h2><p>泛型的价值不仅是少写重复代码。更重要的是<strong>在编译期保留类型信息</strong>。用一个类似 C++ <code>std::future&lt;T&gt;</code> &#x2F; <code>std::async</code> 的例子来展示。</p>
+<p>没有泛型时，只能用 <code>interface{}</code> 传递异步结果，调用方每次取值都要做类型断言：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> FutureUntyped <span class="keyword">struct</span> &#123;</span><br><span class="line">    ch <span class="keyword">chan</span> <span class="keyword">interface</span>&#123;&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewFutureUntyped</span><span class="params">(fn <span class="keyword">func</span>()</span></span> <span class="keyword">interface</span>&#123;&#125;) *FutureUntyped &#123;</span><br><span class="line">    f := &amp;FutureUntyped&#123;ch: <span class="built_in">make</span>(<span class="keyword">chan</span> <span class="keyword">interface</span>&#123;&#125;, <span class="number">1</span>)&#125;</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        f.ch &lt;- fn()</span><br><span class="line">    &#125;()</span><br><span class="line">    <span class="keyword">return</span> f</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(f *FutureUntyped)</span></span> Get() <span class="keyword">interface</span>&#123;&#125; &#123;</span><br><span class="line">    <span class="keyword">return</span> &lt;-f.ch</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用时：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">f1 := NewFutureUntyped(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> <span class="keyword">interface</span>&#123;&#125; &#123;</span><br><span class="line">    <span class="keyword">return</span> fetchUser(<span class="number">1</span>) <span class="comment">// *User 被装箱为 interface&#123;&#125;</span></span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line">result := f1.Get()     <span class="comment">// 类型是 interface&#123;&#125;，不知道里面是什么</span></span><br><span class="line">user := result.(*User) <span class="comment">// 必须类型断言，断言错了就 panic</span></span><br></pre></td></tr></table></figure>
+
+<p>有泛型的版本，类型信息完整保留：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Future[T any] <span class="keyword">struct</span> &#123;</span><br><span class="line">    ch <span class="keyword">chan</span> T</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewFuture</span>[<span class="title">T</span> <span class="title">any</span>]<span class="params">(fn <span class="keyword">func</span>()</span></span> T) *Future[T] &#123;</span><br><span class="line">    f := &amp;Future[T]&#123;ch: <span class="built_in">make</span>(<span class="keyword">chan</span> T, <span class="number">1</span>)&#125;</span><br><span class="line">    <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">        f.ch &lt;- fn()</span><br><span class="line">    &#125;()</span><br><span class="line">    <span class="keyword">return</span> f</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(f *Future[T])</span></span> Get() T &#123;</span><br><span class="line">    <span class="keyword">return</span> &lt;-f.ch</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用时：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">f2 := NewFuture(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> *User &#123;</span><br><span class="line">    <span class="keyword">return</span> fetchUser(<span class="number">2</span>)</span><br><span class="line">&#125;)</span><br><span class="line">user2 := f2.Get() <span class="comment">// 直接是 *User，编译器保证</span></span><br><span class="line"></span><br><span class="line">f3 := NewFuture(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> <span class="type">float64</span> &#123;</span><br><span class="line">    <span class="keyword">return</span> fetchScore(<span class="string">&quot;Liam&quot;</span>)</span><br><span class="line">&#125;)</span><br><span class="line">score := f3.Get() <span class="comment">// 直接是 float64，不需要断言</span></span><br></pre></td></tr></table></figure>
+
+<p><code>f3.Get()</code> 返回 <code>float64</code>，如果你写 <code>f3.Get().Name</code> 会直接编译错误——类型安全在编译期就得到了保证，而非运行时 panic。这就是泛型最核心的价值：<strong>把运行时的类型断言错误，变成编译期的类型检查错误</strong>。</p>
+<h2 id="Go-泛型的刻意限制"><a href="#Go-泛型的刻意限制" class="headerlink" title="Go 泛型的刻意限制"></a>Go 泛型的刻意限制</h2><p>和 C++ 模板相比，Go 泛型故意不支持很多东西：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>C++ 模板</th>
+<th>Go 泛型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>特化（specialization）</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>编译期计算（<code>constexpr</code>）</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>模板模板参数</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>变参模板（variadic）</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>方法级类型参数</td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>SFINAE &#x2F; <code>if constexpr</code></td>
+<td>支持</td>
+<td>不支持</td>
+</tr>
+</tbody></table>
+<p>这是有意为之——Go 团队花了十多年才加入泛型，就是为了避免引入 C++ 模板那样的复杂性。C++ 模板是图灵完备的编译期计算引擎，能力极强但也导致了编译时间膨胀和令人绝望的错误信息。Go 的泛型够用，但不追求万能。如果你发现自己在 Go 里想要模板特化或编译期计算，通常意味着需要换一种设计思路——比如用接口多态替代特化，用 <code>go generate</code> 替代编译期代码生成。</p>
+<p>反过来看，Go 泛型也有 C++ 模板不容易做到的事：约束是一等公民，错误信息清晰；类型集约束可以精确控制允许的类型，不需要 SFINAE 的间接手段。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>Go 泛型的设计哲学可以概括为「够用就好」。C++ 模板从 1990 年代发展至今，经历了特化、SFINAE、<code>constexpr</code>、变参模板、Concepts 等多轮演进，已经成为一套图灵完备的编译期元编程系统——能力极其强大，但学习曲线和心智负担同样惊人。Go 选择了另一条路：只提供最核心的能力——类型参数化和约束——然后到此为止。</p>
+<p>这种克制意味着你不能在 Go 里写出 <code>std::tuple</code> 或 <code>boost::hana</code> 那样的编译期魔法，但也意味着任何 Go 程序员都能在五分钟内读懂一个泛型函数的签名。Go 社区的共识是：泛型是用来消除重复代码的工具，而不是用来构建抽象层的框架。如果一段代码只有三种具体类型需要处理，写三个函数可能比引入泛型更清晰。泛型解决的是「必须为每种类型复制粘贴同一段逻辑」的真实痛点，而不是「让代码看起来更高级」的审美偏好。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/04/16/from-cpp-to-go-generics/" title="从 C++ 到 Go（五）：泛型">https://liam.page/2026/04/16/from-cpp-to-go-generics/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/" rel="tag"># 编程语言</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/15/from-cpp-to-go-package-and-testing/" rel="prev" title="从 C++ 到 Go（四）：包管理与测试">
+      <i class="fa fa-chevron-left"></i> 从 C++ 到 Go（四）：包管理与测试
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%9B%E5%9E%8B%E5%87%BD%E6%95%B0%E4%B8%8E%E7%B1%BB%E5%9E%8B%E5%8F%82%E6%95%B0"><span class="nav-number">1.</span> <span class="nav-text">泛型函数与类型参数</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%9A%E4%B8%AA%E7%B1%BB%E5%9E%8B%E5%8F%82%E6%95%B0"><span class="nav-number">1.1.</span> <span class="nav-text">多个类型参数</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BA%A6%E6%9D%9F"><span class="nav-number">2.</span> <span class="nav-text">约束</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#comparable-%E7%BA%A6%E6%9D%9F"><span class="nav-number">2.1.</span> <span class="nav-text">comparable 约束</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%AE%9A%E4%B9%89%E7%B1%BB%E5%9E%8B%E9%9B%86%E7%BA%A6%E6%9D%9F"><span class="nav-number">2.2.</span> <span class="nav-text">自定义类型集约束</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%96%B9%E6%B3%95%E7%BA%A6%E6%9D%9F"><span class="nav-number">2.3.</span> <span class="nav-text">方法约束</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%9B%E5%9E%8B%E7%B1%BB%E5%9E%8B"><span class="nav-number">3.</span> <span class="nav-text">泛型类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Map%E3%80%81Filter%E3%80%81Reduce"><span class="nav-number">4.</span> <span class="nav-text">Map、Filter、Reduce</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E6%B3%9B%E5%9E%8B%EF%BC%9AFuture-%E6%A8%A1%E5%BC%8F"><span class="nav-number">5.</span> <span class="nav-text">为什么需要泛型：Future 模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Go-%E6%B3%9B%E5%9E%8B%E7%9A%84%E5%88%BB%E6%84%8F%E9%99%90%E5%88%B6"><span class="nav-number">6.</span> <span class="nav-text">Go 泛型的刻意限制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">7.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">413</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">780</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">41:44</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/04/16/from-cpp-to-go-generics/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'aa2f4443c69967eeaeabde99c12c88f5',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
