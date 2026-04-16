@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是「从 C++ 到 Go」系列的第七篇，也是整个系列的收官之作。上一篇讨论了 IO 接口与标准库，本篇把前面所有知识串联起来，用纯标准库（不依赖任何第三方包）实现一个完整的 TODO REST API 服务。项目不大，但覆盖了包组织、接口、泛型、JSON、HTTP、并发安全、错误处理和测试——每个部分都对应着前面某一课的内容。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从 C++ 到 Go（七）：实战 TODO API">
+<meta property="og:url" content="https://liam.page/2026/04/16/from-cpp-to-go-todo-api/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是「从 C++ 到 Go」系列的第七篇，也是整个系列的收官之作。上一篇讨论了 IO 接口与标准库，本篇把前面所有知识串联起来，用纯标准库（不依赖任何第三方包）实现一个完整的 TODO REST API 服务。项目不大，但覆盖了包组织、接口、泛型、JSON、HTTP、并发安全、错误处理和测试——每个部分都对应着前面某一课的内容。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-16T08:27:07.000Z">
+<meta property="article:modified_time" content="2026-04-16T08:27:32.631Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="C++">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Golang">
+<meta property="article:tag" content="编程语言">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/04/16/from-cpp-to-go-todo-api/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>从 C++ 到 Go（七）：实战 TODO API | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">415</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">780</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/04/16/from-cpp-to-go-todo-api/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从 C++ 到 Go（七）：实战 TODO API
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 04 月 16 日 16:27:07 / 修改时间：16:27:32" itemprop="dateCreated datePublished" datetime="2026-04-16T16:27:07+08:00">2026 年 04 月 16 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>16k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>29 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文是「从 C++ 到 Go」系列的第七篇，也是整个系列的收官之作。<a href="/2026/04/16/from-cpp-to-go-io-and-stdlib/">上一篇</a>讨论了 IO 接口与标准库，本篇把前面所有知识串联起来，用纯标准库（不依赖任何第三方包）实现一个完整的 TODO REST API 服务。项目不大，但覆盖了包组织、接口、泛型、JSON、HTTP、并发安全、错误处理和测试——每个部分都对应着前面某一课的内容。</p>
+<span id="more"></span>
+
+<h2 id="项目结构"><a href="#项目结构" class="headerlink" title="项目结构"></a>项目结构</h2><p>先看整体目录：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">14_todo_api/</span><br><span class="line">├── main.go                ← 入口：组装依赖、启动服务</span><br><span class="line">├── model/</span><br><span class="line">│   └── todo.go            ← 数据模型</span><br><span class="line">├── response/</span><br><span class="line">│   └── response.go        ← 泛型 API 响应包装</span><br><span class="line">├── store/</span><br><span class="line">│   ├── store.go           ← Store 接口 + 内存实现</span><br><span class="line">│   └── store_test.go      ← 表驱动测试 + 并发安全测试</span><br><span class="line">├── handler/</span><br><span class="line">│   ├── handler.go         ← HTTP 处理层</span><br><span class="line">│   └── handler_test.go    ← httptest 集成测试</span><br></pre></td></tr></table></figure>
+
+<p>四个包按职责划分：<code>model</code> 定义数据结构，<code>store</code> 负责存取，<code>handler</code> 处理 HTTP，<code>response</code> 提供统一的响应格式。<code>main</code> 只做组装。这是<a href="/2026/04/15/from-cpp-to-go-package-and-testing/">第四篇</a>讨论的「按领域拆包」原则的实际应用。</p>
+<p>调用链路也很清晰：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">客户端请求</span><br><span class="line">  → net/http（路由匹配 + 连接管理）</span><br><span class="line">    → handler（解析请求 → 调用 store → 构建响应）</span><br><span class="line">      → store（业务逻辑 + 数据存取）</span><br><span class="line">        → model（纯数据结构）</span><br></pre></td></tr></table></figure>
+
+<p>每一层只依赖它下面的层，不反向依赖。</p>
+<h2 id="API-设计"><a href="#API-设计" class="headerlink" title="API 设计"></a>API 设计</h2><p>遵循 REST 风格——用 URL 标识资源，用 HTTP 方法表达操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">GET    /todos           列出所有（可选 ?status=done 过滤）</span><br><span class="line">POST   /todos           创建</span><br><span class="line">GET    /todos/&#123;id&#125;      获取单个</span><br><span class="line">PUT    /todos/&#123;id&#125;      更新（支持部分更新）</span><br><span class="line">DELETE /todos/&#123;id&#125;      删除</span><br></pre></td></tr></table></figure>
+
+<p>所有响应使用统一的 JSON 格式：成功时 <code>{&quot;data&quot;: ...}</code>，失败时 <code>{&quot;error&quot;: &quot;...&quot;}</code>。</p>
+<h2 id="数据模型"><a href="#数据模型" class="headerlink" title="数据模型"></a>数据模型</h2><p>从依赖树的叶子开始。<code>model</code> 包不依赖项目内的任何其他包，只定义数据结构：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> model</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> <span class="string">&quot;time&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Todo <span class="keyword">struct</span> &#123;</span><br><span class="line">    ID        <span class="type">string</span>    <span class="string">`json:&quot;id&quot;`</span></span><br><span class="line">    Title     <span class="type">string</span>    <span class="string">`json:&quot;title&quot;`</span></span><br><span class="line">    Done      <span class="type">bool</span>      <span class="string">`json:&quot;done&quot;`</span></span><br><span class="line">    CreatedAt time.Time <span class="string">`json:&quot;created_at&quot;`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> CreateRequest <span class="keyword">struct</span> &#123;</span><br><span class="line">    Title <span class="type">string</span> <span class="string">`json:&quot;title&quot;`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> UpdateRequest <span class="keyword">struct</span> &#123;</span><br><span class="line">    Title *<span class="type">string</span> <span class="string">`json:&quot;title,omitempty&quot;`</span></span><br><span class="line">    Done  *<span class="type">bool</span>   <span class="string">`json:&quot;done,omitempty&quot;`</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>Todo</code> 是核心实体，<code>CreateRequest</code> 和 <code>UpdateRequest</code> 是客户端发送的请求体。将请求体和实体分开定义是 API 设计的常见做法——客户端不应该控制 ID 和创建时间。</p>
+<p><code>UpdateRequest</code> 的字段是指针类型，这是为了实现「部分更新」：客户端发 <code>{&quot;done&quot;: true}</code> 时，<code>Title</code> 为 <code>nil</code>（不更新），<code>Done</code> 非 <code>nil</code>（更新）。如果用 <code>bool</code> 而不是 <code>*bool</code>，就无法区分「客户端没传」和「客户端传了 <code>false</code>」——因为两者反序列化后都是零值 <code>false</code>。这个技巧只在需要区分「未传」和「传了零值」的场景下才需要；对于 <code>CreateRequest</code> 这种全量必填的结构，直接用值类型就好。</p>
+<h2 id="泛型响应包装"><a href="#泛型响应包装" class="headerlink" title="泛型响应包装"></a>泛型响应包装</h2><p><code>response</code> 包用泛型定义统一的 API 响应格式——这是<a href="/2026/04/16/from-cpp-to-go-generics/">第五篇</a>讨论的泛型在实际项目中的应用：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> response</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;encoding/json&quot;</span></span><br><span class="line">    <span class="string">&quot;net/http&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Response[T any] <span class="keyword">struct</span> &#123;</span><br><span class="line">    Data  T      <span class="string">`json:&quot;data,omitempty&quot;`</span></span><br><span class="line">    Error <span class="type">string</span> <span class="string">`json:&quot;error,omitempty&quot;`</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">JSON</span>[<span class="title">T</span> <span class="title">any</span>]<span class="params">(w http.ResponseWriter, status <span class="type">int</span>, resp Response[T])</span></span> &#123;</span><br><span class="line">    w.Header().Set(<span class="string">&quot;Content-Type&quot;</span>, <span class="string">&quot;application/json&quot;</span>)</span><br><span class="line">    w.WriteHeader(status)</span><br><span class="line">    json.NewEncoder(w).Encode(resp)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">OK</span>[<span class="title">T</span> <span class="title">any</span>]<span class="params">(w http.ResponseWriter, data T)</span></span> &#123;</span><br><span class="line">    JSON(w, http.StatusOK, Response[T]&#123;Data: data&#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Created</span>[<span class="title">T</span> <span class="title">any</span>]<span class="params">(w http.ResponseWriter, data T)</span></span> &#123;</span><br><span class="line">    JSON(w, http.StatusCreated, Response[T]&#123;Data: data&#125;)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Err</span><span class="params">(w http.ResponseWriter, status <span class="type">int</span>, msg <span class="type">string</span>)</span></span> &#123;</span><br><span class="line">    JSON(w, status, Response[any]&#123;Error: msg&#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>没有泛型时，<code>Data</code> 只能是 <code>interface{}</code>，调用方拿到响应后还得做类型断言。有了 <code>Response[T]</code>，<code>OK(w, todo)</code> 返回的就是 <code>Response[model.Todo]</code>，<code>OK(w, todos)</code> 返回的就是 <code>Response[[]*model.Todo]</code>——类型在编译期确定。</p>
+<h2 id="存储层"><a href="#存储层" class="headerlink" title="存储层"></a>存储层</h2><p><code>store</code> 包是业务逻辑的核心，综合运用了接口、错误处理和并发控制。</p>
+<h3 id="接口与哨兵错误"><a href="#接口与哨兵错误" class="headerlink" title="接口与哨兵错误"></a>接口与哨兵错误</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> store</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;errors&quot;</span></span><br><span class="line">    <span class="string">&quot;fmt&quot;</span></span><br><span class="line">    <span class="string">&quot;sync&quot;</span></span><br><span class="line">    <span class="string">&quot;time&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/model&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> ErrNotFound = errors.New(<span class="string">&quot;todo not found&quot;</span>)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Store <span class="keyword">interface</span> &#123;</span><br><span class="line">    List() []*model.Todo</span><br><span class="line">    Get(id <span class="type">string</span>) (*model.Todo, <span class="type">error</span>)</span><br><span class="line">    Create(title <span class="type">string</span>) *model.Todo</span><br><span class="line">    Update(id <span class="type">string</span>, req model.UpdateRequest) (*model.Todo, <span class="type">error</span>)</span><br><span class="line">    Delete(id <span class="type">string</span>) <span class="type">error</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>Store</code> 是接口，定义了存储层的行为契约。<code>handler</code> 依赖这个接口，不依赖具体实现——未来换成数据库只需要写一个新的实现，<code>handler</code> 代码不用改。这是<a href="/2026/04/15/from-cpp-to-go-collections-structs-and-interfaces/">第二篇</a>讨论的隐式接口的实际价值。</p>
+<p><code>ErrNotFound</code> 是哨兵错误，调用方通过 <code>errors.Is(err, store.ErrNotFound)</code> 来判断——不比较字符串，而是比较值。这是<a href="/2026/04/15/from-cpp-to-go-concurrency-and-error-handling/">第三篇</a>讨论过的错误处理惯例。</p>
+<h3 id="内存实现"><a href="#内存实现" class="headerlink" title="内存实现"></a>内存实现</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> MemoryStore <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu     sync.RWMutex</span><br><span class="line">    todos  <span class="keyword">map</span>[<span class="type">string</span>]*model.Todo</span><br><span class="line">    nextID <span class="type">int</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">NewMemoryStore</span><span class="params">()</span></span> *MemoryStore &#123;</span><br><span class="line">    <span class="keyword">return</span> &amp;MemoryStore&#123;</span><br><span class="line">        todos: <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="type">string</span>]*model.Todo),</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>sync.RWMutex</code> 区分读锁和写锁：多个读操作可以同时进行（<code>RLock</code>），写操作独占（<code>Lock</code>）。对于「读多写少」的 API 服务，比普通的 <code>sync.Mutex</code> 并发性能更好。</p>
+<p>读操作用 <code>RLock</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *MemoryStore)</span></span> List() []*model.Todo &#123;</span><br><span class="line">    s.mu.RLock()</span><br><span class="line">    <span class="keyword">defer</span> s.mu.RUnlock()</span><br><span class="line"></span><br><span class="line">    result := <span class="built_in">make</span>([]*model.Todo, <span class="number">0</span>, <span class="built_in">len</span>(s.todos))</span><br><span class="line">    <span class="keyword">for</span> _, todo := <span class="keyword">range</span> s.todos &#123;</span><br><span class="line">        result = <span class="built_in">append</span>(result, todo)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> result</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *MemoryStore)</span></span> Get(id <span class="type">string</span>) (*model.Todo, <span class="type">error</span>) &#123;</span><br><span class="line">    s.mu.RLock()</span><br><span class="line">    <span class="keyword">defer</span> s.mu.RUnlock()</span><br><span class="line"></span><br><span class="line">    todo, ok := s.todos[id]</span><br><span class="line">    <span class="keyword">if</span> !ok &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, ErrNotFound</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> todo, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>写操作用 <code>Lock</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *MemoryStore)</span></span> Create(title <span class="type">string</span>) *model.Todo &#123;</span><br><span class="line">    s.mu.Lock()</span><br><span class="line">    <span class="keyword">defer</span> s.mu.Unlock()</span><br><span class="line"></span><br><span class="line">    s.nextID++</span><br><span class="line">    id := fmt.Sprintf(<span class="string">&quot;todo-%d&quot;</span>, s.nextID)</span><br><span class="line"></span><br><span class="line">    todo := &amp;model.Todo&#123;</span><br><span class="line">        ID:        id,</span><br><span class="line">        Title:     title,</span><br><span class="line">        Done:      <span class="literal">false</span>,</span><br><span class="line">        CreatedAt: time.Now(),</span><br><span class="line">    &#125;</span><br><span class="line">    s.todos[id] = todo</span><br><span class="line">    <span class="keyword">return</span> todo</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *MemoryStore)</span></span> Update(id <span class="type">string</span>, req model.UpdateRequest) (*model.Todo, <span class="type">error</span>) &#123;</span><br><span class="line">    s.mu.Lock()</span><br><span class="line">    <span class="keyword">defer</span> s.mu.Unlock()</span><br><span class="line"></span><br><span class="line">    todo, ok := s.todos[id]</span><br><span class="line">    <span class="keyword">if</span> !ok &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, ErrNotFound</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> req.Title != <span class="literal">nil</span> &#123;</span><br><span class="line">        todo.Title = *req.Title</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> req.Done != <span class="literal">nil</span> &#123;</span><br><span class="line">        todo.Done = *req.Done</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> todo, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *MemoryStore)</span></span> Delete(id <span class="type">string</span>) <span class="type">error</span> &#123;</span><br><span class="line">    s.mu.Lock()</span><br><span class="line">    <span class="keyword">defer</span> s.mu.Unlock()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> _, ok := s.todos[id]; !ok &#123;</span><br><span class="line">        <span class="keyword">return</span> ErrNotFound</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">delete</span>(s.todos, id)</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>Update</code> 中体现了指针字段的作用：只有非 <code>nil</code> 的字段才会被更新，实现部分更新语义。</p>
+<h2 id="存储层测试"><a href="#存储层测试" class="headerlink" title="存储层测试"></a>存储层测试</h2><p>测试紧跟实现来读。用到了表驱动测试、子测试和并发安全测试：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> store</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;sync&quot;</span></span><br><span class="line">    <span class="string">&quot;testing&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/model&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestCRUD</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    s := NewMemoryStore()</span><br><span class="line">    <span class="keyword">var</span> todoID <span class="type">string</span></span><br><span class="line"></span><br><span class="line">    t.Run(<span class="string">&quot;Create&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">        todo := s.Create(<span class="string">&quot;买牛奶&quot;</span>)</span><br><span class="line">        <span class="keyword">if</span> todo.Title != <span class="string">&quot;买牛奶&quot;</span> &#123;</span><br><span class="line">            t.Errorf(<span class="string">&quot;Title = %q, want %q&quot;</span>, todo.Title, <span class="string">&quot;买牛奶&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> todo.Done &#123;</span><br><span class="line">            t.Error(<span class="string">&quot;new todo should not be done&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> todo.ID == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">            t.Error(<span class="string">&quot;ID should not be empty&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">        todoID = todo.ID</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    t.Run(<span class="string">&quot;Get&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">        todo, err := s.Get(todoID)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">            t.Fatalf(<span class="string">&quot;Get(%q) error: %v&quot;</span>, todoID, err)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> todo.Title != <span class="string">&quot;买牛奶&quot;</span> &#123;</span><br><span class="line">            t.Errorf(<span class="string">&quot;Title = %q, want %q&quot;</span>, todo.Title, <span class="string">&quot;买牛奶&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    t.Run(<span class="string">&quot;Get_NotFound&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">        _, err := s.Get(<span class="string">&quot;nonexistent&quot;</span>)</span><br><span class="line">        <span class="keyword">if</span> err != ErrNotFound &#123;</span><br><span class="line">            t.Errorf(<span class="string">&quot;Get(nonexistent) error = %v, want ErrNotFound&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    t.Run(<span class="string">&quot;Update_Title&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">        newTitle := <span class="string">&quot;买酸奶&quot;</span></span><br><span class="line">        todo, err := s.Update(todoID, model.UpdateRequest&#123;Title: &amp;newTitle&#125;)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">            t.Fatalf(<span class="string">&quot;Update error: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> todo.Title != <span class="string">&quot;买酸奶&quot;</span> &#123;</span><br><span class="line">            t.Errorf(<span class="string">&quot;Title = %q, want %q&quot;</span>, todo.Title, <span class="string">&quot;买酸奶&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> todo.Done &#123;</span><br><span class="line">            t.Error(<span class="string">&quot;Done should not change when only Title is updated&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    t.Run(<span class="string">&quot;Update_Done&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">        done := <span class="literal">true</span></span><br><span class="line">        todo, err := s.Update(todoID, model.UpdateRequest&#123;Done: &amp;done&#125;)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">            t.Fatalf(<span class="string">&quot;Update error: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> !todo.Done &#123;</span><br><span class="line">            t.Error(<span class="string">&quot;Done should be true&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;)</span><br><span class="line"></span><br><span class="line">    t.Run(<span class="string">&quot;Delete&quot;</span>, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">        err := s.Delete(todoID)</span><br><span class="line">        <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">            t.Fatalf(<span class="string">&quot;Delete error: %v&quot;</span>, err)</span><br><span class="line">        &#125;</span><br><span class="line">        _, err = s.Get(todoID)</span><br><span class="line">        <span class="keyword">if</span> err != ErrNotFound &#123;</span><br><span class="line">            t.Error(<span class="string">&quot;Get after Delete should return ErrNotFound&quot;</span>)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这些子测试共享同一个 <code>store</code> 实例，前一个步骤的结果是后一个步骤的输入——<code>Create</code> 的 ID 传给 <code>Get</code>，<code>Update</code> 修改后 <code>Delete</code> 删除，<code>Delete</code> 后 <code>Get</code> 验证 404。</p>
+<p>注意测试文件声明的是 <code>package store</code>（不是 <code>package store_test</code>），所以可以直接访问 <code>ErrNotFound</code> 等未导出的标识符——这是<a href="/2026/04/15/from-cpp-to-go-package-and-testing/">第四篇</a>讨论的 <code>_test.go</code> 特权。</p>
+<p>并发安全测试更有意思：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestConcurrency</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    s := NewMemoryStore()</span><br><span class="line">    s.Create(<span class="string">&quot;初始任务&quot;</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">var</span> wg sync.WaitGroup</span><br><span class="line">    <span class="keyword">const</span> goroutines = <span class="number">50</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; goroutines; i++ &#123;</span><br><span class="line">        wg.Add(<span class="number">2</span>)</span><br><span class="line"></span><br><span class="line">        <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">            <span class="keyword">defer</span> wg.Done()</span><br><span class="line">            s.Create(<span class="string">&quot;并发创建&quot;</span>)</span><br><span class="line">        &#125;()</span><br><span class="line"></span><br><span class="line">        <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">            <span class="keyword">defer</span> wg.Done()</span><br><span class="line">            s.List()</span><br><span class="line">        &#125;()</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    wg.Wait()</span><br><span class="line"></span><br><span class="line">    todos := s.List()</span><br><span class="line">    expected := <span class="number">1</span> + goroutines</span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">len</span>(todos) != expected &#123;</span><br><span class="line">        t.Errorf(<span class="string">&quot;List() len = %d, want %d&quot;</span>, <span class="built_in">len</span>(todos), expected)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>50 个 goroutine 同时写、50 个同时读。如果 <code>RWMutex</code> 保护有遗漏，<code>go test -race</code> 会捕获数据竞争。</p>
+<h2 id="HTTP-处理层"><a href="#HTTP-处理层" class="headerlink" title="HTTP 处理层"></a>HTTP 处理层</h2><p><code>handler</code> 包是 HTTP 和业务逻辑的衔接点：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> handler</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;encoding/json&quot;</span></span><br><span class="line">    <span class="string">&quot;errors&quot;</span></span><br><span class="line">    <span class="string">&quot;net/http&quot;</span></span><br><span class="line">    <span class="string">&quot;strings&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/model&quot;</span></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/response&quot;</span></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/store&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="keyword">type</span> Handler <span class="keyword">struct</span> &#123;</span><br><span class="line">    store store.Store</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">New</span><span class="params">(s store.Store)</span></span> *Handler &#123;</span><br><span class="line">    <span class="keyword">return</span> &amp;Handler&#123;store: s&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>Handler</code> 持有 <code>store.Store</code> 接口——依赖注入。<code>main</code> 函数负责创建具体的 <code>MemoryStore</code> 并传进来。</p>
+<h3 id="路由注册"><a href="#路由注册" class="headerlink" title="路由注册"></a>路由注册</h3><p>Go 1.22 开始支持 <code>&quot;METHOD /path&quot;</code> 格式的路由，<code>{id}</code> 是路径参数：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> RegisterRoutes(mux *http.ServeMux) &#123;</span><br><span class="line">    mux.HandleFunc(<span class="string">&quot;GET /todos&quot;</span>, h.handleList)</span><br><span class="line">    mux.HandleFunc(<span class="string">&quot;POST /todos&quot;</span>, h.handleCreate)</span><br><span class="line">    mux.HandleFunc(<span class="string">&quot;GET /todos/&#123;id&#125;&quot;</span>, h.handleGet)</span><br><span class="line">    mux.HandleFunc(<span class="string">&quot;PUT /todos/&#123;id&#125;&quot;</span>, h.handleUpdate)</span><br><span class="line">    mux.HandleFunc(<span class="string">&quot;DELETE /todos/&#123;id&#125;&quot;</span>, h.handleDelete)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 1.22 之前，标准库的 <code>ServeMux</code> 不支持方法匹配和路径参数，需要第三方路由库（如 gorilla&#x2F;mux）或手动在 handler 里判断 <code>r.Method</code>。现在标准库就够用了。</p>
+<h3 id="各-Handler-实现"><a href="#各-Handler-实现" class="headerlink" title="各 Handler 实现"></a>各 Handler 实现</h3><p>列出所有 todo，支持 <code>?status=done</code> 过滤：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> handleList(w http.ResponseWriter, r *http.Request) &#123;</span><br><span class="line">    todos := h.store.List()</span><br><span class="line"></span><br><span class="line">    statusFilter := r.URL.Query().Get(<span class="string">&quot;status&quot;</span>)</span><br><span class="line">    <span class="keyword">if</span> statusFilter != <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">        filtered := <span class="built_in">make</span>([]*model.Todo, <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">for</span> _, todo := <span class="keyword">range</span> todos &#123;</span><br><span class="line">            <span class="keyword">switch</span> strings.ToLower(statusFilter) &#123;</span><br><span class="line">            <span class="keyword">case</span> <span class="string">&quot;done&quot;</span>:</span><br><span class="line">                <span class="keyword">if</span> todo.Done &#123;</span><br><span class="line">                    filtered = <span class="built_in">append</span>(filtered, todo)</span><br><span class="line">                &#125;</span><br><span class="line">            <span class="keyword">case</span> <span class="string">&quot;undone&quot;</span>:</span><br><span class="line">                <span class="keyword">if</span> !todo.Done &#123;</span><br><span class="line">                    filtered = <span class="built_in">append</span>(filtered, todo)</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        todos = filtered</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    response.OK(w, todos)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>创建：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> handleCreate(w http.ResponseWriter, r *http.Request) &#123;</span><br><span class="line">    <span class="keyword">var</span> req model.CreateRequest</span><br><span class="line">    <span class="keyword">if</span> err := json.NewDecoder(r.Body).Decode(&amp;req); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        response.Err(w, http.StatusBadRequest, <span class="string">&quot;invalid JSON: &quot;</span>+err.Error())</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> strings.TrimSpace(req.Title) == <span class="string">&quot;&quot;</span> &#123;</span><br><span class="line">        response.Err(w, http.StatusBadRequest, <span class="string">&quot;title is required&quot;</span>)</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    todo := h.store.Create(req.Title)</span><br><span class="line">    response.Created(w, todo)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>获取、更新、删除的结构都是同一个模式——解析请求、调用 store、处理错误、返回响应：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> handleGet(w http.ResponseWriter, r *http.Request) &#123;</span><br><span class="line">    id := r.PathValue(<span class="string">&quot;id&quot;</span>)</span><br><span class="line"></span><br><span class="line">    todo, err := h.store.Get(id)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        h.handleError(w, err)</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    response.OK(w, todo)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> handleUpdate(w http.ResponseWriter, r *http.Request) &#123;</span><br><span class="line">    id := r.PathValue(<span class="string">&quot;id&quot;</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">var</span> req model.UpdateRequest</span><br><span class="line">    <span class="keyword">if</span> err := json.NewDecoder(r.Body).Decode(&amp;req); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        response.Err(w, http.StatusBadRequest, <span class="string">&quot;invalid JSON: &quot;</span>+err.Error())</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    todo, err := h.store.Update(id, req)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        h.handleError(w, err)</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    response.OK(w, todo)</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> handleDelete(w http.ResponseWriter, r *http.Request) &#123;</span><br><span class="line">    id := r.PathValue(<span class="string">&quot;id&quot;</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> err := h.store.Delete(id); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        h.handleError(w, err)</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    response.OK(w, <span class="keyword">map</span>[<span class="type">string</span>]<span class="type">string</span>&#123;<span class="string">&quot;deleted&quot;</span>: id&#125;)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>错误映射用 <code>errors.Is</code> 将 store 层的哨兵错误转换为 HTTP 状态码：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(h *Handler)</span></span> handleError(w http.ResponseWriter, err <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="keyword">if</span> errors.Is(err, store.ErrNotFound) &#123;</span><br><span class="line">        response.Err(w, http.StatusNotFound, err.Error())</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    &#125;</span><br><span class="line">    response.Err(w, http.StatusInternalServerError, <span class="string">&quot;internal error&quot;</span>)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Handler-测试"><a href="#Handler-测试" class="headerlink" title="Handler 测试"></a>Handler 测试</h2><p>Go 标准库的 <code>httptest</code> 包可以在不启动真实 HTTP 服务的情况下测试 handler——构造请求、录制响应、直接调用 <code>ServeHTTP</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> handler</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;bytes&quot;</span></span><br><span class="line">    <span class="string">&quot;encoding/json&quot;</span></span><br><span class="line">    <span class="string">&quot;net/http&quot;</span></span><br><span class="line">    <span class="string">&quot;net/http/httptest&quot;</span></span><br><span class="line">    <span class="string">&quot;testing&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/model&quot;</span></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/response&quot;</span></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/store&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">setupTestServer</span><span class="params">()</span></span> *http.ServeMux &#123;</span><br><span class="line">    s := store.NewMemoryStore()</span><br><span class="line">    h := New(s)</span><br><span class="line">    mux := http.NewServeMux()</span><br><span class="line">    h.RegisterRoutes(mux)</span><br><span class="line">    <span class="keyword">return</span> mux</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">decodeResponse</span>[<span class="title">T</span> <span class="title">any</span>]<span class="params">(t *testing.T, rec *httptest.ResponseRecorder)</span></span> response.Response[T] &#123;</span><br><span class="line">    t.Helper()</span><br><span class="line">    <span class="keyword">var</span> resp response.Response[T]</span><br><span class="line">    <span class="keyword">if</span> err := json.NewDecoder(rec.Body).Decode(&amp;resp); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        t.Fatalf(<span class="string">&quot;decode response: %v&quot;</span>, err)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> resp</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>decodeResponse</code> 是一个泛型辅助函数——又一个泛型的实际用例：不同测试需要解码不同类型的响应体，一个函数搞定。</p>
+<p>测试创建和获取的完整流程：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestCreateAndGet</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    mux := setupTestServer()</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 创建</span></span><br><span class="line">    body := <span class="string">`&#123;&quot;title&quot;:&quot;学习 Go&quot;&#125;`</span></span><br><span class="line">    req := httptest.NewRequest(<span class="string">&quot;POST&quot;</span>, <span class="string">&quot;/todos&quot;</span>, bytes.NewBufferString(body))</span><br><span class="line">    rec := httptest.NewRecorder()</span><br><span class="line">    mux.ServeHTTP(rec, req)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> rec.Code != http.StatusCreated &#123;</span><br><span class="line">        t.Fatalf(<span class="string">&quot;POST /todos status = %d, want %d&quot;</span>, rec.Code, http.StatusCreated)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    resp := decodeResponse[model.Todo](t, rec)</span><br><span class="line">    <span class="keyword">if</span> resp.Data.Title != <span class="string">&quot;学习 Go&quot;</span> &#123;</span><br><span class="line">        t.Errorf(<span class="string">&quot;Title = %q, want %q&quot;</span>, resp.Data.Title, <span class="string">&quot;学习 Go&quot;</span>)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 用返回的 ID 获取</span></span><br><span class="line">    todoID := resp.Data.ID</span><br><span class="line">    req = httptest.NewRequest(<span class="string">&quot;GET&quot;</span>, <span class="string">&quot;/todos/&quot;</span>+todoID, <span class="literal">nil</span>)</span><br><span class="line">    rec = httptest.NewRecorder()</span><br><span class="line">    mux.ServeHTTP(rec, req)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> rec.Code != http.StatusOK &#123;</span><br><span class="line">        t.Fatalf(<span class="string">&quot;GET status = %d, want %d&quot;</span>, rec.Code, http.StatusOK)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>表驱动测试覆盖输入校验：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">TestCreateValidation</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">    mux := setupTestServer()</span><br><span class="line"></span><br><span class="line">    tests := []<span class="keyword">struct</span> &#123;</span><br><span class="line">        name       <span class="type">string</span></span><br><span class="line">        body       <span class="type">string</span></span><br><span class="line">        wantStatus <span class="type">int</span></span><br><span class="line">    &#125;&#123;</span><br><span class="line">        &#123;<span class="string">&quot;empty title&quot;</span>, <span class="string">`&#123;&quot;title&quot;:&quot;&quot;&#125;`</span>, http.StatusBadRequest&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;whitespace title&quot;</span>, <span class="string">`&#123;&quot;title&quot;:&quot;   &quot;&#125;`</span>, http.StatusBadRequest&#125;,</span><br><span class="line">        &#123;<span class="string">&quot;invalid JSON&quot;</span>, <span class="string">`not json`</span>, http.StatusBadRequest&#125;,</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> _, tt := <span class="keyword">range</span> tests &#123;</span><br><span class="line">        t.Run(tt.name, <span class="function"><span class="keyword">func</span><span class="params">(t *testing.T)</span></span> &#123;</span><br><span class="line">            req := httptest.NewRequest(<span class="string">&quot;POST&quot;</span>, <span class="string">&quot;/todos&quot;</span>, bytes.NewBufferString(tt.body))</span><br><span class="line">            rec := httptest.NewRecorder()</span><br><span class="line">            mux.ServeHTTP(rec, req)</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> rec.Code != tt.wantStatus &#123;</span><br><span class="line">                t.Errorf(<span class="string">&quot;status = %d, want %d&quot;</span>, rec.Code, tt.wantStatus)</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对比 C++：C++ 的 HTTP 框架测试通常需要启动真实服务或引入 mock HTTP 层。Go 的 <code>httptest</code> 是标准库的一部分，零配置——这和 <code>go test</code> 本身的设计哲学一脉相承。</p>
+<h2 id="入口"><a href="#入口" class="headerlink" title="入口"></a>入口</h2><p><code>main.go</code> 只做组装——创建依赖、注入、注册路由、启动服务：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">package</span> main</span><br><span class="line"></span><br><span class="line"><span class="keyword">import</span> (</span><br><span class="line">    <span class="string">&quot;fmt&quot;</span></span><br><span class="line">    <span class="string">&quot;log&quot;</span></span><br><span class="line">    <span class="string">&quot;net/http&quot;</span></span><br><span class="line"></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/handler&quot;</span></span><br><span class="line">    <span class="string">&quot;learn-go/14_todo_api/store&quot;</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">main</span><span class="params">()</span></span> &#123;</span><br><span class="line">    s := store.NewMemoryStore()</span><br><span class="line">    h := handler.New(s)</span><br><span class="line"></span><br><span class="line">    mux := http.NewServeMux()</span><br><span class="line">    h.RegisterRoutes(mux)</span><br><span class="line"></span><br><span class="line">    addr := <span class="string">&quot;:8080&quot;</span></span><br><span class="line">    fmt.Printf(<span class="string">&quot;TODO API 启动: http://localhost%s\n&quot;</span>, addr)</span><br><span class="line">    log.Fatal(http.ListenAndServe(addr, mux))</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>整个入口不到 20 行。所有业务逻辑都在各自的包里，<code>main</code> 只做「连线」——这是 Go 项目的常见模式。</p>
+<h3 id="运行与测试"><a href="#运行与测试" class="headerlink" title="运行与测试"></a>运行与测试</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 运行全部测试（含竞态检测）</span></span><br><span class="line">$ go <span class="built_in">test</span> ./14_todo_api/... -race -cover</span><br><span class="line">ok   learn-go/14_todo_api/handler   coverage: 94.2%</span><br><span class="line">ok   learn-go/14_todo_api/store     coverage: 100.0%</span><br><span class="line"></span><br><span class="line"><span class="comment"># 启动服务</span></span><br><span class="line">$ go run ./14_todo_api/</span><br><span class="line">TODO API 启动: http://localhost:8080</span><br><span class="line"></span><br><span class="line"><span class="comment"># 创建</span></span><br><span class="line">$ curl -X POST localhost:8080/todos -d <span class="string">&#x27;&#123;&quot;title&quot;:&quot;学 Go&quot;&#125;&#x27;</span></span><br><span class="line">&#123;<span class="string">&quot;data&quot;</span>:&#123;<span class="string">&quot;id&quot;</span>:<span class="string">&quot;todo-1&quot;</span>,<span class="string">&quot;title&quot;</span>:<span class="string">&quot;学 Go&quot;</span>,<span class="string">&quot;done&quot;</span>:<span class="literal">false</span>,<span class="string">&quot;created_at&quot;</span>:<span class="string">&quot;...&quot;</span>&#125;&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 列出</span></span><br><span class="line">$ curl localhost:8080/todos</span><br><span class="line">&#123;<span class="string">&quot;data&quot;</span>:[&#123;<span class="string">&quot;id&quot;</span>:<span class="string">&quot;todo-1&quot;</span>,<span class="string">&quot;title&quot;</span>:<span class="string">&quot;学 Go&quot;</span>,<span class="string">&quot;done&quot;</span>:<span class="literal">false</span>,<span class="string">&quot;created_at&quot;</span>:<span class="string">&quot;...&quot;</span>&#125;]&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 标记完成</span></span><br><span class="line">$ curl -X PUT localhost:8080/todos/todo-1 -d <span class="string">&#x27;&#123;&quot;done&quot;:true&#125;&#x27;</span></span><br><span class="line">&#123;<span class="string">&quot;data&quot;</span>:&#123;<span class="string">&quot;id&quot;</span>:<span class="string">&quot;todo-1&quot;</span>,<span class="string">&quot;title&quot;</span>:<span class="string">&quot;学 Go&quot;</span>,<span class="string">&quot;done&quot;</span>:<span class="literal">true</span>,<span class="string">&quot;created_at&quot;</span>:<span class="string">&quot;...&quot;</span>&#125;&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 过滤</span></span><br><span class="line">$ curl <span class="string">&#x27;localhost:8080/todos?status=done&#x27;</span></span><br><span class="line">&#123;<span class="string">&quot;data&quot;</span>:[&#123;<span class="string">&quot;id&quot;</span>:<span class="string">&quot;todo-1&quot;</span>,<span class="string">&quot;title&quot;</span>:<span class="string">&quot;学 Go&quot;</span>,<span class="string">&quot;done&quot;</span>:<span class="literal">true</span>,<span class="string">&quot;created_at&quot;</span>:<span class="string">&quot;...&quot;</span>&#125;]&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 删除</span></span><br><span class="line">$ curl -X DELETE localhost:8080/todos/todo-1</span><br><span class="line">&#123;<span class="string">&quot;data&quot;</span>:&#123;<span class="string">&quot;deleted&quot;</span>:<span class="string">&quot;todo-1&quot;</span>&#125;&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 删除后获取 → 404</span></span><br><span class="line">$ curl localhost:8080/todos/todo-1</span><br><span class="line">&#123;<span class="string">&quot;error&quot;</span>:<span class="string">&quot;todo not found&quot;</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这个不到 300 行的项目，覆盖了系列前六篇讨论的几乎所有核心知识点：</p>
+<table>
+<thead>
+<tr>
+<th>知识点</th>
+<th>体现</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>包组织与可见性</td>
+<td>4 个包按职责划分，导出&#x2F;未导出控制 API 边界</td>
+</tr>
+<tr>
+<td>接口</td>
+<td><code>Store</code> 接口解耦 handler 和存储实现</td>
+</tr>
+<tr>
+<td>泛型</td>
+<td><code>Response[T]</code> 统一 API 响应格式</td>
+</tr>
+<tr>
+<td>JSON struct tag</td>
+<td>请求解析和响应序列化</td>
+</tr>
+<tr>
+<td>HTTP 服务</td>
+<td><code>net/http</code> 路由、handler、状态码</td>
+</tr>
+<tr>
+<td>并发安全</td>
+<td><code>sync.RWMutex</code> 保护共享状态</td>
+</tr>
+<tr>
+<td>错误处理</td>
+<td>哨兵错误 + <code>errors.Is</code> 映射为 HTTP 状态码</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>表驱动测试、子测试、<code>httptest</code>、竞态检测</td>
+</tr>
+</tbody></table>
+<p>回头看整个系列，Go 给 C++ 程序员最大的感受可能是「少」——没有头文件、没有构建系统配置、没有模板元编程、没有 RAII、没有异常、没有继承。每一个「没有」背后都是一个刻意的设计选择：用更少的概念覆盖大多数场景，用显式代码替代隐式机制，用工具链内置替代生态碎片化。这些选择不一定都是「更好」的——<code>defer</code> 不如 RAII 优雅，<code>if err != nil</code> 不如异常简洁，接口的隐式实现有时让人困惑——但它们构成了一套高度一致的工程哲学。在这套哲学下，一个刚入职的工程师能在几天内读懂任何 Go 项目的代码结构，这本身就是一种强大的能力。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/04/16/from-cpp-to-go-todo-api/" title="从 C++ 到 Go（七）：实战 TODO API">https://liam.page/2026/04/16/from-cpp-to-go-todo-api/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C/" rel="tag"># C++</a>
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/Golang/" rel="tag"># Golang</a>
+              <a href="/tags/%E7%BC%96%E7%A8%8B%E8%AF%AD%E8%A8%80/" rel="tag"># 编程语言</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/16/from-cpp-to-go-io-and-stdlib/" rel="prev" title="从 C++ 到 Go（六）：IO 与标准库">
+      <i class="fa fa-chevron-left"></i> 从 C++ 到 Go（六）：IO 与标准库
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84"><span class="nav-number">1.</span> <span class="nav-text">项目结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#API-%E8%AE%BE%E8%AE%A1"><span class="nav-number">2.</span> <span class="nav-text">API 设计</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E6%A8%A1%E5%9E%8B"><span class="nav-number">3.</span> <span class="nav-text">数据模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B3%9B%E5%9E%8B%E5%93%8D%E5%BA%94%E5%8C%85%E8%A3%85"><span class="nav-number">4.</span> <span class="nav-text">泛型响应包装</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E5%82%A8%E5%B1%82"><span class="nav-number">5.</span> <span class="nav-text">存储层</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8E%A5%E5%8F%A3%E4%B8%8E%E5%93%A8%E5%85%B5%E9%94%99%E8%AF%AF"><span class="nav-number">5.1.</span> <span class="nav-text">接口与哨兵错误</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E5%AE%9E%E7%8E%B0"><span class="nav-number">5.2.</span> <span class="nav-text">内存实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E5%82%A8%E5%B1%82%E6%B5%8B%E8%AF%95"><span class="nav-number">6.</span> <span class="nav-text">存储层测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#HTTP-%E5%A4%84%E7%90%86%E5%B1%82"><span class="nav-number">7.</span> <span class="nav-text">HTTP 处理层</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B7%AF%E7%94%B1%E6%B3%A8%E5%86%8C"><span class="nav-number">7.1.</span> <span class="nav-text">路由注册</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%84-Handler-%E5%AE%9E%E7%8E%B0"><span class="nav-number">7.2.</span> <span class="nav-text">各 Handler 实现</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Handler-%E6%B5%8B%E8%AF%95"><span class="nav-number">8.</span> <span class="nav-text">Handler 测试</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%A5%E5%8F%A3"><span class="nav-number">9.</span> <span class="nav-text">入口</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%90%E8%A1%8C%E4%B8%8E%E6%B5%8B%E8%AF%95"><span class="nav-number">9.1.</span> <span class="nav-text">运行与测试</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">10.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">415</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">780</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">42:32</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/04/16/from-cpp-to-go-todo-api/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '2e5a659334b2586b13ff412c2e6773e3',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
