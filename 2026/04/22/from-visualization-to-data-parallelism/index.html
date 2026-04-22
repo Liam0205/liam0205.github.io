@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是「Pineapple」系列的第二篇，上一篇完整拆解了引擎的核心原理——数据冒险驱动的 DAG 构建、channel-per-node 并行调度、Lua 嵌入和控制流编译。之后的两天里，项目经历了 10 个版本迭代、27 次功能提交，沿三条主线推进：可观测性与调试体验、运行时架构演进、新算子与数据并行框架。本文逐一记录每个改动的背景、技术决策和收效。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Pineapple v0.3.4 → v0.4.0：从可视化到数据并行的十次迭代">
+<meta property="og:url" content="https://liam.page/2026/04/22/from-visualization-to-data-parallelism/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="本文是「Pineapple」系列的第二篇，上一篇完整拆解了引擎的核心原理——数据冒险驱动的 DAG 构建、channel-per-node 并行调度、Lua 嵌入和控制流编译。之后的两天里，项目经历了 10 个版本迭代、27 次功能提交，沿三条主线推进：可观测性与调试体验、运行时架构演进、新算子与数据并行框架。本文逐一记录每个改动的背景、技术决策和收效。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-04-22T11:53:17.000Z">
+<meta property="article:modified_time" content="2026-04-22T11:53:58.728Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="DAG">
+<meta property="article:tag" content="Data Parallelism">
+<meta property="article:tag" content="DataFrame">
+<meta property="article:tag" content="Go">
+<meta property="article:tag" content="Pipeline Engine">
+<meta property="article:tag" content="Visualization">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/04/22/from-visualization-to-data-parallelism/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>Pineapple v0.3.4 → v0.4.0：从可视化到数据并行的十次迭代 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">417</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">787</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/04/22/from-visualization-to-data-parallelism/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Pineapple v0.3.4 → v0.4.0：从可视化到数据并行的十次迭代
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 04 月 22 日 19:53:17 / 修改时间：19:53:58" itemprop="dateCreated datePublished" datetime="2026-04-22T19:53:17+08:00">2026 年 04 月 22 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>12k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>21 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>本文是「Pineapple」系列的第二篇，<a href="/2026/04/21/pineapple-dag-engine-design/">上一篇</a>完整拆解了引擎的核心原理——数据冒险驱动的 DAG 构建、channel-per-node 并行调度、Lua 嵌入和控制流编译。之后的两天里，项目经历了 10 个版本迭代、27 次功能提交，沿三条主线推进：<strong>可观测性与调试体验</strong>、<strong>运行时架构演进</strong>、<strong>新算子与数据并行框架</strong>。本文逐一记录每个改动的背景、技术决策和收效。</p>
+<span id="more"></span>
+
+<h2 id="DAG-可视化：让黑箱变成白盒"><a href="#DAG-可视化：让黑箱变成白盒" class="headerlink" title="DAG 可视化：让黑箱变成白盒"></a>DAG 可视化：让黑箱变成白盒</h2><p>Pineapple 的 DAG 是引擎自动从算子的输入输出字段推导出来的——用户不手动画图。这带来了便利，但也带来了黑箱：当 pipeline 复杂到二三十个算子时，用户无法直观确认「引擎理解的依赖关系是不是我想的那样」。</p>
+<h3 id="DOT-与-Mermaid-双格式"><a href="#DOT-与-Mermaid-双格式" class="headerlink" title="DOT 与 Mermaid 双格式"></a>DOT 与 Mermaid 双格式</h3><p><code>internal/dag/visualize.go</code> 提供了两种渲染格式：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">RenderDOT</span><span class="params">(g *Graph)</span></span> <span class="type">string</span> &#123;</span><br><span class="line">    <span class="keyword">var</span> b strings.Builder</span><br><span class="line">    b.WriteString(<span class="string">&quot;digraph pipeline &#123;\n&quot;</span>)</span><br><span class="line">    b.WriteString(<span class="string">&quot;    rankdir=TB;\n&quot;</span>)</span><br><span class="line">    b.WriteString(<span class="string">&quot;    node [shape=box, style=filled, fontname=\&quot;Helvetica\&quot;];\n\n&quot;</span>)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> _, node := <span class="keyword">range</span> g.Nodes &#123;</span><br><span class="line">        opType := types.OperatorType(node.Config.OperatorType)</span><br><span class="line">        color := dotColors[opType]</span><br><span class="line">        label := fmt.Sprintf(<span class="string">&quot;%s\\n[%s]&quot;</span>, node.Name, opType)</span><br><span class="line">        fmt.Fprintf(&amp;b, <span class="string">&quot;    %q [label=%q, fillcolor=%q];\n&quot;</span>, node.Name, label, color)</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// edges: 直接遍历 Node.Succs</span></span><br><span class="line">    <span class="keyword">for</span> _, node := <span class="keyword">range</span> g.Nodes &#123;</span><br><span class="line">        <span class="keyword">for</span> _, succ := <span class="keyword">range</span> node.Succs &#123;</span><br><span class="line">            fmt.Fprintf(&amp;b, <span class="string">&quot;    %q -&gt; %q;\n&quot;</span>, node.Name, g.Nodes[succ].Name)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    b.WriteString(<span class="string">&quot;&#125;\n&quot;</span>)</span><br><span class="line">    <span class="keyword">return</span> b.String()</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Graphviz DOT 适合本地渲染成 SVG，精确控制布局；Mermaid flowchart 适合直接嵌入 Markdown 文档和 PR description。节点按算子类型着色——Recall 绿、Transform 蓝、Filter 橙、Merge 紫、Reorder 黄、Observe 灰——一目了然。</p>
+<p>通过 <code>Engine.RenderDAG(format)</code> 公共 API 暴露，HTTP 端点 <code>GET /dag?format=dot|mermaid</code> 直接服务。用户一条 curl 就能拿到 DAG 图：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">curl -s localhost:8080/dag | dot -Tsvg -o dag.svg</span><br></pre></td></tr></table></figure>
+
+<h3 id="传递性归约与纵向布局"><a href="#传递性归约与纵向布局" class="headerlink" title="传递性归约与纵向布局"></a>传递性归约与纵向布局</h3><p>初版可视化直接遍历所有推导出的边，包括被更长路径隐含的冗余边，导致图上出现大量交叉线。解决方案是传递性归约：遍历每条边 <code>u→v</code>，检查是否存在中间路径 <code>u→...→v</code>，有则跳过。同时将布局方向从左到右（LR）改为自上而下（TB），更符合 pipeline 的流水线直觉。</p>
+<p>这个渲染层归约后来被更彻底的方案取代（见后文「执行图传递性归约」），渲染函数简化为直接遍历 <code>Node.Succs</code> 画边——因为 <code>Succs</code> 本身已经是归约后的最小边集。</p>
+<h2 id="资源配置热加载"><a href="#资源配置热加载" class="headerlink" title="资源配置热加载"></a>资源配置热加载</h2><p>Pineapple 在上一个版本已经支持引擎配置热加载——修改 JSON 配置文件后服务自动重建 <code>Engine</code>。但 <code>ResourceManager</code>（管理特征索引等需要定时刷新的外部数据）没有跟上，仍然需要重启服务才能更新资源配置。</p>
+<p>解决方案是将 <code>resources</code> 从裸指针改为 <code>atomic.Pointer[resource.Manager]</code>，与 <code>enginePtr</code> 对齐。<code>pkg/server/server.go</code> 中的热加载流程变为：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">reloadConfig</span><span class="params">(path <span class="type">string</span>)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">    data, err := os.ReadFile(path)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    engine, err := pine.NewEngine(data)</span><br><span class="line">    <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    newRM := resource.NewManager()</span><br><span class="line">    <span class="keyword">if</span> err := newRM.LoadFromRootConfig(data); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> err := newRM.Start(context.Background()); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> err := resource.ValidateResourceDeps(data, newRM); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        newRM.Stop()</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    enginePtr.Store(engine)</span><br><span class="line">    oldRM := resources.Swap(newRM)</span><br><span class="line">    <span class="keyword">if</span> oldRM != <span class="literal">nil</span> &#123;</span><br><span class="line">        oldRM.Stop()</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>关键设计：<strong>新 Manager 先 Start 成功再替换</strong>。如果新配置有问题（解析失败、资源拉取超时），旧配置保持不变，服务继续运行。这避免了「加载到一半，新的没起来、旧的已停掉」的窗口期。<code>resources.Swap</code> 原子替换后才 <code>Stop</code> 旧 Manager，读路径始终有效。</p>
+<h2 id="列存-DataFrame"><a href="#列存-DataFrame" class="headerlink" title="列存 DataFrame"></a>列存 DataFrame</h2><h3 id="行存的-GC-瓶颈"><a href="#行存的-GC-瓶颈" class="headerlink" title="行存的 GC 瓶颈"></a>行存的 GC 瓶颈</h3><p>原有的 <code>RowFrame</code> 以 <code>[]map[string]any</code> 存储每个 item——一行一个 map。推荐系统的 pipeline 经常处理上千个 item，每个 item 几十个字段，这意味着数万个小 map 分配，GC 压力显著。</p>
+<h3 id="列存设计"><a href="#列存设计" class="headerlink" title="列存设计"></a>列存设计</h3><p>引入 <code>Frame</code> 接口，抽象出行存和列存两种实现：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> Frame <span class="keyword">interface</span> &#123;</span><br><span class="line">    Common(field <span class="type">string</span>) any</span><br><span class="line">    SetCommon(field <span class="type">string</span>, value any)</span><br><span class="line">    ItemCount() <span class="type">int</span></span><br><span class="line">    Item(index <span class="type">int</span>, field <span class="type">string</span>) any</span><br><span class="line"></span><br><span class="line">    BuildInput(commonFields, itemFields []<span class="type">string</span>, commonDefaults, itemDefaults <span class="keyword">map</span>[<span class="type">string</span>]any) *types.OperatorInput</span><br><span class="line">    ApplyOutput(out *types.OperatorOutput, opName <span class="type">string</span>, recall <span class="type">bool</span>) <span class="type">error</span></span><br><span class="line">    ToResult(commonOut, itemOut []<span class="type">string</span>) *types.Result</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>ColumnFrame</code> 以 <code>map[string][]any</code> 存储，每个字段一个 slice，item 按下标访问：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> ColumnFrame <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu       sync.RWMutex</span><br><span class="line">    common   <span class="keyword">map</span>[<span class="type">string</span>]any</span><br><span class="line">    columns  <span class="keyword">map</span>[<span class="type">string</span>][]any</span><br><span class="line">    rowCount <span class="type">int</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>一个设计选择值得一提：列存使用 <code>[]any</code> 而非泛型 slice。原因是 Pineapple 的字段值类型在运行时才确定（JSON 解析后是 <code>float64</code>、<code>string</code>、<code>bool</code> 等混合类型），泛型化无法避免 interface boxing，反而增加复杂度。</p>
+<p>通过 JSON 配置的 <code>&quot;storage_mode&quot;: &quot;row&quot;|&quot;column&quot;</code> 选择，Python DSL 侧同步支持 <code>Flow(storage_mode=&quot;column&quot;)</code>。列存在字段写入和构造上更高效（分配更少），但结构变更（删除行、重排序）因需遍历所有列而略慢——适用于「字段多、结构变更少」的 pipeline。</p>
+<h2 id="控制算子显式命名"><a href="#控制算子显式命名" class="headerlink" title="控制算子显式命名"></a>控制算子显式命名</h2><p>Python DSL 中的 <code>if_()</code> &#x2F; <code>else_()</code> &#x2F; <code>end_if_()</code> 在编译时被降级为 <code>transform_by_lua</code> 算子。之前这些控制算子的名字是 <code>transform_by_lua_XXXXXX</code>（哈希后缀），在 DAG 可视化中完全看不出哪个节点是条件分支。</p>
+<p>编译器改为生成 <code>if_1</code>、<code>elseif_2</code>、<code>else_3</code> 这样的显式名称。DAG 图中一眼就能识别控制流节点，不再淹没在一堆 <code>transform_by_lua_*</code> 里。这个改动看似微小，但对包含多层嵌套条件分支的复杂 pipeline 来说，可视化的可读性提升是质的飞跃。</p>
+<h2 id="运行时架构两项重构"><a href="#运行时架构两项重构" class="headerlink" title="运行时架构两项重构"></a>运行时架构两项重构</h2><p>v0.3.10 在同一个版本内完成了两项关联的架构改善。</p>
+<h3 id="Frame-并发自治"><a href="#Frame-并发自治" class="headerlink" title="Frame 并发自治"></a>Frame 并发自治</h3><p>原来的调度器持有一把全局 <code>sync.RWMutex</code>，每次算子读写 DataFrame 都要经过调度器加锁。这个设计把「数据安全」的职责放在了错误的层级——调度器负责 DAG 编排，不应该关心数据访问的同步。</p>
+<p>重构后锁下沉到 Frame 实现内部。<code>RowFrame</code> 和 <code>ColumnFrame</code> 各自持有一个 <code>sync.RWMutex</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">type</span> RowFrame <span class="keyword">struct</span> &#123;</span><br><span class="line">    mu     sync.RWMutex</span><br><span class="line">    common <span class="keyword">map</span>[<span class="type">string</span>]any</span><br><span class="line">    items  []<span class="keyword">map</span>[<span class="type">string</span>]any</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(f *RowFrame)</span></span> Common(field <span class="type">string</span>) any &#123;</span><br><span class="line">    f.mu.RLock()</span><br><span class="line">    v := f.common[field]</span><br><span class="line">    f.mu.RUnlock()</span><br><span class="line">    <span class="keyword">return</span> v</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>读操作（<code>Common</code>、<code>Item</code>、<code>BuildInput</code>）取 <code>RLock</code>，写操作（<code>SetCommon</code>、<code>ApplyOutput</code>）取 <code>Lock</code>。调度器代码中移除所有锁操作。</p>
+<p>过程中曾尝试更激进的方案：给 <code>ColumnFrame</code> 用双锁（<code>commonMu</code> + <code>structMu</code>），让 common 字段和 item 字段的并发访问互不干扰。但 benchmark 显示结构体从 24 字节膨胀到 72 字节后，cache line 压力导致结构变更操作约 1.8 倍退化。最终回退到单锁方案——简单且够用。</p>
+<h3 id="执行图传递性归约"><a href="#执行图传递性归约" class="headerlink" title="执行图传递性归约"></a>执行图传递性归约</h3><p>前文提到的 DAG 可视化传递性归约做在渲染层，每次渲染都要重新计算。更重要的是，调度器遍历 <code>Node.Preds</code> 等待前驱时，仍然要遍历包含冗余边的完整边集——虽然语义正确（等待一个已经被间接等过的前驱只是多一次 channel receive），但浪费了 CPU。</p>
+<p>解决方案是将归约从渲染层下沉到 <code>dag.Build()</code> 阶段：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">Build</span><span class="params">(sequence []<span class="type">string</span>, operators <span class="keyword">map</span>[<span class="type">string</span>]config.OperatorConfig)</span></span> (*Graph, <span class="type">error</span>) &#123;</span><br><span class="line">    <span class="comment">// Phase 1: barrier edges</span></span><br><span class="line">    <span class="comment">// Phase 2: data hazard edges</span></span><br><span class="line">    <span class="comment">// Phase 3: merge source edges</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Phase 4: Transitive reduction</span></span><br><span class="line">    reduce(g)</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Validate: no cycles</span></span><br><span class="line">    <span class="keyword">if</span> _, err := TopologicalSort(g); err != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, err</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> g, <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>reduce</code> 的实现对每条边 <code>u→v</code> 做 BFS 检查是否存在绕过直连的替代路径：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">reducedEdges</span><span class="params">(g *Graph)</span></span> [][<span class="number">2</span>]<span class="type">int</span> &#123;</span><br><span class="line">    n := <span class="built_in">len</span>(g.Nodes)</span><br><span class="line">    adj := <span class="built_in">make</span>([][]<span class="type">int</span>, n)</span><br><span class="line">    <span class="keyword">for</span> i, node := <span class="keyword">range</span> g.Nodes &#123;</span><br><span class="line">        adj[i] = node.Succs</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">var</span> edges [][<span class="number">2</span>]<span class="type">int</span></span><br><span class="line">    <span class="keyword">for</span> u := <span class="number">0</span>; u &lt; n; u++ &#123;</span><br><span class="line">        <span class="keyword">for</span> _, v := <span class="keyword">range</span> adj[u] &#123;</span><br><span class="line">            <span class="keyword">if</span> !reachableWithout(adj, n, u, v) &#123;</span><br><span class="line">                edges = <span class="built_in">append</span>(edges, [<span class="number">2</span>]<span class="type">int</span>&#123;u, v&#125;)</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> edges</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>归约不改变执行语义：<code>done[pred]</code> channel 的 <code>close</code> 在 Go 内存模型下提供 happens-before 保证，可达性不变则执行顺序约束不变。渲染层代码因此大幅简化（删除 76 行归约逻辑），直接遍历 <code>Node.Succs</code> 画边即可。整个系统只做一次归约，调度器和可视化同时受益。</p>
+<h2 id="跨服务-Transform-算子"><a href="#跨服务-Transform-算子" class="headerlink" title="跨服务 Transform 算子"></a>跨服务 Transform 算子</h2><p>推荐系统中常见的模式是：主 pipeline 需要调用下游的特征服务获取额外字段。这本质上是一个「远程子 pipeline 调用」。之前用户只能写自定义 Go 算子来实现 HTTP 调用，缺乏统一抽象。</p>
+<p>新增的 <code>transform_by_remote_pineapple</code> 算子调用下游 Pineapple 服务的 <code>/execute</code> 端点，核心挑战是字段映射：本地 frame 的字段名和下游服务的字段名可能不同。</p>
+<h3 id="按位置对应的映射模型"><a href="#按位置对应的映射模型" class="headerlink" title="按位置对应的映射模型"></a>按位置对应的映射模型</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 构造下游请求：local common_input[i] → remote common_request[i]</span></span><br><span class="line">reqCommon := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="type">string</span>]any, <span class="built_in">len</span>(o.CommonInput))</span><br><span class="line"><span class="keyword">for</span> i, localField := <span class="keyword">range</span> o.CommonInput &#123;</span><br><span class="line">    <span class="keyword">if</span> i &lt; <span class="built_in">len</span>(commonReqFields) &#123;</span><br><span class="line">        reqCommon[commonReqFields[i]] = in.Common(localField)</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 解析下游响应：remote common_response[i] → local common_output[i]</span></span><br><span class="line"><span class="keyword">for</span> i, localField := <span class="keyword">range</span> o.CommonOutput &#123;</span><br><span class="line">    <span class="keyword">if</span> i &lt; <span class="built_in">len</span>(commonRespFields) &#123;</span><br><span class="line">        <span class="keyword">if</span> val, ok := result.Common[commonRespFields[i]]; ok &#123;</span><br><span class="line">            out.SetCommon(localField, val)</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>common_request[i]</code> 与 <code>common_input[i]</code> 按位置一一对应，<code>item_request[i]</code> 与 <code>item_input[i]</code> 同理，响应侧亦然。这四组映射参数是可选的——当未提供时，直接使用 metadata 字段名（无映射），适用于上下游字段名一致的场景。</p>
+<h3 id="错误处理策略"><a href="#错误处理策略" class="headerlink" title="错误处理策略"></a>错误处理策略</h3><figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(o *RemotePineappleOp)</span></span> handleError(out *pine.OperatorOutput, err <span class="type">error</span>) <span class="type">error</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> o.failOnError &#123;</span><br><span class="line">        <span class="keyword">return</span> err</span><br><span class="line">    &#125;</span><br><span class="line">    out.SetWarning(err)</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>fail_on_error</code> 参数控制下游错误的处理方式：<code>true</code> 时下游错误为 fatal，整个 DAG 中止；<code>false</code> 时降级为 warning，pipeline 继续执行。这让业务团队可以根据下游服务的重要程度灵活配置——核心特征服务用 fatal，辅助增强服务用 warning。</p>
+<p>Python DSL 中一行声明即可接入下游服务：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">flow.transform_by_remote_pineapple(</span><br><span class="line">    common_input=[<span class="string">&quot;user_age&quot;</span>],</span><br><span class="line">    item_input=[<span class="string">&quot;item_id&quot;</span>],</span><br><span class="line">    item_output=[<span class="string">&quot;item_feature&quot;</span>],</span><br><span class="line">    host=<span class="string">&quot;feature-service&quot;</span>,</span><br><span class="line">    port=<span class="number">8080</span>,</span><br><span class="line">    item_request=[<span class="string">&quot;id&quot;</span>],</span><br><span class="line">    item_response=[<span class="string">&quot;feature&quot;</span>],</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<h2 id="算子级数据并行框架"><a href="#算子级数据并行框架" class="headerlink" title="算子级数据并行框架"></a>算子级数据并行框架</h2><p>许多 Transform 算子的 per-item 计算是独立的（如特征归一化、远程调用、模型推理），天然可以并行加速。但之前没有统一机制——要么靠用户在算子内部自己开 goroutine，要么靠 DAG 层面的算子间并行。</p>
+<h3 id="三个关键设计决策"><a href="#三个关键设计决策" class="headerlink" title="三个关键设计决策"></a>三个关键设计决策</h3><p>在动手实现之前，有三个问题需要先回答。</p>
+<p><strong>第一，哪些算子类型支持数据并行？</strong> 初看之下 Recall 和 Observe 似乎也可以，但仔细分析后发现只有 Transform 兼容：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>禁止原因</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Recall</td>
+<td>大多不依赖 item 输入，分片只会重复召回 N 次</td>
+</tr>
+<tr>
+<td>Observe</td>
+<td>只读，并行只是重复副作用</td>
+</tr>
+<tr>
+<td>Filter&#x2F;Merge&#x2F;Reorder</td>
+<td>屏障语义，需要全局视图</td>
+</tr>
+</tbody></table>
+<p><strong>第二，数据并行时允许写 common 字段吗？</strong> 多个 shard 并行写 common 字段没有安全的 merge 语义——不同 shard 可能算出不同值，引擎无法决定谁胜出。而真正需要数据并行的场景（per-item 密集计算）天然只写 item 字段。因此：<strong>启用 <code>data_parallel</code> 时强制要求 <code>common_output</code> 为空</strong>。如果未来出现真实的 common 聚合需求，再讨论 map-reduce 方案。</p>
+<p><strong>第三，在哪一层实现？</strong> 不改 DAG 推导逻辑。数据并行是单个算子节点的运行时优化，对 DAG 拓扑完全透明。</p>
+<h3 id="编译期守门"><a href="#编译期守门" class="headerlink" title="编译期守门"></a>编译期守门</h3><p>这两条约束在 <code>NewEngine</code> 阶段强制校验：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">validateDataParallel</span><span class="params">(opName <span class="type">string</span>, opCfg *config.OperatorConfig, opType types.OperatorType)</span></span> <span class="type">error</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> opCfg.DataParallel &gt; <span class="number">1</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> opType != types.OpTypeTransform &#123;</span><br><span class="line">            <span class="keyword">return</span> &amp;ValidationError&#123;</span><br><span class="line">                Message: fmt.Sprintf(<span class="string">&quot;operator %q: data_parallel=%d is only supported for Transform operators, got %s&quot;</span>,</span><br><span class="line">                    opName, opCfg.DataParallel, opType),</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">len</span>(opCfg.Meta.CommonOutput) &gt; <span class="number">0</span> &#123;</span><br><span class="line">            <span class="keyword">return</span> &amp;ValidationError&#123;</span><br><span class="line">                Message: fmt.Sprintf(<span class="string">&quot;operator %q: data_parallel=%d requires empty $metadata.common_output&quot;</span>,</span><br><span class="line">                    opName, opCfg.DataParallel),</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>编译期拒绝不合法配置，而非运行时静默失败。</p>
+<h3 id="分片、并行、合并"><a href="#分片、并行、合并" class="headerlink" title="分片、并行、合并"></a>分片、并行、合并</h3><p>运行时实现在 <code>internal/runtime/parallel.go</code>，分三步。</p>
+<p><strong>分片</strong>——将 items 切成 N 份，尽量等分，余量分配给前几个 shard：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">splitInput</span><span class="params">(input *types.OperatorInput, n <span class="type">int</span>)</span></span> ([]*types.OperatorInput, []<span class="type">int</span>) &#123;</span><br><span class="line">    total := input.ItemCount()</span><br><span class="line">    common := input.RawCommon()</span><br><span class="line">    items := input.RawItems()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> n &gt; total &#123;</span><br><span class="line">        n = total</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    base := total / n</span><br><span class="line">    rem := total % n</span><br><span class="line"></span><br><span class="line">    parts := <span class="built_in">make</span>([]*types.OperatorInput, n)</span><br><span class="line">    offsets := <span class="built_in">make</span>([]<span class="type">int</span>, n)</span><br><span class="line">    start := <span class="number">0</span></span><br><span class="line">    <span class="keyword">for</span> i := <span class="number">0</span>; i &lt; n; i++ &#123;</span><br><span class="line">        size := base</span><br><span class="line">        <span class="keyword">if</span> i &lt; rem &#123;</span><br><span class="line">            size++</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// ... copy shard items, share common</span></span><br><span class="line">        parts[i] = types.NewOperatorInput(common, shardItems)</span><br><span class="line">        offsets[i] = start</span><br><span class="line">        start += size</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> parts, offsets</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所有 shard 共享同一个 common map（只读），items 按下标范围独立拷贝。<code>offsets</code> 记录每个 shard 在原始 items 中的起始位置，供合并时重映射索引。</p>
+<p><strong>并行执行</strong>——每个 shard 一个 goroutine，带独立的 panic recovery：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">parallelExecute</span><span class="params">(ctx context.Context, cop *CompiledOperator, input *types.OperatorInput)</span></span> (*types.OperatorOutput, <span class="type">error</span>) &#123;</span><br><span class="line">    parts, offsets := splitInput(input, cop.Config.DataParallel)</span><br><span class="line"></span><br><span class="line">    execCtx, cancel := context.WithCancel(ctx)</span><br><span class="line">    <span class="keyword">defer</span> cancel()</span><br><span class="line"></span><br><span class="line">    outputs := <span class="built_in">make</span>([]*types.OperatorOutput, <span class="built_in">len</span>(parts))</span><br><span class="line">    <span class="keyword">var</span> (</span><br><span class="line">        wg      sync.WaitGroup</span><br><span class="line">        errOnce sync.Once</span><br><span class="line">        first   <span class="type">error</span></span><br><span class="line">    )</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> i := <span class="keyword">range</span> parts &#123;</span><br><span class="line">        wg.Add(<span class="number">1</span>)</span><br><span class="line">        <span class="keyword">go</span> <span class="function"><span class="keyword">func</span><span class="params">(idx <span class="type">int</span>)</span></span> &#123;</span><br><span class="line">            <span class="keyword">defer</span> wg.Done()</span><br><span class="line">            out := types.NewOperatorOutput()</span><br><span class="line">            err := executeWithRecovery(execCtx, cop, parts[idx], out)</span><br><span class="line">            <span class="keyword">if</span> err != <span class="literal">nil</span> &#123;</span><br><span class="line">                errOnce.Do(<span class="function"><span class="keyword">func</span><span class="params">()</span></span> &#123;</span><br><span class="line">                    first = err</span><br><span class="line">                    cancel() <span class="comment">// 任一 shard 失败，取消所有</span></span><br><span class="line">                &#125;)</span><br><span class="line">                <span class="keyword">return</span></span><br><span class="line">            &#125;</span><br><span class="line">            outputs[idx] = out</span><br><span class="line">        &#125;(i)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    wg.Wait()</span><br><span class="line">    <span class="keyword">if</span> first != <span class="literal">nil</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">nil</span>, first</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> mergeOutputs(outputs, offsets), <span class="literal">nil</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>errOnce</code> + <code>cancel()</code> 确保任一 shard 失败立即终止其他 shard。<code>executeWithRecovery</code> 将 panic 转化为 <code>PanicError</code>，与单线程路径行为一致。</p>
+<p><strong>合并</strong>——将各 shard 的 <code>itemWrites</code> 按偏移量重映射为绝对索引：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="title">mergeOutputs</span><span class="params">(outputs []*types.OperatorOutput, offsets []<span class="type">int</span>)</span></span> *types.OperatorOutput &#123;</span><br><span class="line">    merged := types.NewOperatorOutput()</span><br><span class="line">    <span class="keyword">for</span> i, out := <span class="keyword">range</span> outputs &#123;</span><br><span class="line">        <span class="keyword">if</span> out == <span class="literal">nil</span> &#123;</span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> w := out.GetWarning(); w != <span class="literal">nil</span> &#123;</span><br><span class="line">            merged.SetWarning(w)</span><br><span class="line">        &#125;</span><br><span class="line">        offset := offsets[i]</span><br><span class="line">        <span class="keyword">for</span> localIdx, fields := <span class="keyword">range</span> out.GetItemWrites() &#123;</span><br><span class="line">            absIdx := localIdx + offset</span><br><span class="line">            <span class="keyword">for</span> field, value := <span class="keyword">range</span> fields &#123;</span><br><span class="line">                merged.SetItem(absIdx, field, value)</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> merged</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>shard 0 写 <code>[0, k)</code> 的 item，shard 1 写 <code>[k, m)</code> 的 item……各 shard 的本地索引加上 <code>offset</code> 就是全局索引。合并后的 <code>OperatorOutput</code> 与单线程执行产生的完全一致。</p>
+<h3 id="调度器接入"><a href="#调度器接入" class="headerlink" title="调度器接入"></a>调度器接入</h3><p>调度器的改动极小——只需在执行前判断 <code>DataParallel &gt; 1</code>：</p>
+<figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> cop.Config.DataParallel &gt; <span class="number">1</span> &#123;</span><br><span class="line">    output, execErr = parallelExecute(ctx, cop, input)</span><br><span class="line">&#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    output = types.NewOperatorOutput()</span><br><span class="line">    execErr = cop.Instance.Execute(ctx, input, output)</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>后续的 <code>ValidateOutput</code>、warning 收集、debug snapshot、<code>ApplyOutput</code> 全部保持原流程不变。</p>
+<h3 id="等价性验证"><a href="#等价性验证" class="headerlink" title="等价性验证"></a>等价性验证</h3><p>构造 100 个 items，同一个 <code>doubleItemOp</code> 分别以 <code>data_parallel=1</code>（基线）和 <code>data_parallel=2,3,4,7</code> 执行，逐 item 对比输出值，断言完全一致。测试覆盖了等分、非等分、shard 数大于 item 数等边界情况。</p>
+<h3 id="性能实测"><a href="#性能实测" class="headerlink" title="性能实测"></a>性能实测</h3><p>使用 Horner 多项式（degree 5，per-item 做 5 次乘加）通过完整引擎路径测量：</p>
+<table>
+<thead>
+<tr>
+<th>items</th>
+<th>shards&#x3D;1</th>
+<th>shards&#x3D;2</th>
+<th>shards&#x3D;4</th>
+<th>shards&#x3D;8</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>100</td>
+<td>40 us</td>
+<td>69 us</td>
+<td>66 us</td>
+<td>70 us</td>
+</tr>
+<tr>
+<td>1,000</td>
+<td>453 us</td>
+<td>587 us</td>
+<td>596 us</td>
+<td>651 us</td>
+</tr>
+<tr>
+<td>10,000</td>
+<td>4.5 ms</td>
+<td>5.9 ms</td>
+<td>5.8 ms</td>
+<td>5.9 ms</td>
+</tr>
+</tbody></table>
+<p>轻量 per-item 计算下，数据并行有负收益——goroutine 创建、shard 分配、Output 合并的固定开销（约 30-50%）大于并行节省的时间。这个结果符合预期：<strong>数据并行的目标场景是 per-item 计算量足够重的算子</strong>。</p>
+<p>以 10,000 items 为例，框架「税」约为 1.4 ms，折合每 item 约 0.14 us。这意味着只要单 item 计算时间超过这个水位线，并行就开始盈利。对于一次 HTTP 调用动辄几毫秒的场景（比如刚才介绍的 <code>transform_by_remote_pineapple</code>），这个开销可以忽略。算子完全不需要改代码，在 DSL 中加一行 <code>data_parallel=4</code> 就能让引擎自动分片并行。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>从 v0.3.4 到 v0.4.0 的十次迭代，表面上是功能列表的增长，背后是两条贯穿性的设计理念在反复兑现。</p>
+<p><strong>职责归位</strong>。资源热加载把 <code>ResourceManager</code> 的生命周期对齐到引擎级别；Frame 并发自治把锁从调度器下沉到数据层；传递性归约从渲染层下沉到构建阶段。每一次「下沉」都在回答同一个问题：这件事该由谁负责？当职责归位后，上层代码自然简化，下层代码自然内聚。</p>
+<p><strong>约束即能力</strong>。数据并行框架最有说服力的设计决策不是「支持什么」，而是「禁止什么」——只支持 Transform、禁止 <code>common_output</code>。正是这两条编译期硬约束，让分片-并行-合并的运行时实现变得直截了当：不需要处理 common 字段冲突，不需要担心屏障语义被破坏，不需要为每种算子类型写特化路径。约束越明确，实现越简单，出错的空间越小。</p>
+<p>这个原则在 Pineapple 中反复出现：Recall 只能 <code>AddItem</code> 所以多路召回可以安全并行；六种类型的 Output 约束在运行时强制校验而非靠约定；<code>data_parallel</code> 的类型和字段约束在编译期拒绝而非运行时报错。每一条「做不到的事」，都是引擎可以自动做出正确决策的前提。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/04/22/from-visualization-to-data-parallelism/" title="Pineapple v0.3.4 → v0.4.0：从可视化到数据并行的十次迭代">https://liam.page/2026/04/22/from-visualization-to-data-parallelism/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Go/" rel="tag"># Go</a>
+              <a href="/tags/DAG/" rel="tag"># DAG</a>
+              <a href="/tags/Pipeline-Engine/" rel="tag"># Pipeline Engine</a>
+              <a href="/tags/Data-Parallelism/" rel="tag"># Data Parallelism</a>
+              <a href="/tags/DataFrame/" rel="tag"># DataFrame</a>
+              <a href="/tags/Visualization/" rel="tag"># Visualization</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/21/pineapple-dag-engine-design/" rel="prev" title="Pineapple：用数据冒险模型自动构建 DAG 的高性能流水线引擎">
+      <i class="fa fa-chevron-left"></i> Pineapple：用数据冒险模型自动构建 DAG 的高性能流水线引擎
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#DAG-%E5%8F%AF%E8%A7%86%E5%8C%96%EF%BC%9A%E8%AE%A9%E9%BB%91%E7%AE%B1%E5%8F%98%E6%88%90%E7%99%BD%E7%9B%92"><span class="nav-number">1.</span> <span class="nav-text">DAG 可视化：让黑箱变成白盒</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#DOT-%E4%B8%8E-Mermaid-%E5%8F%8C%E6%A0%BC%E5%BC%8F"><span class="nav-number">1.1.</span> <span class="nav-text">DOT 与 Mermaid 双格式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%A0%E9%80%92%E6%80%A7%E5%BD%92%E7%BA%A6%E4%B8%8E%E7%BA%B5%E5%90%91%E5%B8%83%E5%B1%80"><span class="nav-number">1.2.</span> <span class="nav-text">传递性归约与纵向布局</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B5%84%E6%BA%90%E9%85%8D%E7%BD%AE%E7%83%AD%E5%8A%A0%E8%BD%BD"><span class="nav-number">2.</span> <span class="nav-text">资源配置热加载</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%97%E5%AD%98-DataFrame"><span class="nav-number">3.</span> <span class="nav-text">列存 DataFrame</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A1%8C%E5%AD%98%E7%9A%84-GC-%E7%93%B6%E9%A2%88"><span class="nav-number">3.1.</span> <span class="nav-text">行存的 GC 瓶颈</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%97%E5%AD%98%E8%AE%BE%E8%AE%A1"><span class="nav-number">3.2.</span> <span class="nav-text">列存设计</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%A7%E5%88%B6%E7%AE%97%E5%AD%90%E6%98%BE%E5%BC%8F%E5%91%BD%E5%90%8D"><span class="nav-number">4.</span> <span class="nav-text">控制算子显式命名</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%90%E8%A1%8C%E6%97%B6%E6%9E%B6%E6%9E%84%E4%B8%A4%E9%A1%B9%E9%87%8D%E6%9E%84"><span class="nav-number">5.</span> <span class="nav-text">运行时架构两项重构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Frame-%E5%B9%B6%E5%8F%91%E8%87%AA%E6%B2%BB"><span class="nav-number">5.1.</span> <span class="nav-text">Frame 并发自治</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%89%A7%E8%A1%8C%E5%9B%BE%E4%BC%A0%E9%80%92%E6%80%A7%E5%BD%92%E7%BA%A6"><span class="nav-number">5.2.</span> <span class="nav-text">执行图传递性归约</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B7%A8%E6%9C%8D%E5%8A%A1-Transform-%E7%AE%97%E5%AD%90"><span class="nav-number">6.</span> <span class="nav-text">跨服务 Transform 算子</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%8C%89%E4%BD%8D%E7%BD%AE%E5%AF%B9%E5%BA%94%E7%9A%84%E6%98%A0%E5%B0%84%E6%A8%A1%E5%9E%8B"><span class="nav-number">6.1.</span> <span class="nav-text">按位置对应的映射模型</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%94%99%E8%AF%AF%E5%A4%84%E7%90%86%E7%AD%96%E7%95%A5"><span class="nav-number">6.2.</span> <span class="nav-text">错误处理策略</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%97%E5%AD%90%E7%BA%A7%E6%95%B0%E6%8D%AE%E5%B9%B6%E8%A1%8C%E6%A1%86%E6%9E%B6"><span class="nav-number">7.</span> <span class="nav-text">算子级数据并行框架</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%89%E4%B8%AA%E5%85%B3%E9%94%AE%E8%AE%BE%E8%AE%A1%E5%86%B3%E7%AD%96"><span class="nav-number">7.1.</span> <span class="nav-text">三个关键设计决策</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%96%E8%AF%91%E6%9C%9F%E5%AE%88%E9%97%A8"><span class="nav-number">7.2.</span> <span class="nav-text">编译期守门</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%86%E7%89%87%E3%80%81%E5%B9%B6%E8%A1%8C%E3%80%81%E5%90%88%E5%B9%B6"><span class="nav-number">7.3.</span> <span class="nav-text">分片、并行、合并</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B0%83%E5%BA%A6%E5%99%A8%E6%8E%A5%E5%85%A5"><span class="nav-number">7.4.</span> <span class="nav-text">调度器接入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AD%89%E4%BB%B7%E6%80%A7%E9%AA%8C%E8%AF%81"><span class="nav-number">7.5.</span> <span class="nav-text">等价性验证</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E5%AE%9E%E6%B5%8B"><span class="nav-number">7.6.</span> <span class="nav-text">性能实测</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">417</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">787</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">43:12</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/04/22/from-visualization-to-data-parallelism/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'b7b5310b3e84131f9d6fb1c4058abfe4',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
