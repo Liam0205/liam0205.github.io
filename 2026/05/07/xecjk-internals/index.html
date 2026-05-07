@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="xeCJK 是 XeLaTeX 下中文排版的核心引擎——几乎所有使用 XeLaTeX 编译的中文文档，都直接或间接依赖它处理字体切换、字间距和标点压缩。但 xeCJK 的内部机制鲜有系统性的介绍：多数用户只知道 \setCJKmainfont 和 \xeCJKsetup，对「字符之间的间距是怎么插入的」「标点压缩的数据从哪里来」「为什么 \textcolor 会破坏间距」这类问题缺乏直觉。本文试图">
+<meta property="og:type" content="article">
+<meta property="og:title" content="xeCJK 原理：从 interchar token 到边界恢复状态机">
+<meta property="og:url" content="https://liam.page/2026/05/07/xecjk-internals/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="xeCJK 是 XeLaTeX 下中文排版的核心引擎——几乎所有使用 XeLaTeX 编译的中文文档，都直接或间接依赖它处理字体切换、字间距和标点压缩。但 xeCJK 的内部机制鲜有系统性的介绍：多数用户只知道 \setCJKmainfont 和 \xeCJKsetup，对「字符之间的间距是怎么插入的」「标点压缩的数据从哪里来」「为什么 \textcolor 会破坏间距」这类问题缺乏直觉。本文试图">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-07T03:05:10.000Z">
+<meta property="article:modified_time" content="2026-05-07T03:05:35.298Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Chinese Typesetting">
+<meta property="article:tag" content="LaTeX">
+<meta property="article:tag" content="Typography">
+<meta property="article:tag" content="XeTeX">
+<meta property="article:tag" content="xeCJK">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/05/07/xecjk-internals/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>xeCJK 原理：从 interchar token 到边界恢复状态机 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">420</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">794</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/05/07/xecjk-internals/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          xeCJK 原理：从 interchar token 到边界恢复状态机
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 05 月 07 日 11:05:10 / 修改时间：11:05:35" itemprop="dateCreated datePublished" datetime="2026-05-07T11:05:10+08:00">2026 年 05 月 07 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>11k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>20 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>xeCJK 是 XeLaTeX 下中文排版的核心引擎——几乎所有使用 XeLaTeX 编译的中文文档，都直接或间接依赖它处理字体切换、字间距和标点压缩。但 xeCJK 的内部机制鲜有系统性的介绍：多数用户只知道 <code>\setCJKmainfont</code> 和 <code>\xeCJKsetup</code>，对「字符之间的间距是怎么插入的」「标点压缩的数据从哪里来」「为什么 <code>\textcolor</code> 会破坏间距」这类问题缺乏直觉。本文试图从 XeTeX 原语层出发，逐层拆解 xeCJK 的设计，让读者建立一个从整体到局部的心智模型。</p>
+<span id="more"></span>
+
+<h2 id="XeTeX-的-interchar-token-原语"><a href="#XeTeX-的-interchar-token-原语" class="headerlink" title="XeTeX 的 interchar token 原语"></a>XeTeX 的 interchar token 原语</h2><p>xeCJK 的一切行为都建立在 XeTeX 提供的 <strong>interchar token</strong> 机制之上。理解这一原语是理解 xeCJK 的前提。</p>
+<p>XeTeX 允许为每个 Unicode 码位分配一个整数「字符类」（character class），通过 <code>\XeTeXcharclass</code> 赋值：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\XeTeXcharclass</span>`你 = 1    <span class="comment">% 将「你」归入类 1</span></span><br><span class="line"><span class="keyword">\XeTeXcharclass</span>`A = 0     <span class="comment">% 将「A」归入类 0（默认）</span></span><br></pre></td></tr></table></figure>
+
+<p>当 <code>\XeTeXinterchartokenstate = 1</code> 时，XeTeX 在排版过程中检测相邻字符的类别变化。如果前一个字符属于类 $i$、后一个属于类 $j$（$i \neq j$），XeTeX 会在两者之间自动插入 <code>\XeTeXinterchartoks i j</code> 中预存的 token 序列：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\XeTeXinterchartoks</span> 1 0 = &#123;<span class="keyword">\hskip</span> 0.25em&#125;  <span class="comment">% 类 1 → 类 0 时插入间距</span></span><br></pre></td></tr></table></figure>
+
+<p>这个机制的关键特性是：它工作在 <strong>token 层</strong>，发生在字符被「吃进」主列表之前。这意味着插入的 token 序列可以包含任意 TeX 命令——切换字体、开关分组、插入 penalty、执行条件判断——而不仅仅是 kern 或 glue。xeCJK 正是利用这一点，在字符类边界处注入了完整的字体切换、间距计算和标点处理逻辑。</p>
+<p>但 token 层工作也带来一个根本限制：interchar 机制无法区分一个字符是来自 Unicode 直接输入，还是来自 <code>\char</code> 原语的间接输出。这个限制后面会反复出现。</p>
+<h2 id="字符分类体系"><a href="#字符分类体系" class="headerlink" title="字符分类体系"></a>字符分类体系</h2><p>xeCJK 在 XeTeX 原生的 <code>Default</code>（类 0）和 <code>Boundary</code>（类 4095）基础上，建立了一套面向中文排版的字符分类体系：</p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>来源</th>
+<th>典型成员</th>
+<th>排版语义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Default</code></td>
+<td>XeTeX 预定义</td>
+<td>abc123</td>
+<td>西文，不主动干预</td>
+</tr>
+<tr>
+<td><code>CJK</code></td>
+<td>XeTeX 预定义</td>
+<td>汉字、假名</td>
+<td>切换 CJK 字体，插入字间距</td>
+</tr>
+<tr>
+<td><code>FullLeft</code></td>
+<td>XeTeX 预定义</td>
+<td>（《「</td>
+<td>全角左标点，禁止出现在行尾</td>
+</tr>
+<tr>
+<td><code>FullRight</code></td>
+<td>XeTeX 预定义</td>
+<td>，。）」</td>
+<td>全角右标点，禁止出现在行首</td>
+</tr>
+<tr>
+<td><code>HalfLeft</code></td>
+<td>xeCJK 新增</td>
+<td>( [ {</td>
+<td>半角左标点</td>
+</tr>
+<tr>
+<td><code>HalfRight</code></td>
+<td>xeCJK 新增</td>
+<td>, . ? ) ] }</td>
+<td>半角右标点</td>
+</tr>
+<tr>
+<td><code>NormalSpace</code></td>
+<td>xeCJK 新增</td>
+<td>- &#x2F; \</td>
+<td>前后保持原始间距</td>
+</tr>
+<tr>
+<td><code>Boundary</code></td>
+<td>XeTeX 预定义</td>
+<td>空格、段落边界</td>
+<td>边界标记</td>
+</tr>
+<tr>
+<td><code>CM</code></td>
+<td>xeCJK 新增</td>
+<td>IVS 选择符</td>
+<td>组合标识，不打断 CJK 序列</td>
+</tr>
+<tr>
+<td><code>HangulJamo</code></td>
+<td>xeCJK 新增</td>
+<td>ᄻᆟᇫ</td>
+<td>朝鲜文字母</td>
+</tr>
+</tbody></table>
+<p>分类初始化发生在 <code>xeCJK.dtx</code> 的 <code>\xeCJKResetCharClass</code> 中。全角标点的归类数据来自 XeTeX 的 <code>unicode-char-prep.pl</code> 脚本和 Unicode Line Break 属性数据库（UAX#14），涵盖数百个码位。这不是拍脑袋定义的——它与 Unicode 标准的断行算法保持对齐。</p>
+<p>值得注意的是 <code>CM</code> 类（Combining Marks &#x2F; IVS）的设计：异体字选择符（U+E0100–U+E01EF）在 Unicode 中紧跟基字符出现，用于指定字形变体。如果把它们归入 <code>CJK</code> 类，就会在基字符与选择符之间触发不必要的 interchar 动作。<code>CM</code> 类的行为与 <code>CJK</code> 几乎相同，唯一区别是 <code>CJK → CM</code> 过渡不插入任何内容——选择符「透明地」附着在前一个字符上。</p>
+<h2 id="类别转换矩阵"><a href="#类别转换矩阵" class="headerlink" title="类别转换矩阵"></a>类别转换矩阵</h2><p>有了字符分类，核心问题就是：当类 $A$ 后面紧跟类 $B$ 时，该做什么？xeCJK 在源码中以一个 9×9 矩阵的形式定义了所有类别对的行为。下表给出完整的 81 种转换（省略 <code>HangulJamo</code>，其行为与 <code>CJK</code> 相同但自身之间不插入内容）：</p>
+<table>
+<thead>
+<tr>
+<th>前＼后</th>
+<th>Default</th>
+<th>CJK</th>
+<th>FullLeft</th>
+<th>FullRight</th>
+<th>HalfLeft</th>
+<th>HalfRight</th>
+<th>NormalSp</th>
+<th>Boundary</th>
+<th>CM</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Default</strong></td>
+<td>—</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>记default</td>
+<td>&#x3D;CJK</td>
+</tr>
+<tr>
+<td><strong>CJK</strong></td>
+<td>出+ecglue</td>
+<td>CJKglue</td>
+<td>标点glue</td>
+<td>标点glue</td>
+<td>出+ecglue</td>
+<td>出+ecglue</td>
+<td>出+ecglue</td>
+<td>记CJK</td>
+<td>—</td>
+</tr>
+<tr>
+<td><strong>FullLeft</strong></td>
+<td>出+ecglue</td>
+<td>标点→CJK</td>
+<td>标点glue</td>
+<td>标点glue</td>
+<td>出+ecglue</td>
+<td>出+ecglue</td>
+<td>出+ecglue</td>
+<td>记标点</td>
+<td>&#x3D;CJK</td>
+</tr>
+<tr>
+<td><strong>FullRight</strong></td>
+<td>出+ecglue</td>
+<td>标点→CJK</td>
+<td>标点glue</td>
+<td>标点glue</td>
+<td>出+ecglue</td>
+<td>出+ecglue</td>
+<td>出+ecglue</td>
+<td>记标点</td>
+<td>&#x3D;CJK</td>
+</tr>
+<tr>
+<td><strong>HalfLeft</strong></td>
+<td>—</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>&#x3D;CJK</td>
+</tr>
+<tr>
+<td><strong>HalfRight</strong></td>
+<td>—</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>记default</td>
+<td>&#x3D;CJK</td>
+</tr>
+<tr>
+<td><strong>NormalSp</strong></td>
+<td>—</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>入CJK</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>记normalsp</td>
+<td>&#x3D;CJK</td>
+</tr>
+<tr>
+<td><strong>Boundary</strong></td>
+<td>恢复</td>
+<td>恢复+入CJK</td>
+<td>恢复+入标点</td>
+<td>恢复+入标点</td>
+<td>恢复</td>
+<td>—</td>
+<td>恢复NS</td>
+<td>—</td>
+<td>&#x3D;CJK</td>
+</tr>
+<tr>
+<td><strong>CM</strong></td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+<td>&#x3D;CJK</td>
+</tr>
+</tbody></table>
+<p>表中符号含义：</p>
+<ul>
+<li><strong>—</strong>：不插入任何内容（纯西文之间、半角标点之间等）</li>
+<li><strong>入CJK</strong>：开启 CJK 分组 + 切换字体 + 输出字符</li>
+<li><strong>出+ecglue</strong>：关闭 CJK 分组（ecglue 由后续边界恢复处理）</li>
+<li><strong>CJKglue</strong>：插入中文字间距</li>
+<li><strong>标点glue</strong>：触发标点压缩逻辑（kern 计算）</li>
+<li><strong>标点→CJK</strong>：从标点进入普通 CJK 字符的过渡</li>
+<li><strong>记xxx</strong>：写入标记 kern（为后续恢复留下线索）</li>
+<li><strong>恢复</strong>：读取标记 kern，决定插入 ecglue 或 CJKglue</li>
+<li><strong>恢复NS</strong>：NormalSpace 专用恢复路径</li>
+<li><strong>&#x3D;CJK</strong>：行为与对应的 CJK 行完全相同（CM&#x2F;HangulJamo 透传）</li>
+</ul>
+<p>矩阵的几个规律一目了然：<code>CM</code> 行和 <code>CM</code> 列几乎全部复制 <code>CJK</code> 的行为；<code>Boundary</code> 行是恢复逻辑的入口；对角线上只有 <code>CJK→CJK</code> 有实质操作（插入 CJKglue）。</p>
+<p>核心转换规则可以进一步归纳为四条路径：</p>
+<h3 id="进入-CJK-区域"><a href="#进入-CJK-区域" class="headerlink" title="进入 CJK 区域"></a>进入 CJK 区域</h3><p>当字符从 <code>Default</code>、<code>HalfLeft</code>、<code>HalfRight</code> 或 <code>NormalSpace</code> 转入 <code>CJK</code> 时：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\xeCJK_inter_class_toks:nnn</span> &#123; Default &#125; &#123; CJK &#125;</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">\xeCJK_class_group_begin:</span>    <span class="comment">% 开启 CJK 分组</span></span><br><span class="line">    <span class="keyword">\xeCJK_select_font:</span>          <span class="comment">% 切换到 CJK 字体</span></span><br><span class="line">    <span class="keyword">\xeCJK_fallback_symbol:NN</span>    <span class="comment">% 后备字体检测</span></span><br><span class="line">    <span class="keyword">\CJKsymbol</span>                   <span class="comment">% 输出字符</span></span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>\xeCJK_class_group_begin:</code> 做三件事：开启 TeX 分组（<code>\bgroup</code>）、设置一个标志表示当前处于 CJK 分组内、将 <code>\XeTeXdashbreakstate</code> 置零以避免破折号间折行。字体切换只在这个入口点发生——CJK 区域内部的字符间不再重复切换。</p>
+<h3 id="离开-CJK-区域"><a href="#离开-CJK-区域" class="headerlink" title="离开 CJK 区域"></a>离开 CJK 区域</h3><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\xeCJK_inter_class_toks:nnn</span> &#123; CJK &#125; &#123; Default &#125;</span><br><span class="line">  &#123; <span class="keyword">\xeCJK_class_group_end:</span> &#125;   <span class="comment">% 关闭 CJK 分组</span></span><br></pre></td></tr></table></figure>
+
+<p>离开时只关闭分组。间距（<code>\CJKecglue</code>）并不在这里插入，而是延迟到后续的边界恢复阶段——这是 xeCJK 最微妙的设计之一。</p>
+<h3 id="CJK-内部"><a href="#CJK-内部" class="headerlink" title="CJK 内部"></a>CJK 内部</h3><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\xeCJK_inter_class_toks:nnn</span> &#123; CJK &#125; &#123; CJK &#125;</span><br><span class="line">  &#123; ... <span class="keyword">\CJKglue</span> ... <span class="keyword">\CJKsymbol</span> &#125;</span><br></pre></td></tr></table></figure>
+
+<p>CJK 字符之间插入 <code>\CJKglue</code>（默认 <code>0pt plus 0.08\baselineskip</code>）——这是中文排版中字间距的弹性胶，允许行末微调。</p>
+<h3 id="经过-Boundary"><a href="#经过-Boundary" class="headerlink" title="经过 Boundary"></a>经过 Boundary</h3><p>CJK 字符与西文之间如果有空格或命令间隔，流程变成：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">CJK → Boundary → Default</span><br></pre></td></tr></table></figure>
+
+<p>这时简单的「相邻类检测」不再适用——<code>CJK</code> 和 <code>Default</code> 不直接相邻。xeCJK 需要在 <code>CJK → Boundary</code> 时记录状态，再在 <code>Boundary → Default</code> 时恢复间距。这就引出了 xeCJK 最复杂的子系统。</p>
+<h2 id="边界恢复状态机"><a href="#边界恢复状态机" class="headerlink" title="边界恢复状态机"></a>边界恢复状态机</h2><p>这是 xeCJK 架构中最精密、也是历史上 Bug 最密集的部分。理解它需要一个三层模型。</p>
+<h3 id="第一层：标记-kern-判定"><a href="#第一层：标记-kern-判定" class="headerlink" title="第一层：标记 kern 判定"></a>第一层：标记 kern 判定</h3><p>xeCJK 的核心思路是：在 <code>CJK → Boundary</code> 过渡时，向当前列表写入一个特殊的 kern 节点作为「标记」。后续 <code>Boundary → Default</code> 或 <code>Boundary → CJK</code> 过渡发生时，通过 <code>\lastkern</code> 读回这个标记，判断应该恢复什么间距。</p>
+<p>不同的标记值代表不同的上下文。xeCJK 通过 <code>\xeCJK_declare_node:n</code> 为每种标记分配一个唯一的 kern 宽度（从 11sp 起递增），用 <code>\lastkern</code> 即可区分：</p>
+<table>
+<thead>
+<tr>
+<th>标记名</th>
+<th>实际 kern 值</th>
+<th>写入时机</th>
+<th>含义</th>
+<th>恢复时插入</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>CJK</code></td>
+<td>11sp</td>
+<td>CJK→Boundary（无空格）</td>
+<td>上一个可见字符是 CJK</td>
+<td><code>\CJKglue</code></td>
+</tr>
+<tr>
+<td><code>CJK-space</code></td>
+<td>12sp</td>
+<td>CJK→Boundary（有空格）</td>
+<td>CJK 后跟了源码空格</td>
+<td><code>\CJKecglue</code>（缓存值）</td>
+</tr>
+<tr>
+<td><code>default</code></td>
+<td>13sp</td>
+<td>Default&#x2F;HalfRight→Boundary</td>
+<td>上一个可见字符是西文</td>
+<td><code>\CJKecglue</code>（缓存值）</td>
+</tr>
+<tr>
+<td><code>CJK-widow</code></td>
+<td>14sp</td>
+<td>段末孤字检测</td>
+<td>CJK 孤字标记</td>
+<td>penalty + <code>\CJKglue</code></td>
+</tr>
+<tr>
+<td><code>normalspace</code></td>
+<td>15sp</td>
+<td>NormalSpace→Boundary</td>
+<td>上一个是 NormalSpace 类字符</td>
+<td>按需恢复</td>
+</tr>
+<tr>
+<td><code>default-space</code>*</td>
+<td>16sp</td>
+<td>Default→Boundary（有空格）</td>
+<td>西文后跟了空格</td>
+<td><code>\CJKecglue</code>（缓存值）</td>
+</tr>
+</tbody></table>
+<p>*注：<code>default-space</code> 使用 glue（而非 kern）作为标记，因为 kern 会干扰 XeTeX 的 character protrusion（字符突出）功能。判定方式相应改为 <code>\lastskip</code> 而非 <code>\lastkern</code>。</p>
+<p>标记节点本身由两个背靠背的 kern 构成——先 <code>\kern -Nsp</code> 再 <code>\kern Nsp</code>，净宽度为零，不影响排版输出。<code>\xeCJK_remove_node:</code> 通过两次 <code>\unkern</code> 将其删除。</p>
+<p>恢复逻辑集中在 <code>\xeCJK_check_for_glue:</code> 函数中：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\cs_new_protected:Npn</span> <span class="keyword">\@@</span><span class="built_in">_</span>check<span class="built_in">_</span>for<span class="built_in">_</span>glue<span class="built_in">_</span>auxi:</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="keyword">\dim_case:nn</span> &#123; <span class="keyword">\tex_lastkern:D</span> &#125;</span><br><span class="line">      &#123;</span><br><span class="line">        &#123; <span class="keyword">\@@</span><span class="built_in">_</span>node:n &#123; CJK &#125; &#125;</span><br><span class="line">        &#123; <span class="keyword">\xeCJK_remove_node:</span> <span class="keyword">\CJKglue</span> &#125;</span><br><span class="line">        &#123; <span class="keyword">\@@</span><span class="built_in">_</span>node:n &#123; CJK-space &#125; &#125;</span><br><span class="line">        &#123; <span class="keyword">\xeCJK_remove_node:</span> <span class="keyword">\@@</span><span class="built_in">_</span>ccglue<span class="built_in">_</span>or<span class="built_in">_</span>space: &#125;</span><br><span class="line">        &#123; <span class="keyword">\@@</span><span class="built_in">_</span>node:n &#123; default &#125; &#125;</span><br><span class="line">        &#123; <span class="keyword">\xeCJK_remove_node:</span> <span class="keyword">\skip_horizontal:N</span> <span class="keyword">\l</span><span class="built_in">_</span>@@<span class="built_in">_</span>ecglue<span class="built_in">_</span>skip &#125;</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>\xeCJK_remove_node:</code> 删除标记 kern 本身（它只是内部簿记，不应出现在最终排版输出中），然后插入正确的间距。</p>
+<h3 id="第二层：whatsit-定点恢复"><a href="#第二层：whatsit-定点恢复" class="headerlink" title="第二层：whatsit 定点恢复"></a>第二层：whatsit 定点恢复</h3><p>问题在于，<code>\lastkern</code> 只能看到「当前列表最后一个节点」。如果标记 kern 写入之后、恢复判定之前，有其他节点被插入，<code>\lastkern</code> 就看不到标记了。</p>
+<p>最常见的干扰源是 <code>\special</code> 产生的 whatsit 节点。例如 <code>\textcolor{red}{...}</code> 会在颜色切换时插入 PDF 颜色指令的 whatsit：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">... [CJK 标记 kern] [color whatsit] ...</span><br><span class="line">                                      ↑ \lastkern 看到的是这里</span><br></pre></td></tr></table></figure>
+
+<p>xeCJK 曾尝试通用 whatsit 恢复——「只要上一节点是 whatsit，就根据保存的状态恢复 glue」。但这在 hyperref 等包的场景下导致误判（#803）：biblatex 参考文献列表中 <code>\raise\hbox{[}</code> 后面的 hyperref 注释 whatsit 被错误恢复出 ecglue，产生 <code>[ 1]</code> 类的可见间距。</p>
+<p>当前实现收窄为<strong>定点恢复</strong>——只对两个已知安全的 whatsit 来源做补丁：</p>
+<ol>
+<li><strong><code>\set@color</code></strong>（color&#x2F;xcolor）：颜色 whatsit 插入后，如果之前有 xeCJK 标记，立即重放标记 kern</li>
+<li><strong><code>\Hy@BeginAnnot</code></strong>（hyperref）：进入链接注释前保存节点状态并清空，注释开始后选择性重放</li>
+</ol>
+<p>其他来源的 whatsit（如 <code>\raise\hbox</code> 内部的）不参与恢复。这等价于把设计哲学从「猜测恢复」改为「精确重建」。</p>
+<h3 id="第三层：ecglue-缓存取值"><a href="#第三层：ecglue-缓存取值" class="headerlink" title="第三层：ecglue 缓存取值"></a>第三层：ecglue 缓存取值</h3><p><code>\CJKecglue</code> 默认是 <code>~</code>，即当前字体的词间空格。这个值依赖字体——不同字体、不同字号的空格宽度不同。</p>
+<p>问题在于：如果恢复点处的字体已经不是 CJK 字体（比如中间经过了 <code>\texttt</code> 分组），重新展开 <code>\CJKecglue</code> 会拿到错误的字体度量。</p>
+<p>解决方案是<strong>缓存</strong>：在 <code>CJK → Boundary</code> 过渡时（此时仍处于正确的 CJK 字体上下文），立即测量 <code>\CJKecglue</code> 并存入 <code>\l_@@_ecglue_skip</code>。后续所有恢复路径统一使用这个缓存值。</p>
+<p>为什么选择 CJK→Boundary 作为缓存时机？</p>
+<ul>
+<li>初始化时缓存——会随后续字号切换而过期</li>
+<li>每个字符都缓存——频率过高、状态复杂度大</li>
+<li>CJK→Boundary——恰好是离开正确 CJK 上下文前的最后稳定时机</li>
+</ul>
+<p>三层合在一起，构成了 xeCJK 边界恢复的完整心智模型：用 <code>\lastkern</code> 判定边界类型，被 whatsit 打断时走定点补丁，恢复时使用缓存的 ecglue 值。</p>
+<h2 id="字体管理"><a href="#字体管理" class="headerlink" title="字体管理"></a>字体管理</h2><p>xeCJK 的字体管理建立在 fontspec 之上，但加了一层面向 CJK 的封装。</p>
+<h3 id="切换时机"><a href="#切换时机" class="headerlink" title="切换时机"></a>切换时机</h3><p>CJK 字体切换<strong>只发生在 interchar token 触发的分组入口处</strong>。当 XeTeX 检测到字符从非 CJK 类切换到 CJK 类时，interchartoks 中的 <code>\xeCJK_select_font:</code> 执行字体切换。CJK 区域内部的字符间不重复切换——整个 CJK 连续序列共享同一次字体选择结果。</p>
+<p>这意味着 xeCJK 的字体开销是 $O(\text{边界数})$ 而非 $O(\text{字符数})$。对于一段纯中文文本，边界只出现在段落首尾和中间夹杂的西文处。</p>
+<h3 id="字体族注册"><a href="#字体族注册" class="headerlink" title="字体族注册"></a>字体族注册</h3><p><code>\setCJKmainfont</code>、<code>\newCJKfontfamily</code> 等用户命令最终调用 <code>\xeCJK_set_family:nnn</code>，后者完成两件事：</p>
+<ol>
+<li>通过 fontspec 加载字体并注册 NFSS 字体族（全局）</li>
+<li>定义用户可见的切换命令（局部）</li>
+</ol>
+<p>「字体族注册是全局的，切换命令是局部的」这一区分是有意为之的——它与 fontspec 的 <code>\newfontfamily</code> 语义保持一致：在分组内声明的字体切换命令不会泄漏到组外，但已注册的字体族信息可被后续代码复用。</p>
+<h3 id="后备字体"><a href="#后备字体" class="headerlink" title="后备字体"></a>后备字体</h3><p>当主 CJK 字体不包含某字符时，xeCJK 通过 <code>\setCJKfallbackfamilyfont</code> 设置的后备链逐一尝试。检测机制是 <code>\xeCJK_fallback_symbol:NN</code>——在 interchar 入口处、输出字符前检查当前字体是否包含该码位，不包含则按优先级切换到后备字体。</p>
+<h2 id="标点压缩系统"><a href="#标点压缩系统" class="headerlink" title="标点压缩系统"></a>标点压缩系统</h2><p>中文排版中标点符号的宽度处理是一个高频痛点：全角标点在视觉上占据一个汉字宽度，但其字形实际上只填充了一半空间，另一半是空白 side bearing。相邻标点如果都保持全角，会出现明显的视觉「空洞」。标点压缩的目标就是消除或减少这些多余空白。</p>
+<h3 id="数据来源"><a href="#数据来源" class="headerlink" title="数据来源"></a>数据来源</h3><p>xeCJK 通过 XeTeX 的 <code>\XeTeXglyphbounds</code> 原语获取每个标点字符的左右 side bearing：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\XeTeXglyphbounds</span> 1 <span class="keyword">\the</span><span class="keyword">\XeTeXcharglyph</span>`，  <span class="comment">% 左侧 bearing</span></span><br><span class="line"><span class="keyword">\XeTeXglyphbounds</span> 3 <span class="keyword">\the</span><span class="keyword">\XeTeXcharglyph</span>`，  <span class="comment">% 右侧 bearing</span></span><br></pre></td></tr></table></figure>
+
+<p>这些数据是字体相关的——不同 CJK 字体的标点字形设计差异很大。xeCJK 在文档初始化时测量并缓存所有全角标点的 bearing 数据。</p>
+<h3 id="标点样式"><a href="#标点样式" class="headerlink" title="标点样式"></a>标点样式</h3><p>xeCJK 提供 <code>PunctStyle</code> 选项，预定义了多种压缩策略：</p>
+<ul>
+<li><strong><code>quanjiao</code></strong>（全角）：所有标点占一个汉字宽，不压缩</li>
+<li><strong><code>banjiao</code></strong>（半角）：所有标点压缩到半个汉字宽</li>
+<li><strong><code>kaiming</code></strong>（开明）：句末标点（。！？）保持全角，其他压缩</li>
+<li><strong><code>hangmobanjiao</code></strong>（行末半角）：仅行末标点压缩</li>
+<li><strong><code>CCT</code></strong>：模拟 CCT 系统的标点处理</li>
+</ul>
+<p>每种样式实际上是一组规则，定义了「标点前方 kern」和「标点后方 kern」在不同上下文（行首、行末、相邻标点）中的取值。用户可通过 <code>\xeCJKDeclarePunctStyle</code> 声明自定义样式。</p>
+<h3 id="相邻标点的-kern-计算"><a href="#相邻标点的-kern-计算" class="headerlink" title="相邻标点的 kern 计算"></a>相邻标点的 kern 计算</h3><p>当两个标点相邻时（如「」后跟「，」），它们之间的压缩量由两个标点的 bearing 之和决定。xeCJK 通过 <code>\xeCJKsetkern</code> 允许手动覆盖这些值，但通常由样式规则自动计算。内部存储在 <code>g_@@_punct/kern/&lt;char1&gt;/&lt;char2&gt;/tl</code> 属性表中。</p>
+<h2 id="间距系统总览"><a href="#间距系统总览" class="headerlink" title="间距系统总览"></a>间距系统总览</h2><p>把前面各部分涉及的间距类型汇总：</p>
+<table>
+<thead>
+<tr>
+<th>间距</th>
+<th>插入位置</th>
+<th>默认值</th>
+<th>来源</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>\CJKglue</code></td>
+<td>CJK ↔ CJK</td>
+<td><code>0pt plus 0.08\baselineskip</code></td>
+<td>interchar CJK→CJK</td>
+</tr>
+<tr>
+<td><code>\CJKecglue</code></td>
+<td>CJK ↔ 西文</td>
+<td><code>~</code>（字体空格）</td>
+<td>边界恢复状态机</td>
+</tr>
+<tr>
+<td>标点 kern</td>
+<td>标点 ↔ 标点&#x2F;CJK</td>
+<td>由 PunctStyle 计算</td>
+<td>interchar FullLeft&#x2F;FullRight 路径</td>
+</tr>
+</tbody></table>
+<p><code>\CJKglue</code> 和 <code>\CJKecglue</code> 都可通过 <code>\xeCJKsetup</code> 全局修改。但注意：<code>\CJKecglue</code> 的默认值 <code>~</code> 是字体相关的——换字体或字号后它的实际宽度会变化。这正是边界恢复第三层「缓存取值」要解决的问题。</p>
+<h3 id="xCJKecglue-选项：统一源码空格行为"><a href="#xCJKecglue-选项：统一源码空格行为" class="headerlink" title="xCJKecglue 选项：统一源码空格行为"></a><code>xCJKecglue</code> 选项：统一源码空格行为</h3><p>默认情况下，xeCJK 对「源码中 CJK 与西文直接相邻」和「源码中 CJK 与西文之间有空格」的处理是不同的：</p>
+<ul>
+<li><code>中文text</code>（无空格）→ 边界恢复插入 <code>\CJKecglue</code></li>
+<li><code>中文 text</code>（有空格）→ 保留 TeX 原生词间空格 glue</li>
+</ul>
+<p>这意味着用户的源码书写习惯会影响最终排版的间距宽度。对于追求一致性的文档，xeCJK 提供了 <code>xCJKecglue</code> 选项：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\xeCJKsetup</span>&#123;xCJKecglue=true&#125;</span><br></pre></td></tr></table></figure>
+
+<p>启用后，源码空格被「吃掉」并统一替换为 <code>\CJKecglue</code>——无论写 <code>中文text</code> 还是 <code>中文 text</code>，得到的间距完全相同。</p>
+<p>这个选项与边界恢复状态机的关系值得一提：前面标记 kern 表中的 <code>default-space</code>（16sp，使用 glue 而非 kern 作为标记）正是为 <code>xCJKecglue=true</code> 路径服务的。它标记「这里原来有源码空格，恢复时需要替换为 <code>\CJKecglue</code>」。当 <code>xCJKecglue=false</code> 时，这个标记根本不会被写入——源码空格直接保留为正常 glue，无需标记和恢复。</p>
+<p>选择用 glue 而非 kern 作为标记也是有原因的：<code>default-space</code> 标记的位置恰好是原来空格 glue 所在的位置，用同类型节点替换可以避免干扰 XeTeX 的 character protrusion（字符突出）功能。判定方式相应从 <code>\lastkern</code> 变为 <code>\lastskip</code>。</p>
+<h2 id="兼容性补丁：模式与哲学"><a href="#兼容性补丁：模式与哲学" class="headerlink" title="兼容性补丁：模式与哲学"></a>兼容性补丁：模式与哲学</h2><p>xeCJK 的 interchar 机制对 TeX 的执行流有侵入性——它在字符之间注入了 token。这与很多第三方包的假设冲突。xeCJK 通过 <code>\@@_package_hook:nn</code> 延迟加载兼容补丁。</p>
+<p>典型补丁遵循一个固定模式：</p>
+<figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\@@</span><span class="built_in">_</span>package<span class="built_in">_</span>hook:nn &#123; ulem &#125;</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">% 重定义 ulem 的关键命令</span></span><br><span class="line">    <span class="comment">% 在入口处 \makexeCJKinactive（关闭 interchar）</span></span><br><span class="line">    <span class="comment">% 执行原始操作</span></span><br><span class="line">    <span class="comment">% 分组结束时自动恢复 interchar 状态</span></span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>\makexeCJKinactive</code> 将 <code>\XeTeXinterchartokenstate</code> 设为 0，相当于告诉 XeTeX「在这段代码中不要做 interchar 检测」。这是最直接的隔离手段。</p>
+<p>不同包的补丁复杂度差异很大：</p>
+<ul>
+<li><strong>ulem</strong>：简单隔离——下划线渲染过程中关闭 interchar 即可</li>
+<li><strong>pifont</strong>：需要先 <code>\mode_leave_vertical:</code>（进入水平模式），否则垂直模式下的分组赋值会泄漏到输出例程</li>
+<li><strong>listings</strong>：需要完全重写字符转换机制——用 <code>\scantokens</code> 替代 <code>\lccode</code> + <code>\lowercase</code> 路线，避免 CJK 字符被设为 active catcode</li>
+<li><strong>color&#x2F;xcolor 和 hyperref</strong>：需要在 whatsit 插入点做状态保存&#x2F;重放，这已经上升到边界恢复状态机的层面</li>
+</ul>
+<p>这些补丁的共同哲学是<strong>最小侵入</strong>：不重定义第三方包的全部接口，只在已知冲突点做定点修复。</p>
+<h2 id="char-原语：一条架构级红线"><a href="#char-原语：一条架构级红线" class="headerlink" title="\char 原语：一条架构级红线"></a><code>\char</code> 原语：一条架构级红线</h2><p>XeTeX 的 interchar 机制工作在 token 层——它看到的是「将要输出到当前列表的字符 token」，无法区分这个字符来自 Unicode 直接输入还是 <code>\char&quot;4E00</code> 这样的原语调用。</p>
+<p>这意味着 <code>\char</code> 输出的字符同样会触发 interchar 检测。对于大多数场景这没有问题——但在某些数学包（如 <code>mtpro2</code>）中，<code>\char</code> 被用来取字形而非输出文本字符，此时 interchar 的字体切换和间距插入完全是多余甚至有害的。</p>
+<p>xeCJK 对此确立了一条架构约束：</p>
+<blockquote>
+<p><strong><code>\char</code> 必须始终保持 XeTeX primitive 身份，不得被重定义。</strong></p>
+</blockquote>
+<p>早期曾有方案尝试在 <code>\AtBeginDocument</code> 中重定义 <code>\char</code>，但这会破坏 xint 等包在加载期通过 <code>\let</code> 保存原语的假设。当前的稳定策略是三层的：</p>
+<ol>
+<li>提供 <code>\xeCJKchar</code>——语义是「绕过 interchar 输出字符」，实现上在输出前临时关闭 interchar</li>
+<li>对已知受影响的第三方包做自动补丁（如 mtpro2 的 <code>\overcbrace</code>）</li>
+<li>其他场景需用户手动用 <code>\makexeCJKinactive</code> 分组包装</li>
+</ol>
+<p>这不是一个「没时间做完美方案」的妥协，而是一个刻意的设计选择：低侵入优先。改变原语身份的全局影响不可控，定点补丁的影响范围可预测。</p>
+<h2 id="Token-层-vs-节点层：xeCJK-的根本约束"><a href="#Token-层-vs-节点层：xeCJK-的根本约束" class="headerlink" title="Token 层 vs. 节点层：xeCJK 的根本约束"></a>Token 层 vs. 节点层：xeCJK 的根本约束</h2><p>要真正理解 xeCJK 为什么是现在这个样子，需要先理解 TeX 引擎处理文档的两个阶段。</p>
+<h3 id="两个世界"><a href="#两个世界" class="headerlink" title="两个世界"></a>两个世界</h3><p><strong>Token 层</strong>（输入处理阶段）：TeX 把源文件逐字符读入，转化为 token 流——字符 token、命令 token。宏展开、条件判断、赋值都在这里发生。此时还没有「排版」：没有盒子、没有 glue 节点、没有断行。XeTeX 的 interchar 机制正是工作在这一层——它在字符 token 被送入排版引擎之前，往 token 流里插入额外的 token。</p>
+<p><strong>节点层</strong>（排版阶段）：token 被「消化」后变成排版节点——字符节点（glyph）、glue 节点、kern 节点、penalty 节点、whatsit 节点等。这些节点组成水平&#x2F;垂直列表，最终经断行、分页算法处理后输出到 PDF。LuaTeX 的 callback 机制工作在这一层——它可以在断行前后直接遍历、修改完整的节点列表。</p>
+<p>核心区别在于<strong>可见范围</strong>：</p>
+<ul>
+<li>Token 层只能看到「当前正在处理的 token」和有限的前瞻（<code>\peek</code>），对已经写入列表的内容只能通过 <code>\lastkern</code>、<code>\lastpenalty</code>、<code>\lastnodetype</code> 等原语回溯最后一个节点</li>
+<li>节点层能看到整段或整行的完整节点列表，可以任意向前、向后遍历和修改</li>
+</ul>
+<p>这就是为什么 xeCJK 需要那套复杂的边界恢复状态机：它在 token 层做决策，看不到全貌，只能靠「提前埋标记 kern、事后读 <code>\lastkern</code>」来推断上下文。而 LuaTeX-ja 在节点层工作，判断「这个字符前面是 CJK 还是西文」只需要往前遍历一个节点——不需要标记，不需要状态机，不需要担心 whatsit 打断。</p>
+<h3 id="时间复杂度的差异"><a href="#时间复杂度的差异" class="headerlink" title="时间复杂度的差异"></a>时间复杂度的差异</h3><p>两者渐近复杂度相同（都是线性），但工作模式不同：</p>
+<p><strong>xeCJK</strong> 的代价分摊在整个输入过程中：每个字符边界触发一次 interchar toks 执行 O(1) 的工作（查标记、插 glue、切字体），没有额外的遍历。总代价 O(n)，常数因子很小。</p>
+<p><strong>LuaTeX-ja</strong> 把间距处理集中在回调点：字符消化阶段不做间距处理，等一整段输入完毕后在 <code>pre_linebreak_filter</code> 回调中遍历整段节点列表。通常需要 2–3 趟遍历（kanjiskip、xkanjiskip、标点压缩各一趟），总代价 O(kn)，常数因子更高。</p>
+<p>但这并不意味着 xeCJK 在性能上占优。LuaTeX 引擎本身比 XeTeX 更快（现代化的内存模型、Lua 的 JIT 友好性），回调的额外开销被引擎层面的提速抵消。实际文档编译中，瓶颈通常在字体加载和 PDF 输出，不在间距计算。</p>
+<h3 id="复杂度的性质"><a href="#复杂度的性质" class="headerlink" title="复杂度的性质"></a>复杂度的性质</h3><p>更值得关注的是两者<strong>代码复杂度的性质</strong>差异：</p>
+<ul>
+<li><strong>xeCJK 的复杂度大部分是偶然的</strong>（accidental complexity）：标记 kern、whatsit 定点恢复、ecglue 缓存——这些机制的存在不是因为排版问题本身需要它们，而是因为 token 层看不到全貌，被迫发明的变通。如果能直接访问节点列表，这些东西根本不需要存在。</li>
+<li><strong>LuaTeX-ja 的复杂度大部分是本质的</strong>（essential complexity）：它实现了更完整的日文排版模型（基于 JIS X 4051 &#x2F; W3C JLREQ），处理的规则本身就更丰富——行头&#x2F;行末禁则、连续标点压缩、ruby 对齐、竖排。代码量更大，但每一段代码都在处理「真正的排版问题」，而不是在绕平台限制。</li>
+</ul>
+<p>节点层拥有完整信息，反而让很多判断变得直截了当。xeCJK 做的事相对少，但每件事都要和平台限制搏斗。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>xeCJK 的设计可以从两个维度理解：</p>
+<p><strong>横向看</strong>，它是一个建立在 XeTeX interchar token 原语之上的字符间距与字体控制层。字符分类定义了「什么和什么相邻」，转换矩阵定义了「相邻时做什么」，标点压缩和字体切换是具体的「做什么」。这一层是声明式的、静态的——给定分类和规则，行为完全确定。</p>
+<p><strong>纵向看</strong>，边界恢复状态机处理的是「相邻」这个概念被打破时怎么办。空格、命令、颜色 whatsit、hyperref 注释——所有这些都可能在 CJK 与西文之间插入不可见的节点，打断 interchar 的直接相邻检测。状态机的三层设计（标记 kern → whatsit 定点恢复 → ecglue 缓存）是 xeCJK 历史上最密集的 Bug 来源，也是其最精密的工程成果。</p>
+<p>xeCJK 的设计哲学是<strong>在 token 层模拟节点层的行为</strong>。这个根本约束决定了它的所有设计选择：为什么需要标记 kern 而不是直接查看列表内容，为什么 whatsit 恢复必须是定点的而不能是通用的，为什么 <code>\char</code> 不能被安全地重定义。理解了这个约束，就理解了 xeCJK 为什么是现在这个样子——不是因为它不够好，而是因为 XeTeX 的 interchar 机制本身就是一个 token 层的工具，xeCJK 在这个约束内做到了能做的一切。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/05/07/xecjk-internals/" title="xeCJK 原理：从 interchar token 到边界恢复状态机">https://liam.page/2026/05/07/xecjk-internals/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/xeCJK/" rel="tag"># xeCJK</a>
+              <a href="/tags/LaTeX/" rel="tag"># LaTeX</a>
+              <a href="/tags/XeTeX/" rel="tag"># XeTeX</a>
+              <a href="/tags/Typography/" rel="tag"># Typography</a>
+              <a href="/tags/Chinese-Typesetting/" rel="tag"># Chinese Typesetting</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/04/30/ctex-maintenance-roundup/" rel="prev" title="ctex 宏包近期维护工作纪要">
+      <i class="fa fa-chevron-left"></i> ctex 宏包近期维护工作纪要
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#XeTeX-%E7%9A%84-interchar-token-%E5%8E%9F%E8%AF%AD"><span class="nav-number">1.</span> <span class="nav-text">XeTeX 的 interchar token 原语</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%97%E7%AC%A6%E5%88%86%E7%B1%BB%E4%BD%93%E7%B3%BB"><span class="nav-number">2.</span> <span class="nav-text">字符分类体系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B1%BB%E5%88%AB%E8%BD%AC%E6%8D%A2%E7%9F%A9%E9%98%B5"><span class="nav-number">3.</span> <span class="nav-text">类别转换矩阵</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%BF%9B%E5%85%A5-CJK-%E5%8C%BA%E5%9F%9F"><span class="nav-number">3.1.</span> <span class="nav-text">进入 CJK 区域</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%A6%BB%E5%BC%80-CJK-%E5%8C%BA%E5%9F%9F"><span class="nav-number">3.2.</span> <span class="nav-text">离开 CJK 区域</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#CJK-%E5%86%85%E9%83%A8"><span class="nav-number">3.3.</span> <span class="nav-text">CJK 内部</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BB%8F%E8%BF%87-Boundary"><span class="nav-number">3.4.</span> <span class="nav-text">经过 Boundary</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BE%B9%E7%95%8C%E6%81%A2%E5%A4%8D%E7%8A%B6%E6%80%81%E6%9C%BA"><span class="nav-number">4.</span> <span class="nav-text">边界恢复状态机</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E5%B1%82%EF%BC%9A%E6%A0%87%E8%AE%B0-kern-%E5%88%A4%E5%AE%9A"><span class="nav-number">4.1.</span> <span class="nav-text">第一层：标记 kern 判定</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%BA%8C%E5%B1%82%EF%BC%9Awhatsit-%E5%AE%9A%E7%82%B9%E6%81%A2%E5%A4%8D"><span class="nav-number">4.2.</span> <span class="nav-text">第二层：whatsit 定点恢复</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%AC%AC%E4%B8%89%E5%B1%82%EF%BC%9Aecglue-%E7%BC%93%E5%AD%98%E5%8F%96%E5%80%BC"><span class="nav-number">4.3.</span> <span class="nav-text">第三层：ecglue 缓存取值</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%97%E4%BD%93%E7%AE%A1%E7%90%86"><span class="nav-number">5.</span> <span class="nav-text">字体管理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%87%E6%8D%A2%E6%97%B6%E6%9C%BA"><span class="nav-number">5.1.</span> <span class="nav-text">切换时机</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%97%E4%BD%93%E6%97%8F%E6%B3%A8%E5%86%8C"><span class="nav-number">5.2.</span> <span class="nav-text">字体族注册</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%8E%E5%A4%87%E5%AD%97%E4%BD%93"><span class="nav-number">5.3.</span> <span class="nav-text">后备字体</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%87%E7%82%B9%E5%8E%8B%E7%BC%A9%E7%B3%BB%E7%BB%9F"><span class="nav-number">6.</span> <span class="nav-text">标点压缩系统</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E6%9D%A5%E6%BA%90"><span class="nav-number">6.1.</span> <span class="nav-text">数据来源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%87%E7%82%B9%E6%A0%B7%E5%BC%8F"><span class="nav-number">6.2.</span> <span class="nav-text">标点样式</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%9B%B8%E9%82%BB%E6%A0%87%E7%82%B9%E7%9A%84-kern-%E8%AE%A1%E7%AE%97"><span class="nav-number">6.3.</span> <span class="nav-text">相邻标点的 kern 计算</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%B4%E8%B7%9D%E7%B3%BB%E7%BB%9F%E6%80%BB%E8%A7%88"><span class="nav-number">7.</span> <span class="nav-text">间距系统总览</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#xCJKecglue-%E9%80%89%E9%A1%B9%EF%BC%9A%E7%BB%9F%E4%B8%80%E6%BA%90%E7%A0%81%E7%A9%BA%E6%A0%BC%E8%A1%8C%E4%B8%BA"><span class="nav-number">7.1.</span> <span class="nav-text">xCJKecglue 选项：统一源码空格行为</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%BC%E5%AE%B9%E6%80%A7%E8%A1%A5%E4%B8%81%EF%BC%9A%E6%A8%A1%E5%BC%8F%E4%B8%8E%E5%93%B2%E5%AD%A6"><span class="nav-number">8.</span> <span class="nav-text">兼容性补丁：模式与哲学</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#char-%E5%8E%9F%E8%AF%AD%EF%BC%9A%E4%B8%80%E6%9D%A1%E6%9E%B6%E6%9E%84%E7%BA%A7%E7%BA%A2%E7%BA%BF"><span class="nav-number">9.</span> <span class="nav-text">\char 原语：一条架构级红线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Token-%E5%B1%82-vs-%E8%8A%82%E7%82%B9%E5%B1%82%EF%BC%9AxeCJK-%E7%9A%84%E6%A0%B9%E6%9C%AC%E7%BA%A6%E6%9D%9F"><span class="nav-number">10.</span> <span class="nav-text">Token 层 vs. 节点层：xeCJK 的根本约束</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%A4%E4%B8%AA%E4%B8%96%E7%95%8C"><span class="nav-number">10.1.</span> <span class="nav-text">两个世界</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%B6%E9%97%B4%E5%A4%8D%E6%9D%82%E5%BA%A6%E7%9A%84%E5%B7%AE%E5%BC%82"><span class="nav-number">10.2.</span> <span class="nav-text">时间复杂度的差异</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%8D%E6%9D%82%E5%BA%A6%E7%9A%84%E6%80%A7%E8%B4%A8"><span class="nav-number">10.3.</span> <span class="nav-text">复杂度的性质</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">11.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">420</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">794</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.4m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">43:50</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/05/07/xecjk-internals/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '2132cb4c4e269b602e3d8cd35b6aaa39',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
