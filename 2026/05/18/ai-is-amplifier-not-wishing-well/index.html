@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="最近注意到一个叫 mattpocock&#x2F;skills 的仓库登上了 GitHub Trending 榜首——一天新增五千多 Star，总数突破三万。作者 Matt Pocock 是个 TypeScript 教育者，过去一年半一直在教人怎么用 AI 智能体做开发。他最近有两场演讲被放出来，讲的是他这一年半观察下来总结出的一套 AI 编程方法论。我看完之后觉得挺有意思，所以写这篇来梳理一下他">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI 是放大器，而不是许愿池：从 mattpocock&#x2F;skills 看 AI 编程方法论">
+<meta property="og:url" content="https://liam.page/2026/05/18/ai-is-amplifier-not-wishing-well/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="最近注意到一个叫 mattpocock&#x2F;skills 的仓库登上了 GitHub Trending 榜首——一天新增五千多 Star，总数突破三万。作者 Matt Pocock 是个 TypeScript 教育者，过去一年半一直在教人怎么用 AI 智能体做开发。他最近有两场演讲被放出来，讲的是他这一年半观察下来总结出的一套 AI 编程方法论。我看完之后觉得挺有意思，所以写这篇来梳理一下他">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-18T00:51:53.000Z">
+<meta property="article:modified_time" content="2026-05-18T01:11:07.123Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="Methodology">
+<meta property="article:tag" content="Software Engineering">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/05/18/ai-is-amplifier-not-wishing-well/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>AI 是放大器，而不是许愿池：从 mattpocock/skills 看 AI 编程方法论 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">422</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">800</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/05/18/ai-is-amplifier-not-wishing-well/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          AI 是放大器，而不是许愿池：从 mattpocock/skills 看 AI 编程方法论
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 05 月 18 日 08:51:53 / 修改时间：09:11:07" itemprop="dateCreated datePublished" datetime="2026-05-18T08:51:53+08:00">2026 年 05 月 18 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4.4k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>8 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>最近注意到一个叫 mattpocock&#x2F;skills 的仓库登上了 GitHub Trending 榜首——一天新增五千多 Star，总数突破三万。作者 Matt Pocock 是个 TypeScript 教育者，过去一年半一直在教人怎么用 AI 智能体做开发。他最近有两场演讲被放出来，讲的是他这一年半观察下来总结出的一套 AI 编程方法论。我看完之后觉得挺有意思，所以写这篇来梳理一下他的思路——不只是仓库里那些 skill 文件本身，而是它们背后的诊断逻辑和设计哲学。</p>
+<span id="more"></span>
+
+<h2 id="一个不太主流的出发点"><a href="#一个不太主流的出发点" class="headerlink" title="一个不太主流的出发点"></a>一个不太主流的出发点</h2><p>现在关于 AI 编程的讨论，基本上分成两个方向。一边说「代码以后不重要了，会提需求就行」；另一边说「程序员要被替代了」。这两种说法听着相反，但仔细想想，它们其实共享一个前提：传统的工程基本功在贬值。</p>
+<p>Matt 的立场和这两边都不一样。他说他这一年半观察了很多用 AI 做开发的人，发现了一个规律：那些真正用得好的，既不是把所有事都甩给 AI 的人，也不是什么都不信 AI 非要自己写的人。他们的共同点是——当 AI 搞不定的时候，他们能接得住。</p>
+<p>然后他把这个观察往下推了一步：为什么有的人 AI 用得好，有的人越用越乱？他的结论是——问题往往出在代码库本身。好的代码库里，AI 干活又快又准；乱的代码库里，AI 越写越烂。这听起来像是废话，但他接下来的推论有点意思：既然 AI 是个放大器，那好代码的价值就不再只是「好看一点」「好维护一点」这种线性的好处了——它被放大了。反过来也一样，坏代码的代价也被放大了。以前坏代码顶多是让人维护起来头疼，现在坏代码是直接让你没法用 AI，等于你自动放弃了一大块生产力红利。</p>
+<p>顺着这个逻辑，Matt 还批评了一种叫「specs to code」的做法——大意是你写好规格文档，让 AI 去生成代码，代码出了问题不去改代码而是改文档，把代码当成编译产物看待。他说他自己试过这个路线，第一次生成的还行，第二次开始劣化，第三次已经没法看了。他觉得这跟所谓的 vibe coding 本质上是一回事——都是在放弃对代码的掌控权。</p>
+<h2 id="六种常见的翻车姿势"><a href="#六种常见的翻车姿势" class="headerlink" title="六种常见的翻车姿势"></a>六种常见的翻车姿势</h2><p>在这个大前提之下，Matt 把他观察到的 AI 编程翻车场景归纳了六种。他的 skills 仓库里的每个工具大致对应一种。比较有意思的是，他给每种翻车找理论解释的时候，引用的全是 AI 出现之前的经典软件工程著作。</p>
+<h3 id="你想要-A，AI-给你做了-B"><a href="#你想要-A，AI-给你做了-B" class="headerlink" title="你想要 A，AI 给你做了 B"></a>你想要 A，AI 给你做了 B</h3><p>这大概是最普遍的问题了。你脑子里有个模糊的想法，对着 AI 说了一通，它热火朝天做了一堆，但做出来的不是你要的东西。</p>
+<p>Matt 说问题在于你们之间缺少 Brooks 在《设计的设计》里说的那个东西——Design Concept，设计概念。就是说当几个人一起造一个东西的时候，他们脑子里有个共享的画面，知道这东西最终是什么样的。你和 AI 之间往往就没有这个对齐过程。</p>
+<p>他的解法是一个叫 <code>grill-me</code> 的 skill。内容很短，大概就是让 AI 扮演一个追问者：每次只问你一个问题，逼你把每个设计决策想清楚说明白，直到双方达成一致为止。实际跑起来会产生四五十轮的问答。听起来烦，但他觉得这比上来就让 AI 出计划要靠谱得多——因为那些计划模式本质上是急着动手，意图还没对齐就开始干了。</p>
+<h3 id="AI-说了很多话但不在点子上"><a href="#AI-说了很多话但不在点子上" class="headerlink" title="AI 说了很多话但不在点子上"></a>AI 说了很多话但不在点子上</h3><p>另一个常见体验：AI 的回复又长又啰嗦，你说的概念它好像懂了，但写出来的东西用的是另一套术语和抽象。</p>
+<p>这个问题 Matt 用领域驱动设计里的 Ubiquitous Language（通用语言）来解释。简单说就是：你的项目里有一套自己的词汇表——你怎么命名 class，怎么叫那些业务概念——但 AI 不知道这些，它用的是自己训练数据里学来的通用说法。</p>
+<p>所以他做了个 <code>ubiquitous-language</code> skill：让 AI 扫描你的代码库，把里面的核心术语提取出来整理成表格。之后每次开新对话就把这份表格注入进去。他说他观察 AI 的推理过程后发现，有了这份词汇表之后，AI 不光规划时更靠谱了，连写出来的代码在命名风格上都更贴近现有代码库了。这个副作用倒是挺自然的——你用什么词思考，往往就会用什么词命名。</p>
+<h3 id="方向对了但跑不通"><a href="#方向对了但跑不通" class="headerlink" title="方向对了但跑不通"></a>方向对了但跑不通</h3><p>假设前面两步都做好了——意图对齐了，术语也一致了——AI 也确实在往对的方向走，但写出来的代码就是跑不通。</p>
+<p>Matt 说这是反馈循环的问题。没有类型检查、没有测试、没有 lint，AI 就是闷头写，不知道自己已经偏了。但光是说「那就加测试吧」也不够，因为 AI 有个天然的倾向：它喜欢一口气写很多东西，写完了再说。Hunt 和 Thomas 在《程序员修炼之道》里管这种状态叫「驶出车灯照射范围」——车开得太快，灯照不到那么远，你看不见前面有什么。</p>
+<p>他的对策是一个 <code>tdd</code> skill，强制 AI 走测试驱动的红绿循环：先写一个会失败的测试，再写让它通过的最小实现，然后重构。关键在于测试必须在实现之前写好，这就从机制上限制了 AI 每一步的跨度。它没法作弊——你不可能在代码还不存在的时候写一个永远通过的假测试。</p>
+<h3 id="代码库本身是个烂摊子"><a href="#代码库本身是个烂摊子" class="headerlink" title="代码库本身是个烂摊子"></a>代码库本身是个烂摊子</h3><p>前面三个问题是关于单次交互的质量。但如果代码库的结构本身很碎片化——到处是只有几十行的小文件，互相通过隐式依赖纠缠在一起——那 AI 每次「正确地」完成一个任务，都可能让整体更乱，因为它追踪不了那张复杂的依赖网。</p>
+<p>这里 Matt 引用了 Ousterhout 在《软件设计哲学》里的说法：深模块（Deep Module）和浅模块（Shallow Module）的区分。浅模块就是接口复杂、内部功能少的那种——一大堆小零件互相依赖。深模块反过来——接口简洁，内部包了很多逻辑。对 AI 来说，深模块意味着它只需要理解接口约定就能正确地使用这个模块，不需要钻进去看每一行实现。深模块也天然好测试：在接口边界上写测试就行了。</p>
+<p>他的 <code>improve-codebase-architecture</code> skill 就是让 AI 去扫描你的代码库，找出那些可以收拢成深模块的碎片化区域，给出重构建议。他举了自己的一个例子：把一个视频编辑器里贯穿前后端的完整流程收拢成一个大模块之后，AI 在那个项目上的表现是「天差地别」。</p>
+<h3 id="产出多了但脑子跟不上了"><a href="#产出多了但脑子跟不上了" class="headerlink" title="产出多了但脑子跟不上了"></a>产出多了但脑子跟不上了</h3><p>这个问题有点微妙。用了 AI 之后你确实比以前写更多代码了，但同时你觉得自己对代码库的掌控感在下降——你不再清楚每一处细节是怎么回事了。</p>
+<p>深模块的思路在这里提供了一种心理上的出路：你把这些模块当成灰箱——接口是你设计的，行为是你验证过的，但内部实现你可以交给 AI，不必逐行审查。Matt 把这个原则总结成一句话：Design the interface, delegate the implementation——设计接口，委托实现。Kent Beck 说过「每天投资于系统的设计」，这就是那句话的具体操作方式。</p>
+<p>反过来看那个「specs to code」的做法，问题就很清楚了：它是在从设计中撤资——用一次性的文档替代了持续演进的接口设计。Matt 说你应该做相反的事：加大对设计的投资，因为 AI 让设计的回报率比以前高多了。</p>
+<h3 id="任务太大，AI-到后面开始胡说"><a href="#任务太大，AI-到后面开始胡说" class="headerlink" title="任务太大，AI 到后面开始胡说"></a>任务太大，AI 到后面开始胡说</h3><p>最后一个问题跟 LLM 本身的物理限制有关。简单说就是：上下文窗口装满之后，模型的注意力质量会下降——Matt 说大约在 100k tokens 这个量级之后，模型就开始从「智慧区」滑入「愚蠢区」。</p>
+<p>所以大任务不能硬塞进一个对话里做完。但把大任务切成顺序步骤让一个 AI 一步一步做，又太慢了。他的方案是把任务切成一张 DAG（有向无环图）：有些子任务之间有依赖关系必须串行，没有依赖关系的就可以并行分配给多个 AI 智能体。每个智能体都在一个全新的干净上下文里工作，保证它始终待在智慧区。</p>
+<h2 id="串起来看：一条完整的流水线"><a href="#串起来看：一条完整的流水线" class="headerlink" title="串起来看：一条完整的流水线"></a>串起来看：一条完整的流水线</h2><p>上面六个 skill 不是孤立的工具，它们之间有上下游关系。串起来大概是这样一条线：</p>
+<p>先用 <code>grill-me</code> 做需求追问，把模糊的想法变成清晰的共识。然后把共识转化成一份结构化的 PRD 文档。然后把 PRD 拆成一组有依赖关系的 Issue——每个 Issue 是一个垂直切片，从数据层到前端一竿子捅到底。然后 AI 智能体以 TDD 方式逐个实现这些 Issue。完成后人工做 QA 和代码审查，发现的问题变成新 Issue 回到看板。循环往复。</p>
+<p>这条流水线有几个设计选择我觉得值得说一下。</p>
+<p>第一个是垂直切片。AI 的自然倾向是水平切——先把数据库层全部做完，再做 API 层，再做前端。问题是在第一条完整路径跑通之前你没有任何真实反馈。所以 Matt 要求每个 Issue 都是一个纵向的薄片——它可能很粗糙，但它是一条能跑通的端到端路径。《程序员修炼之道》里管这叫曳光弹——你不需要它精确命中目标，你只需要它发光让你看到弹道。</p>
+<p>第二个是上下文管理策略。对话快满的时候，他选择清空重来而不是压缩摘要继续。压缩听起来更省事，但压缩后的摘要会引入漂移和信息损失。从零开始虽然看似浪费，但保证了每一轮 AI 都在一个已知良好的起点上工作。</p>
+<p>第三个是人和 AI 的分工。规划环节（追问、写 PRD、切 Issue）必须有人在场。实现环节完全交给 AI，人可以离开。QA 环节又必须有人在场。人的精力集中在决策密度最高的两头，中间那个机械执行的环节交出去。</p>
+<p>第四个是并行化。Matt 为此做了一个叫 Sand Castle 的编排库：一个规划智能体看看板上哪些 Issue 没有阻塞关系，把它们分发到独立的 Docker 容器里；多个实现智能体同时干活；干完之后由一个合并智能体处理冲突。审查用高能力模型，实现用高性价比模型，各司其职。</p>
+<h2 id="旧书为什么突然变得重要了"><a href="#旧书为什么突然变得重要了" class="headerlink" title="旧书为什么突然变得重要了"></a>旧书为什么突然变得重要了</h2><p>Matt 演讲里引用的那些书——Ousterhout 的《软件设计哲学》、Hunt 与 Thomas 的《程序员修炼之道》、Brooks 的《设计的设计》、Evans 的《领域驱动设计》——有的写于二十多年前，全部写在大语言模型出现之前。</p>
+<p>为什么这些旧书突然又重要了？我觉得 Matt 给出了一个挺好的解释框架：这些书讲的东西——怎么设计接口、怎么管理复杂度、怎么在协作中对齐意图——本质上都是在讨论「输入信号的质量」问题。以前这个质量差一点，后果就是维护成本高一点、开发速度慢一点，但基本是线性的代价。现在有了 AI 这个放大器，好的输入信号能被放大成惊人的产出，坏的输入信号也会被放大成惊人的混乱。增益系数高了，输入端的差异就变得比以前重要得多。</p>
+<p>skills 仓库做的事情，说白了就是把这些书里的原则翻译成了 AI 能执行的格式——几十行的提示词文件。它不是框架，不是 SDK，就是一组行为约束，让 AI 在干活时自动遵循这些被验证过的工程原则。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>所以回到标题。把 AI 当许愿池用——丢一个模糊的想法进去，期望捞出一个成品——这条路 Matt 试过，结论是越迭代越烂。把 AI 当放大器用——在输入端下功夫，把设计做清楚、把测试写到位、把模块边界画好、把术语对齐——然后让 AI 放大你的投入，这条路虽然前期看起来慢一些，但产出质量随迭代上升而不是下降。</p>
+<p>两条路的岔口其实就一个判断：你信不信基本功在 AI 时代还有用。skills 仓库的三万颗 Star 大概可以算一个投票结果吧。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/05/18/ai-is-amplifier-not-wishing-well/" title="AI 是放大器，而不是许愿池：从 mattpocock&#x2F;skills 看 AI 编程方法论">https://liam.page/2026/05/18/ai-is-amplifier-not-wishing-well/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Software-Engineering/" rel="tag"># Software Engineering</a>
+              <a href="/tags/AI/" rel="tag"># AI</a>
+              <a href="/tags/Methodology/" rel="tag"># Methodology</a>
+              <a href="/tags/LLM/" rel="tag"># LLM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/05/10/three-layer-defense-dissected/" rel="prev" title="iOS 越狱检测的三层纵深：一个金融 App 的攻防实录">
+      <i class="fa fa-chevron-left"></i> iOS 越狱检测的三层纵深：一个金融 App 的攻防实录
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E4%B8%AA%E4%B8%8D%E5%A4%AA%E4%B8%BB%E6%B5%81%E7%9A%84%E5%87%BA%E5%8F%91%E7%82%B9"><span class="nav-number">1.</span> <span class="nav-text">一个不太主流的出发点</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%AD%E7%A7%8D%E5%B8%B8%E8%A7%81%E7%9A%84%E7%BF%BB%E8%BD%A6%E5%A7%BF%E5%8A%BF"><span class="nav-number">2.</span> <span class="nav-text">六种常见的翻车姿势</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BD%A0%E6%83%B3%E8%A6%81-A%EF%BC%8CAI-%E7%BB%99%E4%BD%A0%E5%81%9A%E4%BA%86-B"><span class="nav-number">2.1.</span> <span class="nav-text">你想要 A，AI 给你做了 B</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AI-%E8%AF%B4%E4%BA%86%E5%BE%88%E5%A4%9A%E8%AF%9D%E4%BD%86%E4%B8%8D%E5%9C%A8%E7%82%B9%E5%AD%90%E4%B8%8A"><span class="nav-number">2.2.</span> <span class="nav-text">AI 说了很多话但不在点子上</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%96%B9%E5%90%91%E5%AF%B9%E4%BA%86%E4%BD%86%E8%B7%91%E4%B8%8D%E9%80%9A"><span class="nav-number">2.3.</span> <span class="nav-text">方向对了但跑不通</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%BA%93%E6%9C%AC%E8%BA%AB%E6%98%AF%E4%B8%AA%E7%83%82%E6%91%8A%E5%AD%90"><span class="nav-number">2.4.</span> <span class="nav-text">代码库本身是个烂摊子</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BA%A7%E5%87%BA%E5%A4%9A%E4%BA%86%E4%BD%86%E8%84%91%E5%AD%90%E8%B7%9F%E4%B8%8D%E4%B8%8A%E4%BA%86"><span class="nav-number">2.5.</span> <span class="nav-text">产出多了但脑子跟不上了</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BB%BB%E5%8A%A1%E5%A4%AA%E5%A4%A7%EF%BC%8CAI-%E5%88%B0%E5%90%8E%E9%9D%A2%E5%BC%80%E5%A7%8B%E8%83%A1%E8%AF%B4"><span class="nav-number">2.6.</span> <span class="nav-text">任务太大，AI 到后面开始胡说</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%B2%E8%B5%B7%E6%9D%A5%E7%9C%8B%EF%BC%9A%E4%B8%80%E6%9D%A1%E5%AE%8C%E6%95%B4%E7%9A%84%E6%B5%81%E6%B0%B4%E7%BA%BF"><span class="nav-number">3.</span> <span class="nav-text">串起来看：一条完整的流水线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%97%A7%E4%B9%A6%E4%B8%BA%E4%BB%80%E4%B9%88%E7%AA%81%E7%84%B6%E5%8F%98%E5%BE%97%E9%87%8D%E8%A6%81%E4%BA%86"><span class="nav-number">4.</span> <span class="nav-text">旧书为什么突然变得重要了</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">422</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">800</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.5m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">44:13</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/05/18/ai-is-amplifier-not-wishing-well/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '8940f62b3165d35ee29e04de35fb41b9',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
