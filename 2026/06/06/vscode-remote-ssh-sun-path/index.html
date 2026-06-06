@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="某次 VSCode 升级之后，我从 macOS 连远端开发机的 Remote-SSH 突然进入了死循环：客户端每隔几秒发起一次新的 SSH 连接，每次都能通过 pubkey 认证、能在远端拉起 vscode-server，但十几秒后就 timed out，紧接着 attempt N+1。前后连了几十次都接不上。 机器上没有任何代码改动，远端服务可达，公钥认证也没坏。问题出在客户端的某个不起眼的角落">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一条 113 字节的路径：VSCode Remote-SSH 在 macOS 上反复重连的排查">
+<meta property="og:url" content="https://liam.page/2026/06/06/vscode-remote-ssh-sun-path/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="某次 VSCode 升级之后，我从 macOS 连远端开发机的 Remote-SSH 突然进入了死循环：客户端每隔几秒发起一次新的 SSH 连接，每次都能通过 pubkey 认证、能在远端拉起 vscode-server，但十几秒后就 timed out，紧接着 attempt N+1。前后连了几十次都接不上。 机器上没有任何代码改动，远端服务可达，公钥认证也没坏。问题出在客户端的某个不起眼的角落">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-06-06T13:21:03.000Z">
+<meta property="article:modified_time" content="2026-06-06T13:24:14.570Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Debugging">
+<meta property="article:tag" content="Unix Socket">
+<meta property="article:tag" content="VSCode">
+<meta property="article:tag" content="macOS">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/06/06/vscode-remote-ssh-sun-path/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>一条 113 字节的路径：VSCode Remote-SSH 在 macOS 上反复重连的排查 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">425</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">809</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/06/06/vscode-remote-ssh-sun-path/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          一条 113 字节的路径：VSCode Remote-SSH 在 macOS 上反复重连的排查
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 06 月 06 日 21:21:03 / 修改时间：21:24:14" itemprop="dateCreated datePublished" datetime="2026-06-06T21:21:03+08:00">2026 年 06 月 06 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>10 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>某次 VSCode 升级之后，我从 macOS 连远端开发机的 Remote-SSH 突然进入了死循环：客户端每隔几秒发起一次新的 SSH 连接，每次都能通过 pubkey 认证、能在远端拉起 vscode-server，但十几秒后就 timed out，紧接着 attempt N+1。前后连了几十次都接不上。</p>
+<p>机器上没有任何代码改动，远端服务可达，公钥认证也没坏。问题出在客户端的某个不起眼的角落，被一堆看起来很正常的日志掩盖着。这篇文章记录从现象到根因的整个排查过程，最后定位到一条<strong>113 字节长</strong>的路径上。</p>
+<span id="more"></span>
+
+<h2 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h2><p>VSCode 输出面板里，Remote-SSH 频道刷出来的内容大致这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[15:34:43.854] SSH Resolver called for &quot;ssh-remote+dev&quot;, attempt 1</span><br><span class="line">[15:34:45.081] stderr&gt; Authenticated to &lt;REDACTED&gt; using &quot;publickey&quot;.</span><br><span class="line">[15:34:46.105] Remote server is listening on port 40013</span><br><span class="line">[15:34:46.323] Exec server for ssh-remote+dev created and cached</span><br><span class="line">...</span><br><span class="line">[15:34:48.978] Exec server for ssh-remote+dev closed (gracefully)</span><br><span class="line">[15:34:48.979] &gt; local-server-1&gt; Timed out</span><br><span class="line">[15:34:48.980] SSH Resolver called for &quot;ssh-remote+dev&quot;, attempt 2, (Reconnection)</span><br><span class="line">...</span><br><span class="line">[15:34:54.075] &gt; local-server-2&gt; Timed out</span><br><span class="line">[15:34:54.077] SSH Resolver called for &quot;ssh-remote+dev&quot;, attempt 3, (Reconnection)</span><br></pre></td></tr></table></figure>
+
+<p>每一轮 attempt 都走完同样的剧本：建连、认证、远端 server 跑起来、监听端口报告回来——然后五六秒后 local-server 自己宣告 timed out，整个会话被回收，立刻发起下一轮。</p>
+<p>attempt 计数会一直涨到 9、10、11，每轮花掉 5 秒左右，远端机器被反复刷出 vscode-server 进程，客户端这边一直停在「正在连接到远程主机」的转圈状态。</p>
+<h2 id="第一次误判：以为远端-vscode-server-半死"><a href="#第一次误判：以为远端-vscode-server-半死" class="headerlink" title="第一次误判：以为远端 vscode-server 半死"></a>第一次误判：以为远端 vscode-server 半死</h2><p>最自然的怀疑方向是远端。我登上去看 vscode-server 的日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[14:57:44] No ptyHost heartbeat after 6 seconds</span><br><span class="line">[14:57:44] [ManagementConnection] The client has disconnected, will wait for reconnection 3h before disposing...</span><br><span class="line">Error: Unexpected SIGPIPE</span><br><span class="line">[14:58:09] No ptyHost heartbeat after 6 seconds</span><br><span class="line">[14:59:30] [ExtensionHostConnection] Extension Host Process exited with code: 0</span><br><span class="line">（之后日志静默 35 分钟）</span><br></pre></td></tr></table></figure>
+
+<p><code>SIGPIPE</code> 加 <code>No ptyHost heartbeat</code>——一眼看上去就是 server 进程内部某条 pipe 被对端关掉了，但主进程没有崩，pid 文件还在，所以新的连接进来时复用了这个半死的 server。</p>
+<p>而且 14:57 这个时间点正好对得上前一阵那次内存抖动，PSI 数据里 <code>memsome=62%</code> 把所有进程都按进了 D 状态，刚好可以解释为什么 ptyHost 心跳超时。</p>
+<p>我把整棵 <code>vscode-server</code> 进程树 kill 掉，client 立刻重连成功。看上去一切都解决了。</p>
+<p>但这只是巧合：内存压力消退之后，<strong>client 自己也愿意接受重连了一段时间</strong>。十几秒后，问题原样复发，和远端进程没有任何关系——我能在远端日志里看到 client 一次次成功连进来，client 这边却还在喊 timed out。</p>
+<p>诊断方向错了。</p>
+<h2 id="真正的线索藏在-stderr-一行"><a href="#真正的线索藏在-stderr-一行" class="headerlink" title="真正的线索藏在 stderr 一行"></a>真正的线索藏在 stderr 一行</h2><p>回到 client 输出，逐行慢慢看，注意到一条非常容易被忽视的 stderr 行，每一轮 attempt 都出现一次：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[15:34:43.978] &gt; local-server-1&gt; Spawned ssh, pid=21495</span><br><span class="line">[15:34:43.984] stderr&gt; local-server-1&gt; listen EINVAL: invalid argument /var/folders/bq/&lt;launchd-uuid&gt;/T/vscode-ssh-askpass-9f4ebe35658d451818abba13653c9a8bdeebd2d9.sock</span><br></pre></td></tr></table></figure>
+
+<p><code>listen EINVAL</code> 是 Node.js <code>net.Server#listen()</code> 在底层 <code>bind()</code> 失败之后会抛出的错误。<code>EINVAL</code> 在 unix socket 上意味着 sockaddr 不合法。</p>
+<p>接着每一轮都跟着两次：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[15:34:46.420] Server delay-shutdown request failed: connect EINVAL &lt;同一条路径&gt; - Local</span><br><span class="line">[15:34:48.422] Server delay-shutdown request failed: connect EINVAL &lt;同一条路径&gt; - Local</span><br></pre></td></tr></table></figure>
+
+<p><code>connect EINVAL</code> 是 client 端连同一个 socket 时也失败——因为根本没人在听。<code>Server delay-shutdown</code> 是 VSCode 的 local-server 用来给自己续命的心跳：一段时间收不到这个信号，local-server 就会主动退出。这正好对应了前面那个雷打不动的 5 秒后 timed out。</p>
+<p>把这几条串起来：local-server 启动时尝试 <code>bind()</code> 一个 unix socket 来收 delay-shutdown 心跳，bind 失败，没有人监听，client 永远连不上自己的 local-server，于是按超时逻辑自杀，触发上层 reconnect——这就是死循环的根源。</p>
+<h2 id="sun-path-的-104-字节上限"><a href="#sun-path-的-104-字节上限" class="headerlink" title="sun_path 的 104 字节上限"></a>sun_path 的 104 字节上限</h2><p>那条让 bind 失败的路径长这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/var/folders/bq/&lt;launchd-uuid&gt;/T/vscode-ssh-askpass-&lt;40 字符 hex&gt;.sock</span><br></pre></td></tr></table></figure>
+
+<p>数一下实际样本（uuid 和 hash 都已脱敏）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">/var/folders/bq/XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX/T/vscode-ssh-askpass-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.sock</span><br><span class="line">└──────────────┬──────────────┘└─────────┬───────┘└───────────┬───────────┘└──────────────────┬─────────────────┘</span><br><span class="line">       /var/folders/bq/                  /T/         vscode-ssh-askpass-           40 hex + .sock</span><br><span class="line">            16 字节                      3 字节            19 字节                    45 字节</span><br><span class="line">                          launchd uuid 30 字节</span><br></pre></td></tr></table></figure>
+
+<p>总长 113 字节。</p>
+<p>而 macOS 的 unix socket 地址结构定义在 <code>&lt;sys/un.h&gt;</code>：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_un</span> &#123;</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span>  sun_len;</span><br><span class="line">    <span class="type">sa_family_t</span>    sun_family;</span><br><span class="line">    <span class="type">char</span>           sun_path[<span class="number">104</span>];</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>sun_path</code> 字段固定 104 字节，包括末尾的 <code>NUL</code>，所以<strong>实际能放下的路径最长 103 字节</strong>。Linux 同一个字段是 108 字节，BSD 系普遍 104，标准并没有要求统一。</p>
+<p>113 &gt; 103，bind 必然返回 <code>EINVAL</code>。这是一条无论你重连多少次都不会自愈的硬约束。</p>
+<h2 id="为什么之前能用，现在不能"><a href="#为什么之前能用，现在不能" class="headerlink" title="为什么之前能用，现在不能"></a>为什么之前能用，现在不能</h2><p><code>/var/folders/bq/&lt;uuid&gt;/T/</code> 是 macOS 给每个 user agent 分配的私有 TMPDIR，长度对一个固定用户固定登录会话来说是个常量，大约 49 字节。<code>vscode-ssh-askpass-</code> 前缀是 19 字节。剩下的预算是 <code>103 - 49 - 19 = 35</code> 字节，给后面的随机 hash 和扩展名用。</p>
+<p>VSCode 之前用的格式大概用了 32 个字符的 hash + <code>.sock</code>（37 字节），刚刚好踩着上限边缘。某次升级之后改成了 40 字符 hash（45 字节），瞬间从「贴线通过」变成「越界」。</p>
+<p>不能确证是哪个 commit 引入的，但表现上完全是一次「靠余量很小的不变量」被打破后的回归——典型的把 in-memory 标识符改长了几个字节，没人意识到这条路径要绕过 macOS 的 socket 长度限制。</p>
+<p>整件事情甚至<strong>安静得听不见</strong>。<code>bind()</code> 失败的 EINVAL 只是普通 stderr 一行，混在 <code>&gt; stderr&gt; debug1: ...</code>、<code>&gt; Welcome to Ubuntu ...</code> 这种大段欢迎横幅里非常不起眼。如果不主动盯着每行 stderr 看，很容易跟着「Authenticated」「Remote server is listening on port ...」这些「成功」字样一路读到 timeout。</p>
+<p>这是排查里最磨人的一类问题：核心错误信息有，但被设计成了 best-effort，错过了不会再提醒第二次。</p>
+<h2 id="一个走错的修复：lockfilesInTmp"><a href="#一个走错的修复：lockfilesInTmp" class="headerlink" title="一个走错的修复：lockfilesInTmp"></a>一个走错的修复：lockfilesInTmp</h2><p>VSCode 的 Remote-SSH 设置里有这么一条：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&quot;remote.SSH.lockfilesInTmp&quot;: true</span><br></pre></td></tr></table></figure>
+
+<p>字面看起来非常对症——「把 lockfile 放到 &#x2F;tmp」，正是缩短路径的思路。我打开它、reload window、再连，问题原样复发。</p>
+<p>掉进了陷阱：这个 setting 控制的只是 install lock 这一类文件的位置，路径在客户端日志里是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Acquiring local install lock: /var/folders/bq/&lt;uuid&gt;/T/vscode-remote-ssh-&lt;id&gt;-install.lock</span><br></pre></td></tr></table></figure>
+
+<p>这是个<strong>文件锁</strong>（flock），不是 unix socket，bind 失败的另一个独立路径。askpass &#x2F; ipc handle 这些 socket 不归这个开关管，仍然继续走 TMPDIR。</p>
+<p>教训：单看名字像，不一定就是对应的开关。改完之后要看日志里那条<strong>具体出错的路径</strong>有没有变。这次它没变，意味着没修对地方。</p>
+<h2 id="正确的修复：给-VSCode-一个短的-TMPDIR"><a href="#正确的修复：给-VSCode-一个短的-TMPDIR" class="headerlink" title="正确的修复：给 VSCode 一个短的 TMPDIR"></a>正确的修复：给 VSCode 一个短的 TMPDIR</h2><p>既然 socket 路径是 <code>${TMPDIR}/vscode-ssh-askpass-&lt;hash&gt;.sock</code>，最直接的解法是把 <code>TMPDIR</code> 指到一个更短的位置。<code>/tmp</code> 是 4 字节，但 <code>/tmp</code> 在 macOS 上不按用户隔离权限，同机其他用户原则上能看到这些 socket。一个更稳妥的选择是 <code>~/tmp</code>：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">mkdir</span> -p ~/tmp</span><br><span class="line"><span class="built_in">chmod</span> 700 ~/tmp</span><br></pre></td></tr></table></figure>
+
+<p><code>700</code> 让别的用户进不来，行为接近原本 <code>/var/folders/...</code> 的私有 TMPDIR。</p>
+<p>接下来要决定让谁继承这个 <code>TMPDIR</code>。</p>
+<p>最粗暴的是全局——写一个 LaunchAgent 调 <code>launchctl setenv TMPDIR ~/tmp</code>，所有 GUI 应用都生效。问题是副作用太大：每个原本写 <code>/var/folders/.../T/</code> 的 GUI 程序现在都改写 <code>~/tmp</code>，行为差异可能踩到一些奇怪的角落。</p>
+<p>更克制的做法是<strong>只给 VSCode 一个短 TMPDIR</strong>：</p>
+<figure class="highlight sh"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#!/bin/bash</span></span><br><span class="line"><span class="comment"># ~/.local/bin/code</span></span><br><span class="line"><span class="built_in">export</span> TMPDIR=<span class="string">&quot;<span class="variable">$HOME</span>/tmp&quot;</span></span><br><span class="line"><span class="built_in">exec</span> <span class="string">&quot;/Applications/Visual Studio Code.app/Contents/MacOS/Electron&quot;</span> <span class="string">&quot;<span class="variable">$@</span>&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>把这个 wrapper 放进 <code>PATH</code> 里替代原来的 <code>code</code>，从命令行启动 VSCode 就走我们设定的 TMPDIR；想从 Dock 启动也生效的话，可以用 Automator 包成一个调相同 wrapper 的 .app。</p>
+<p>来算一下新路径长度：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/Users/&lt;user&gt;/tmp/vscode-ssh-askpass-&lt;40 hex&gt;.sock</span><br><span class="line">└─────────┬────────┘└──────────┬─────────┘└───┬───┘</span><br><span class="line">   ~/tmp/ ≈ 17 字节        19 字节      45 字节</span><br></pre></td></tr></table></figure>
+
+<p>合计大约 81 字节，离 103 上限还有 20+ 字节的余量。即使 VSCode 哪天再把 hash 加长几个字符，也还撑得住。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>回头看这次排查，真正花时间的是被远端那个 SIGPIPE 误导。一个表面看起来非常合理的怀疑方向，加上「kill 之后好了一会儿」的伪正反馈，几乎让我跳过了真正的根因。</p>
+<p>这背后有个一般的教训：<strong>不要被巧合的修复说服</strong>。如果你的 fix 和现象之间没有清晰的因果链，那「好了」很可能只是另一个无关变量恰好回到了正常值。这次是远端的内存压力消退掉了，下次可能是别的什么。</p>
+<p>另外一点是关于<strong>沉默失败</strong>的。<code>bind() EINVAL</code> 是个严重错误，但 VSCode 把它当作 best-effort 写进了 stderr，没有放大，没有面向用户的提示。客户端的上层只看到「local-server timed out」，没人告诉它真正的原因是 sockaddr 长得超出 BSD 的祖传约束。事实就这么躺在日志里，但你得知道要找它。</p>
+<p>最后是 <code>sockaddr_un.sun_path</code> 这种<strong>祖传不变量</strong>。104 字节这个数字至少能追溯到 4.4BSD，它早于 VSCode 的诞生几十年，在 2026 年还能让人在 macOS 上踩到，并不奇怪。任何用 unix socket 做跨进程 IPC 的程序，在选 socket 路径的时候都欠所有用户一句「我够短吗」的自检。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/06/06/vscode-remote-ssh-sun-path/" title="一条 113 字节的路径：VSCode Remote-SSH 在 macOS 上反复重连的排查">https://liam.page/2026/06/06/vscode-remote-ssh-sun-path/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/macOS/" rel="tag"># macOS</a>
+              <a href="/tags/VSCode/" rel="tag"># VSCode</a>
+              <a href="/tags/Unix-Socket/" rel="tag"># Unix Socket</a>
+              <a href="/tags/Debugging/" rel="tag"># Debugging</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/05/25/claude-code-tmux-vscode-connection/" rel="prev" title="在 tmux 里让 Claude Code 连上 VSCode：一次源码级排查">
+      <i class="fa fa-chevron-left"></i> 在 tmux 里让 Claude Code 连上 VSCode：一次源码级排查
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%8E%B0%E8%B1%A1"><span class="nav-number">1.</span> <span class="nav-text">现象</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AC%AC%E4%B8%80%E6%AC%A1%E8%AF%AF%E5%88%A4%EF%BC%9A%E4%BB%A5%E4%B8%BA%E8%BF%9C%E7%AB%AF-vscode-server-%E5%8D%8A%E6%AD%BB"><span class="nav-number">2.</span> <span class="nav-text">第一次误判：以为远端 vscode-server 半死</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9C%9F%E6%AD%A3%E7%9A%84%E7%BA%BF%E7%B4%A2%E8%97%8F%E5%9C%A8-stderr-%E4%B8%80%E8%A1%8C"><span class="nav-number">3.</span> <span class="nav-text">真正的线索藏在 stderr 一行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#sun-path-%E7%9A%84-104-%E5%AD%97%E8%8A%82%E4%B8%8A%E9%99%90"><span class="nav-number">4.</span> <span class="nav-text">sun_path 的 104 字节上限</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B9%8B%E5%89%8D%E8%83%BD%E7%94%A8%EF%BC%8C%E7%8E%B0%E5%9C%A8%E4%B8%8D%E8%83%BD"><span class="nav-number">5.</span> <span class="nav-text">为什么之前能用，现在不能</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E4%B8%AA%E8%B5%B0%E9%94%99%E7%9A%84%E4%BF%AE%E5%A4%8D%EF%BC%9AlockfilesInTmp"><span class="nav-number">6.</span> <span class="nav-text">一个走错的修复：lockfilesInTmp</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%AD%A3%E7%A1%AE%E7%9A%84%E4%BF%AE%E5%A4%8D%EF%BC%9A%E7%BB%99-VSCode-%E4%B8%80%E4%B8%AA%E7%9F%AD%E7%9A%84-TMPDIR"><span class="nav-number">7.</span> <span class="nav-text">正确的修复：给 VSCode 一个短的 TMPDIR</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">425</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">809</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.5m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">44:40</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/06/06/vscode-remote-ssh-sun-path/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'f13c4c505fbd069b943952f0c767edab',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
