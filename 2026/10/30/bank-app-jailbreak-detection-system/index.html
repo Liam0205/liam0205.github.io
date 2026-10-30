@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="某银行 APP 在越狱设备上启动后，大约五百七十毫秒便会退出。围绕这次退出，我们进行了二十几轮分析与干预。最终没有得到可用的绕过方案，不过这些实验揭示了一件更值得记录的事：检测环境、保护检测代码和阻止异常启动，是怎样共同起作用的。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="某银行 APP 的越狱检测体系">
+<meta property="og:url" content="https://liam.page/2026/10/30/bank-app-jailbreak-detection-system/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="某银行 APP 在越狱设备上启动后，大约五百七十毫秒便会退出。围绕这次退出，我们进行了二十几轮分析与干预。最终没有得到可用的绕过方案，不过这些实验揭示了一件更值得记录的事：检测环境、保护检测代码和阻止异常启动，是怎样共同起作用的。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://liam.page/images/Jailbreak/defense-network.svg">
+<meta property="article:published_time" content="2026-10-30T12:35:00.000Z">
+<meta property="article:modified_time" content="2026-10-30T12:58:22.293Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Jailbreak">
+<meta property="article:tag" content="Reverse Engineering">
+<meta property="article:tag" content="iOS">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://liam.page/images/Jailbreak/defense-network.svg">
+
+<link rel="canonical" href="https://liam.page/2026/10/30/bank-app-jailbreak-detection-system/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>某银行 APP 的越狱检测体系 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">428</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">810</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/10/30/bank-app-jailbreak-detection-system/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          某银行 APP 的越狱检测体系
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 10 月 30 日 20:35:00 / 修改时间：20:58:22" itemprop="dateCreated datePublished" datetime="2026-10-30T20:35:00+08:00">2026 年 10 月 30 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Jailbreak-and-Reverse-Engineering/" itemprop="url" rel="index"><span itemprop="name">Jailbreak and Reverse Engineering</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>4.7k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>9 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>某银行 APP 在越狱设备上启动后，大约五百七十毫秒便会退出。围绕这次退出，我们进行了二十几轮分析与干预。最终没有得到可用的绕过方案，不过这些实验揭示了一件更值得记录的事：检测环境、保护检测代码和阻止异常启动，是怎样共同起作用的。</p>
+<span id="more"></span>
+
+<h2 id="防御体系的分工"><a href="#防御体系的分工" class="headerlink" title="防御体系的分工"></a>防御体系的分工</h2><p>先给出本文的主要判断：<strong>这套防御要求环境检查、引擎完整性与启动流程同时满足条件，修改其中一个环节不足以恢复正常使用。</strong> 从已读出的代码和实验行为看，可以按职责将它分成以下五个部分。这是功能上的划分，同一个安全框架可能同时承担其中几项职责。</p>
+<p>第一，<strong>环境与注入检查</strong>负责收集不可信环境的证据。包内既有检查可疑文件、URL scheme 等常见越狱特征的组件，也有直接读取已加载镜像的启动期防护引擎。后者读取 Mach-O 头及加载命令，检查范围确实包含注入的动态库。这个部分产生检查结果，交给后续判定处理。我们已确认注入库进入了检查范围，但还没有将本次退出唯一归因于某个库名或某条环境特征。</p>
+<p>第二，<strong>代码完整性保护</strong>负责检查防护引擎自身有没有被修改。已确认的一项检查使用 xxHash64，对引擎的整个 <code>__text</code> 计算哈希，再与期望值比较。它约束的是检测程序本身：插件若直接改写检查函数，也会改变参与校验的字节。这个部分保护前一部分和后续判定代码，使攻击者不能只考虑「把返回值改成通过」。</p>
+<p>第三，<strong>运行期控制与反调试相关机制</strong>影响观察和干预能否持续进行。记录中出现过信号处置函数被替换，也出现过进程仍在消耗 CPU、探针却停止记录的现象。它们使插件难以持续采样或接管异常。不过，我们没有定位全部相关调用，尚不能把这些现象具体解释成「引擎识别并杀死了插件线程」。这一部分已知的效果是观察窗口受限，具体实现仍有未知。</p>
+<p>第四，<strong>判定、报告与终止执行</strong>负责将检查结果变成行动。引擎内存在检查项的集合，也存在不同的失败分支；已分析的一个报告函数根据参数选择返回或者进入退出分支。进程外观测确认，未经本轮补丁干预的退出表现为正常结束、退出码为 1。部分历史干预中，阻止已知退出调用之后又出现了 SIGILL 终止，说明改变一个终止入口并不足以保证进程继续运行。</p>
+<p>第五，<strong>业务风险处理与启动依赖</strong>将安全组件接入 APP 的使用流程。包内有汇总越狱、调试器和代码修改等风险标记的组件，也有显示提示或拦截页面的界面组件。与此同时，启动期防护引擎的初始化参与了 APP 启动：跳过初始化会崩溃，打断处置曾得到长时间黑屏。本次最早的失败发生在正常业务界面出现之前，没有证据表明那些业务风险组件都已参与了这次判定。</p>
+<p>关系如下：</p>
+<p><img data-src="/images/Jailbreak/defense-network.svg" alt="某银行 APP 的安全防御协作关系"></p>
+<p>图中需要区分两种协作。一种是明确的调用关系，例如检查项将结果交给报告和处置函数；另一种是运行条件上的约束，例如完整性校验保护检测代码，而正常启动又依赖安全组件完成初始化。防御效果可以由这些约束共同形成，不必假设每个组件都向一个中央控制器报告。</p>
+<h2 id="各部分怎样协作"><a href="#各部分怎样协作" class="headerlink" title="各部分怎样协作"></a>各部分怎样协作</h2><h3 id="采集方式保护判定输入"><a href="#采集方式保护判定输入" class="headerlink" title="采集方式保护判定输入"></a>采集方式保护判定输入</h3><p>插件隐藏越狱环境，通常从修改系统接口的返回值开始。例如，应用通过常规接口枚举已加载的动态库，插件便可以从返回结果里删掉自己的条目。这个办法成立的前提是，检查程序也通过被修改的接口取得信息。</p>
+<p>某银行 APP 的启动期引擎没有遵守这个前提。早期记录显示，它先取得共享缓存的地址范围，而后集中读取缓存之外的镜像。在一次记录中，缓存内的 790 个镜像没有被逐个读取，缓存外的 142 个镜像则读取了 141 个。注入库也在读取范围内。这里的镜像指映射进进程内存的可执行文件或动态库，共享缓存则集中存放许多系统库。</p>
+<p>修改公共镜像枚举接口之后，这些读取并未停止；修改若干能够找到的镜像记录，也没有使注入库从读取范围里消失。由此能确定的是，<strong>修改插件熟悉的那份枚举结果，没有同时改变引擎取得的检测输入。</strong> 至于引擎究竟使用了哪份内部记录、最终采用哪些字段判定，仍没有全部还原。</p>
+<p>这便形成了第一种配合：判定函数的输入不必经过容易被替换的公共接口。插件即使成功改变某个 API 的返回值，也可能完全没有改变检测程序看到的内容。</p>
+<p>类似的情况也出现在终止操作上。我们自行调用 <code>exit(99)</code> 时，安装的钩子能够命中，外部观察者也能读到对应退出状态；目标自身结束时，却没有经过已测的 libc 退出入口。检测输入和失败处置都不能简单地用一组常见函数钩子覆盖。</p>
+<p>这里不能进一步推成「所有操作都经过同一个私有系统调用入口」。静态分析确实找到了一条 <code>svc</code> 指令，以及 83 个读取全局指针后间接调用的封装。但后期强制替换该指针后，在相应测试配置中没有记录到调用。这份静态结构不足以解释所有运行期行为，更不能证明真实入口必然由运行期生成。</p>
+<h3 id="自检保护检测代码"><a href="#自检保护检测代码" class="headerlink" title="自检保护检测代码"></a>自检保护检测代码</h3><p>既然输入侧的隐藏不够，插件自然会转向检测程序本身：改变检查项、修改条件分支，或者让某个函数直接返回。这时，代码完整性保护开始影响攻击。</p>
+<p>已识别的 xxHash64 检查覆盖引擎整个 <code>__text</code>。函数入口的跳转和条件分支都在这个范围里，修改这些指令也会改变哈希值。也就是说，原本用于处理环境风险的引擎，同时检查着插件试图修改的那些代码。</p>
+<p>这项检查本身并非无法修改。我们确实改变了它的比较行为，使后续一些代码补丁不再引出此前的异常，从而获得了进一步插桩的条件。但 APP 仍未正常启动。<strong>解除一处自检，只解决了修改代码的一个前提，没有使环境检查自动通过。</strong></p>
+<p>反过来，未干预时的哈希也不是本次退出的充分解释。用相同参数对磁盘代码复算，结果与期望值相同；记录中的内存比对也支持这项自检本来能够通过。环境不可信与引擎被修改，是两种不同的失败条件。</p>
+<p>这正是两部分协作的意义。环境检查限制 APP 在什么状态下运行，完整性保护限制攻击者怎样改变检查程序。攻击者需要同时处理这两个问题，不能用一个局部补丁代替全部条件。</p>
+<h3 id="多项判定限制局部修改"><a href="#多项判定限制局部修改" class="headerlink" title="多项判定限制局部修改"></a>多项判定限制局部修改</h3><p>在一个已读出的流程中，引擎取得检查项集合，复制其中的向量，而后逐项调用对象的方法。某轮观测中，三个检查项分别返回 0、1、0，足以说明其中有一项产生了失败结果。</p>
+<p>但修改这张表，没有得到正常启动。清除其他干预后的另一组记录中，更早的失败分支先执行了，检查表甚至尚未建立。这里不能把原因码直接翻译成某个具体事实，但可以确认：已找到的那张检查表没有覆盖全部失败条件。</p>
+<p>集合的使用方式又增加了一项约束。检查对象是按需建立的，循环遍历的则是向量副本。即使插件修改了原来的集合，已经复制出去的内容也未必随之改变。因此，「找到检查表」「成功写入检查表」与「改变了正在执行的检查」并不等价。</p>
+<p>从防守效果看，多个失败条件使修改单项结果不足以放行，数据的创建和复制时机又限制了事后修改。我们没有证据证明这些条件彼此监督，不过它们已经共同提高了局部干预的要求。</p>
+<p>检查结果与处置之间也有单独的判断。已分析的一个报告函数接收原因码和说明文字：说明为 NULL 或空串时进入退出分支，说明非空时则执行另一种报告流程并返回。也就是说，报告一次事件与终止进程并不等价，原因码也不能直接当成某项越狱特征的名字。插件即使改掉一个看似决定生死的数值，也未必改变了决定处置的条件。</p>
+<h3 id="安全初始化约束业务启动"><a href="#安全初始化约束业务启动" class="headerlink" title="安全初始化约束业务启动"></a>安全初始化约束业务启动</h3><p>如果逐项改变判定过于困难，另一个办法是让整个安全引擎不启动。对于与业务没有依赖关系的检查模块，跳过初始化可能足以避免检查。</p>
+<p>某银行 APP 的实验结果不同。它的一条重要初始化入口是 Objective-C 的 <code>+load</code>，仅清空 C 构造函数没有阻止这条入口执行。进一步跳过 <code>+load</code> 后，进程在约 545 毫秒发生 SIGSEGV。实验支持 APP 依赖这段初始化，但缺失的具体对象或状态尚未定位。</p>
+<p>阻断退出同样没有恢复业务。部分版本把退出线程停住，或者尝试让退出调用返回，进程曾存活十二至十四秒，屏幕却一直是黑的。我们没有取得足以命名某个等待条件的完整调用栈，但结果已经很明确：维持进程存活，没有使启动流程继续完成。</p>
+<p>这使安全组件与业务启动形成了比「检测失败就弹窗」更强的联系。移除检查可能破坏初始化，拦住处置可能保留一个无法进入业务界面的进程。插件需要恢复的是一套能够继续工作的启动状态。</p>
+<h3 id="观察窗口限制持续干预"><a href="#观察窗口限制持续干预" class="headerlink" title="观察窗口限制持续干预"></a>观察窗口限制持续干预</h3><p>前面的修改都需要知道程序正在做什么。若一个补丁错过了检查时刻，插件往往还可以创建线程、周期采样，再寻找下一次介入机会。</p>
+<p>这套方法在本次研究中也受到限制。不同配置下，探针记录在约 52 至 130 毫秒内停止：一组心跳最后写到 123 毫秒，定时器信号记录停在 78 毫秒，排到主队列的任务没有留下执行记录。与此同时，外部观察到同一 PID 仍然存在，累计 CPU 时间继续增加。</p>
+<p>线程枚举还改变了观测结果。加入 <code>task_threads</code> 采样后，记录比不采样时更早停止。这说明采样并非没有扰动，但尚不足以证明引擎专门监控了这个调用。另有一处计时问题曾使日志看似冻结，更换时间基准后得到修正；这也不能作为引擎主动修改硬件计数器的证据。</p>
+<p>对攻击效果而言，能够确认的是：<strong>插件没有获得贯穿整个启动过程的可靠观测。</strong> 较晚的行为无法持续记录，便难以验证补丁是否仍在起作用，也难以在状态改变后继续修正。这个限制与前面的代码保护、启动依赖共同存在，使「先挂上插件，再慢慢修改」难以奏效。</p>
+<h2 id="tweak-注入的验证结果"><a href="#tweak-注入的验证结果" class="headerlink" title="tweak 注入的验证结果"></a>tweak 注入的验证结果</h2><p>要评价这张防御网络是否有效，需要先确定攻击者能做什么。本次研究允许在目标进程内注入 tweak、替换函数和修改可写数据，也允许对已定位代码做补丁；不修改越狱本体，不更换系统级隐藏方案。成功标准是 APP 能够进入正常界面并继续使用。</p>
+<p>在这个范围内，我们已经覆盖了从检测输入到最终处置的主要干预位置：</p>
+<ol>
+<li><strong>改变检测输入。</strong> 尝试隐藏镜像枚举结果、修改登记信息，并将部分镜像读取重定向到替代内容。某些修改能够确认生效，但没有得到可用启动，也没有确定唯一触发特征。</li>
+<li><strong>改变检查结果。</strong> 尝试修改检查项集合及已定位分支。实验暴露了更早的失败条件，也遇到了对象按需建立和集合复制带来的时序限制，未能使整体判定通过。</li>
+<li><strong>解除代码自检。</strong> 已成功干预一处 xxHash64 比较，为进一步修改引擎代码提供条件。这个局部成功没有消除其他失败条件。</li>
+<li><strong>停止安全初始化。</strong> 清空 C 构造函数没有阻止关键初始化；跳过已定位的 <code>+load</code> 又导致异常终止，未能得到一个没有安全引擎却可正常工作的 APP。</li>
+<li><strong>阻断失败处置。</strong> 对 libc 终止入口和引擎内已知退出位置进行拦截，部分配置延长了进程存活，结果仍是黑屏或后续异常终止。</li>
+<li><strong>维持运行期控制。</strong> 使用心跳、信号处理和线程采样观察启动，并尝试接管静态发现的系统调用指针。记录窗口有限，后期指针接管未记录到调用，未能建立稳定的持续干预。</li>
+</ol>
+<p>这些结果来自不同轮次，不能写成一次启动里所有入口都经过了完整验证。尤其有一类历史记录需要剔除：直接修改函数首部的补丁曾覆盖同地址的函数钩子，使「钩子没有命中」失去证明力。没有确认安装并正常工作的探针，不能用于证明目标避开了该入口。</p>
+<p>最后看同环境下的存活基线。不加载本 tweak 的两次记录分别为 <strong>575 毫秒与 562 毫秒</strong>；加载后期组合补丁的记录约为 <strong>643 至 672 毫秒</strong>。这里的「不加载本 tweak」仍保留越狱注入基础设施，不能理解成完全没有注入的设备。能够比较的是，本轮组合修改只使退出延后了约六十至一百毫秒，仍未换来可用界面。</p>
+<p>至此，输入隐藏、判定修改、自检干预、初始化移除和退出拦截，都已有失败记录。局部修改也确实取得过效果，因而这次失败不能简单归结为「插件没有加载」或者「任何代码都改不了」。从本轮已经识别并能够实施的主要攻击类别看，单点成功始终没有扩展成正常使用，足以说明这些防御约束组合后对 tweak 注入具有实际效果。</p>
+<p>不过，二十几轮实验无法证明所有可能的进程内程序都必然失败。检测输入仍有未定位的来源，运行期控制也有未解释的行为。严格的结论是：<strong>在不改动越狱本体的约束下，本轮覆盖的主要 tweak 干预方式均未攻破它；我们尚未获得足以同时满足检查、初始化和业务运行条件的修改方案。</strong></p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/10/30/bank-app-jailbreak-detection-system/" title="某银行 APP 的越狱检测体系">https://liam.page/2026/10/30/bank-app-jailbreak-detection-system/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Jailbreak/" rel="tag"># Jailbreak</a>
+              <a href="/tags/iOS/" rel="tag"># iOS</a>
+              <a href="/tags/Reverse-Engineering/" rel="tag"># Reverse Engineering</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/10/30/ai-tone-removal/" rel="prev" title="给 AI 去去味儿">
+      <i class="fa fa-chevron-left"></i> 给 AI 去去味儿
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%98%B2%E5%BE%A1%E4%BD%93%E7%B3%BB%E7%9A%84%E5%88%86%E5%B7%A5"><span class="nav-number">1.</span> <span class="nav-text">防御体系的分工</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%84%E9%83%A8%E5%88%86%E6%80%8E%E6%A0%B7%E5%8D%8F%E4%BD%9C"><span class="nav-number">2.</span> <span class="nav-text">各部分怎样协作</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%87%E9%9B%86%E6%96%B9%E5%BC%8F%E4%BF%9D%E6%8A%A4%E5%88%A4%E5%AE%9A%E8%BE%93%E5%85%A5"><span class="nav-number">2.1.</span> <span class="nav-text">采集方式保护判定输入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E6%A3%80%E4%BF%9D%E6%8A%A4%E6%A3%80%E6%B5%8B%E4%BB%A3%E7%A0%81"><span class="nav-number">2.2.</span> <span class="nav-text">自检保护检测代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%9A%E9%A1%B9%E5%88%A4%E5%AE%9A%E9%99%90%E5%88%B6%E5%B1%80%E9%83%A8%E4%BF%AE%E6%94%B9"><span class="nav-number">2.3.</span> <span class="nav-text">多项判定限制局部修改</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AE%89%E5%85%A8%E5%88%9D%E5%A7%8B%E5%8C%96%E7%BA%A6%E6%9D%9F%E4%B8%9A%E5%8A%A1%E5%90%AF%E5%8A%A8"><span class="nav-number">2.4.</span> <span class="nav-text">安全初始化约束业务启动</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%82%E5%AF%9F%E7%AA%97%E5%8F%A3%E9%99%90%E5%88%B6%E6%8C%81%E7%BB%AD%E5%B9%B2%E9%A2%84"><span class="nav-number">2.5.</span> <span class="nav-text">观察窗口限制持续干预</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#tweak-%E6%B3%A8%E5%85%A5%E7%9A%84%E9%AA%8C%E8%AF%81%E7%BB%93%E6%9E%9C"><span class="nav-number">3.</span> <span class="nav-text">tweak 注入的验证结果</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">428</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">810</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.5m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">45:17</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/10/30/bank-app-jailbreak-detection-system/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : '011b8fc58e0ed740e8bef0ab6d2bae02',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
