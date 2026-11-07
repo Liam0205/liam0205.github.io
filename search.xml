@@ -4,11 +4,40 @@
   
     
     <entry>
+      <title>清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存</title>
+      <link href="/2026/11/07/clean-up-icloud-drive-cache-on-macOS/"/>
+      <url>/2026/11/07/clean-up-icloud-drive-cache-on-macOS/</url>
+      
+        <content type="html"><![CDATA[<p><a href="/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/">前作</a>处理了 lsd 大量消耗 CPU 的问题。排查的过程中顺手看了一眼磁盘：这台 MacBook Pro 的数据卷一共 466 GB，已经用掉 389 GB，可用的只剩 42 GB，占用 91%。用 du 逐层往下看，<code>~/Library/Caches</code> 一个目录就有 106 GB，其中 102 GB 在 <code>CloudKit</code> 底下。</p><p>清掉这些缓存不难，难的是弄清楚它们是怎么来的。下面先交代清理的过程，再回头讨论三件事：这些缓存从哪来，以后怎么尽早发现，以及怎么避免再攒出这么多。</p><span id="more"></span><h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><h3 id="bird"><a href="#bird" class="headerlink" title="bird"></a>bird</h3><p>bird 的完整路径是 <code>/System/Library/PrivateFrameworks/iCloudDriveCore.framework/Versions/A/Support/bird</code>，从它所在的框架就能看出来，这是 iCloud Drive 的守护进程。iCloud Drive 的文件放在 <code>~/Library/Mobile Documents/</code> 下面，iCloud 云盘里的文件在其中的 <code>com~apple~CloudDocs</code>，其余以 App 命名的子目录是各个 App 自己的 iCloud 容器。bird 用的缓存则放在另一处，即 <code>~/Library/Caches/CloudKit/com.apple.bird/</code>。</p><h3 id="只在云端的文件"><a href="#只在云端的文件" class="headerlink" title="只在云端的文件"></a>只在云端的文件</h3><p>打开「优化 Mac 储存空间」以后，macOS 会在空间紧张时把已经上传的文件移出本地，只留一个占位。<code>defaults read com.apple.bird</code> 的输出里有一行 <code>&quot;optimize-storage&quot; = 1</code>，从名字看，这台机器上这个选项是开着的。</p><p>只在云端、没有下载到本地的文件，<code>ls</code> 照常给出完整的大小，实际却不占磁盘。以 iCloud 云盘里存放系统镜像的一个目录为例：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> ~/Library/Mobile\ Documents/com~apple~CloudDocs/&lt;某个目录&gt;</span><br><span class="line"><span class="built_in">ls</span> -lah</span><br><span class="line"><span class="built_in">du</span> -sh .</span><br></pre></td></tr></table></figure><p><code>ls</code> 列出的两个 macOS 恢复镜像（<code>.ipsw</code>），一个 16 GB，一个 14 GB；<code>du</code> 给出的整个目录却是 0B。这些文件的文件名也没有 <code>.icloud</code> 后缀。因此，要看 iCloud Drive 在本地实际占了多少空间，应当用 <code>du</code>，不能看 <code>ls</code> 给出的大小。</p><h3 id="APFS-的克隆"><a href="#APFS-的克隆" class="headerlink" title="APFS 的克隆"></a>APFS 的克隆</h3><p>在 APFS 上复制文件时，可以用克隆（clone）代替真的复制，<code>cp -c</code> 就是这么做的。克隆出来的新文件与原文件共用同一批数据块，复制几乎不花时间，也不占额外的空间；之后哪一方被修改，被修改的部分才另外分配空间。反过来，删掉其中一份，只要另一份还在，那批数据块就不会被释放。</p><h2 id="排查与处理"><a href="#排查与处理" class="headerlink" title="排查与处理"></a>排查与处理</h2><h3 id="缓存的位置与内容"><a href="#缓存的位置与内容" class="headerlink" title="缓存的位置与内容"></a>缓存的位置与内容</h3><p>先看 <code>CloudKit</code> 下面各个子目录的大小：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">101G~/Library/Caches/CloudKit/com.apple.bird</span><br><span class="line"> 60M~/Library/Caches/CloudKit/com.apple.syncdefaultsd</span><br><span class="line"> 36M~/Library/Caches/CloudKit/com.apple.CloudDocs.iCloudDriveFileProvider</span><br><span class="line">7.1M~/Library/Caches/CloudKit/cloudd_db</span><br></pre></td></tr></table></figure><p>其他服务的缓存都在几十 MB 以内，只有 bird 的缓存大得出奇。继续往下翻，这 101 GB 几乎都在 <code>com.apple.bird/&lt;hash&gt;/MMCS/ClonedFiles/</code> 里，<code>&lt;hash&gt;</code> 是一串 40 位的十六进制目录名，下文统一这样写。<code>ClonedFiles</code> 里有 3643 个文件，文件名形如 <code>documentContent__&lt;UUID&gt;_fileContent</code>，另有一些以 <code>_thumb1024</code> 结尾，看名字是缩略图。作为对比，<code>~/Library/Mobile Documents</code> 整个目录是 29 GB，也就是说，bird 的缓存比 iCloud 在本地的全部数据还多出 70 GB 左右。</p><p><code>ClonedFiles</code> 里最大的一个文件有 10.6 GB，是一个 ZIP 包，修改于 10 月 29 日，里面的第一个文件叫 <code>043-69093-778.dmg</code>。用这个文件名和它的精确大小，在本机都搜不到对应的文件。除了它，超过 100 MB 的文件一个也没有，其余的大多在 53 MB 到 56 MB 之间。按修改时间的月份统计，3643 个文件里有 3598 个是 10 月份的。</p><h3 id="同步状态"><a href="#同步状态" class="headerlink" title="同步状态"></a>同步状态</h3><p>看缓存的时候，bird 的 CPU 占用是 92.3%，<code>brctl status</code> 里是 <code>client:needs-sync</code>。bird 的日志里，<code>EINTR: client gather phase was invalidated</code> 在 11:48:28 到 11:48:39 之间出现了 8 次，还有被取消的下载：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bird[435] [com.apple.cloudkit:OP] Finished operation &lt;BRFetchRecordsOperation: …, shortened-name=Download (user initiated) &#125;, …, stateFlags=executing|cancelled, &lt;private&gt;&gt;  with error: &lt;CKError 0x7fd4d8674890: &quot;Operation Cancelled&quot; (20); …&gt;</span><br></pre></td></tr></table></figure><p>我没有对 bird 做任何操作。十几分钟后再看，bird 的 CPU 占用是 0.0%，<code>brctl status</code> 变成了 <code>client:idle</code>。</p><h3 id="保留下载的文件"><a href="#保留下载的文件" class="headerlink" title="保留下载的文件"></a>保留下载的文件</h3><p>iCloud 云盘里有几项我设过「保留下载」，清理时不能碰它们。这个设置记在扩展属性里，属性名是 <code>com.apple.fileprovider.pinned#PX</code>。需要注意，末尾的 <code>#PX</code> 也是名字的一部分，执行 <code>xattr -p com.apple.fileprovider.pinned</code> 会报 <code>No such xattr</code>，所以要用 <code>grep</code> 匹配：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">D=~/Library/Mobile\ Documents/com~apple~CloudDocs/&lt;某个目录&gt;</span><br><span class="line"><span class="keyword">for</span> f <span class="keyword">in</span> <span class="string">&quot;<span class="variable">$D</span>&quot;</span>/*; <span class="keyword">do</span> xattr <span class="string">&quot;<span class="variable">$f</span>&quot;</span> | grep -q fileprovider.pinned &amp;&amp; <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$f</span>&quot;</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure><p>带这个属性的有四项，两个目录和两个脚本文件。最大的那个目录有 16 GB、996 个文件，下文称作「保留目录」。它在 <code>Mobile Documents</code> 底下，要删的缓存在 <code>Caches</code> 底下，两者是不同的目录。保险起见，每一步前后都核对一遍保留目录的文件数与 <code>du</code>。</p><h3 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h3><p>先把 <code>ClonedFiles</code> 改个名，确认没有问题再删。改名随时可以改回去，删除不能。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> ~/Library/Caches/CloudKit/com.apple.bird/&lt;<span class="built_in">hash</span>&gt;/MMCS</span><br><span class="line"><span class="built_in">mv</span> ClonedFiles ClonedFiles.pending-delete</span><br><span class="line"><span class="comment"># 核对保留目录、bird 的状态，确认无误后再删</span></span><br><span class="line"><span class="built_in">rm</span> -rf ClonedFiles.pending-delete</span><br></pre></td></tr></table></figure><p>改名之后，bird 仍是 <code>client:idle</code>，也没有重新建一个 <code>ClonedFiles</code>。删除前可用空间是 56 GB，删除后是 <strong>156 GB</strong>。而后又删掉了 MMCS 下剩余的一个 7.3 GB 的临时文件，可用空间到了 <strong>162 GB</strong>。保留目录始终是 996 个文件、16 GB。</p><p>开头的 42 GB 与删除前的 56 GB 对不上，是因为中间还有两件事。第一，动缓存之前，我删掉了一份 iPhone 备份和一个 Time Machine 本地快照，可用空间到了 61 GB，后文「预防」一节会说到快照。第二，改名前后，可用空间从 61 GB 落到了 56 GB，同一段时间里，那个临时文件多占了 7 GB 左右，「成因」一节细说。</p><h2 id="成因"><a href="#成因" class="headerlink" title="成因"></a>成因</h2><p>这次其实有两样东西在占空间：<code>ClonedFiles</code> 里的 101 GB，以及 MMCS 下那个会自己长大的临时文件。两者要分开解释。</p><h3 id="缓存里的是什么"><a href="#缓存里的是什么" class="headerlink" title="缓存里的是什么"></a>缓存里的是什么</h3><p>缓存里的文件名只有 UUID，看不出原件是谁。线索在它们的大小和时间上：53 MB 到 56 MB，大多是 10 月份的。于是在 iCloud 云盘里找同样大小的文件：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在 iCloud Drive 里找 50 MB 到 60 MB 的文件，只在云端的也能找到</span></span><br><span class="line">mdfind -onlyin ~/Library/Mobile\ Documents <span class="string">&#x27;kMDItemFSSize &gt; 50000000 &amp;&amp; kMDItemFSSize &lt; 60000000&#x27;</span> | <span class="built_in">wc</span> -l</span><br></pre></td></tr></table></figure><p>一共 3376 个，其中 3275 个在同一个照片目录里。这个目录下有一个子目录，装着 2490 张索尼的 RAW 照片（<code>.ARW</code>），<code>ls</code> 合计 135.8 GB，<code>du</code> 是 0B，已经全部移出了本地。逐项对比：</p><ul><li>大小：这批 ARW 在 52,129,792 到 56,188,928 字节之间。上午抽样看过的缓存文件里，53 MB 到 56 MB 的有 11 个，大小全部落在这个区间里</li><li>时间：这批 ARW 的修改时间都在 10 月 19 日 16:22 到 16:35 之间。那 11 个缓存文件里，有 7 个的时间是 10 月 19 日 16:28 到 16:33；另外 4 个是 10 月 22 日 12:13、10 月 29 日 11:32 与 13:00 的，同一个照片目录里，这两天各有一个子目录放进了几张 ARW，其中一张的修改时间正是 10 月 29 日 13:00</li><li>体量：除去那个 10.6 GB 的 ZIP，缓存里剩下的大约 90 GB，比这批照片的 136 GB 少</li></ul><p>缓存里还有缩略图，数量上没法与照片一一对上，抽样也只有 11 个。不过大小和时间都对得上，<code>ClonedFiles</code> 里的大部分内容，很可能是 10 月 19 日放进 iCloud 云盘的这批照片。</p><h3 id="为什么会占空间"><a href="#为什么会占空间" class="headerlink" title="为什么会占空间"></a>为什么会占空间</h3><p>照片的原件已经移出本地，<code>du</code> 是 0B，按理说这 136 GB 已经不在磁盘上了。缓存为什么还能占着 101 GB，我只能给出一个推测，没能验证。</p><p>从目录名看，<code>ClonedFiles</code> 里放的是克隆出来的文件。如果 bird 在上传前把文件克隆了一份，那么刚克隆的时候，缓存与原件共用数据块，并不额外占空间。之后「优化 Mac 储存空间」把原件移出了本地，可克隆的那一份还在，那批数据块就归它一个人占着了。从 Finder 里看，照片已经只在云端；从磁盘上看，空间并没有回来。</p><p>这个推测能解释两件事：照片明明已经移出本地，空间却没有回来；缓存文件的大小和时间，又恰好与原件一致。可惜等我想到这一层，缓存已经删了，没法再去检查它们当初是不是真与原件共用数据块。</p><p>另外，一般来说，文件要先传到云端，才能从本地移走。如果是这样，这批照片既然全都移出去了，应当都已经传完。也就是说，这些缓存在上传结束以后，至少又留了两周多。bird 为什么一直没有清理它们，我没有查到原因。</p><h3 id="会长大的临时文件"><a href="#会长大的临时文件" class="headerlink" title="会长大的临时文件"></a>会长大的临时文件</h3><p>另一个占空间的是 MMCS 下的 <code>tmpm-0x0000000000001849</code>。上午 11:48 前后，它在 <code>ls</code> 里是 5.2 GB，几乎不占空间；到 13:05，<code>ls</code> 里是 12.5 GB，<code>du</code> 是 7.3 GB，最后修改时间是 12:20。</p><p>删掉整个 MMCS 以后，bird 很快又建了一个同名的文件。看这段时间 bird 的日志：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">13:13:42.745 bird[435] [NOTICE] downloading 1 documents in &lt;private&gt;</span><br><span class="line">13:15:22.478 bird[435] [NOTICE] &lt;private&gt; - finished downloading (cancelled) 1 documents (&lt;private&gt;) in &lt;private&gt;</span><br><span class="line">13:15:22.879 bird[435] [NOTICE] downloading 1 documents in &lt;private&gt;</span><br><span class="line">13:15:52.664 bird[435] [NOTICE] &lt;private&gt; - finished downloading (cancelled) 1 documents (&lt;private&gt;) in &lt;private&gt;</span><br></pre></td></tr></table></figure><p><code>tmpm-0x0000000000001849</code> 的修改时间正是 13:15。几个小时后再看，它在 <code>ls</code> 里是 12.3 GB，<code>du</code> 是 1.1 GB，开头的 48 个字节全是 0。</p><p>从这些现象推测，有一个十几 GB 的文档在被反复下载。每次下载都先往这个临时文件里写一部分数据，而后被取消，然后重来。上午那 7 GB 的增长，可能也是同一件事。今天零点到 13 点多，bird 一共有 7 次下载被取消，4 次正常完成。至于是哪个文档、是谁发起的下载、为什么总被取消，日志里都是 <code>&lt;private&gt;</code>，我没能查到。</p><h2 id="识别"><a href="#识别" class="headerlink" title="识别"></a>识别</h2><p>把这次的经验收拢一下，以后可以按下面的顺序检查。</p><p>首先对比 bird 的缓存与 iCloud Drive 本地数据的大小：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">du</span> -sh ~/Library/Caches/CloudKit/com.apple.bird</span><br><span class="line"><span class="built_in">du</span> -sh ~/Library/Mobile\ Documents</span><br></pre></td></tr></table></figure><p>出问题时，前者是 101 GB，后者是 29 GB；清理之后几个小时，前者是 1.1 GB。缓存比 iCloud 在本地的数据还大，就值得往下查。这时看 <code>MMCS/ClonedFiles</code> 与 <code>MMCS/tmpm-*</code> 各占多少。</p><p>如果是 <code>ClonedFiles</code> 大，就按大小和时间去找原件。先按修改时间看缓存文件集中在哪几天，再去 iCloud Drive 里找同期放进去的大批文件。最近放进去、<code>du</code> 已经是 0、而缓存里有同样大小文件的目录，就是嫌疑最大的。</p><p>如果是 <code>tmpm-*</code> 大，就看 bird 有没有在反复下载：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 一小时内 bird 的下载，被取消的与完成的各有多少</span></span><br><span class="line"><span class="built_in">log</span> show --last 1h --predicate <span class="string">&#x27;process == &quot;bird&quot; AND eventMessage CONTAINS &quot;finished downloading&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -c cancelled</span><br><span class="line"><span class="built_in">log</span> show --last 1h --predicate <span class="string">&#x27;process == &quot;bird&quot; AND eventMessage CONTAINS &quot;finished downloading&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -vc cancelled</span><br></pre></td></tr></table></figure><p>被取消的次数持续增长，同时 <code>tmpm-*</code> 的 <code>du</code> 在涨，就和这次的情况一样。</p><h2 id="预防"><a href="#预防" class="headerlink" title="预防"></a>预防</h2><p>第一，一次往 iCloud Drive 里放大批文件之后，等上传完成，回头看一眼 bird 的缓存。这次是一次放进去 136 GB 的 RAW 照片。若前面的推测成立，这时「优化 Mac 储存空间」移走原件也腾不出空间，反而是缓存把空间占着。磁盘越紧张，越要盯一下。</p><p>第二，清理缓存时按顺序来：</p><ol><li><code>brctl status</code> 里是 <code>client:idle</code>，bird 的 CPU 占用接近 0</li><li>找出带 <code>com.apple.fileprovider.pinned#PX</code> 的项目，记下它们的文件数与 <code>du</code></li><li>把 <code>ClonedFiles</code> 改名，核对保留下载的项目与 bird 的状态</li><li>确认无误后删除，再核对一遍</li></ol><p>需要说明的是，这次找「保留下载」的标记，只检查了一个目录的第一层。<code>brctl dump</code> 里也还有一些条目标着 <code>needs-sync-up</code>，我没有逐条核对它们有没有传完。那个 10.6 GB 的 ZIP 包，云端还在不在也没有确认；若它只存在于缓存里，那么已经随缓存一起删掉了。照着做之前，这几处最好先自己确认。</p><p>第三，清理之前先看一眼本地快照。APFS 的本地快照会保住被删文件占用的空间。这次在清理缓存之前，我删过一份 17 GB 的 iPhone 备份，<code>df</code> 给出的可用空间没有变化；用 <code>tmutil deletelocalsnapshots 2026-11-06-235702</code> 删掉 Time Machine 的本地快照之后，可用空间才从 44 GB 涨到 61 GB。<code>ClonedFiles</code> 里的文件大多早于这份快照，如果当时快照还在，删掉它们多半也腾不出空间。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tmutil listlocalsnapshots /</span><br></pre></td></tr></table></figure><p>至于那个反复被取消的下载，目前我还没有办法。tmpm 文件眼下只有 1.1 GB，先定期用上一节的命令看着。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> Computer Skills </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> iCloud </tag>
+            
+            <tag> macOS </tag>
+            
+            <tag> Cache </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>解决 macOS 上 lsd 与 syspolicyd 大量消耗 CPU 资源的问题</title>
       <link href="/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/"/>
       <url>/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/</url>
       
-        <content type="html"><![CDATA[<p>手头这台 2020 款 MacBook Pro 用的是 Intel 的 i5-1038NG7，4 核 8 线程，16 GB 内存，系统是 macOS 15.7.3。最近发现，手上的活并不重，风扇却一直在狂转。用 <code>top</code> 看了一眼，load average 在 10 到 17 之间，排在前面的是 lsd、syspolicyd、trustd、duetexpertd 这几个系统进程，没有一个是我自己打开的应用。其中 lsd 长时间稳定在 50% 上下。</p><p>这台机器已经连续运行了 74 天，我不太想重启它；Setapp 也还在用，不打算卸载。所以下面的处理都没有重启系统，也没有卸载任何软件。</p><span id="more"></span><h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><h3 id="LaunchServices-与-lsd"><a href="#LaunchServices-与-lsd" class="headerlink" title="LaunchServices 与 lsd"></a>LaunchServices 与 lsd</h3><p>LaunchServices 是 macOS 里负责登记应用程序的服务。系统要知道每个 App 装在哪里、bundle ID 是什么，以及它能打开哪些类型的文件，查的都是 LaunchServices 维护的这份数据库。Dock、Finder 这些组件，以及 Siri 建议之类的后台服务，都会向它查询。lsd 是这份数据库的守护进程，条目的增删都由它完成。</p><p>lsd 注册 bundle 的那段时间里，日志中夹杂着大量 <code>SecTrustEvaluateIfNecessary</code> 与 <code>SecKeyVerifySignature</code> 调用，也就是在校验代码签名。syspolicyd 的日志里是同样的调用，trustd 则是负责证书信任评估的守护进程。后文可以看到，lsd 停下来之后，syspolicyd 与 trustd 也一起从 CPU 排行里消失了。</p><h3 id="lsregister"><a href="#lsregister" class="headerlink" title="lsregister"></a>lsregister</h3><p>操作这份数据库的命令行工具是 lsregister。它不在 PATH 里，位置很深：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br></pre></td></tr></table></figure><p>下文会用到它的这几个参数：</p><ul><li><code>-dump</code>：导出数据库的全部内容</li><li><code>-u</code>：注销指定路径</li><li><code>-f</code>：强制重新注册，即使修改时间没有变化</li><li><code>-gc</code>：回收旧数据，并压缩数据库</li><li><code>-kill</code>：先清空数据库，再做后续动作</li></ul><h2 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h2><h3 id="日志"><a href="#日志" class="headerlink" title="日志"></a>日志</h3><p><code>top</code> 只能告诉我们谁在忙，告诉不了它在忙什么。要知道 lsd 在忙什么，得去翻统一日志（unified log）：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 15m --predicate <span class="string">&#x27;process == &quot;lsd&quot; OR process == &quot;syspolicyd&quot;&#x27;</span> --style compact | <span class="built_in">tail</span> -25</span><br></pre></td></tr></table></figure><p>输出里反复出现下面这一组（删去了时间戳与线程号）：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">lsd[412] (Security) SecTrustEvaluateIfNecessary</span><br><span class="line">lsd[412] (Security) SecKeyVerifySignature</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] (null)/Unknown Persona:5:4:1:0:_LSServerRegisterItemInfo begin</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] com.setapp.DesktopClient/Unknown Persona:5:5:1:1:Building bundle record for app</span><br><span class="line">lsd[412] [com.apple.launchservices:default] registered &lt;private&gt; (status 0, old id 0x2dee84) as unit 0x2dee88 on behalf of pid 415</span><br><span class="line">lsd[412] [com.apple.launchservices:default] client 75950 will unregister unit 2dee88 options 0</span><br></pre></td></tr></table></figure><p>也就是说，lsd 先替 PID 为 415 的进程注册了 Setapp（<code>com.setapp.DesktopClient</code>），记成 unit <code>0x2dee88</code>；7 毫秒之后，PID 为 75950 的进程又要求注销这个 unit。415 是 Dock，75950 是 SetappAgent。数一下次数：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 2m --predicate <span class="string">&#x27;process == &quot;lsd&quot;&#x27;</span> --style compact | grep -c <span class="string">&quot;_LSServerRegisterItemInfo begin&quot;</span></span><br></pre></td></tr></table></figure><p>两分钟里有 <strong>693 次</strong>，平均每秒接近 6 次。</p><p>SetappAgent 自己的日志是这样的：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">SetappAgent[75950] [com.apple.launchservices:needs-reg] bundle 0x2df714 mod date changed from Fri Sep 25 10:31:27 2026 to Fri Nov  6 21:12:41 2026</span><br><span class="line">SetappAgent[75950] [com.apple.launchservices:needs-reg] bundle 0x2df714 node has changed</span><br><span class="line">SetappAgent[75950] [com.apple.launchservices:registration] Failed to get unit 3012376 from store &lt;private&gt;</span><br></pre></td></tr></table></figure><p><code>/Applications/Setapp.app</code> 的修改时间确实是前一天晚上的 21:12，<code>~/Library/LaunchAgents/</code> 下 Setapp 的四个 plist 也是在那一分钟写入的，Setapp 当时改写过自己的文件。<code>Failed to get unit</code> 后面的编号一直在增长，看起来 SetappAgent 每一轮都失败，失败之后又重来。</p><p>除了 lsd，其他几个高占用的进程里也有大量 LaunchServices 的报错，例如 siriknowledged：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">siriknowledged[645] [com.apple.launchservices:default] _LSBundleCopyOrCheckNode: cached node not found, _LSBundleCreateNode for bundleID 60316 returned -43</span><br></pre></td></tr></table></figure><p>-43 是 <code>fnfErr</code>，即文件不存在。MTLAssetUpgraderD 的日志里则是某个 bundle「being forced to re-register」。</p><h3 id="退出-Setapp"><a href="#退出-Setapp" class="headerlink" title="退出 Setapp"></a>退出 Setapp</h3><p>既然 Setapp 掺和在里面，最直接的做法是先把它退出。顺手也把两个没推出的像素蛋糕安装盘推掉：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">osascript -e <span class="string">&#x27;tell application &quot;Setapp&quot; to quit&#x27;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/像素蛋糕-10.0.5-139&quot;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/像素蛋糕-9.3.1-23&quot;</span></span><br></pre></td></tr></table></figure><p>做完这两步，风扇停了。不过 lsd 的注册请求只是从 30 秒 177 次降到了 140 次，事情还没完。</p><h3 id="注册请求的来源"><a href="#注册请求的来源" class="headerlink" title="注册请求的来源"></a>注册请求的来源</h3><p>lsd 的日志里写明了每一次注册是替谁做的，按 PID 统计一下：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 30s --predicate <span class="string">&#x27;process == &quot;lsd&quot; AND eventMessage CONTAINS &quot;on behalf of pid&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -oE <span class="string">&#x27;on behalf of pid [0-9]+&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure><p>30 秒内，次数较多的几个来源如下（PID 已换成进程名）：</p><ul><li>Dock：90 次</li><li>BackgroundTaskManagementAgent：64 次</li><li>siriknowledged：12 次</li><li>MTLAssetUpgraderD：10 次</li></ul><p>那些 -43 又是谁报的，换一个关键词再统计：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 10s --predicate <span class="string">&#x27;eventMessage CONTAINS &quot;returned -43&quot;&#x27;</span> --style compact \</span><br><span class="line">  | awk <span class="string">&#x27;NR&gt;1 &#123;print $4&#125;&#x27;</span> | sed <span class="string">&#x27;s/\[.*//&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure><p>10 秒内，siriknowledged 报了 1488 条，duetexpertd 454 条，swcd 262 条，iCloud Drive 的守护进程 bird 163 条。此前一次 30 秒的统计是 6098 条，涉及 265 个不同的 bundleID。也就是说，这几个进程在反复查询同一批 bundle，而这批 bundle 对应的文件已经找不到了。</p><h3 id="失效的条目"><a href="#失效的条目" class="headerlink" title="失效的条目"></a>失效的条目</h3><p>要知道是哪些 bundle，就得把数据库导出来：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">LSREG=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump &gt; /tmp/lsdump.txt</span><br></pre></td></tr></table></figure><p>导出的文件有 23 MB、26 万多行。每个条目都带一行 <code>path:</code>，把它们取出来，逐个检查文件在不在即可。第一次跑的结果是 1460 个条目全部不存在，这显然不对。打开文件一看，<code>path:</code> 行的末尾还跟着条目的 ID：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">path:                       /Applications/Setapp.app (0x2f9f30)</span><br></pre></td></tr></table></figure><p>把这个 ID 去掉以后重新检查：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 取出所有注册过的路径，去掉行尾的 (0x…)</span></span><br><span class="line">grep <span class="string">&#x27;^[[:space:]]*path:&#x27;</span> /tmp/lsdump.txt \</span><br><span class="line">  | sed -E <span class="string">&#x27;s/^[[:space:]]*path:[[:space:]]*//; s/[[:space:]]*\(0x[0-9a-fA-F]+\)[[:space:]]*$//&#x27;</span> \</span><br><span class="line">  | <span class="built_in">sort</span> -u &gt; /tmp/all_paths.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 筛出磁盘上已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> [ -e <span class="string">&quot;<span class="variable">$p</span>&quot;</span> ] || <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/all_paths.txt &gt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure><p>1455 个不重复的路径里，有 <strong>337 个</strong>已经不存在。下文把这类指向不存在路径的条目称作死条目。按目录归类，数量较多的是：</p><ul><li>用户目录下的 101 个</li><li><code>/Applications/Google Chrome.app</code> 下的 93 个，大多是旧版本 Chrome 的 helper</li><li><code>/usr/local</code> 下的 46 个</li><li><code>/Volumes/</code> 下的一大批，对应早已推出的安装盘：像素蛋糕从 8.0.1 到 10.0.5 的各个版本，优酷、Cursor、Loopback、Clash Verge 与几款 WD 工具的安装器，还有 Lightroom 的安装盘</li></ul><p>其中 <code>/Volumes/像素蛋糕-9.3.1-23</code> 正是几分钟前刚推出的那一个。安装盘挂载期间，里面的 App 被注册进了数据库；推出之后，这些条目却留了下来。</p><h2 id="处理"><a href="#处理" class="headerlink" title="处理"></a>处理</h2><h3 id="回收旧数据"><a href="#回收旧数据" class="headerlink" title="回收旧数据"></a>回收旧数据</h3><p>先试最温和的 <code>-gc</code>：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -gc</span><br></pre></td></tr></table></figure><p>跑之前，10 秒内的 -43 是 2924 条，跑完降到 1749 条；lsd 的注册次数从 87 降到 67。有效果，但只清掉了一部分。</p><p>lsregister 的 <code>-kill</code> 可以清空数据库再重新扫描。这次没有用它，只处理已经找出来的这几百个条目。</p><h3 id="逐条注销死条目"><a href="#逐条注销死条目" class="headerlink" title="逐条注销死条目"></a>逐条注销死条目</h3><p>死条目的清单已经有了，那么不妨对着清单逐条注销：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 逐条注销已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -u <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure><p>337 条里，有 312 条返回成功，剩下的 25 条我没有再追。15 秒后再统计，10 秒内的 -43 只剩 <strong>1 条</strong>。-43 在注销之后基本消失，这与「它们来自这批死条目」的判断相符。</p><h3 id="剩下的注册循环"><a href="#剩下的注册循环" class="headerlink" title="剩下的注册循环"></a>剩下的注册循环</h3><p>-43 没了，lsd 却还在以 10 秒 73 次的频率注册，CPU 依然在 50% 上下，syspolicyd 也还在 40%。按 PID 统计，最大的两个来源是 Dock 和 SetappAgent。先前退出的 SetappAgent 已经换了一个 PID 重新跑起来。它的 LaunchAgent（<code>~/Library/LaunchAgents/com.setapp.DesktopClient.SetappAgent.plist</code>）里配置了 <code>KeepAlive</code>，具体是谁把它拉起来的，我没有细查。</p><p>先试着用 <code>-f</code> 强制重新注册 Setapp 和它管理的几个 App：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -f /Applications/Setapp.app</span><br><span class="line"><span class="keyword">for</span> d <span class="keyword">in</span> /Applications/Setapp/*.app; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -f <span class="string">&quot;<span class="variable">$d</span>&quot;</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure><p>这一步没有立刻见效。SetappAgent 的 <code>Failed to get unit</code> 照旧，10 秒十几条。几分钟后再统计，Dock 与 SetappAgent 仍然是最大的两个来源，lsd 的注册次数是 10 秒 69 次。</p><h3 id="重启-Dock"><a href="#重启-Dock" class="headerlink" title="重启 Dock"></a>重启 Dock</h3><p>最后重启了 Dock：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Dock 会被 launchd 立刻拉起</span></span><br><span class="line">killall Dock</span><br></pre></td></tr></table></figure><p>十秒之后再统计，lsd 的注册次数是 0，SetappAgent 的 <code>Failed to get unit</code> 也是 0。lsd、syspolicyd、trustd 从 CPU 排行里消失了，load average 从最高时的 20.37 降到了 4.27。Dock 重启后的两三分钟里，fseventsd 一度占到 90%，随后回落到 0。</p><p>需要说明的是，循环是在 Dock 重启之后停下来的，但 Dock 重启之前，Setapp 已经被强制注册过一次。单凭这一次，没法判断只重启 Dock 是否足够，也没法判断 Dock 反复发起注册的原因。</p><p>注意，判断条目是否失效，依据只有「路径在不在」。外接硬盘上的 App 在硬盘没接上的时候，也会被判为不存在。注销之前，应当先把 <code>/tmp/dead_paths.txt</code> 过一遍，把这类路径挑出来。</p>]]></content>
+        <content type="html"><![CDATA[<p>手头这台 2020 款 MacBook Pro 用的是 Intel 的 i5-1038NG7，4 核 8 线程，16 GB 内存，系统是 macOS 15.7.3。最近发现，手上的活并不重，风扇却一直在狂转。用 <code>top</code> 看了一眼，load average 在 10 到 17 之间，排在前面的是 lsd、syspolicyd、trustd、duetexpertd 这几个系统进程，没有一个是我自己打开的应用。其中 lsd 长时间稳定在 50% 上下。</p><p>这台机器已经连续运行了 74 天，我不太想重启它；Setapp 也还在用，不打算卸载。所以下面的处理都没有重启系统，也没有卸载任何软件。把 CPU 压下来以后，我又回头翻了一遍导出的数据，想弄清楚三件事：问题是怎么来的，下次怎么一眼认出来，以及能不能让它不再发生。</p><span id="more"></span><h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><h3 id="LaunchServices-与-lsd"><a href="#LaunchServices-与-lsd" class="headerlink" title="LaunchServices 与 lsd"></a>LaunchServices 与 lsd</h3><p>LaunchServices 是 macOS 里负责登记应用程序的服务。系统要知道每个 App 装在哪里、bundle ID 是什么，以及它能打开哪些类型的文件，查的都是 LaunchServices 维护的这份数据库。Dock、Finder 这些组件，以及 Siri 建议之类的后台服务，都会向它查询。lsd 是这份数据库的守护进程，条目的增删都由它完成。</p><p>从这次的数据来看，一个 App 被注册进去以后，即便它所在的目录后来被删掉或者被推出，条目也会一直留在数据库里。系统的各个服务在查询时才会发现文件不在了，此时返回的错误码是 -43，即 <code>fnfErr</code>（文件不存在）。</p><p>lsd 注册 bundle 的那段时间里，日志中夹杂着大量 <code>SecTrustEvaluateIfNecessary</code> 与 <code>SecKeyVerifySignature</code> 调用，也就是在校验代码签名。syspolicyd 的日志里是同样的调用，trustd 则是负责证书信任评估的守护进程。后文可以看到，lsd 停下来之后，syspolicyd 与 trustd 也一起从 CPU 排行里消失了。</p><h3 id="lsregister"><a href="#lsregister" class="headerlink" title="lsregister"></a>lsregister</h3><p>操作这份数据库的命令行工具是 lsregister。它不在 PATH 里，位置很深：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">LSREG=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br></pre></td></tr></table></figure><p>下文会用到它的这几个参数：</p><ul><li><code>-dump</code>：导出数据库的全部内容</li><li><code>-u</code>：注销指定路径</li><li><code>-f</code>：强制重新注册，即使修改时间没有变化</li><li><code>-gc</code>：回收旧数据，并压缩数据库</li><li><code>-kill</code>：先清空数据库，再做后续动作</li></ul><h2 id="排查与处理"><a href="#排查与处理" class="headerlink" title="排查与处理"></a>排查与处理</h2><h3 id="两种异常"><a href="#两种异常" class="headerlink" title="两种异常"></a>两种异常</h3><p><code>top</code> 只能告诉我们谁在忙，告诉不了它在忙什么。要知道 lsd 在忙什么，得去翻统一日志（unified log）。日志里有两种反复出现的东西。</p><p>第一种是 lsd 自己的注册记录（删去了时间戳与线程号）：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] (null)/Unknown Persona:5:4:1:0:_LSServerRegisterItemInfo begin</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] com.setapp.DesktopClient/Unknown Persona:5:5:1:1:Building bundle record for app</span><br><span class="line">lsd[412] [com.apple.launchservices:default] registered &lt;private&gt; (status 0, old id 0x2dee84) as unit 0x2dee88 on behalf of pid 415</span><br><span class="line">lsd[412] [com.apple.launchservices:default] client 75950 will unregister unit 2dee88 options 0</span><br></pre></td></tr></table></figure><p>lsd 先替 PID 为 415 的进程注册了 Setapp（<code>com.setapp.DesktopClient</code>），记成 unit <code>0x2dee88</code>；7 毫秒之后，PID 为 75950 的进程又要求注销这个 unit。415 是 Dock，75950 是 SetappAgent。两分钟里，这样的注册有 <strong>693 次</strong>，平均每秒接近 6 次。SetappAgent 自己的日志里则不断刷出 <code>Failed to get unit … from store</code>，后面的编号一直在增长。</p><p>第二种是别的进程报出的 -43，例如 siriknowledged：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">siriknowledged[645] [com.apple.launchservices:default] _LSBundleCopyOrCheckNode: cached node not found, _LSBundleCreateNode for bundleID 60316 returned -43</span><br></pre></td></tr></table></figure><p>按进程统计，10 秒内 siriknowledged 报了 1488 条，duetexpertd 454 条，swcd 262 条，iCloud Drive 的守护进程 bird 163 条。此前一次 30 秒的统计是 6098 条，涉及 265 个不同的 bundleID。</p><p>这两种异常的统计命令，放在后面「识别」一节里。</p><h3 id="死条目"><a href="#死条目" class="headerlink" title="死条目"></a>死条目</h3><p>为了知道 -43 指向哪些 bundle，先把数据库导出来：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump &gt; /tmp/lsdump.txt</span><br></pre></td></tr></table></figure><p>导出的文件有 23 MB、26 万多行。而后逐条检查每个 <code>path:</code> 还在不在，具体命令放在「识别」一节。需要注意，<code>path:</code> 行的末尾跟着条目的 ID，形如 <code>/Applications/Setapp.app (0x2f9f30)</code>，要先去掉，否则所有路径都会被判为不存在。</p><p>1455 个不重复的路径里，有 <strong>337 个</strong>已经不存在。下文把这类指向不存在路径的条目称作死条目。</p><p>我先试了最温和的 <code>-gc</code>，10 秒内的 -43 从 2924 条降到 1749 条，只清掉了一部分。而后对着死条目清单逐条执行 <code>lsregister -u</code>，337 条里有 312 条返回成功。15 秒后再统计，10 秒内的 -43 只剩 <strong>1 条</strong>。</p><h3 id="注册循环"><a href="#注册循环" class="headerlink" title="注册循环"></a>注册循环</h3><p>-43 没了，lsd 却还在以 10 秒 73 次的频率注册，CPU 依然在 50% 上下，syspolicyd 也还在 40%。最大的两个来源仍是 Dock 和 SetappAgent。排查之初我退出过一次 Setapp，可 SetappAgent 换了一个 PID 又跑了起来，它的 LaunchAgent 里配置了 <code>KeepAlive</code>，退出 Setapp 拦不住它。</p><p>用 <code>-f</code> 强制重新注册 <code>/Applications/Setapp.app</code> 之后，循环没有立刻停下。几分钟后又重启了 Dock：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Dock 会被 launchd 立刻拉起</span></span><br><span class="line">killall Dock</span><br></pre></td></tr></table></figure><p>十秒之后，lsd 的注册次数是 0，SetappAgent 的 <code>Failed to get unit</code> 也是 0。lsd、syspolicyd、trustd 从 CPU 排行里消失了，load average 从最高时的 20.37 降到了 4.27。几个小时后再看，5 分钟内 lsd 一次注册也没有，-43 只有 1 次，没有复发。</p><h2 id="成因"><a href="#成因" class="headerlink" title="成因"></a>成因</h2><p>回头看，这次其实是两个问题叠在了一起：死条目带来的 -43，以及 Setapp 引起的注册循环。前者把 siriknowledged、duetexpertd 这些进程拖进来，后者让 lsd、syspolicyd、trustd 一直空转。两者要分开解释。</p><h3 id="死条目从哪来"><a href="#死条目从哪来" class="headerlink" title="死条目从哪来"></a>死条目从哪来</h3><p>先看死条目是什么时候注册进去的。<code>lsregister -dump</code> 给每个条目都记了一个 <code>reg date</code> 字段，把 337 个死条目按注册月份统计：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">2025-07: 43    2025-08: 28    2025-09:  9    2025-10: 13</span><br><span class="line">2025-11: 17    2025-12: 18    2026-01: 35    2026-02:  5</span><br><span class="line">2026-03: 20    2026-04: 16    2026-05: 13    2026-06: 15</span><br><span class="line">2026-07: 18    2026-08: 27    2026-09: 15    2026-10: 23</span><br><span class="line">2026-11:  2    无 reg date: 20</span><br></pre></td></tr></table></figure><p>从 2025 年 7 月到 2026 年 11 月，几乎每个月都有十几到几十个。也就是说，死条目是在一年多里慢慢攒下来的，不是哪一次操作一下子造出来的。</p><p>再按路径归类，可以看出它们来自几种很平常的日常操作：</p><ul><li><strong>Chrome 自动更新</strong>：93 个。Chrome 把每个版本放在 <code>Google Chrome Framework.framework/Versions/&lt;版本号&gt;/</code> 下，更新后删掉旧版本目录。死条目里有 41 个不同的版本号，从 137 一直到 153，而目录里现在只剩 155 与 156</li><li><strong>Sparkle 的临时目录</strong>：66 个。Sparkle 是很多 macOS 应用用来自动更新的框架，它把下载、解压出来的新版本先放在 <code>~/Library/Caches/&lt;应用&gt;/org.sparkle-project.Sparkle/</code> 下面一个随机命名的子目录里，装完就删。钉钉占 26 个，Setapp 占 35 个</li><li><strong>安装盘</strong>：57 个。安装 App 时双击 DMG，挂载出来的卷里的 App 也会被注册，推出卷之后条目还在。像素蛋糕从 8.0.1 开始的每一个版本都留下了几个，最早的一个注册于 2025-08-17</li><li><strong>Homebrew 升级</strong>：46 个，基本都是 <code>/usr/local/Cellar/python@3.x</code> 的旧版本</li><li><strong>手工备份</strong>：16 个，例如 <code>pixcake.app.bak-10.0.5-156</code></li></ul><p>这几类有一个共同点：App 所在的目录本来就是临时的，用完即删，而 LaunchServices 并不跟着清理。条目上的标记也印证了这一点。数据库里一共 1460 个条目，按路径在不在分成 339 个死条目和 1121 个有效条目（339 比前面的 337 多两个，是因为有两个路径各对应两个条目）。<code>quarantined</code> 标记在死条目里占 30%，在有效条目里只占 1%；<code>launch-disabled</code> 是 49% 对 10%。前者表示文件来自网络下载、还没有被放行过，后者表示不允许从这个位置启动，安装盘与更新包里的 App 多半带着这两个标记。</p><p>单个死条目查询到的时候，返回一个 -43 就结束了。可有些服务会把整个数据库枚举一遍，从 siriknowledged 这个名字看，它要知道系统里装了哪些 App。死条目一多，每次枚举都要报几百个 -43；如果枚举又被频繁地触发，CPU 就降不下来。</p><h3 id="枚举为什么被频繁触发"><a href="#枚举为什么被频繁触发" class="headerlink" title="枚举为什么被频繁触发"></a>枚举为什么被频繁触发</h3><p>至于是什么在反复触发枚举，我手上只有一条间接的线索。SetappAgent 的日志里，夹在 <code>Failed to get unit</code> 之间反复出现的是这样一行：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SetappAgent[75950] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key &lt;private&gt;</span><br></pre></td></tr></table></figure><p>从名字看，这是 LaunchServices 数据库发生变化时发出的通知，日志里每秒好几次。数据库每变一次，订阅了这个通知的进程就可能重新查询一遍，而那个每秒 6 次的注册循环会让数据库不停地变。所以这两个问题可能是相互放大的：注册循环让数据库不停地发通知，通知让其他服务不停地枚举，枚举时又撞上几百个死条目。不过我没有直接验证这一点，siriknowledged 是不是因为这个通知才去枚举，并没有证据。</p><h3 id="注册循环从哪来"><a href="#注册循环从哪来" class="headerlink" title="注册循环从哪来"></a>注册循环从哪来</h3><p>注册循环的起点比较清楚。<code>/Applications/Setapp.app</code> 与 <code>~/Library/LaunchAgents/</code> 下 Setapp 的四个 plist，修改时间都是前一天晚上 21:12，Setapp 当时更新过自己。</p><p>关键的证据在两份导出的数据库里。一份是排查死条目时，上午 11:24 导出的 <code>/tmp/lsdump.txt</code>；另一份是 11:37 用 <code>-f</code> 补注册之后，我又导出的 <code>/tmp/lsdump2.txt</code>。前一份里，<code>/Applications/Setapp.app</code> <strong>根本不在数据库里</strong>：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">grep -c <span class="string">&#x27;path:[[:space:]]*/Applications/Setapp.app (&#x27;</span> /tmp/lsdump.txt    <span class="comment"># 11:24 导出</span></span><br><span class="line">grep -c <span class="string">&#x27;path:[[:space:]]*/Applications/Setapp.app (&#x27;</span> /tmp/lsdump2.txt   <span class="comment"># 11:37 导出，-f 之后</span></span><br></pre></td></tr></table></figure><p>前者是 0，后者是 1。也就是说，Setapp 更新之后，主程序的注册丢了。数据库里倒是还有 <code>~/Library/Application Support/Setapp/LaunchAgents/</code> 下的 SetappAgent 等几个辅助程序。SetappAgent 自己的日志里写着，bundle 的修改时间「changed from Fri Sep 25 10:31:27 2026 to Fri Nov 6 21:12:41 2026」，随后报 <code>Failed to get unit</code>。</p><p>据此可以推测出这样一个过程：Dock 要找 <code>com.setapp.DesktopClient</code>，在数据库里找不到，于是请 lsd 注册一次；紧接着 SetappAgent 把这个 unit 注销掉；Dock 再次找不到，再请 lsd 注册。SetappAgent 为什么要注销，日志里没有交代。这段时间里 lsd 的签名校验没有停过，syspolicyd 与 trustd 也一直在忙。这个循环是从什么时候开始的，我不知道，日志里只能确认 Setapp 前一天 21:12 改写过自己的文件。</p><p>这个推测能解释为什么单靠 <code>-f</code> 不够：<code>-f</code> 把主程序补回了数据库，但 Dock 可能还留着旧的状态，所以要重启 Dock 才停。不过 <code>-f</code> 与重启 Dock 之间隔了几分钟，我只做了这一次，没法分开验证两者各自起了多大作用。至于 Setapp 更新时为什么会丢掉主程序的注册，我没有查到原因。</p><h2 id="识别"><a href="#识别" class="headerlink" title="识别"></a>识别</h2><p>把这次的经验收拢一下，以后再遇到类似的情况，可以按下面的顺序判断。</p><p>首先看 CPU 排行的组合。占用高的如果是 lsd，同时 syspolicyd、trustd 也在前面，而用户自己打开的 App 都不怎么忙，那么就该怀疑 LaunchServices 在反复注册。如果排在前面的是 siriknowledged、duetexpertd、swcd 这类平时安静的后台服务，就要怀疑它们在枚举时撞上了死条目。</p><p>而后统计两个指标。一个是 lsd 的注册频率，一个是 -43 的频率：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 指标 1：一分钟内 lsd 的注册次数</span></span><br><span class="line"><span class="built_in">log</span> show --last 1m --predicate <span class="string">&#x27;process == &quot;lsd&quot; AND eventMessage CONTAINS &quot;_LSServerRegisterItemInfo begin&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -c begin</span><br><span class="line"></span><br><span class="line"><span class="comment"># 指标 2：一分钟内各进程报出的 -43 次数</span></span><br><span class="line"><span class="built_in">log</span> show --last 1m --predicate <span class="string">&#x27;eventMessage CONTAINS &quot;returned -43&quot;&#x27;</span> --style compact \</span><br><span class="line">  | awk <span class="string">&#x27;NR&gt;1 &#123;print $4&#125;&#x27;</span> | sed <span class="string">&#x27;s/\[.*//&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure><p>作为参照，这台机器在正常状态下，5 分钟内 lsd 一次注册也没有，-43 也只有 1 次。出问题的时候，前者是一分钟三百多次，后者是一分钟一万多条。两种状态差得很远，不需要精确的阈值也能分辨出来。</p><p>如果是注册频率高，就看是谁在发起注册。lsd 的日志里写着每次注册是替哪个进程做的：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 1m --predicate <span class="string">&#x27;process == &quot;lsd&quot; AND eventMessage CONTAINS &quot;on behalf of pid&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -oE <span class="string">&#x27;on behalf of pid [0-9]+&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure><p>找出 PID 以后用 <code>ps -p &lt;PID&gt;</code> 看进程名。若同一个 App 被反复注册，就去检查它的主程序在不在数据库里：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump | grep -c <span class="string">&#x27;path:[[:space:]]*/Applications/Setapp.app (&#x27;</span></span><br></pre></td></tr></table></figure><p>如果是 -43 多，就把死条目数出来：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 导出数据库，取出全部路径，去掉行尾的 (0x…)</span></span><br><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump | grep <span class="string">&#x27;^[[:space:]]*path:&#x27;</span> \</span><br><span class="line">  | sed -E <span class="string">&#x27;s/^[[:space:]]*path:[[:space:]]*//; s/[[:space:]]*\(0x[0-9a-fA-F]+\)[[:space:]]*$//&#x27;</span> \</span><br><span class="line">  | <span class="built_in">sort</span> -u &gt; /tmp/all_paths.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 筛出已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> [ -e <span class="string">&quot;<span class="variable">$p</span>&quot;</span> ] || <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/all_paths.txt &gt; /tmp/dead_paths.txt</span><br><span class="line"><span class="built_in">wc</span> -l &lt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure><p>这次的数据是 1455 条里 337 条死掉，接近四分之一。这个比例在正常机器上应该是多少，我没有别的机器可以对照。</p><h2 id="预防"><a href="#预防" class="headerlink" title="预防"></a>预防</h2><p>死条目来自 Chrome 更新、Sparkle 更新、安装盘、Homebrew 这些日常操作。这些操作本身没法不做，能做的是让死条目少一点、发现得早一点。可以做的有三件事。</p><p>第一，装完 App 以后，顺手注销安装盘上的 App。推出安装盘的那一刻，盘上 App 的条目就变成了死条目，所以单是推出并不够。按道理，挂载期间先注销、再推出就可以，不过这个顺序我还没有实际试过：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 推出之前，先把卷上的 App 从数据库里注销（未实测）</span></span><br><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -u <span class="string">&quot;/Volumes/&lt;卷名&gt;/&lt;App 名&gt;.app&quot;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/&lt;卷名&gt;&quot;</span></span><br></pre></td></tr></table></figure><p>已经推出了的，可以按上一节的办法统一清理，这次实测有效：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 注销 /Volumes 下所有已经不存在的条目</span></span><br><span class="line">grep <span class="string">&#x27;^/Volumes/&#x27;</span> /tmp/dead_paths.txt | <span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -u <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure><p>一个 App 往往不止一个条目，例如 Cursor 的安装盘里，除了 <code>Cursor.app</code>，还有四个 helper 被分别注册。所以用后一种办法清理更省事。</p><p>第二，定期跑一遍上一节的统计。按注册时间算，这台机器上每个月都有十几到几十个条目后来变成了死条目，几个月清一次应该就够了。清理时用 <code>-u</code> 逐条注销。<code>-kill</code> 会清空整个数据库再重新扫描，影响到所有的 App，而这次的问题只涉及几百个已经列出来的条目，用不着它。</p><p>第三，自动更新的 App 出问题时，先确认它的主程序还在不在数据库里。这次 Setapp 的问题就出在这里。若不在，用 <code>lsregister -f</code> 补注册；若补了以后循环还在，再重启 Dock。</p><p>注意，判断条目是否失效，依据只有「路径在不在」。外接硬盘上的 App 在硬盘没接上的时候，也会被判为不存在。批量注销之前，应当先把 <code>dead_paths.txt</code> 过一遍，把这类路径挑出来。</p>]]></content>
       
       
       <categories>
@@ -51,9 +80,9 @@
             
             <tag> Search </tag>
             
-            <tag> KV Cache </tag>
-            
             <tag> LLM </tag>
+            
+            <tag> KV Cache </tag>
             
         </tags>
       
@@ -78,13 +107,13 @@
       
         <tags>
             
-            <tag> iOS </tag>
-            
             <tag> Jailbreak </tag>
             
-            <tag> Reverse Engineering </tag>
+            <tag> iOS </tag>
             
             <tag> Security </tag>
+            
+            <tag> Reverse Engineering </tag>
             
         </tags>
       
@@ -109,9 +138,9 @@
       
         <tags>
             
-            <tag> iOS </tag>
-            
             <tag> Jailbreak </tag>
+            
+            <tag> iOS </tag>
             
             <tag> Reverse Engineering </tag>
             
@@ -167,9 +196,9 @@
             
             <tag> C++ </tag>
             
-            <tag> Concurrency </tag>
-            
             <tag> Lock </tag>
+            
+            <tag> Concurrency </tag>
             
             <tag> Go </tag>
             
@@ -297,9 +326,9 @@
             
             <tag> AI </tag>
             
-            <tag> LLM </tag>
-            
             <tag> Methodology </tag>
+            
+            <tag> LLM </tag>
             
         </tags>
       
@@ -326,9 +355,9 @@
             
             <tag> iOS </tag>
             
-            <tag> Reverse Engineering </tag>
-            
             <tag> Security </tag>
+            
+            <tag> Reverse Engineering </tag>
             
             <tag> Jailbreak Detection </tag>
             
@@ -421,11 +450,11 @@
             
             <tag> LaTeX </tag>
             
+            <tag> CJKpunct </tag>
+            
             <tag> ctex-kit </tag>
             
             <tag> TeX 排版 </tag>
-            
-            <tag> CJKpunct </tag>
             
         </tags>
       
@@ -1046,9 +1075,9 @@
             
             <tag> iPhone </tag>
             
-            <tag> iOS </tag>
-            
             <tag> Jailbreak </tag>
+            
+            <tag> iOS </tag>
             
         </tags>
       
@@ -1363,9 +1392,9 @@
             
             <tag> iPhone </tag>
             
-            <tag> iOS </tag>
-            
             <tag> Jailbreak </tag>
+            
+            <tag> iOS </tag>
             
             <tag> Tweaks </tag>
             
@@ -1450,9 +1479,9 @@
       
         <tags>
             
-            <tag> macOS </tag>
-            
             <tag> WeChat </tag>
+            
+            <tag> macOS </tag>
             
         </tags>
       
@@ -2064,6 +2093,8 @@
             
             <tag> Dalio </tag>
             
+            <tag> Cycle </tag>
+            
             <tag> Central Bank </tag>
             
             <tag> Monetary Policy </tag>
@@ -2071,8 +2102,6 @@
             <tag> Interest Rate </tag>
             
             <tag> Exchange Rate </tag>
-            
-            <tag> Cycle </tag>
             
         </tags>
       
@@ -2099,13 +2128,13 @@
             
             <tag> Dalio </tag>
             
-            <tag> Cycle </tag>
-            
             <tag> Expenditure </tag>
             
             <tag> Receipt </tag>
             
             <tag> Credit </tag>
+            
+            <tag> Cycle </tag>
             
         </tags>
       
@@ -2283,9 +2312,9 @@
       
         <tags>
             
-            <tag> HTML </tag>
-            
             <tag> Markdown </tag>
+            
+            <tag> HTML </tag>
             
         </tags>
       
@@ -2368,13 +2397,13 @@
             
             <tag> Code </tag>
             
-            <tag> Data </tag>
-            
             <tag> VIRT </tag>
             
             <tag> RES </tag>
             
             <tag> SHR </tag>
+            
+            <tag> Data </tag>
             
         </tags>
       
@@ -2870,9 +2899,9 @@
       
         <tags>
             
-            <tag> PDF </tag>
-            
             <tag> Markdown </tag>
+            
+            <tag> PDF </tag>
             
         </tags>
       
@@ -2897,9 +2926,9 @@
       
         <tags>
             
-            <tag> CJK </tag>
-            
             <tag> MacTeX </tag>
+            
+            <tag> CJK </tag>
             
             <tag> step-by-step </tag>
             
@@ -4123,9 +4152,9 @@
       
         <tags>
             
-            <tag> Pandoc </tag>
-            
             <tag> Markdown </tag>
+            
+            <tag> Pandoc </tag>
             
             <tag> Word </tag>
             
@@ -4210,9 +4239,9 @@
       
         <tags>
             
-            <tag> Ranking </tag>
-            
             <tag> Logistic Regression </tag>
+            
+            <tag> Ranking </tag>
             
             <tag> Factorization Machine </tag>
             
@@ -4380,9 +4409,9 @@
       
         <tags>
             
-            <tag> Template </tag>
-            
             <tag> C++ </tag>
+            
+            <tag> Template </tag>
             
         </tags>
       
@@ -4681,9 +4710,9 @@
       
         <tags>
             
-            <tag> Windows </tag>
-            
             <tag> Windows 7 </tag>
+            
+            <tag> Windows </tag>
             
             <tag> BAT </tag>
             
@@ -4872,13 +4901,13 @@
             
             <tag> Format </tag>
             
+            <tag> System </tag>
+            
             <tag> Engine </tag>
             
             <tag> Distribution </tag>
             
             <tag> Compiler </tag>
-            
-            <tag> System </tag>
             
             <tag> Suite </tag>
             
@@ -4986,9 +5015,9 @@
       
         <tags>
             
-            <tag> Windows 7 </tag>
-            
             <tag> Background </tag>
+            
+            <tag> Windows 7 </tag>
             
             <tag> Login </tag>
             
@@ -5455,15 +5484,15 @@
       
         <tags>
             
-            <tag> JavaScript </tag>
+            <tag> WeChat </tag>
             
             <tag> QRCode </tag>
             
             <tag> HTML </tag>
             
-            <tag> Alipay </tag>
+            <tag> JavaScript </tag>
             
-            <tag> WeChat </tag>
+            <tag> Alipay </tag>
             
             <tag> QQ </tag>
             
@@ -5492,11 +5521,11 @@
             
             <tag> List </tag>
             
-            <tag> Vertical </tag>
-            
             <tag> Box </tag>
             
             <tag> Mode </tag>
+            
+            <tag> Vertical </tag>
             
             <tag> Horizontal </tag>
             
@@ -5761,15 +5790,15 @@
       
         <tags>
             
-            <tag> Tutorial </tag>
-            
             <tag> x86 </tag>
             
             <tag> Linux </tag>
             
-            <tag> Thread </tag>
+            <tag> Tutorial </tag>
             
             <tag> C </tag>
+            
+            <tag> Thread </tag>
             
             <tag> System Call </tag>
             
@@ -6092,13 +6121,13 @@
             
             <tag> iCloud </tag>
             
-            <tag> Credit Card </tag>
-            
             <tag> Apple </tag>
             
             <tag> Apple ID </tag>
             
             <tag> PayPal </tag>
+            
+            <tag> Credit Card </tag>
             
         </tags>
       
@@ -6127,9 +6156,9 @@
             
             <tag> Pointer </tag>
             
-            <tag> Surrogate </tag>
-            
             <tag> Handler </tag>
+            
+            <tag> Surrogate </tag>
             
         </tags>
       
@@ -6181,9 +6210,9 @@
       
         <tags>
             
-            <tag> Floats </tag>
-            
             <tag> Caption </tag>
+            
+            <tag> Floats </tag>
             
             <tag> Subcaption </tag>
             
@@ -6210,9 +6239,9 @@
       
         <tags>
             
-            <tag> Macro </tag>
-            
             <tag> C++ </tag>
+            
+            <tag> Macro </tag>
             
             <tag> C </tag>
             
@@ -6326,9 +6355,9 @@
       
         <tags>
             
-            <tag> String </tag>
-            
             <tag> Cpp </tag>
+            
+            <tag> String </tag>
             
             <tag> Starts With </tag>
             
@@ -6450,9 +6479,9 @@
             
             <tag> Class </tag>
             
-            <tag> Surrogate </tag>
-            
             <tag> Handler </tag>
+            
+            <tag> Surrogate </tag>
             
         </tags>
       
@@ -6506,9 +6535,9 @@
             
             <tag> Section </tag>
             
-            <tag> Bibliography </tag>
-            
             <tag> Numbering </tag>
+            
+            <tag> Bibliography </tag>
             
         </tags>
       
@@ -6533,11 +6562,11 @@
       
         <tags>
             
+            <tag> Credit Card </tag>
+            
             <tag> Banking </tag>
             
             <tag> Accounting </tag>
-            
-            <tag> Credit Card </tag>
             
             <tag> Loan </tag>
             
@@ -6682,13 +6711,13 @@
             
             <tag> Python </tag>
             
-            <tag> Encoding </tag>
-            
             <tag> C </tag>
             
-            <tag> Mojibake </tag>
-            
             <tag> Windows </tag>
+            
+            <tag> Encoding </tag>
+            
+            <tag> Mojibake </tag>
             
             <tag> Notepad </tag>
             
@@ -7044,9 +7073,9 @@
             
             <tag> Coroutine </tag>
             
-            <tag> Iterator </tag>
-            
             <tag> Generator </tag>
+            
+            <tag> Iterator </tag>
             
         </tags>
       
@@ -7071,9 +7100,9 @@
       
         <tags>
             
-            <tag> Multithread </tag>
-            
             <tag> C++11 </tag>
+            
+            <tag> Multithread </tag>
             
             <tag> Race Conditions </tag>
             
@@ -7218,9 +7247,9 @@
             
             <tag> Cpp </tag>
             
-            <tag> Multithread </tag>
-            
             <tag> C++11 </tag>
+            
+            <tag> Multithread </tag>
             
         </tags>
       
@@ -7357,9 +7386,9 @@
       
         <tags>
             
-            <tag> HTTPS </tag>
-            
             <tag> Share </tag>
+            
+            <tag> HTTPS </tag>
             
             <tag> Plugin </tag>
             
@@ -7467,13 +7496,13 @@
             
             <tag> Python </tag>
             
-            <tag> Matplotlib </tag>
-            
             <tag> World Bank </tag>
             
             <tag> wbdata </tag>
             
             <tag> Pandas </tag>
+            
+            <tag> Matplotlib </tag>
             
         </tags>
       
@@ -7604,7 +7633,7 @@
       <link href="/2017/03/22/floats-in-LaTeX-handle-overfull-floats/"/>
       <url>/2017/03/22/floats-in-LaTeX-handle-overfull-floats/</url>
       
-        <content type="html"><![CDATA[<p><a href="/2017/03/11/floats-in-LaTeX-basic/">前文</a>说了，浮动体主要是处理高度比较大，又不方便分割的内容：比如图片和表格。实际上，此类内容除了在高度上可能很高，它们也可能很宽。LaTeX 在水平方向，会贴着版芯的左边边界，开始排列内容。因此，如果一张图片或者表格的宽度超过了版芯的宽度，那么看起来就像是没有居中，而是偏右。</p><p>此篇我们讲一下如何处理此类情况。</p><span id="more"></span><h2 id="缩小"><a href="#缩小" class="headerlink" title="缩小"></a>缩小</h2><p>对付内容过大，最直接的办法，就是把它们缩小。对于图片，如果使用了 <code>graphicx</code> 宏包，我们可以使用 <code>width = \linewidth</code> 的参数将图片缩放到正好填满页面宽度的大小，避免「超宽」。对于表格等其他内容，我们可以使用 <code>graphicx</code> 提供的 <code>\resizebox</code> 命令来处理。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is overfull!&#125;<span class="keyword">\label</span>&#123;tab:overfull&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Imagine that this is a table.&#125;<span class="keyword">\label</span>&#123;tab:resized&#125;</span><br><span class="line"><span class="keyword">\resizebox</span>&#123;<span class="keyword">\linewidth</span>&#125;&#123;!&#125;&#123;<span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">\begin</span>&#123;figure&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\includegraphics</span>[width = <span class="keyword">\linewidth</span>]&#123;example-image&#125;</span><br><span class="line"><span class="keyword">\caption</span>&#123;A fit figure.&#125;<span class="keyword">\label</span>&#123;fig:example-image&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;figure&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/overfull_01.png" alt="用缩小的办法处理超宽的内容"></p><h2 id="想办法居中"><a href="#想办法居中" class="headerlink" title="想办法居中"></a>想办法居中</h2><p>上述通过缩小解决问题，是一种办法。但是，在很多情况下，也会存在问题；比如</p><ul><li>表格内容缩小之后，就看不清了；</li><li><code>\verb</code> 之类的内容，不能放在大多数 box 之内。</li></ul><p>为此，我们需要用别的办法，尝试解决这些问题。</p><p>实际上，大多数用户对于这类问题最大的诉求在于：为什么这些超宽的图表不局中了？所以，我们只要解决「居中」的问题，可能就覆盖了绝大部分用户的需求。而这些内容无法居中的原因，我们在介绍部分也说过了：LaTeX 在水平方向，会贴着版芯的左边边界，开始排列内容。因此，如果我们能让 LaTeX 不从版芯的最左边开始排列内容，就有可能解决这个问题。</p><p>决定 LaTeX 从何处开始排列内容的，是 <code>\leftskip</code> 这个宏。在 LaTeX2e 中，它被默认定义为 <code>\z@</code>。也就是说，从版芯的左边边界处开始排列内容。我们可以修改这个宏，比如改为 <code>\setlength{\leftskip}{-20pt}</code>，那么 LaTeX 将从版芯左边边界左边的 <code>20pt</code> 的位置开始排列内容。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is overfull!&#125;<span class="keyword">\label</span>&#123;tab:overfull&#125;</span><br><span class="line"><span class="keyword">\setlength</span>&#123;<span class="keyword">\leftskip</span>&#125;&#123;-20pt&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/overfull_02.png" alt="leftskip 示例"></p><p>同理，我们有 <code>\rightskip</code>，用于确定水平方向排版的终止位置与版芯右边界之间的距离。</p><p>我们知道，TeX 的 skip 是所谓的「弹簧」，允许在一定程度上进行缩放；而所谓的居中，实际上就是在版芯两侧，有两个力量相等的无限弹簧，同时向中间挤压内容。因此，我们不难得到对 <code>\leftskip</code> 和 <code>\rightskip</code> 的几个要求：</p><ul><li>默认情况，应该贴着两侧边界；</li><li>最差的情况，应该允许内容向左右两侧延伸，超过版芯但不超过纸张宽度；</li><li>同时具有让内容居中的能力。</li></ul><p>因此，我们可以将它们设置为（粗略地）：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\setlength</span>&#123;<span class="keyword">\leftskip</span>&#125;&#123;0pt plus 1fil minus <span class="keyword">\marginparwidth</span>&#125;</span><br><span class="line"><span class="keyword">\setlength</span>&#123;<span class="keyword">\rightskip</span>&#125;&#123;<span class="keyword">\leftskip</span>&#125;</span><br></pre></td></tr></table></figure><p>为了让它更好用，我们可以把他们收纳在一个新的命令当中（包含了一些额外的工作）：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\makeatletter</span></span><br><span class="line"><span class="keyword">\newcommand</span>*&#123;<span class="keyword">\centerfloat</span>&#125;&#123;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\parindent</span> <span class="keyword">\z@</span></span><br><span class="line">  <span class="keyword">\leftskip</span> <span class="keyword">\z@</span> <span class="keyword">\@plus</span> 1fil <span class="keyword">\@minus</span> <span class="keyword">\marginparwidth</span></span><br><span class="line">  <span class="keyword">\rightskip</span> <span class="keyword">\leftskip</span></span><br><span class="line">  <span class="keyword">\parfillskip</span> <span class="keyword">\z@skip</span>&#125;</span><br><span class="line"><span class="keyword">\makeatother</span></span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centerfloat</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is adjusted!&#125;<span class="keyword">\label</span>&#123;tab:adjusted&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/overfull_03.png" alt="巧妙地设置 leftskip 及 rightskip"></p><p>当然，你也可以通过 <code>\makebox</code> 命令来达成目标，不过这样依然无法容纳含有类似 <code>\verb</code> 的内容：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is adjusted!&#125;<span class="keyword">\label</span>&#123;tab:adjusted&#125;</span><br><span class="line"><span class="keyword">\makebox</span>[0pt][c]&#123;<span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><h2 id="使用-adjustbox-宏包"><a href="#使用-adjustbox-宏包" class="headerlink" title="使用 adjustbox 宏包"></a>使用 <code>adjustbox</code> 宏包</h2><p><a href="mailto:&#109;&#x61;&#x72;&#116;&#x69;&#x6e;&#x40;&#115;&#x63;&#x68;&#97;&#x72;&#x72;&#x65;&#x72;&#45;&#x6f;&#110;&#108;&#x69;&#110;&#x65;&#x2e;&#100;&#101;">Martin Scharrer</a> 有发布名为 <code>adjustbox</code> 的宏包，提供了类似 <code>graphicx</code> 宏包中 <code>\includegraphics</code> 命令的 key-value 参数，用以实现各类 box 效果。值得一提的是，宏包提供的几个宏、环境，都可以容纳 <code>\verb</code> 之类的内容。很是好用。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;adjustbox&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is adjusted by the package adjustbox!&#125;<span class="keyword">\label</span>&#123;tab:adjusted&#125;</span><br><span class="line"><span class="keyword">\adjustbox</span>&#123;center&#125;&#123;<span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p>效果和使用我们定义的 <code>\centerfloat</code> 命令类似，这里就不重复贴图了。</p><h2 id="倘若把它倒过来……"><a href="#倘若把它倒过来……" class="headerlink" title="倘若把它倒过来……"></a>倘若把它倒过来……</h2><p>上面的介绍，基本都仅限于处理 overfull 程度不大、超出版芯程度不多的情形。如果你有一个大胖娃娃，他&#x2F;她使得版芯宽度严重超载，那么你可能要考虑把它旋转九十度了。</p><p><code>rotating</code> 宏包提供了 <code>sidewaystable</code> 和 <code>sidewaysfigure</code> 环境（以及带 <code>*</code> 的版本，用于在双栏模式下通栏排版），分别作为对应 <code>table</code> 和 <code>figure</code> 的工具。使用这些环境，能使图表旋转 90° 摆放。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;rotating&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;sidewaystable&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Let&#x27;s rock!&#125;<span class="keyword">\label</span>&#123;tab:rotated&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;0.8<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;sidewaystable&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p>需要注意的是，当旋转过来之后，「长宽」就交换了。因此，我们这里使用 <code>0.8\linewidth</code> 实际上是相对版芯的高度的 0.8 倍。此外，<code>rotating</code> 宏包默认将内容逆时针旋转了 90°，你也可以在调用宏包时传入 <code>clockwise</code> 参数，得到顺时针旋转的版本。</p><p><img data-src="/uploads/images/LaTeX/overfull_04.png" alt="旋转、跳跃，我闭着眼"></p>]]></content>
+        <content type="html"><![CDATA[<p><a href="/2017/03/11/floats-in-LaTeX-basic/">前文</a>说了，浮动体主要是处理高度比较大，又不方便分割的内容：比如图片和表格。实际上，此类内容除了在高度上可能很高，它们也可能很宽。LaTeX 在水平方向，会贴着版芯的左边边界，开始排列内容。因此，如果一张图片或者表格的宽度超过了版芯的宽度，那么看起来就像是没有居中，而是偏右。</p><p>此篇我们讲一下如何处理此类情况。</p><span id="more"></span><h2 id="缩小"><a href="#缩小" class="headerlink" title="缩小"></a>缩小</h2><p>对付内容过大，最直接的办法，就是把它们缩小。对于图片，如果使用了 <code>graphicx</code> 宏包，我们可以使用 <code>width = \linewidth</code> 的参数将图片缩放到正好填满页面宽度的大小，避免「超宽」。对于表格等其他内容，我们可以使用 <code>graphicx</code> 提供的 <code>\resizebox</code> 命令来处理。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is overfull!&#125;<span class="keyword">\label</span>&#123;tab:overfull&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Imagine that this is a table.&#125;<span class="keyword">\label</span>&#123;tab:resized&#125;</span><br><span class="line"><span class="keyword">\resizebox</span>&#123;<span class="keyword">\linewidth</span>&#125;&#123;!&#125;&#123;<span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">\begin</span>&#123;figure&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\includegraphics</span>[width = <span class="keyword">\linewidth</span>]&#123;example-image&#125;</span><br><span class="line"><span class="keyword">\caption</span>&#123;A fit figure.&#125;<span class="keyword">\label</span>&#123;fig:example-image&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;figure&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/overfull_01.png" alt="用缩小的办法处理超宽的内容"></p><h2 id="想办法居中"><a href="#想办法居中" class="headerlink" title="想办法居中"></a>想办法居中</h2><p>上述通过缩小解决问题，是一种办法。但是，在很多情况下，也会存在问题；比如</p><ul><li>表格内容缩小之后，就看不清了；</li><li><code>\verb</code> 之类的内容，不能放在大多数 box 之内。</li></ul><p>为此，我们需要用别的办法，尝试解决这些问题。</p><p>实际上，大多数用户对于这类问题最大的诉求在于：为什么这些超宽的图表不局中了？所以，我们只要解决「居中」的问题，可能就覆盖了绝大部分用户的需求。而这些内容无法居中的原因，我们在介绍部分也说过了：LaTeX 在水平方向，会贴着版芯的左边边界，开始排列内容。因此，如果我们能让 LaTeX 不从版芯的最左边开始排列内容，就有可能解决这个问题。</p><p>决定 LaTeX 从何处开始排列内容的，是 <code>\leftskip</code> 这个宏。在 LaTeX2e 中，它被默认定义为 <code>\z@</code>。也就是说，从版芯的左边边界处开始排列内容。我们可以修改这个宏，比如改为 <code>\setlength{\leftskip}{-20pt}</code>，那么 LaTeX 将从版芯左边边界左边的 <code>20pt</code> 的位置开始排列内容。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is overfull!&#125;<span class="keyword">\label</span>&#123;tab:overfull&#125;</span><br><span class="line"><span class="keyword">\setlength</span>&#123;<span class="keyword">\leftskip</span>&#125;&#123;-20pt&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/overfull_02.png" alt="leftskip 示例"></p><p>同理，我们有 <code>\rightskip</code>，用于确定水平方向排版的终止位置与版芯右边界之间的距离。</p><p>我们知道，TeX 的 skip 是所谓的「弹簧」，允许在一定程度上进行缩放；而所谓的居中，实际上就是在版芯两侧，有两个力量相等的无限弹簧，同时向中间挤压内容。因此，我们不难得到对 <code>\leftskip</code> 和 <code>\rightskip</code> 的几个要求：</p><ul><li>默认情况，应该贴着两侧边界；</li><li>最差的情况，应该允许内容向左右两侧延伸，超过版芯但不超过纸张宽度；</li><li>同时具有让内容居中的能力。</li></ul><p>因此，我们可以将它们设置为（粗略地）：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\setlength</span>&#123;<span class="keyword">\leftskip</span>&#125;&#123;0pt plus 1fil minus <span class="keyword">\marginparwidth</span>&#125;</span><br><span class="line"><span class="keyword">\setlength</span>&#123;<span class="keyword">\rightskip</span>&#125;&#123;<span class="keyword">\leftskip</span>&#125;</span><br></pre></td></tr></table></figure><p>为了让它更好用，我们可以把他们收纳在一个新的命令当中（包含了一些额外的工作）：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\makeatletter</span></span><br><span class="line"><span class="keyword">\newcommand</span>*&#123;<span class="keyword">\centerfloat</span>&#125;&#123;<span class="comment">%</span></span><br><span class="line">  <span class="keyword">\parindent</span> <span class="keyword">\z@</span></span><br><span class="line">  <span class="keyword">\leftskip</span> <span class="keyword">\z@</span> <span class="keyword">\@plus</span> 1fil <span class="keyword">\@minus</span> <span class="keyword">\marginparwidth</span></span><br><span class="line">  <span class="keyword">\rightskip</span> <span class="keyword">\leftskip</span></span><br><span class="line">  <span class="keyword">\parfillskip</span> <span class="keyword">\z@skip</span>&#125;</span><br><span class="line"><span class="keyword">\makeatother</span></span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centerfloat</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is adjusted!&#125;<span class="keyword">\label</span>&#123;tab:adjusted&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p><img data-src="/uploads/images/LaTeX/overfull_03.png" alt="巧妙地设置 leftskip 及 rightskip"></p><p>当然，你也可以通过 <code>\makebox</code> 命令来达成目标，不过这样依然无法容纳含有类似 <code>\verb</code> 的内容：</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;graphicx&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is adjusted!&#125;<span class="keyword">\label</span>&#123;tab:adjusted&#125;</span><br><span class="line"><span class="keyword">\makebox</span>[0pt][c]&#123;<span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><h2 id="使用-adjustbox-宏包"><a href="#使用-adjustbox-宏包" class="headerlink" title="使用 adjustbox 宏包"></a>使用 <code>adjustbox</code> 宏包</h2><p><a href="mailto:&#x6d;&#97;&#114;&#116;&#105;&#x6e;&#64;&#115;&#x63;&#x68;&#97;&#x72;&#114;&#x65;&#114;&#45;&#x6f;&#110;&#x6c;&#105;&#x6e;&#x65;&#x2e;&#x64;&#101;">Martin Scharrer</a> 有发布名为 <code>adjustbox</code> 的宏包，提供了类似 <code>graphicx</code> 宏包中 <code>\includegraphics</code> 命令的 key-value 参数，用以实现各类 box 效果。值得一提的是，宏包提供的几个宏、环境，都可以容纳 <code>\verb</code> 之类的内容。很是好用。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;adjustbox&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;table&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Oh, this table is adjusted by the package adjustbox!&#125;<span class="keyword">\label</span>&#123;tab:adjusted&#125;</span><br><span class="line"><span class="keyword">\adjustbox</span>&#123;center&#125;&#123;<span class="keyword">\rule</span>&#123;1.1<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;table&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p>效果和使用我们定义的 <code>\centerfloat</code> 命令类似，这里就不重复贴图了。</p><h2 id="倘若把它倒过来……"><a href="#倘若把它倒过来……" class="headerlink" title="倘若把它倒过来……"></a>倘若把它倒过来……</h2><p>上面的介绍，基本都仅限于处理 overfull 程度不大、超出版芯程度不多的情形。如果你有一个大胖娃娃，他&#x2F;她使得版芯宽度严重超载，那么你可能要考虑把它旋转九十度了。</p><p><code>rotating</code> 宏包提供了 <code>sidewaystable</code> 和 <code>sidewaysfigure</code> 环境（以及带 <code>*</code> 的版本，用于在双栏模式下通栏排版），分别作为对应 <code>table</code> 和 <code>figure</code> 的工具。使用这些环境，能使图表旋转 90° 摆放。</p><figure class="highlight tex"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">\documentclass</span>&#123;article&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;showframe&#125;</span><br><span class="line"><span class="keyword">\usepackage</span>&#123;rotating&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;document&#125;</span><br><span class="line"><span class="keyword">\begin</span>&#123;sidewaystable&#125;[!htb]</span><br><span class="line"><span class="keyword">\centering</span></span><br><span class="line"><span class="keyword">\caption</span>&#123;Let&#x27;s rock!&#125;<span class="keyword">\label</span>&#123;tab:rotated&#125;</span><br><span class="line"><span class="keyword">\rule</span>&#123;0.8<span class="keyword">\linewidth</span>&#125;&#123;3cm&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;sidewaystable&#125;</span><br><span class="line"><span class="keyword">\end</span>&#123;document&#125;</span><br></pre></td></tr></table></figure><p>需要注意的是，当旋转过来之后，「长宽」就交换了。因此，我们这里使用 <code>0.8\linewidth</code> 实际上是相对版芯的高度的 0.8 倍。此外，<code>rotating</code> 宏包默认将内容逆时针旋转了 90°，你也可以在调用宏包时传入 <code>clockwise</code> 参数，得到顺时针旋转的版本。</p><p><img data-src="/uploads/images/LaTeX/overfull_04.png" alt="旋转、跳跃，我闭着眼"></p>]]></content>
       
       
       <categories>
@@ -7674,9 +7703,9 @@
       
         <tags>
             
-            <tag> Vertical </tag>
-            
             <tag> Floats </tag>
+            
+            <tag> Vertical </tag>
             
         </tags>
       
@@ -8240,7 +8269,7 @@
       <link href="/2016/11/19/the-speed-of-reading-files-in-Cpp/"/>
       <url>/2016/11/19/the-speed-of-reading-files-in-Cpp/</url>
       
-        <content type="html"><![CDATA[<p>这篇文章的缘起有二：</p><ul><li>很多人主张「应当在几乎所有情况下使用 C 风格的 I&#x2F;O」（<a href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do/answer/Utkarsh-Bhatt?srid=WsLB">比如这里</a>），而我很怀疑；</li><li>另一方面，在刷 POJ 的时候，使用 <code>std::cin</code> 确实能 TLE 而改成 <code>std::scanf</code> 就 AC 了，因此想试试看 <code>std::cin</code> 能否加速。</li></ul><p>中文网络里，已有<a href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">码农场</a>和 <a href="https://www.byvoid.com/blog/fast-readfile/">byvoid 菊苣</a>的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的坚持，决定写下这篇文章，探讨 C++ 的读入速度的问题，特别是读入文件速度的问题。</p><span id="more"></span><h2 id="从稍微底层介绍起"><a href="#从稍微底层介绍起" class="headerlink" title="从稍微底层介绍起"></a>从稍微底层介绍起</h2><p><code>std::cin</code> 为什么慢？要解释这个问题，就得从稍微底层的角度说起。</p><p>以 Linux 为例。Linux 内核负责管理计算机硬件，对接硬件规格，向上提供系统调用（System Call）。内核之上的运行时库（Runtime Library）负责对接系统调用，向上提供操作系统应用编程接口（Operation System Application Programming Interface, OS API）。</p><p><img data-src="/uploads/images/computer-architecture/05.png"></p><p>对于我们使用 C&#x2F;C++ 编程来说，所作的几乎全部事情，都基于运行时库提供的 OS API（<code>glibc</code> 提供的 POSIX API）；少数操作，可以通过 OS API 中提供的类函数直接操作系统调用（如 <code>fork()</code> 函数）。</p><p>因此，不难理解，不论是 <code>std::cin</code> 还是 <code>std::scanf</code> 都是对 OS API 的封装，而 OS API 又是对系统调用的封装。至于再往下，系统调用就直接通过内核操作硬件了。因此，可以粗略地估计，直接使用系统调用做 I&#x2F;O 会比用 OS API 要快；而用 OS API 又会比封装 OS API 的语言库函数要慢。</p><p>我们这里讨论 <code>std::cin</code> 和 <code>std::scanf</code>，因此主要关系 I&#x2F;O 中的 Input 部分。在 Linux 系统调用中，和文件读取相关的系统调用有两个类函数。</p><ul><li><code>void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);</code>: 封装名为 <code>mmap2</code> 的系统调用（<code>mmap</code> 自 Linux 2.4 起弃用）；<code>mmap</code> 将磁盘上的文件一一映射到实存空间，当进程调用相关内存的时候，通过缺页错误真正将文件内容拷贝到实存。</li><li><code>ssize_t read(int fd, void *buf, size_t count);</code>: 封装名为 <code>read</code> 的系统调用。这里 <code>ssize_t</code> 是 <code>__kernel_ssize_t</code> 的 <code>typedef</code>；而 <code>__kernel_ssize_t</code> 在 32 位系统上是 <code>int</code> 的 <code>typedef</code>，在 64 位系统上是 <code>long ing</code> 的 <code>typedef</code>。<code>read</code> 会从文件描述符（file description）<code>fd</code> 中读入 <code>count</code> 个字节，存入 <code>buf</code> 缓存中。</li></ul><p>由于 <code>mmap</code> 做的事情比 <code>read</code> 少（事实上它几乎只分配了内存空间并做了一个映射），所以 <code>mmap</code> 函数本身会比 <code>read</code> 函数快一些。</p><p>在标准库中，和输入相关函数的有以下一些。</p><ul><li><code>size_t fread ( void * ptr, size_t size, size_t count, FILE * stream );</code>: 从文件流中读取一块内容，存入 <code>ptr</code> 指向的内存。</li><li><code>int scanf ( const char * format, ... );</code>: 从标准输入中读入内容，并以格式化字符串将读入的内容存入相应的指针。</li><li><code>std::istream</code>: C++ 风格的输入流（包括 <code>std::cin</code> 等）。</li></ul><h2 id="std-cin-做了哪些额外的工作"><a href="#std-cin-做了哪些额外的工作" class="headerlink" title="std::cin 做了哪些额外的工作"></a><code>std::cin</code> 做了哪些额外的工作</h2><p>通常为人诟病的是 <code>std::cin</code> 的速度。<code>std::cin</code> 是标准库里的东西。我们知道，标准库是要为千万人所用的东西，所以它对性能要求非常严格。按理说，标准库里的东西，只要正确使用，就不应该慢。那么现在，既然它慢，就有个原因。这个原因，又肯定是它做了额外的工作（相比 <code>std::scanf</code>）。那么 <code>std::cin</code> 做了哪些额外的工作呢？</p><p>事实上，为了「安全」，<code>std::cin</code> 主要做了两件额外的事情：</p><ul><li>与 <code>std::cout</code> 绑定，每次 <code>std::cin</code> 从缓冲区读入内容之前，确保已经执行过 <code>std::cout.flush()</code>；</li><li>与 <code>stdio</code> 同步（synchronize），确保混搭使用 C 风格的 I&#x2F;O 操作不会引发问题。</li></ul><p>如果我们能手工确保不会出问题，那么就可以省略 <code>std::cin</code> 做的这些额外的工作。</p><h3 id="std-ios-tie"><a href="#std-ios-tie" class="headerlink" title="std::ios::tie"></a><code>std::ios::tie</code></h3><p>首先我们解决「绑定」的问题。</p><p>绑定是通过 <code>std::ios::tie</code> 这个函数实现的。它作为 <code>ios</code> 类的成员函数，有两个重载。</p><ul><li><code>ostream* tie() const</code>: 返回当前绑定的输出流实例的指针。</li><li><code>ostream* tie (ostream* tiestr)</code>: 返回当前绑定的输出流实例的指针，再将 <code>tiestr</code> 绑定到当前实例。</li></ul><p>cplusplus 网站上提供了这样的示例：</p><figure class="highlight cpp"><figcaption><span>demo_tie.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redefine tied object</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span>     <span class="comment">// std::ostream, std::cout, std::cin</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fstream&gt;</span>      <span class="comment">// std::ofstream</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">  std::ostream *prevstr;</span><br><span class="line">  std::ofstream ofs;</span><br><span class="line">  ofs.<span class="built_in">open</span> (<span class="string">&quot;test.txt&quot;</span>);</span><br><span class="line"></span><br><span class="line">  std::cout &lt;&lt; <span class="string">&quot;tie example:\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">  *std::cin.<span class="built_in">tie</span>() &lt;&lt; <span class="string">&quot;This is inserted into cout&quot;</span>;</span><br><span class="line">  prevstr = std::cin.<span class="built_in">tie</span> (&amp;ofs);</span><br><span class="line">  *std::cin.<span class="built_in">tie</span>() &lt;&lt; <span class="string">&quot;This is inserted into the file&quot;</span>;</span><br><span class="line">  std::cin.<span class="built_in">tie</span> (prevstr);</span><br><span class="line"></span><br><span class="line">  ofs.<span class="built_in">close</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>默认情况下，<code>std::cin</code> 与 <code>std::cout</code> 绑定。因此第一次调用 <code>std::cin.tie()</code> 返回的是 <code>std::cout</code> 的指针。因此第一次输出将会打印到标准输出上。</p><p>之后，我们用 <code>std::cin.tie (&amp;ofs)</code> 将一个文件输出流绑定在 <code>std::cin</code> 上，并将 <code>std::cout</code> 的指针存在 <code>prevstr</code> 中。这时候，第二次调用 <code>std::cin.tie()</code> 返回的是 <code>ofs</code> 的指针。因此第二次输出将会打印到 <code>ofs</code> 绑定的文件中（<code>test.txt</code>）。</p><p>因此，代码正确执行后，将会在控制台打印：</p><blockquote><p>tie example:<br>This is inserted into cout</p></blockquote><p>在文件 <code>test.txt</code> 中写入：</p><blockquote><p>This is inserted into the file</p></blockquote><p>为了解除 <code>std::cin</code> 与 <code>std::cout</code> 的绑定，我们可以这样做</p><figure class="highlight cpp"><figcaption><span>untie</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">std::ostream *prevstr = std::cin.<span class="built_in">tie</span>();</span><br><span class="line">std::cin.<span class="built_in">tie</span>(<span class="literal">nullptr</span>);</span><br><span class="line"><span class="comment">// ... use cin without tying to cout</span></span><br></pre></td></tr></table></figure><h3 id="std-ios-base-sync-with-stdio"><a href="#std-ios-base-sync-with-stdio" class="headerlink" title="std::ios_base::sync_with_stdio"></a><code>std::ios_base::sync_with_stdio</code></h3><p>接下来我们解决同步的问题。</p><p>在所有输入输出流的基类（<code>std::ios_base</code>）中定义了 <code>sync_with_stdio</code> 函数。它的原型是：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">sync_with_stdio</span><span class="params">( <span class="type">bool</span> sync = <span class="literal">true</span> )</span></span></span><br></pre></td></tr></table></figure><p>默认情况下，这个同步机制是打开的。于是，在 C++ 的流上做的任何操作，会被立即同步到相应的 C 的流中。因此，在代码里我们可以混搭 C 风格和 C++ 风格的流操作。</p><p>我们可以通过这样做，以解除 C++ 风格的输入输出流与 C 风格的输入输出流的绑定：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">std::ios_base::<span class="built_in">sync_with_stdio</span>(<span class="literal">false</span>);</span><br></pre></td></tr></table></figure><h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><h3 id="随机数生成"><a href="#随机数生成" class="headerlink" title="随机数生成"></a>随机数生成</h3><p>作为实验的预备，我们需要生成一组随机数，作为读入。这里计划生成的文件，样式为：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">a_1 b_1</span><br><span class="line">a_2 b_2</span><br><span class="line">...</span><br><span class="line">a_k b_k</span><br><span class="line">...</span><br><span class="line">a_n b_n</span><br></pre></td></tr></table></figure><p>其中，$a_1, \ldots, a_n$ 是随机整数，$b_1, \ldots, b_n$ 是随机浮点数。我们用 Python 来实现随机数的生成和输出。</p><figure class="highlight python"><figcaption><span>gen_random.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> random</span><br><span class="line"><span class="keyword">import</span> sys</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">getRandom</span>(<span class="params">fname_base, lines_num</span>):</span><br><span class="line">  fname = <span class="string">&#x27;%s_%d.txt&#x27;</span> % (fname_base, lines_num)</span><br><span class="line">  <span class="keyword">with</span> <span class="built_in">open</span>(fname, <span class="string">&#x27;w&#x27;</span>) <span class="keyword">as</span> fout:</span><br><span class="line">    temp = <span class="string">&#x27;%d %f\n&#x27;</span> % (random.randint(-<span class="number">1000</span>, <span class="number">1000</span>), random.gauss(<span class="number">0</span>, <span class="number">10</span>))</span><br><span class="line">    fout.write(temp)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">  exp  = [<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>]</span><br><span class="line">  NUMS = <span class="built_in">map</span>(<span class="keyword">lambda</span> x: <span class="number">10</span> ** x, exp)</span><br><span class="line">  base = <span class="string">&#x27;random&#x27;</span></span><br><span class="line">  <span class="keyword">for</span> num <span class="keyword">in</span> NUMS:</span><br><span class="line">    getRandom(base, num)</span><br></pre></td></tr></table></figure><h3 id="实验环境"><a href="#实验环境" class="headerlink" title="实验环境"></a>实验环境</h3><ul><li>编译器：gcc-4.7.2</li><li>操作系统：CentOS 5.4</li><li>CPU 型号：Intel(R) Xeon(R) CPU <a href="mailto:&#x45;&#53;&#54;&#x34;&#53;&#x40;&#x32;&#46;&#x34;">E5645@2.4</a> GHz</li><li>主存大小：65979428 KiB</li><li>磁盘大小：388 GiB</li></ul><h3 id="实验代码"><a href="#实验代码" class="headerlink" title="实验代码"></a>实验代码</h3><figure class="highlight c"><figcaption><span>scanf.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (~<span class="built_in">scanf</span>(<span class="string">&quot;%d %f&quot;</span>, &amp;a, &amp;b)) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><figure class="highlight c"><figcaption><span>cin.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><figure class="highlight c"><figcaption><span>cin-speed_up.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cin</span>.tie(<span class="number">0</span>);</span><br><span class="line">    <span class="built_in">std</span>::ios_base::sync_with_stdio(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h3 id="实验结果"><a href="#实验结果" class="headerlink" title="实验结果"></a>实验结果</h3><p>这里用管道的方式，将输入数据传给编译好的可执行映像。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> foobar.txt | ./a.out</span><br></pre></td></tr></table></figure><p>这里将每一份数据重复输入可执行映像 5 次，然后去除最低和最高的执行时间，取中间三个做平均值，得到结果如下（单位：微秒）。</p><table><tbody><tr><td>数据大小</td><th>cin</th><th>cin -O2</th><th>cin 加速</th><th>cin 加速 -O2</th><th>scanf</th><th>scanf -O2</th><iframe id="tmp_downloadhelper_iframe" style="display: none;"></iframe></tr><tr><th><script type="math/tex" id="MathJax-Element-6"> 10^3</script></th><td>1962</td><td>2179</td><td>1131</td><td>1020</td><td>754</td><td>773</td></tr><tr><th><script type="math/tex" id="MathJax-Element-7"> 10^4</script></th><td>20099</td><td>20448</td><td>10496</td><td>9817</td><td>7187</td><td>7205</td></tr><tr><th><script type="math/tex" id="MathJax-Element-8"> 10^5</script></th><td>139541</td><td>146781</td><td>75328</td><td>70302</td><td>52498</td><td>55002</td></tr><tr><th><script type="math/tex" id="MathJax-Element-9"> 10^6</script></th><td>1401558</td><td>1382098</td><td>681064</td><td>651954</td><td>476777</td><td>481314</td></tr><tr><th><script type="math/tex" id="MathJax-Element-10"> 10^7</script></th><td>13318033</td><td>13956841</td><td>6687289</td><td>6468692</td><td>4779453</td><td>4760468</td></tr></tbody></table><p>从表中可以看出，<code>std::scanf</code> 在实验条件下速度始终最快，但与「加速之后的」<code>std::cin</code> 处于同一个数量级。而它们都比默认的 <code>std::cin</code> 要快出一个数量级。这个结论随着数据量的增长保持不变。</p><p>另外，使用编译器的 <code>-O2</code> 参数，打开编译器优化之后，<code>std::cin</code> 对优化不敏感，甚至在一些数据集上优化之后的速度反而变慢；加速之后的 <code>std::cin</code> 和 <code>std::scanf</code> 则对优化敏感，其中加速之后的 <code>std::cin</code> 对优化尤其敏感。</p><p>在这个实验中，<code>std::scanf</code> 的确在速度上有优势，似乎验证了「很多人」的主张。不过，<a href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714">tatanaideyo</a> 做了类似的实验，结果表明：</p><ul><li><code>std::scanf</code> 和加速之后的 <code>std::cin</code> 一定比 <code>std::cin</code> 快；</li><li><code>std::scanf</code> 在读入浮点数时比加速之后的 <code>std::cin</code> 快；</li><li><code>std::scanf</code> 在读入整形数值时比加速之后的 <code>std::cin</code> 慢。</li></ul><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>加速之后的 <code>std::cin</code> 并不一定比 <code>std::scanf</code> 慢；在大多数日常使用的情形下，其效率在渐进意义上与 <code>std::scanf</code> 相当。tatanaideyo 则表明，如果数据中包含大量的整形数值，则使用加速之后的 <code>std::cin</code> 会更有优势；反之若数据中包含大量的浮点数，则使用 <code>std::scanf</code> 更佳。</p><p>更多探讨可以参考：<a href="http://codeforces.com/blog/entry/5217">http://codeforces.com/blog/entry/5217</a></p><h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul><li>《程序员的自我修养：链接、装载和库》</li><li><a href="http://www.tutorialspoint.com/unix_system_calls/read.htm">http://www.tutorialspoint.com/unix_system_calls/read.htm</a></li><li><a href="http://man7.org/linux/man-pages/man2/read.2.html">http://man7.org/linux/man-pages/man2/read.2.html</a></li><li><a href="http://man7.org/linux/man-pages/man2/mmap.2.html">http://man7.org/linux/man-pages/man2/mmap.2.html</a></li><li><a href="http://www.cplusplus.com/reference/cstdio/fread/">http://www.cplusplus.com/reference/cstdio/fread/</a></li><li><a href="http://www.cplusplus.com/reference/cstdio/scanf/">http://www.cplusplus.com/reference/cstdio/scanf/</a></li><li><a href="http://www.cplusplus.com/reference/ios/ios/tie/">http://www.cplusplus.com/reference/ios/ios/tie/</a></li><li><a href="http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio">http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio</a></li><li><a href="https://www.byvoid.com/blog/fast-readfile/">https://www.byvoid.com/blog/fast-readfile/</a></li><li><a href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html</a></li><li><a href="https://heavywatal.github.io/cxx/speed.html">https://heavywatal.github.io/cxx/speed.html</a></li><li><a href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714">http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714</a></li><li><a href="http://codeforces.com/blog/entry/5217">http://codeforces.com/blog/entry/5217</a></li><li><a href="http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout">http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout</a></li><li><a href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do">https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do</a></li><li><a href="http://www.cnblogs.com/huxiao-tee/p/4660352.html">http://www.cnblogs.com/huxiao-tee/p/4660352.html</a></li><li><a href="http://en.cppreference.com/w/cpp/chrono/duration">http://en.cppreference.com/w/cpp/chrono/duration</a></li></ul>]]></content>
+        <content type="html"><![CDATA[<p>这篇文章的缘起有二：</p><ul><li>很多人主张「应当在几乎所有情况下使用 C 风格的 I&#x2F;O」（<a href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do/answer/Utkarsh-Bhatt?srid=WsLB">比如这里</a>），而我很怀疑；</li><li>另一方面，在刷 POJ 的时候，使用 <code>std::cin</code> 确实能 TLE 而改成 <code>std::scanf</code> 就 AC 了，因此想试试看 <code>std::cin</code> 能否加速。</li></ul><p>中文网络里，已有<a href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">码农场</a>和 <a href="https://www.byvoid.com/blog/fast-readfile/">byvoid 菊苣</a>的讨论。不过二者对于原理的解释，自我感觉都不够清晰；又本着自己动手做实验的坚持，决定写下这篇文章，探讨 C++ 的读入速度的问题，特别是读入文件速度的问题。</p><span id="more"></span><h2 id="从稍微底层介绍起"><a href="#从稍微底层介绍起" class="headerlink" title="从稍微底层介绍起"></a>从稍微底层介绍起</h2><p><code>std::cin</code> 为什么慢？要解释这个问题，就得从稍微底层的角度说起。</p><p>以 Linux 为例。Linux 内核负责管理计算机硬件，对接硬件规格，向上提供系统调用（System Call）。内核之上的运行时库（Runtime Library）负责对接系统调用，向上提供操作系统应用编程接口（Operation System Application Programming Interface, OS API）。</p><p><img data-src="/uploads/images/computer-architecture/05.png"></p><p>对于我们使用 C&#x2F;C++ 编程来说，所作的几乎全部事情，都基于运行时库提供的 OS API（<code>glibc</code> 提供的 POSIX API）；少数操作，可以通过 OS API 中提供的类函数直接操作系统调用（如 <code>fork()</code> 函数）。</p><p>因此，不难理解，不论是 <code>std::cin</code> 还是 <code>std::scanf</code> 都是对 OS API 的封装，而 OS API 又是对系统调用的封装。至于再往下，系统调用就直接通过内核操作硬件了。因此，可以粗略地估计，直接使用系统调用做 I&#x2F;O 会比用 OS API 要快；而用 OS API 又会比封装 OS API 的语言库函数要慢。</p><p>我们这里讨论 <code>std::cin</code> 和 <code>std::scanf</code>，因此主要关系 I&#x2F;O 中的 Input 部分。在 Linux 系统调用中，和文件读取相关的系统调用有两个类函数。</p><ul><li><code>void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);</code>: 封装名为 <code>mmap2</code> 的系统调用（<code>mmap</code> 自 Linux 2.4 起弃用）；<code>mmap</code> 将磁盘上的文件一一映射到实存空间，当进程调用相关内存的时候，通过缺页错误真正将文件内容拷贝到实存。</li><li><code>ssize_t read(int fd, void *buf, size_t count);</code>: 封装名为 <code>read</code> 的系统调用。这里 <code>ssize_t</code> 是 <code>__kernel_ssize_t</code> 的 <code>typedef</code>；而 <code>__kernel_ssize_t</code> 在 32 位系统上是 <code>int</code> 的 <code>typedef</code>，在 64 位系统上是 <code>long ing</code> 的 <code>typedef</code>。<code>read</code> 会从文件描述符（file description）<code>fd</code> 中读入 <code>count</code> 个字节，存入 <code>buf</code> 缓存中。</li></ul><p>由于 <code>mmap</code> 做的事情比 <code>read</code> 少（事实上它几乎只分配了内存空间并做了一个映射），所以 <code>mmap</code> 函数本身会比 <code>read</code> 函数快一些。</p><p>在标准库中，和输入相关函数的有以下一些。</p><ul><li><code>size_t fread ( void * ptr, size_t size, size_t count, FILE * stream );</code>: 从文件流中读取一块内容，存入 <code>ptr</code> 指向的内存。</li><li><code>int scanf ( const char * format, ... );</code>: 从标准输入中读入内容，并以格式化字符串将读入的内容存入相应的指针。</li><li><code>std::istream</code>: C++ 风格的输入流（包括 <code>std::cin</code> 等）。</li></ul><h2 id="std-cin-做了哪些额外的工作"><a href="#std-cin-做了哪些额外的工作" class="headerlink" title="std::cin 做了哪些额外的工作"></a><code>std::cin</code> 做了哪些额外的工作</h2><p>通常为人诟病的是 <code>std::cin</code> 的速度。<code>std::cin</code> 是标准库里的东西。我们知道，标准库是要为千万人所用的东西，所以它对性能要求非常严格。按理说，标准库里的东西，只要正确使用，就不应该慢。那么现在，既然它慢，就有个原因。这个原因，又肯定是它做了额外的工作（相比 <code>std::scanf</code>）。那么 <code>std::cin</code> 做了哪些额外的工作呢？</p><p>事实上，为了「安全」，<code>std::cin</code> 主要做了两件额外的事情：</p><ul><li>与 <code>std::cout</code> 绑定，每次 <code>std::cin</code> 从缓冲区读入内容之前，确保已经执行过 <code>std::cout.flush()</code>；</li><li>与 <code>stdio</code> 同步（synchronize），确保混搭使用 C 风格的 I&#x2F;O 操作不会引发问题。</li></ul><p>如果我们能手工确保不会出问题，那么就可以省略 <code>std::cin</code> 做的这些额外的工作。</p><h3 id="std-ios-tie"><a href="#std-ios-tie" class="headerlink" title="std::ios::tie"></a><code>std::ios::tie</code></h3><p>首先我们解决「绑定」的问题。</p><p>绑定是通过 <code>std::ios::tie</code> 这个函数实现的。它作为 <code>ios</code> 类的成员函数，有两个重载。</p><ul><li><code>ostream* tie() const</code>: 返回当前绑定的输出流实例的指针。</li><li><code>ostream* tie (ostream* tiestr)</code>: 返回当前绑定的输出流实例的指针，再将 <code>tiestr</code> 绑定到当前实例。</li></ul><p>cplusplus 网站上提供了这样的示例：</p><figure class="highlight cpp"><figcaption><span>demo_tie.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// redefine tied object</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span>     <span class="comment">// std::ostream, std::cout, std::cin</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;fstream&gt;</span>      <span class="comment">// std::ofstream</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span> <span class="params">()</span> </span>&#123;</span><br><span class="line">  std::ostream *prevstr;</span><br><span class="line">  std::ofstream ofs;</span><br><span class="line">  ofs.<span class="built_in">open</span> (<span class="string">&quot;test.txt&quot;</span>);</span><br><span class="line"></span><br><span class="line">  std::cout &lt;&lt; <span class="string">&quot;tie example:\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">  *std::cin.<span class="built_in">tie</span>() &lt;&lt; <span class="string">&quot;This is inserted into cout&quot;</span>;</span><br><span class="line">  prevstr = std::cin.<span class="built_in">tie</span> (&amp;ofs);</span><br><span class="line">  *std::cin.<span class="built_in">tie</span>() &lt;&lt; <span class="string">&quot;This is inserted into the file&quot;</span>;</span><br><span class="line">  std::cin.<span class="built_in">tie</span> (prevstr);</span><br><span class="line"></span><br><span class="line">  ofs.<span class="built_in">close</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><p>默认情况下，<code>std::cin</code> 与 <code>std::cout</code> 绑定。因此第一次调用 <code>std::cin.tie()</code> 返回的是 <code>std::cout</code> 的指针。因此第一次输出将会打印到标准输出上。</p><p>之后，我们用 <code>std::cin.tie (&amp;ofs)</code> 将一个文件输出流绑定在 <code>std::cin</code> 上，并将 <code>std::cout</code> 的指针存在 <code>prevstr</code> 中。这时候，第二次调用 <code>std::cin.tie()</code> 返回的是 <code>ofs</code> 的指针。因此第二次输出将会打印到 <code>ofs</code> 绑定的文件中（<code>test.txt</code>）。</p><p>因此，代码正确执行后，将会在控制台打印：</p><blockquote><p>tie example:<br>This is inserted into cout</p></blockquote><p>在文件 <code>test.txt</code> 中写入：</p><blockquote><p>This is inserted into the file</p></blockquote><p>为了解除 <code>std::cin</code> 与 <code>std::cout</code> 的绑定，我们可以这样做</p><figure class="highlight cpp"><figcaption><span>untie</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">std::ostream *prevstr = std::cin.<span class="built_in">tie</span>();</span><br><span class="line">std::cin.<span class="built_in">tie</span>(<span class="literal">nullptr</span>);</span><br><span class="line"><span class="comment">// ... use cin without tying to cout</span></span><br></pre></td></tr></table></figure><h3 id="std-ios-base-sync-with-stdio"><a href="#std-ios-base-sync-with-stdio" class="headerlink" title="std::ios_base::sync_with_stdio"></a><code>std::ios_base::sync_with_stdio</code></h3><p>接下来我们解决同步的问题。</p><p>在所有输入输出流的基类（<code>std::ios_base</code>）中定义了 <code>sync_with_stdio</code> 函数。它的原型是：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">sync_with_stdio</span><span class="params">( <span class="type">bool</span> sync = <span class="literal">true</span> )</span></span></span><br></pre></td></tr></table></figure><p>默认情况下，这个同步机制是打开的。于是，在 C++ 的流上做的任何操作，会被立即同步到相应的 C 的流中。因此，在代码里我们可以混搭 C 风格和 C++ 风格的流操作。</p><p>我们可以通过这样做，以解除 C++ 风格的输入输出流与 C 风格的输入输出流的绑定：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">std::ios_base::<span class="built_in">sync_with_stdio</span>(<span class="literal">false</span>);</span><br></pre></td></tr></table></figure><h2 id="实验"><a href="#实验" class="headerlink" title="实验"></a>实验</h2><h3 id="随机数生成"><a href="#随机数生成" class="headerlink" title="随机数生成"></a>随机数生成</h3><p>作为实验的预备，我们需要生成一组随机数，作为读入。这里计划生成的文件，样式为：</p><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">a_1 b_1</span><br><span class="line">a_2 b_2</span><br><span class="line">...</span><br><span class="line">a_k b_k</span><br><span class="line">...</span><br><span class="line">a_n b_n</span><br></pre></td></tr></table></figure><p>其中，$a_1, \ldots, a_n$ 是随机整数，$b_1, \ldots, b_n$ 是随机浮点数。我们用 Python 来实现随机数的生成和输出。</p><figure class="highlight python"><figcaption><span>gen_random.py</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> random</span><br><span class="line"><span class="keyword">import</span> sys</span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">getRandom</span>(<span class="params">fname_base, lines_num</span>):</span><br><span class="line">  fname = <span class="string">&#x27;%s_%d.txt&#x27;</span> % (fname_base, lines_num)</span><br><span class="line">  <span class="keyword">with</span> <span class="built_in">open</span>(fname, <span class="string">&#x27;w&#x27;</span>) <span class="keyword">as</span> fout:</span><br><span class="line">    temp = <span class="string">&#x27;%d %f\n&#x27;</span> % (random.randint(-<span class="number">1000</span>, <span class="number">1000</span>), random.gauss(<span class="number">0</span>, <span class="number">10</span>))</span><br><span class="line">    fout.write(temp)</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> __name__ == <span class="string">&#x27;__main__&#x27;</span>:</span><br><span class="line">  exp  = [<span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">8</span>]</span><br><span class="line">  NUMS = <span class="built_in">map</span>(<span class="keyword">lambda</span> x: <span class="number">10</span> ** x, exp)</span><br><span class="line">  base = <span class="string">&#x27;random&#x27;</span></span><br><span class="line">  <span class="keyword">for</span> num <span class="keyword">in</span> NUMS:</span><br><span class="line">    getRandom(base, num)</span><br></pre></td></tr></table></figure><h3 id="实验环境"><a href="#实验环境" class="headerlink" title="实验环境"></a>实验环境</h3><ul><li>编译器：gcc-4.7.2</li><li>操作系统：CentOS 5.4</li><li>CPU 型号：Intel(R) Xeon(R) CPU <a href="mailto:&#x45;&#53;&#54;&#x34;&#53;&#64;&#50;&#46;&#x34;">E5645@2.4</a> GHz</li><li>主存大小：65979428 KiB</li><li>磁盘大小：388 GiB</li></ul><h3 id="实验代码"><a href="#实验代码" class="headerlink" title="实验代码"></a>实验代码</h3><figure class="highlight c"><figcaption><span>scanf.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (~<span class="built_in">scanf</span>(<span class="string">&quot;%d %f&quot;</span>, &amp;a, &amp;b)) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><figure class="highlight c"><figcaption><span>cin.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><figure class="highlight c"><figcaption><span>cin-speed_up.cpp</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;cstdio&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;chrono&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="title function_">main</span><span class="params">()</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">int</span> <span class="title function_">a</span><span class="params">(<span class="number">0</span>)</span>;</span><br><span class="line">    <span class="type">double</span> <span class="title function_">b</span><span class="params">(<span class="number">0.0</span>)</span>;</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cin</span>.tie(<span class="number">0</span>);</span><br><span class="line">    <span class="built_in">std</span>::ios_base::sync_with_stdio(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> start = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">std</span>::<span class="built_in">cin</span> &gt;&gt; a &gt;&gt; b) &#123;&#125;</span><br><span class="line">    <span class="keyword">auto</span> end = <span class="built_in">std</span>::chrono::high_resolution_clock::now();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">auto</span> take_time =</span><br><span class="line">        <span class="built_in">std</span>::chrono::duration_cast&lt;<span class="built_in">std</span>::chrono::microseconds&gt;(end - start);</span><br><span class="line">    <span class="built_in">std</span>::<span class="built_in">cout</span> &lt;&lt; take_time.count() &lt;&lt; <span class="string">&quot; us\n&quot;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><h3 id="实验结果"><a href="#实验结果" class="headerlink" title="实验结果"></a>实验结果</h3><p>这里用管道的方式，将输入数据传给编译好的可执行映像。</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cat</span> foobar.txt | ./a.out</span><br></pre></td></tr></table></figure><p>这里将每一份数据重复输入可执行映像 5 次，然后去除最低和最高的执行时间，取中间三个做平均值，得到结果如下（单位：微秒）。</p><table><tbody><tr><td>数据大小</td><th>cin</th><th>cin -O2</th><th>cin 加速</th><th>cin 加速 -O2</th><th>scanf</th><th>scanf -O2</th><iframe id="tmp_downloadhelper_iframe" style="display: none;"></iframe></tr><tr><th><script type="math/tex" id="MathJax-Element-6"> 10^3</script></th><td>1962</td><td>2179</td><td>1131</td><td>1020</td><td>754</td><td>773</td></tr><tr><th><script type="math/tex" id="MathJax-Element-7"> 10^4</script></th><td>20099</td><td>20448</td><td>10496</td><td>9817</td><td>7187</td><td>7205</td></tr><tr><th><script type="math/tex" id="MathJax-Element-8"> 10^5</script></th><td>139541</td><td>146781</td><td>75328</td><td>70302</td><td>52498</td><td>55002</td></tr><tr><th><script type="math/tex" id="MathJax-Element-9"> 10^6</script></th><td>1401558</td><td>1382098</td><td>681064</td><td>651954</td><td>476777</td><td>481314</td></tr><tr><th><script type="math/tex" id="MathJax-Element-10"> 10^7</script></th><td>13318033</td><td>13956841</td><td>6687289</td><td>6468692</td><td>4779453</td><td>4760468</td></tr></tbody></table><p>从表中可以看出，<code>std::scanf</code> 在实验条件下速度始终最快，但与「加速之后的」<code>std::cin</code> 处于同一个数量级。而它们都比默认的 <code>std::cin</code> 要快出一个数量级。这个结论随着数据量的增长保持不变。</p><p>另外，使用编译器的 <code>-O2</code> 参数，打开编译器优化之后，<code>std::cin</code> 对优化不敏感，甚至在一些数据集上优化之后的速度反而变慢；加速之后的 <code>std::cin</code> 和 <code>std::scanf</code> 则对优化敏感，其中加速之后的 <code>std::cin</code> 对优化尤其敏感。</p><p>在这个实验中，<code>std::scanf</code> 的确在速度上有优势，似乎验证了「很多人」的主张。不过，<a href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714">tatanaideyo</a> 做了类似的实验，结果表明：</p><ul><li><code>std::scanf</code> 和加速之后的 <code>std::cin</code> 一定比 <code>std::cin</code> 快；</li><li><code>std::scanf</code> 在读入浮点数时比加速之后的 <code>std::cin</code> 快；</li><li><code>std::scanf</code> 在读入整形数值时比加速之后的 <code>std::cin</code> 慢。</li></ul><h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>加速之后的 <code>std::cin</code> 并不一定比 <code>std::scanf</code> 慢；在大多数日常使用的情形下，其效率在渐进意义上与 <code>std::scanf</code> 相当。tatanaideyo 则表明，如果数据中包含大量的整形数值，则使用加速之后的 <code>std::cin</code> 会更有优势；反之若数据中包含大量的浮点数，则使用 <code>std::scanf</code> 更佳。</p><p>更多探讨可以参考：<a href="http://codeforces.com/blog/entry/5217">http://codeforces.com/blog/entry/5217</a></p><h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul><li>《程序员的自我修养：链接、装载和库》</li><li><a href="http://www.tutorialspoint.com/unix_system_calls/read.htm">http://www.tutorialspoint.com/unix_system_calls/read.htm</a></li><li><a href="http://man7.org/linux/man-pages/man2/read.2.html">http://man7.org/linux/man-pages/man2/read.2.html</a></li><li><a href="http://man7.org/linux/man-pages/man2/mmap.2.html">http://man7.org/linux/man-pages/man2/mmap.2.html</a></li><li><a href="http://www.cplusplus.com/reference/cstdio/fread/">http://www.cplusplus.com/reference/cstdio/fread/</a></li><li><a href="http://www.cplusplus.com/reference/cstdio/scanf/">http://www.cplusplus.com/reference/cstdio/scanf/</a></li><li><a href="http://www.cplusplus.com/reference/ios/ios/tie/">http://www.cplusplus.com/reference/ios/ios/tie/</a></li><li><a href="http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio">http://en.cppreference.com/w/cpp/io/ios_base/sync_with_stdio</a></li><li><a href="https://www.byvoid.com/blog/fast-readfile/">https://www.byvoid.com/blog/fast-readfile/</a></li><li><a href="http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html">http://www.hankcs.com/program/cpp/cin-tie-with-sync_with_stdio-acceleration-input-and-output.html</a></li><li><a href="https://heavywatal.github.io/cxx/speed.html">https://heavywatal.github.io/cxx/speed.html</a></li><li><a href="http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714">http://tatanaideyo.hatenablog.com/entry/2014/10/24/214714</a></li><li><a href="http://codeforces.com/blog/entry/5217">http://codeforces.com/blog/entry/5217</a></li><li><a href="http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout">http://stackoverflow.com/questions/14052627/why-do-we-need-to-tie-cin-and-cout</a></li><li><a href="https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do">https://www.quora.com/What-is-use-of-the-statement-ios_base-sync_with_stdio-false-cin-tie-NULL-cout-tie-NULL-What-does-it-do</a></li><li><a href="http://www.cnblogs.com/huxiao-tee/p/4660352.html">http://www.cnblogs.com/huxiao-tee/p/4660352.html</a></li><li><a href="http://en.cppreference.com/w/cpp/chrono/duration">http://en.cppreference.com/w/cpp/chrono/duration</a></li></ul>]]></content>
       
       
       <categories>
@@ -8283,11 +8312,11 @@
       
         <tags>
             
-            <tag> Argument </tag>
-            
             <tag> Shell </tag>
             
             <tag> Script </tag>
+            
+            <tag> Argument </tag>
             
             <tag> Option </tag>
             
@@ -8378,11 +8407,11 @@
       
         <tags>
             
+            <tag> Cheatsheet </tag>
+            
             <tag> CPU </tag>
             
             <tag> Memory </tag>
-            
-            <tag> Cheatsheet </tag>
             
             <tag> Linux </tag>
             
@@ -8801,13 +8830,13 @@
       
         <tags>
             
-            <tag> OS X </tag>
-            
             <tag> Homebrew </tag>
             
             <tag> App </tag>
             
             <tag> Mac </tag>
+            
+            <tag> OS X </tag>
             
         </tags>
       
@@ -8832,13 +8861,13 @@
       
         <tags>
             
-            <tag> Chinese </tag>
-            
-            <tag> Number </tag>
-            
             <tag> Python </tag>
             
+            <tag> Chinese </tag>
+            
             <tag> Arabic </tag>
+            
+            <tag> Number </tag>
             
         </tags>
       
@@ -8892,9 +8921,9 @@
       
         <tags>
             
-            <tag> Theorem </tag>
-            
             <tag> tcolorbox </tag>
+            
+            <tag> Theorem </tag>
             
         </tags>
       
@@ -9097,11 +9126,11 @@
       
         <tags>
             
-            <tag> Dynamic Programming </tag>
-            
             <tag> Max Subsequence Sum </tag>
             
             <tag> Max Subarray Sum </tag>
+            
+            <tag> Dynamic Programming </tag>
             
             <tag> State Machine </tag>
             
@@ -9161,8 +9190,6 @@
       
         <tags>
             
-            <tag> Dynamic Programming </tag>
-            
             <tag> Max Subsequence Sum </tag>
             
             <tag> Max Subarray Sum </tag>
@@ -9170,6 +9197,8 @@
             <tag> Circular List </tag>
             
             <tag> Kadane Algorithm </tag>
+            
+            <tag> Dynamic Programming </tag>
             
         </tags>
       
@@ -9627,13 +9656,13 @@
       
         <tags>
             
-            <tag> OS X </tag>
-            
             <tag> C++ </tag>
             
-            <tag> C++11 </tag>
+            <tag> OS X </tag>
             
             <tag> Sublime Text </tag>
+            
+            <tag> C++11 </tag>
             
         </tags>
       
@@ -9913,9 +9942,9 @@
       
         <tags>
             
-            <tag> Natural Language Processing </tag>
-            
             <tag> Statistic Language Model </tag>
+            
+            <tag> Natural Language Processing </tag>
             
             <tag> Stochastic Process </tag>
             
@@ -9944,9 +9973,9 @@
       
         <tags>
             
-            <tag> Natural Language Processing </tag>
-            
             <tag> Statistic Language Model </tag>
+            
+            <tag> Natural Language Processing </tag>
             
         </tags>
       
@@ -9998,13 +10027,13 @@
       
         <tags>
             
-            <tag> MacTeX </tag>
-            
             <tag> Font </tag>
             
-            <tag> System </tag>
+            <tag> MacTeX </tag>
             
             <tag> XeLaTeX </tag>
+            
+            <tag> System </tag>
             
         </tags>
       
@@ -10089,15 +10118,15 @@
       
         <tags>
             
-            <tag> Packages </tag>
-            
-            <tag> TeX Live </tag>
-            
             <tag> Fake </tag>
             
             <tag> tlpretest </tag>
             
+            <tag> TeX Live </tag>
+            
             <tag> Update </tag>
+            
+            <tag> Packages </tag>
             
         </tags>
       
@@ -10174,9 +10203,9 @@
       
         <tags>
             
-            <tag> hyperref </tag>
-            
             <tag> Bug </tag>
+            
+            <tag> hyperref </tag>
             
             <tag> Psdextra </tag>
             
@@ -10487,9 +10516,9 @@
       
         <tags>
             
-            <tag> Template </tag>
-            
             <tag> Chinese </tag>
+            
+            <tag> Template </tag>
             
             <tag> MacTeX </tag>
             
@@ -10518,9 +10547,9 @@
             
             <tag> Section </tag>
             
-            <tag> Numbering </tag>
-            
             <tag> Sectioning </tag>
+            
+            <tag> Numbering </tag>
             
             <tag> Table of Contents </tag>
             
@@ -10547,9 +10576,9 @@
       
         <tags>
             
-            <tag> Kindle </tag>
-            
             <tag> WeChat </tag>
+            
+            <tag> Kindle </tag>
             
         </tags>
       
@@ -10632,9 +10661,9 @@
             
             <tag> Europe </tag>
             
-            <tag> Greece </tag>
-            
             <tag> Romantic </tag>
+            
+            <tag> Greece </tag>
             
             <tag> Philosophy </tag>
             
@@ -10702,13 +10731,13 @@
             
             <tag> Europe </tag>
             
+            <tag> Christianity </tag>
+            
             <tag> Greece </tag>
             
             <tag> Rome </tag>
             
             <tag> Germanic </tag>
-            
-            <tag> Christianity </tag>
             
         </tags>
       
@@ -10791,9 +10820,9 @@
       
         <tags>
             
-            <tag> pTeX </tag>
-            
             <tag> Encoding </tag>
+            
+            <tag> pTeX </tag>
             
         </tags>
       
@@ -10843,13 +10872,13 @@
       
         <tags>
             
+            <tag> AMS </tag>
+            
             <tag> Proof </tag>
             
             <tag> Environment </tag>
             
             <tag> Macros </tag>
-            
-            <tag> AMS </tag>
             
         </tags>
       
@@ -10874,9 +10903,9 @@
       
         <tags>
             
-            <tag> PDF </tag>
-            
             <tag> CJK </tag>
+            
+            <tag> PDF </tag>
             
             <tag> Bookmarks </tag>
             
@@ -10905,11 +10934,11 @@
       
         <tags>
             
-            <tag> CJK </tag>
+            <tag> OS X </tag>
             
             <tag> MacTeX </tag>
             
-            <tag> OS X </tag>
+            <tag> CJK </tag>
             
         </tags>
       
@@ -10992,9 +11021,9 @@
       
         <tags>
             
-            <tag> Introduction </tag>
-            
             <tag> CTeX </tag>
+            
+            <tag> Introduction </tag>
             
             <tag> TeXworks </tag>
             
@@ -11517,9 +11546,9 @@
       
         <tags>
             
-            <tag> Highlight </tag>
-            
             <tag> Listings </tag>
+            
+            <tag> Highlight </tag>
             
             <tag> Delimiter </tag>
             
@@ -12023,9 +12052,9 @@
       
         <tags>
             
-            <tag> AW </tag>
-            
             <tag> Argument </tag>
+            
+            <tag> AW </tag>
             
         </tags>
       
@@ -12106,9 +12135,9 @@
       
         <tags>
             
-            <tag> Roman </tag>
-            
             <tag> Number </tag>
+            
+            <tag> Roman </tag>
             
         </tags>
       
@@ -12175,7 +12204,7 @@
       <link href="/2013/08/25/LaTeX-xcumcmart/"/>
       <url>/2013/08/25/LaTeX-xcumcmart/</url>
       
-        <content type="html"><![CDATA[<p>本模板根据「2013高教社杯全国大学生数学建模竞赛论文格式规范」中的相关规定制作。供参加全国大学生数学建模竞赛的同学们使用。Liam Huang 制作该模板的目的在于推进竞赛论文格式规范化，推广 LaTeX。</p><span id="more"></span><p>下载：<a href="//liam.page/attachment/attachment/xcumcmart/xcumcmart-Ver.1.00.00.zip">这里</a></p><p>本模板将整篇论文视作「文章」（article），而不是「书」（book）。实现时，以 ctexart 为基类。与 ctexart.cls 的使用基本相同，但<strong>必须保存为 UTF8 编码并使用 XeLaTeX 或 pdfLaTeX 编译</strong>。具体请参考本文源文件。</p><p>为了实现比较好的兼容性，模板仅达到了 <em>2013 高教社杯全国大学生数学建模竞赛论文格式规范</em> 中对竞赛论文的基本要求，而不包括额外的功能，也没有引入其他的宏包，请使用时根据需要自行添加。</p><p>模板发行包包括如下文件：</p><blockquote><p>declaration.tex —— 承诺书及编号页（必须。如有变动，请修改该文件）</p></blockquote><blockquote><p>readme.pdf —— 本文件</p></blockquote><blockquote><p>readme.tex —— 本文件源文件</p></blockquote><blockquote><p>xcumcmart.cls —— 模板文件</p></blockquote><p>模板的最新版本可以在 <a href="http://liam0205.me/2013/08/25/LaTeX-xcumcmart/">http://liam0205.me/2013/08/25/LaTeX-xcumcmart/</a> 下载。有关于模板的任何问题，比如 Bug 提交、功能建议、赞助、宣传推广等，均可与 <a href="mailto:&#x6c;&#x69;&#x61;&#x6d;&#104;&#x75;&#97;&#x6e;&#x67;&#x30;&#x32;&#x30;&#53;&#43;&#x78;&#x63;&#117;&#x6d;&#99;&#109;&#x61;&#114;&#116;&#x40;&#x67;&#x6d;&#x61;&#105;&#x6c;&#x2e;&#x63;&#111;&#109;">Liam Huang</a> 联系。</p><p>感谢 <a href="http://www.shumo.com/">http://www.shumo.com/</a> 早先以 CCT 方式制作的竞赛论文模板。</p><ul><li><strong>任何个人或团体可以无限制的自由使用本模板。</strong></li><li><strong>本模板目前尚未得到全国大学生数学建模竞赛组委会的认可，模板作者对使用该模板所引起的后果不负任何责任。</strong></li></ul>]]></content>
+        <content type="html"><![CDATA[<p>本模板根据「2013高教社杯全国大学生数学建模竞赛论文格式规范」中的相关规定制作。供参加全国大学生数学建模竞赛的同学们使用。Liam Huang 制作该模板的目的在于推进竞赛论文格式规范化，推广 LaTeX。</p><span id="more"></span><p>下载：<a href="//liam.page/attachment/attachment/xcumcmart/xcumcmart-Ver.1.00.00.zip">这里</a></p><p>本模板将整篇论文视作「文章」（article），而不是「书」（book）。实现时，以 ctexart 为基类。与 ctexart.cls 的使用基本相同，但<strong>必须保存为 UTF8 编码并使用 XeLaTeX 或 pdfLaTeX 编译</strong>。具体请参考本文源文件。</p><p>为了实现比较好的兼容性，模板仅达到了 <em>2013 高教社杯全国大学生数学建模竞赛论文格式规范</em> 中对竞赛论文的基本要求，而不包括额外的功能，也没有引入其他的宏包，请使用时根据需要自行添加。</p><p>模板发行包包括如下文件：</p><blockquote><p>declaration.tex —— 承诺书及编号页（必须。如有变动，请修改该文件）</p></blockquote><blockquote><p>readme.pdf —— 本文件</p></blockquote><blockquote><p>readme.tex —— 本文件源文件</p></blockquote><blockquote><p>xcumcmart.cls —— 模板文件</p></blockquote><p>模板的最新版本可以在 <a href="http://liam0205.me/2013/08/25/LaTeX-xcumcmart/">http://liam0205.me/2013/08/25/LaTeX-xcumcmart/</a> 下载。有关于模板的任何问题，比如 Bug 提交、功能建议、赞助、宣传推广等，均可与 <a href="mailto:&#x6c;&#105;&#97;&#x6d;&#104;&#117;&#x61;&#110;&#x67;&#x30;&#50;&#x30;&#53;&#43;&#x78;&#99;&#117;&#109;&#x63;&#x6d;&#x61;&#114;&#x74;&#x40;&#103;&#x6d;&#x61;&#x69;&#x6c;&#46;&#x63;&#x6f;&#x6d;">Liam Huang</a> 联系。</p><p>感谢 <a href="http://www.shumo.com/">http://www.shumo.com/</a> 早先以 CCT 方式制作的竞赛论文模板。</p><ul><li><strong>任何个人或团体可以无限制的自由使用本模板。</strong></li><li><strong>本模板目前尚未得到全国大学生数学建模竞赛组委会的认可，模板作者对使用该模板所引起的后果不负任何责任。</strong></li></ul>]]></content>
       
       
       <categories>
@@ -12341,9 +12370,9 @@
       
         <tags>
             
-            <tag> SDU </tag>
-            
             <tag> Template </tag>
+            
+            <tag> SDU </tag>
             
         </tags>
       

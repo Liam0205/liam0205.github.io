@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="前作处理了 lsd 大量消耗 CPU 的问题。排查的过程中顺手看了一眼磁盘：这台 MacBook Pro 的数据卷一共 466 GB，已经用掉 389 GB，可用的只剩 42 GB，占用 91%。用 du 逐层往下看，~&#x2F;Library&#x2F;Caches 一个目录就有 106 GB，其中 102 GB 在 CloudKit 底下。 清掉这些缓存不难，难的是弄清楚它们是怎么来的。下面先交代清理的过程，再">
+<meta property="og:type" content="article">
+<meta property="og:title" content="清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存">
+<meta property="og:url" content="https://liam.page/2026/11/07/clean-up-icloud-drive-cache-on-macOS/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="前作处理了 lsd 大量消耗 CPU 的问题。排查的过程中顺手看了一眼磁盘：这台 MacBook Pro 的数据卷一共 466 GB，已经用掉 389 GB，可用的只剩 42 GB，占用 91%。用 du 逐层往下看，~&#x2F;Library&#x2F;Caches 一个目录就有 106 GB，其中 102 GB 在 CloudKit 底下。 清掉这些缓存不难，难的是弄清楚它们是怎么来的。下面先交代清理的过程，再">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-11-07T06:20:00.000Z">
+<meta property="article:modified_time" content="2026-11-07T10:26:05.923Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Cache">
+<meta property="article:tag" content="iCloud">
+<meta property="article:tag" content="macOS">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/11/07/clean-up-icloud-drive-cache-on-macOS/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">432</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">803</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/11/07/clean-up-icloud-drive-cache-on-macOS/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 11 月 07 日 14:20:00 / 修改时间：18:26:05" itemprop="dateCreated datePublished" datetime="2026-11-07T14:20:00+08:00">2026 年 11 月 07 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Computer-Skills/" itemprop="url" rel="index"><span itemprop="name">Computer Skills</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>6.5k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>12 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p><a href="/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/">前作</a>处理了 lsd 大量消耗 CPU 的问题。排查的过程中顺手看了一眼磁盘：这台 MacBook Pro 的数据卷一共 466 GB，已经用掉 389 GB，可用的只剩 42 GB，占用 91%。用 du 逐层往下看，<code>~/Library/Caches</code> 一个目录就有 106 GB，其中 102 GB 在 <code>CloudKit</code> 底下。</p>
+<p>清掉这些缓存不难，难的是弄清楚它们是怎么来的。下面先交代清理的过程，再回头讨论三件事：这些缓存从哪来，以后怎么尽早发现，以及怎么避免再攒出这么多。</p>
+<span id="more"></span>
+
+<h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><h3 id="bird"><a href="#bird" class="headerlink" title="bird"></a>bird</h3><p>bird 的完整路径是 <code>/System/Library/PrivateFrameworks/iCloudDriveCore.framework/Versions/A/Support/bird</code>，从它所在的框架就能看出来，这是 iCloud Drive 的守护进程。iCloud Drive 的文件放在 <code>~/Library/Mobile Documents/</code> 下面，iCloud 云盘里的文件在其中的 <code>com~apple~CloudDocs</code>，其余以 App 命名的子目录是各个 App 自己的 iCloud 容器。bird 用的缓存则放在另一处，即 <code>~/Library/Caches/CloudKit/com.apple.bird/</code>。</p>
+<h3 id="只在云端的文件"><a href="#只在云端的文件" class="headerlink" title="只在云端的文件"></a>只在云端的文件</h3><p>打开「优化 Mac 储存空间」以后，macOS 会在空间紧张时把已经上传的文件移出本地，只留一个占位。<code>defaults read com.apple.bird</code> 的输出里有一行 <code>&quot;optimize-storage&quot; = 1</code>，从名字看，这台机器上这个选项是开着的。</p>
+<p>只在云端、没有下载到本地的文件，<code>ls</code> 照常给出完整的大小，实际却不占磁盘。以 iCloud 云盘里存放系统镜像的一个目录为例：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> ~/Library/Mobile\ Documents/com~apple~CloudDocs/&lt;某个目录&gt;</span><br><span class="line"><span class="built_in">ls</span> -lah</span><br><span class="line"><span class="built_in">du</span> -sh .</span><br></pre></td></tr></table></figure>
+
+<p><code>ls</code> 列出的两个 macOS 恢复镜像（<code>.ipsw</code>），一个 16 GB，一个 14 GB；<code>du</code> 给出的整个目录却是 0B。这些文件的文件名也没有 <code>.icloud</code> 后缀。因此，要看 iCloud Drive 在本地实际占了多少空间，应当用 <code>du</code>，不能看 <code>ls</code> 给出的大小。</p>
+<h3 id="APFS-的克隆"><a href="#APFS-的克隆" class="headerlink" title="APFS 的克隆"></a>APFS 的克隆</h3><p>在 APFS 上复制文件时，可以用克隆（clone）代替真的复制，<code>cp -c</code> 就是这么做的。克隆出来的新文件与原文件共用同一批数据块，复制几乎不花时间，也不占额外的空间；之后哪一方被修改，被修改的部分才另外分配空间。反过来，删掉其中一份，只要另一份还在，那批数据块就不会被释放。</p>
+<h2 id="排查与处理"><a href="#排查与处理" class="headerlink" title="排查与处理"></a>排查与处理</h2><h3 id="缓存的位置与内容"><a href="#缓存的位置与内容" class="headerlink" title="缓存的位置与内容"></a>缓存的位置与内容</h3><p>先看 <code>CloudKit</code> 下面各个子目录的大小：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">101G	~/Library/Caches/CloudKit/com.apple.bird</span><br><span class="line"> 60M	~/Library/Caches/CloudKit/com.apple.syncdefaultsd</span><br><span class="line"> 36M	~/Library/Caches/CloudKit/com.apple.CloudDocs.iCloudDriveFileProvider</span><br><span class="line">7.1M	~/Library/Caches/CloudKit/cloudd_db</span><br></pre></td></tr></table></figure>
+
+<p>其他服务的缓存都在几十 MB 以内，只有 bird 的缓存大得出奇。继续往下翻，这 101 GB 几乎都在 <code>com.apple.bird/&lt;hash&gt;/MMCS/ClonedFiles/</code> 里，<code>&lt;hash&gt;</code> 是一串 40 位的十六进制目录名，下文统一这样写。<code>ClonedFiles</code> 里有 3643 个文件，文件名形如 <code>documentContent__&lt;UUID&gt;_fileContent</code>，另有一些以 <code>_thumb1024</code> 结尾，看名字是缩略图。作为对比，<code>~/Library/Mobile Documents</code> 整个目录是 29 GB，也就是说，bird 的缓存比 iCloud 在本地的全部数据还多出 70 GB 左右。</p>
+<p><code>ClonedFiles</code> 里最大的一个文件有 10.6 GB，是一个 ZIP 包，修改于 10 月 29 日，里面的第一个文件叫 <code>043-69093-778.dmg</code>。用这个文件名和它的精确大小，在本机都搜不到对应的文件。除了它，超过 100 MB 的文件一个也没有，其余的大多在 53 MB 到 56 MB 之间。按修改时间的月份统计，3643 个文件里有 3598 个是 10 月份的。</p>
+<h3 id="同步状态"><a href="#同步状态" class="headerlink" title="同步状态"></a>同步状态</h3><p>看缓存的时候，bird 的 CPU 占用是 92.3%，<code>brctl status</code> 里是 <code>client:needs-sync</code>。bird 的日志里，<code>EINTR: client gather phase was invalidated</code> 在 11:48:28 到 11:48:39 之间出现了 8 次，还有被取消的下载：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">bird[435] [com.apple.cloudkit:OP] Finished operation &lt;BRFetchRecordsOperation: …, shortened-name=Download (user initiated) &#125;, …, stateFlags=executing|cancelled, &lt;private&gt;&gt;  with error: &lt;CKError 0x7fd4d8674890: &quot;Operation Cancelled&quot; (20); …&gt;</span><br></pre></td></tr></table></figure>
+
+<p>我没有对 bird 做任何操作。十几分钟后再看，bird 的 CPU 占用是 0.0%，<code>brctl status</code> 变成了 <code>client:idle</code>。</p>
+<h3 id="保留下载的文件"><a href="#保留下载的文件" class="headerlink" title="保留下载的文件"></a>保留下载的文件</h3><p>iCloud 云盘里有几项我设过「保留下载」，清理时不能碰它们。这个设置记在扩展属性里，属性名是 <code>com.apple.fileprovider.pinned#PX</code>。需要注意，末尾的 <code>#PX</code> 也是名字的一部分，执行 <code>xattr -p com.apple.fileprovider.pinned</code> 会报 <code>No such xattr</code>，所以要用 <code>grep</code> 匹配：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">D=~/Library/Mobile\ Documents/com~apple~CloudDocs/&lt;某个目录&gt;</span><br><span class="line"><span class="keyword">for</span> f <span class="keyword">in</span> <span class="string">&quot;<span class="variable">$D</span>&quot;</span>/*; <span class="keyword">do</span> xattr <span class="string">&quot;<span class="variable">$f</span>&quot;</span> | grep -q fileprovider.pinned &amp;&amp; <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$f</span>&quot;</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure>
+
+<p>带这个属性的有四项，两个目录和两个脚本文件。最大的那个目录有 16 GB、996 个文件，下文称作「保留目录」。它在 <code>Mobile Documents</code> 底下，要删的缓存在 <code>Caches</code> 底下，两者是不同的目录。保险起见，每一步前后都核对一遍保留目录的文件数与 <code>du</code>。</p>
+<h3 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h3><p>先把 <code>ClonedFiles</code> 改个名，确认没有问题再删。改名随时可以改回去，删除不能。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> ~/Library/Caches/CloudKit/com.apple.bird/&lt;<span class="built_in">hash</span>&gt;/MMCS</span><br><span class="line"><span class="built_in">mv</span> ClonedFiles ClonedFiles.pending-delete</span><br><span class="line"><span class="comment"># 核对保留目录、bird 的状态，确认无误后再删</span></span><br><span class="line"><span class="built_in">rm</span> -rf ClonedFiles.pending-delete</span><br></pre></td></tr></table></figure>
+
+<p>改名之后，bird 仍是 <code>client:idle</code>，也没有重新建一个 <code>ClonedFiles</code>。删除前可用空间是 56 GB，删除后是 <strong>156 GB</strong>。而后又删掉了 MMCS 下剩余的一个 7.3 GB 的临时文件，可用空间到了 <strong>162 GB</strong>。保留目录始终是 996 个文件、16 GB。</p>
+<p>开头的 42 GB 与删除前的 56 GB 对不上，是因为中间还有两件事。第一，动缓存之前，我删掉了一份 iPhone 备份和一个 Time Machine 本地快照，可用空间到了 61 GB，后文「预防」一节会说到快照。第二，改名前后，可用空间从 61 GB 落到了 56 GB，同一段时间里，那个临时文件多占了 7 GB 左右，「成因」一节细说。</p>
+<h2 id="成因"><a href="#成因" class="headerlink" title="成因"></a>成因</h2><p>这次其实有两样东西在占空间：<code>ClonedFiles</code> 里的 101 GB，以及 MMCS 下那个会自己长大的临时文件。两者要分开解释。</p>
+<h3 id="缓存里的是什么"><a href="#缓存里的是什么" class="headerlink" title="缓存里的是什么"></a>缓存里的是什么</h3><p>缓存里的文件名只有 UUID，看不出原件是谁。线索在它们的大小和时间上：53 MB 到 56 MB，大多是 10 月份的。于是在 iCloud 云盘里找同样大小的文件：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 在 iCloud Drive 里找 50 MB 到 60 MB 的文件，只在云端的也能找到</span></span><br><span class="line">mdfind -onlyin ~/Library/Mobile\ Documents <span class="string">&#x27;kMDItemFSSize &gt; 50000000 &amp;&amp; kMDItemFSSize &lt; 60000000&#x27;</span> | <span class="built_in">wc</span> -l</span><br></pre></td></tr></table></figure>
+
+<p>一共 3376 个，其中 3275 个在同一个照片目录里。这个目录下有一个子目录，装着 2490 张索尼的 RAW 照片（<code>.ARW</code>），<code>ls</code> 合计 135.8 GB，<code>du</code> 是 0B，已经全部移出了本地。逐项对比：</p>
+<ul>
+<li>大小：这批 ARW 在 52,129,792 到 56,188,928 字节之间。上午抽样看过的缓存文件里，53 MB 到 56 MB 的有 11 个，大小全部落在这个区间里</li>
+<li>时间：这批 ARW 的修改时间都在 10 月 19 日 16:22 到 16:35 之间。那 11 个缓存文件里，有 7 个的时间是 10 月 19 日 16:28 到 16:33；另外 4 个是 10 月 22 日 12:13、10 月 29 日 11:32 与 13:00 的，同一个照片目录里，这两天各有一个子目录放进了几张 ARW，其中一张的修改时间正是 10 月 29 日 13:00</li>
+<li>体量：除去那个 10.6 GB 的 ZIP，缓存里剩下的大约 90 GB，比这批照片的 136 GB 少</li>
+</ul>
+<p>缓存里还有缩略图，数量上没法与照片一一对上，抽样也只有 11 个。不过大小和时间都对得上，<code>ClonedFiles</code> 里的大部分内容，很可能是 10 月 19 日放进 iCloud 云盘的这批照片。</p>
+<h3 id="为什么会占空间"><a href="#为什么会占空间" class="headerlink" title="为什么会占空间"></a>为什么会占空间</h3><p>照片的原件已经移出本地，<code>du</code> 是 0B，按理说这 136 GB 已经不在磁盘上了。缓存为什么还能占着 101 GB，我只能给出一个推测，没能验证。</p>
+<p>从目录名看，<code>ClonedFiles</code> 里放的是克隆出来的文件。如果 bird 在上传前把文件克隆了一份，那么刚克隆的时候，缓存与原件共用数据块，并不额外占空间。之后「优化 Mac 储存空间」把原件移出了本地，可克隆的那一份还在，那批数据块就归它一个人占着了。从 Finder 里看，照片已经只在云端；从磁盘上看，空间并没有回来。</p>
+<p>这个推测能解释两件事：照片明明已经移出本地，空间却没有回来；缓存文件的大小和时间，又恰好与原件一致。可惜等我想到这一层，缓存已经删了，没法再去检查它们当初是不是真与原件共用数据块。</p>
+<p>另外，一般来说，文件要先传到云端，才能从本地移走。如果是这样，这批照片既然全都移出去了，应当都已经传完。也就是说，这些缓存在上传结束以后，至少又留了两周多。bird 为什么一直没有清理它们，我没有查到原因。</p>
+<h3 id="会长大的临时文件"><a href="#会长大的临时文件" class="headerlink" title="会长大的临时文件"></a>会长大的临时文件</h3><p>另一个占空间的是 MMCS 下的 <code>tmpm-0x0000000000001849</code>。上午 11:48 前后，它在 <code>ls</code> 里是 5.2 GB，几乎不占空间；到 13:05，<code>ls</code> 里是 12.5 GB，<code>du</code> 是 7.3 GB，最后修改时间是 12:20。</p>
+<p>删掉整个 MMCS 以后，bird 很快又建了一个同名的文件。看这段时间 bird 的日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">13:13:42.745 bird[435] [NOTICE] downloading 1 documents in &lt;private&gt;</span><br><span class="line">13:15:22.478 bird[435] [NOTICE] &lt;private&gt; - finished downloading (cancelled) 1 documents (&lt;private&gt;) in &lt;private&gt;</span><br><span class="line">13:15:22.879 bird[435] [NOTICE] downloading 1 documents in &lt;private&gt;</span><br><span class="line">13:15:52.664 bird[435] [NOTICE] &lt;private&gt; - finished downloading (cancelled) 1 documents (&lt;private&gt;) in &lt;private&gt;</span><br></pre></td></tr></table></figure>
+
+<p><code>tmpm-0x0000000000001849</code> 的修改时间正是 13:15。几个小时后再看，它在 <code>ls</code> 里是 12.3 GB，<code>du</code> 是 1.1 GB，开头的 48 个字节全是 0。</p>
+<p>从这些现象推测，有一个十几 GB 的文档在被反复下载。每次下载都先往这个临时文件里写一部分数据，而后被取消，然后重来。上午那 7 GB 的增长，可能也是同一件事。今天零点到 13 点多，bird 一共有 7 次下载被取消，4 次正常完成。至于是哪个文档、是谁发起的下载、为什么总被取消，日志里都是 <code>&lt;private&gt;</code>，我没能查到。</p>
+<h2 id="识别"><a href="#识别" class="headerlink" title="识别"></a>识别</h2><p>把这次的经验收拢一下，以后可以按下面的顺序检查。</p>
+<p>首先对比 bird 的缓存与 iCloud Drive 本地数据的大小：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">du</span> -sh ~/Library/Caches/CloudKit/com.apple.bird</span><br><span class="line"><span class="built_in">du</span> -sh ~/Library/Mobile\ Documents</span><br></pre></td></tr></table></figure>
+
+<p>出问题时，前者是 101 GB，后者是 29 GB；清理之后几个小时，前者是 1.1 GB。缓存比 iCloud 在本地的数据还大，就值得往下查。这时看 <code>MMCS/ClonedFiles</code> 与 <code>MMCS/tmpm-*</code> 各占多少。</p>
+<p>如果是 <code>ClonedFiles</code> 大，就按大小和时间去找原件。先按修改时间看缓存文件集中在哪几天，再去 iCloud Drive 里找同期放进去的大批文件。最近放进去、<code>du</code> 已经是 0、而缓存里有同样大小文件的目录，就是嫌疑最大的。</p>
+<p>如果是 <code>tmpm-*</code> 大，就看 bird 有没有在反复下载：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 一小时内 bird 的下载，被取消的与完成的各有多少</span></span><br><span class="line"><span class="built_in">log</span> show --last 1h --predicate <span class="string">&#x27;process == &quot;bird&quot; AND eventMessage CONTAINS &quot;finished downloading&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -c cancelled</span><br><span class="line"><span class="built_in">log</span> show --last 1h --predicate <span class="string">&#x27;process == &quot;bird&quot; AND eventMessage CONTAINS &quot;finished downloading&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -vc cancelled</span><br></pre></td></tr></table></figure>
+
+<p>被取消的次数持续增长，同时 <code>tmpm-*</code> 的 <code>du</code> 在涨，就和这次的情况一样。</p>
+<h2 id="预防"><a href="#预防" class="headerlink" title="预防"></a>预防</h2><p>第一，一次往 iCloud Drive 里放大批文件之后，等上传完成，回头看一眼 bird 的缓存。这次是一次放进去 136 GB 的 RAW 照片。若前面的推测成立，这时「优化 Mac 储存空间」移走原件也腾不出空间，反而是缓存把空间占着。磁盘越紧张，越要盯一下。</p>
+<p>第二，清理缓存时按顺序来：</p>
+<ol>
+<li><code>brctl status</code> 里是 <code>client:idle</code>，bird 的 CPU 占用接近 0</li>
+<li>找出带 <code>com.apple.fileprovider.pinned#PX</code> 的项目，记下它们的文件数与 <code>du</code></li>
+<li>把 <code>ClonedFiles</code> 改名，核对保留下载的项目与 bird 的状态</li>
+<li>确认无误后删除，再核对一遍</li>
+</ol>
+<p>需要说明的是，这次找「保留下载」的标记，只检查了一个目录的第一层。<code>brctl dump</code> 里也还有一些条目标着 <code>needs-sync-up</code>，我没有逐条核对它们有没有传完。那个 10.6 GB 的 ZIP 包，云端还在不在也没有确认；若它只存在于缓存里，那么已经随缓存一起删掉了。照着做之前，这几处最好先自己确认。</p>
+<p>第三，清理之前先看一眼本地快照。APFS 的本地快照会保住被删文件占用的空间。这次在清理缓存之前，我删过一份 17 GB 的 iPhone 备份，<code>df</code> 给出的可用空间没有变化；用 <code>tmutil deletelocalsnapshots 2026-11-06-235702</code> 删掉 Time Machine 的本地快照之后，可用空间才从 44 GB 涨到 61 GB。<code>ClonedFiles</code> 里的文件大多早于这份快照，如果当时快照还在，删掉它们多半也腾不出空间。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tmutil listlocalsnapshots /</span><br></pre></td></tr></table></figure>
+
+<p>至于那个反复被取消的下载，目前我还没有办法。tmpm 文件眼下只有 1.1 GB，先定期用上一节的命令看着。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/11/07/clean-up-icloud-drive-cache-on-macOS/" title="清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存">https://liam.page/2026/11/07/clean-up-icloud-drive-cache-on-macOS/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/iCloud/" rel="tag"># iCloud</a>
+              <a href="/tags/macOS/" rel="tag"># macOS</a>
+              <a href="/tags/Cache/" rel="tag"># Cache</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/" rel="prev" title="解决 macOS 上 lsd 与 syspolicyd 大量消耗 CPU 资源的问题">
+      <i class="fa fa-chevron-left"></i> 解决 macOS 上 lsd 与 syspolicyd 大量消耗 CPU 资源的问题
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE%E7%9F%A5%E8%AF%86"><span class="nav-number">1.</span> <span class="nav-text">前置知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#bird"><span class="nav-number">1.1.</span> <span class="nav-text">bird</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%AA%E5%9C%A8%E4%BA%91%E7%AB%AF%E7%9A%84%E6%96%87%E4%BB%B6"><span class="nav-number">1.2.</span> <span class="nav-text">只在云端的文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#APFS-%E7%9A%84%E5%85%8B%E9%9A%86"><span class="nav-number">1.3.</span> <span class="nav-text">APFS 的克隆</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E4%B8%8E%E5%A4%84%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">排查与处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E7%9A%84%E4%BD%8D%E7%BD%AE%E4%B8%8E%E5%86%85%E5%AE%B9"><span class="nav-number">2.1.</span> <span class="nav-text">缓存的位置与内容</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%90%8C%E6%AD%A5%E7%8A%B6%E6%80%81"><span class="nav-number">2.2.</span> <span class="nav-text">同步状态</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BF%9D%E7%95%99%E4%B8%8B%E8%BD%BD%E7%9A%84%E6%96%87%E4%BB%B6"><span class="nav-number">2.3.</span> <span class="nav-text">保留下载的文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%88%A0%E9%99%A4"><span class="nav-number">2.4.</span> <span class="nav-text">删除</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%90%E5%9B%A0"><span class="nav-number">3.</span> <span class="nav-text">成因</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E7%BC%93%E5%AD%98%E9%87%8C%E7%9A%84%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">3.1.</span> <span class="nav-text">缓存里的是什么</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BC%9A%E5%8D%A0%E7%A9%BA%E9%97%B4"><span class="nav-number">3.2.</span> <span class="nav-text">为什么会占空间</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%BC%9A%E9%95%BF%E5%A4%A7%E7%9A%84%E4%B8%B4%E6%97%B6%E6%96%87%E4%BB%B6"><span class="nav-number">3.3.</span> <span class="nav-text">会长大的临时文件</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AF%86%E5%88%AB"><span class="nav-number">4.</span> <span class="nav-text">识别</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A2%84%E9%98%B2"><span class="nav-number">5.</span> <span class="nav-text">预防</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">432</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">803</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.5m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">46:07</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/11/07/clean-up-icloud-drive-cache-on-macOS/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'd8afae3d265d37d18dacacc823f54888',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>

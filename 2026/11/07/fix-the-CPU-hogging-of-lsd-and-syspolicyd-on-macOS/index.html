@@ -33,7 +33,7 @@
 <meta property="og:description" content="手头这台 2020 款 MacBook Pro 用的是 Intel 的 i5-1038NG7，4 核 8 线程，16 GB 内存，系统是 macOS 15.7.3。最近发现，手上的活并不重，风扇却一直在狂转。用 top 看了一眼，load average 在 10 到 17 之间，排在前面的是 lsd、syspolicyd、trustd、duetexpertd 这几个系统进程，没有一个是我自己打开">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-11-07T05:50:00.000Z">
-<meta property="article:modified_time" content="2026-11-07T06:06:46.983Z">
+<meta property="article:modified_time" content="2026-11-07T10:07:16.623Z">
 <meta property="article:author" content="Liam Huang">
 <meta property="article:tag" content="CPU">
 <meta property="article:tag" content="LaunchServices">
@@ -152,7 +152,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">431</span></a>
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">432</span></a>
 
   </li>
         <li class="menu-item menu-item-categories">
@@ -162,7 +162,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">802</span></a>
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">803</span></a>
 
   </li>
         <li class="menu-item menu-item-系列">
@@ -264,7 +264,7 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2026 年 11 月 07 日 13:50:00 / 修改时间：14:06:46" itemprop="dateCreated datePublished" datetime="2026-11-07T13:50:00+08:00">2026 年 11 月 07 日</time>
+              <time title="创建时间：2026 年 11 月 07 日 13:50:00 / 修改时间：18:07:16" itemprop="dateCreated datePublished" datetime="2026-11-07T13:50:00+08:00">2026 年 11 月 07 日</time>
             </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -289,14 +289,14 @@
                 <i class="fa fa-file-word-o"></i>
               </span>
                 <span class="post-meta-item-text">本文字数：</span>
-              <span>5.9k</span>
+              <span>8k</span>
             </span>
             <span class="post-meta-item" title="阅读时长">
               <span class="post-meta-item-icon">
                 <i class="fa fa-clock-o"></i>
               </span>
                 <span class="post-meta-item-text">阅读时长 &asymp;</span>
-              <span>11 分钟</span>
+              <span>15 分钟</span>
             </span>
 
         </div>
@@ -309,13 +309,14 @@
 
       
         <p>手头这台 2020 款 MacBook Pro 用的是 Intel 的 i5-1038NG7，4 核 8 线程，16 GB 内存，系统是 macOS 15.7.3。最近发现，手上的活并不重，风扇却一直在狂转。用 <code>top</code> 看了一眼，load average 在 10 到 17 之间，排在前面的是 lsd、syspolicyd、trustd、duetexpertd 这几个系统进程，没有一个是我自己打开的应用。其中 lsd 长时间稳定在 50% 上下。</p>
-<p>这台机器已经连续运行了 74 天，我不太想重启它；Setapp 也还在用，不打算卸载。所以下面的处理都没有重启系统，也没有卸载任何软件。</p>
+<p>这台机器已经连续运行了 74 天，我不太想重启它；Setapp 也还在用，不打算卸载。所以下面的处理都没有重启系统，也没有卸载任何软件。把 CPU 压下来以后，我又回头翻了一遍导出的数据，想弄清楚三件事：问题是怎么来的，下次怎么一眼认出来，以及能不能让它不再发生。</p>
 <span id="more"></span>
 
 <h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><h3 id="LaunchServices-与-lsd"><a href="#LaunchServices-与-lsd" class="headerlink" title="LaunchServices 与 lsd"></a>LaunchServices 与 lsd</h3><p>LaunchServices 是 macOS 里负责登记应用程序的服务。系统要知道每个 App 装在哪里、bundle ID 是什么，以及它能打开哪些类型的文件，查的都是 LaunchServices 维护的这份数据库。Dock、Finder 这些组件，以及 Siri 建议之类的后台服务，都会向它查询。lsd 是这份数据库的守护进程，条目的增删都由它完成。</p>
+<p>从这次的数据来看，一个 App 被注册进去以后，即便它所在的目录后来被删掉或者被推出，条目也会一直留在数据库里。系统的各个服务在查询时才会发现文件不在了，此时返回的错误码是 -43，即 <code>fnfErr</code>（文件不存在）。</p>
 <p>lsd 注册 bundle 的那段时间里，日志中夹杂着大量 <code>SecTrustEvaluateIfNecessary</code> 与 <code>SecKeyVerifySignature</code> 调用，也就是在校验代码签名。syspolicyd 的日志里是同样的调用，trustd 则是负责证书信任评估的守护进程。后文可以看到，lsd 停下来之后，syspolicyd 与 trustd 也一起从 CPU 排行里消失了。</p>
 <h3 id="lsregister"><a href="#lsregister" class="headerlink" title="lsregister"></a>lsregister</h3><p>操作这份数据库的命令行工具是 lsregister。它不在 PATH 里，位置很深：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br></pre></td></tr></table></figure>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">LSREG=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br></pre></td></tr></table></figure>
 
 <p>下文会用到它的这几个参数：</p>
 <ul>
@@ -325,79 +326,80 @@
 <li><code>-gc</code>：回收旧数据，并压缩数据库</li>
 <li><code>-kill</code>：先清空数据库，再做后续动作</li>
 </ul>
-<h2 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h2><h3 id="日志"><a href="#日志" class="headerlink" title="日志"></a>日志</h3><p><code>top</code> 只能告诉我们谁在忙，告诉不了它在忙什么。要知道 lsd 在忙什么，得去翻统一日志（unified log）：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 15m --predicate <span class="string">&#x27;process == &quot;lsd&quot; OR process == &quot;syspolicyd&quot;&#x27;</span> --style compact | <span class="built_in">tail</span> -25</span><br></pre></td></tr></table></figure>
+<h2 id="排查与处理"><a href="#排查与处理" class="headerlink" title="排查与处理"></a>排查与处理</h2><h3 id="两种异常"><a href="#两种异常" class="headerlink" title="两种异常"></a>两种异常</h3><p><code>top</code> 只能告诉我们谁在忙，告诉不了它在忙什么。要知道 lsd 在忙什么，得去翻统一日志（unified log）。日志里有两种反复出现的东西。</p>
+<p>第一种是 lsd 自己的注册记录（删去了时间戳与线程号）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] (null)/Unknown Persona:5:4:1:0:_LSServerRegisterItemInfo begin</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] com.setapp.DesktopClient/Unknown Persona:5:5:1:1:Building bundle record for app</span><br><span class="line">lsd[412] [com.apple.launchservices:default] registered &lt;private&gt; (status 0, old id 0x2dee84) as unit 0x2dee88 on behalf of pid 415</span><br><span class="line">lsd[412] [com.apple.launchservices:default] client 75950 will unregister unit 2dee88 options 0</span><br></pre></td></tr></table></figure>
 
-<p>输出里反复出现下面这一组（删去了时间戳与线程号）：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">lsd[412] (Security) SecTrustEvaluateIfNecessary</span><br><span class="line">lsd[412] (Security) SecKeyVerifySignature</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] (null)/Unknown Persona:5:4:1:0:_LSServerRegisterItemInfo begin</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] com.setapp.DesktopClient/Unknown Persona:5:5:1:1:Building bundle record for app</span><br><span class="line">lsd[412] [com.apple.launchservices:default] registered &lt;private&gt; (status 0, old id 0x2dee84) as unit 0x2dee88 on behalf of pid 415</span><br><span class="line">lsd[412] [com.apple.launchservices:default] client 75950 will unregister unit 2dee88 options 0</span><br></pre></td></tr></table></figure>
-
-<p>也就是说，lsd 先替 PID 为 415 的进程注册了 Setapp（<code>com.setapp.DesktopClient</code>），记成 unit <code>0x2dee88</code>；7 毫秒之后，PID 为 75950 的进程又要求注销这个 unit。415 是 Dock，75950 是 SetappAgent。数一下次数：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 2m --predicate <span class="string">&#x27;process == &quot;lsd&quot;&#x27;</span> --style compact | grep -c <span class="string">&quot;_LSServerRegisterItemInfo begin&quot;</span></span><br></pre></td></tr></table></figure>
-
-<p>两分钟里有 <strong>693 次</strong>，平均每秒接近 6 次。</p>
-<p>SetappAgent 自己的日志是这样的：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">SetappAgent[75950] [com.apple.launchservices:needs-reg] bundle 0x2df714 mod date changed from Fri Sep 25 10:31:27 2026 to Fri Nov  6 21:12:41 2026</span><br><span class="line">SetappAgent[75950] [com.apple.launchservices:needs-reg] bundle 0x2df714 node has changed</span><br><span class="line">SetappAgent[75950] [com.apple.launchservices:registration] Failed to get unit 3012376 from store &lt;private&gt;</span><br></pre></td></tr></table></figure>
-
-<p><code>/Applications/Setapp.app</code> 的修改时间确实是前一天晚上的 21:12，<code>~/Library/LaunchAgents/</code> 下 Setapp 的四个 plist 也是在那一分钟写入的，Setapp 当时改写过自己的文件。<code>Failed to get unit</code> 后面的编号一直在增长，看起来 SetappAgent 每一轮都失败，失败之后又重来。</p>
-<p>除了 lsd，其他几个高占用的进程里也有大量 LaunchServices 的报错，例如 siriknowledged：</p>
+<p>lsd 先替 PID 为 415 的进程注册了 Setapp（<code>com.setapp.DesktopClient</code>），记成 unit <code>0x2dee88</code>；7 毫秒之后，PID 为 75950 的进程又要求注销这个 unit。415 是 Dock，75950 是 SetappAgent。两分钟里，这样的注册有 <strong>693 次</strong>，平均每秒接近 6 次。SetappAgent 自己的日志里则不断刷出 <code>Failed to get unit … from store</code>，后面的编号一直在增长。</p>
+<p>第二种是别的进程报出的 -43，例如 siriknowledged：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">siriknowledged[645] [com.apple.launchservices:default] _LSBundleCopyOrCheckNode: cached node not found, _LSBundleCreateNode for bundleID 60316 returned -43</span><br></pre></td></tr></table></figure>
 
-<p>-43 是 <code>fnfErr</code>，即文件不存在。MTLAssetUpgraderD 的日志里则是某个 bundle「being forced to re-register」。</p>
-<h3 id="退出-Setapp"><a href="#退出-Setapp" class="headerlink" title="退出 Setapp"></a>退出 Setapp</h3><p>既然 Setapp 掺和在里面，最直接的做法是先把它退出。顺手也把两个没推出的像素蛋糕安装盘推掉：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">osascript -e <span class="string">&#x27;tell application &quot;Setapp&quot; to quit&#x27;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/像素蛋糕-10.0.5-139&quot;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/像素蛋糕-9.3.1-23&quot;</span></span><br></pre></td></tr></table></figure>
+<p>按进程统计，10 秒内 siriknowledged 报了 1488 条，duetexpertd 454 条，swcd 262 条，iCloud Drive 的守护进程 bird 163 条。此前一次 30 秒的统计是 6098 条，涉及 265 个不同的 bundleID。</p>
+<p>这两种异常的统计命令，放在后面「识别」一节里。</p>
+<h3 id="死条目"><a href="#死条目" class="headerlink" title="死条目"></a>死条目</h3><p>为了知道 -43 指向哪些 bundle，先把数据库导出来：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump &gt; /tmp/lsdump.txt</span><br></pre></td></tr></table></figure>
 
-<p>做完这两步，风扇停了。不过 lsd 的注册请求只是从 30 秒 177 次降到了 140 次，事情还没完。</p>
-<h3 id="注册请求的来源"><a href="#注册请求的来源" class="headerlink" title="注册请求的来源"></a>注册请求的来源</h3><p>lsd 的日志里写明了每一次注册是替谁做的，按 PID 统计一下：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 30s --predicate <span class="string">&#x27;process == &quot;lsd&quot; AND eventMessage CONTAINS &quot;on behalf of pid&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -oE <span class="string">&#x27;on behalf of pid [0-9]+&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure>
-
-<p>30 秒内，次数较多的几个来源如下（PID 已换成进程名）：</p>
-<ul>
-<li>Dock：90 次</li>
-<li>BackgroundTaskManagementAgent：64 次</li>
-<li>siriknowledged：12 次</li>
-<li>MTLAssetUpgraderD：10 次</li>
-</ul>
-<p>那些 -43 又是谁报的，换一个关键词再统计：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 10s --predicate <span class="string">&#x27;eventMessage CONTAINS &quot;returned -43&quot;&#x27;</span> --style compact \</span><br><span class="line">  | awk <span class="string">&#x27;NR&gt;1 &#123;print $4&#125;&#x27;</span> | sed <span class="string">&#x27;s/\[.*//&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure>
-
-<p>10 秒内，siriknowledged 报了 1488 条，duetexpertd 454 条，swcd 262 条，iCloud Drive 的守护进程 bird 163 条。此前一次 30 秒的统计是 6098 条，涉及 265 个不同的 bundleID。也就是说，这几个进程在反复查询同一批 bundle，而这批 bundle 对应的文件已经找不到了。</p>
-<h3 id="失效的条目"><a href="#失效的条目" class="headerlink" title="失效的条目"></a>失效的条目</h3><p>要知道是哪些 bundle，就得把数据库导出来：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">LSREG=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump &gt; /tmp/lsdump.txt</span><br></pre></td></tr></table></figure>
-
-<p>导出的文件有 23 MB、26 万多行。每个条目都带一行 <code>path:</code>，把它们取出来，逐个检查文件在不在即可。第一次跑的结果是 1460 个条目全部不存在，这显然不对。打开文件一看，<code>path:</code> 行的末尾还跟着条目的 ID：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">path:                       /Applications/Setapp.app (0x2f9f30)</span><br></pre></td></tr></table></figure>
-
-<p>把这个 ID 去掉以后重新检查：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 取出所有注册过的路径，去掉行尾的 (0x…)</span></span><br><span class="line">grep <span class="string">&#x27;^[[:space:]]*path:&#x27;</span> /tmp/lsdump.txt \</span><br><span class="line">  | sed -E <span class="string">&#x27;s/^[[:space:]]*path:[[:space:]]*//; s/[[:space:]]*\(0x[0-9a-fA-F]+\)[[:space:]]*$//&#x27;</span> \</span><br><span class="line">  | <span class="built_in">sort</span> -u &gt; /tmp/all_paths.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 筛出磁盘上已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> [ -e <span class="string">&quot;<span class="variable">$p</span>&quot;</span> ] || <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/all_paths.txt &gt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure>
-
-<p>1455 个不重复的路径里，有 <strong>337 个</strong>已经不存在。下文把这类指向不存在路径的条目称作死条目。按目录归类，数量较多的是：</p>
-<ul>
-<li>用户目录下的 101 个</li>
-<li><code>/Applications/Google Chrome.app</code> 下的 93 个，大多是旧版本 Chrome 的 helper</li>
-<li><code>/usr/local</code> 下的 46 个</li>
-<li><code>/Volumes/</code> 下的一大批，对应早已推出的安装盘：像素蛋糕从 8.0.1 到 10.0.5 的各个版本，优酷、Cursor、Loopback、Clash Verge 与几款 WD 工具的安装器，还有 Lightroom 的安装盘</li>
-</ul>
-<p>其中 <code>/Volumes/像素蛋糕-9.3.1-23</code> 正是几分钟前刚推出的那一个。安装盘挂载期间，里面的 App 被注册进了数据库；推出之后，这些条目却留了下来。</p>
-<h2 id="处理"><a href="#处理" class="headerlink" title="处理"></a>处理</h2><h3 id="回收旧数据"><a href="#回收旧数据" class="headerlink" title="回收旧数据"></a>回收旧数据</h3><p>先试最温和的 <code>-gc</code>：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -gc</span><br></pre></td></tr></table></figure>
-
-<p>跑之前，10 秒内的 -43 是 2924 条，跑完降到 1749 条；lsd 的注册次数从 87 降到 67。有效果，但只清掉了一部分。</p>
-<p>lsregister 的 <code>-kill</code> 可以清空数据库再重新扫描。这次没有用它，只处理已经找出来的这几百个条目。</p>
-<h3 id="逐条注销死条目"><a href="#逐条注销死条目" class="headerlink" title="逐条注销死条目"></a>逐条注销死条目</h3><p>死条目的清单已经有了，那么不妨对着清单逐条注销：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 逐条注销已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -u <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure>
-
-<p>337 条里，有 312 条返回成功，剩下的 25 条我没有再追。15 秒后再统计，10 秒内的 -43 只剩 <strong>1 条</strong>。-43 在注销之后基本消失，这与「它们来自这批死条目」的判断相符。</p>
-<h3 id="剩下的注册循环"><a href="#剩下的注册循环" class="headerlink" title="剩下的注册循环"></a>剩下的注册循环</h3><p>-43 没了，lsd 却还在以 10 秒 73 次的频率注册，CPU 依然在 50% 上下，syspolicyd 也还在 40%。按 PID 统计，最大的两个来源是 Dock 和 SetappAgent。先前退出的 SetappAgent 已经换了一个 PID 重新跑起来。它的 LaunchAgent（<code>~/Library/LaunchAgents/com.setapp.DesktopClient.SetappAgent.plist</code>）里配置了 <code>KeepAlive</code>，具体是谁把它拉起来的，我没有细查。</p>
-<p>先试着用 <code>-f</code> 强制重新注册 Setapp 和它管理的几个 App：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -f /Applications/Setapp.app</span><br><span class="line"><span class="keyword">for</span> d <span class="keyword">in</span> /Applications/Setapp/*.app; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -f <span class="string">&quot;<span class="variable">$d</span>&quot;</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure>
-
-<p>这一步没有立刻见效。SetappAgent 的 <code>Failed to get unit</code> 照旧，10 秒十几条。几分钟后再统计，Dock 与 SetappAgent 仍然是最大的两个来源，lsd 的注册次数是 10 秒 69 次。</p>
-<h3 id="重启-Dock"><a href="#重启-Dock" class="headerlink" title="重启 Dock"></a>重启 Dock</h3><p>最后重启了 Dock：</p>
+<p>导出的文件有 23 MB、26 万多行。而后逐条检查每个 <code>path:</code> 还在不在，具体命令放在「识别」一节。需要注意，<code>path:</code> 行的末尾跟着条目的 ID，形如 <code>/Applications/Setapp.app (0x2f9f30)</code>，要先去掉，否则所有路径都会被判为不存在。</p>
+<p>1455 个不重复的路径里，有 <strong>337 个</strong>已经不存在。下文把这类指向不存在路径的条目称作死条目。</p>
+<p>我先试了最温和的 <code>-gc</code>，10 秒内的 -43 从 2924 条降到 1749 条，只清掉了一部分。而后对着死条目清单逐条执行 <code>lsregister -u</code>，337 条里有 312 条返回成功。15 秒后再统计，10 秒内的 -43 只剩 <strong>1 条</strong>。</p>
+<h3 id="注册循环"><a href="#注册循环" class="headerlink" title="注册循环"></a>注册循环</h3><p>-43 没了，lsd 却还在以 10 秒 73 次的频率注册，CPU 依然在 50% 上下，syspolicyd 也还在 40%。最大的两个来源仍是 Dock 和 SetappAgent。排查之初我退出过一次 Setapp，可 SetappAgent 换了一个 PID 又跑了起来，它的 LaunchAgent 里配置了 <code>KeepAlive</code>，退出 Setapp 拦不住它。</p>
+<p>用 <code>-f</code> 强制重新注册 <code>/Applications/Setapp.app</code> 之后，循环没有立刻停下。几分钟后又重启了 Dock：</p>
 <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Dock 会被 launchd 立刻拉起</span></span><br><span class="line">killall Dock</span><br></pre></td></tr></table></figure>
 
-<p>十秒之后再统计，lsd 的注册次数是 0，SetappAgent 的 <code>Failed to get unit</code> 也是 0。lsd、syspolicyd、trustd 从 CPU 排行里消失了，load average 从最高时的 20.37 降到了 4.27。Dock 重启后的两三分钟里，fseventsd 一度占到 90%，随后回落到 0。</p>
-<p>需要说明的是，循环是在 Dock 重启之后停下来的，但 Dock 重启之前，Setapp 已经被强制注册过一次。单凭这一次，没法判断只重启 Dock 是否足够，也没法判断 Dock 反复发起注册的原因。</p>
-<p>注意，判断条目是否失效，依据只有「路径在不在」。外接硬盘上的 App 在硬盘没接上的时候，也会被判为不存在。注销之前，应当先把 <code>/tmp/dead_paths.txt</code> 过一遍，把这类路径挑出来。</p>
+<p>十秒之后，lsd 的注册次数是 0，SetappAgent 的 <code>Failed to get unit</code> 也是 0。lsd、syspolicyd、trustd 从 CPU 排行里消失了，load average 从最高时的 20.37 降到了 4.27。几个小时后再看，5 分钟内 lsd 一次注册也没有，-43 只有 1 次，没有复发。</p>
+<h2 id="成因"><a href="#成因" class="headerlink" title="成因"></a>成因</h2><p>回头看，这次其实是两个问题叠在了一起：死条目带来的 -43，以及 Setapp 引起的注册循环。前者把 siriknowledged、duetexpertd 这些进程拖进来，后者让 lsd、syspolicyd、trustd 一直空转。两者要分开解释。</p>
+<h3 id="死条目从哪来"><a href="#死条目从哪来" class="headerlink" title="死条目从哪来"></a>死条目从哪来</h3><p>先看死条目是什么时候注册进去的。<code>lsregister -dump</code> 给每个条目都记了一个 <code>reg date</code> 字段，把 337 个死条目按注册月份统计：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">2025-07: 43    2025-08: 28    2025-09:  9    2025-10: 13</span><br><span class="line">2025-11: 17    2025-12: 18    2026-01: 35    2026-02:  5</span><br><span class="line">2026-03: 20    2026-04: 16    2026-05: 13    2026-06: 15</span><br><span class="line">2026-07: 18    2026-08: 27    2026-09: 15    2026-10: 23</span><br><span class="line">2026-11:  2    无 reg date: 20</span><br></pre></td></tr></table></figure>
+
+<p>从 2025 年 7 月到 2026 年 11 月，几乎每个月都有十几到几十个。也就是说，死条目是在一年多里慢慢攒下来的，不是哪一次操作一下子造出来的。</p>
+<p>再按路径归类，可以看出它们来自几种很平常的日常操作：</p>
+<ul>
+<li><strong>Chrome 自动更新</strong>：93 个。Chrome 把每个版本放在 <code>Google Chrome Framework.framework/Versions/&lt;版本号&gt;/</code> 下，更新后删掉旧版本目录。死条目里有 41 个不同的版本号，从 137 一直到 153，而目录里现在只剩 155 与 156</li>
+<li><strong>Sparkle 的临时目录</strong>：66 个。Sparkle 是很多 macOS 应用用来自动更新的框架，它把下载、解压出来的新版本先放在 <code>~/Library/Caches/&lt;应用&gt;/org.sparkle-project.Sparkle/</code> 下面一个随机命名的子目录里，装完就删。钉钉占 26 个，Setapp 占 35 个</li>
+<li><strong>安装盘</strong>：57 个。安装 App 时双击 DMG，挂载出来的卷里的 App 也会被注册，推出卷之后条目还在。像素蛋糕从 8.0.1 开始的每一个版本都留下了几个，最早的一个注册于 2025-08-17</li>
+<li><strong>Homebrew 升级</strong>：46 个，基本都是 <code>/usr/local/Cellar/python@3.x</code> 的旧版本</li>
+<li><strong>手工备份</strong>：16 个，例如 <code>pixcake.app.bak-10.0.5-156</code></li>
+</ul>
+<p>这几类有一个共同点：App 所在的目录本来就是临时的，用完即删，而 LaunchServices 并不跟着清理。条目上的标记也印证了这一点。数据库里一共 1460 个条目，按路径在不在分成 339 个死条目和 1121 个有效条目（339 比前面的 337 多两个，是因为有两个路径各对应两个条目）。<code>quarantined</code> 标记在死条目里占 30%，在有效条目里只占 1%；<code>launch-disabled</code> 是 49% 对 10%。前者表示文件来自网络下载、还没有被放行过，后者表示不允许从这个位置启动，安装盘与更新包里的 App 多半带着这两个标记。</p>
+<p>单个死条目查询到的时候，返回一个 -43 就结束了。可有些服务会把整个数据库枚举一遍，从 siriknowledged 这个名字看，它要知道系统里装了哪些 App。死条目一多，每次枚举都要报几百个 -43；如果枚举又被频繁地触发，CPU 就降不下来。</p>
+<h3 id="枚举为什么被频繁触发"><a href="#枚举为什么被频繁触发" class="headerlink" title="枚举为什么被频繁触发"></a>枚举为什么被频繁触发</h3><p>至于是什么在反复触发枚举，我手上只有一条间接的线索。SetappAgent 的日志里，夹在 <code>Failed to get unit</code> 之间反复出现的是这样一行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SetappAgent[75950] [com.apple.launchservices:db] NotifyToken::RegisterDispatch(user.uid.501.com.apple.LaunchServices.database) fired for session key &lt;private&gt;</span><br></pre></td></tr></table></figure>
+
+<p>从名字看，这是 LaunchServices 数据库发生变化时发出的通知，日志里每秒好几次。数据库每变一次，订阅了这个通知的进程就可能重新查询一遍，而那个每秒 6 次的注册循环会让数据库不停地变。所以这两个问题可能是相互放大的：注册循环让数据库不停地发通知，通知让其他服务不停地枚举，枚举时又撞上几百个死条目。不过我没有直接验证这一点，siriknowledged 是不是因为这个通知才去枚举，并没有证据。</p>
+<h3 id="注册循环从哪来"><a href="#注册循环从哪来" class="headerlink" title="注册循环从哪来"></a>注册循环从哪来</h3><p>注册循环的起点比较清楚。<code>/Applications/Setapp.app</code> 与 <code>~/Library/LaunchAgents/</code> 下 Setapp 的四个 plist，修改时间都是前一天晚上 21:12，Setapp 当时更新过自己。</p>
+<p>关键的证据在两份导出的数据库里。一份是排查死条目时，上午 11:24 导出的 <code>/tmp/lsdump.txt</code>；另一份是 11:37 用 <code>-f</code> 补注册之后，我又导出的 <code>/tmp/lsdump2.txt</code>。前一份里，<code>/Applications/Setapp.app</code> <strong>根本不在数据库里</strong>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">grep -c <span class="string">&#x27;path:[[:space:]]*/Applications/Setapp.app (&#x27;</span> /tmp/lsdump.txt    <span class="comment"># 11:24 导出</span></span><br><span class="line">grep -c <span class="string">&#x27;path:[[:space:]]*/Applications/Setapp.app (&#x27;</span> /tmp/lsdump2.txt   <span class="comment"># 11:37 导出，-f 之后</span></span><br></pre></td></tr></table></figure>
+
+<p>前者是 0，后者是 1。也就是说，Setapp 更新之后，主程序的注册丢了。数据库里倒是还有 <code>~/Library/Application Support/Setapp/LaunchAgents/</code> 下的 SetappAgent 等几个辅助程序。SetappAgent 自己的日志里写着，bundle 的修改时间「changed from Fri Sep 25 10:31:27 2026 to Fri Nov 6 21:12:41 2026」，随后报 <code>Failed to get unit</code>。</p>
+<p>据此可以推测出这样一个过程：Dock 要找 <code>com.setapp.DesktopClient</code>，在数据库里找不到，于是请 lsd 注册一次；紧接着 SetappAgent 把这个 unit 注销掉；Dock 再次找不到，再请 lsd 注册。SetappAgent 为什么要注销，日志里没有交代。这段时间里 lsd 的签名校验没有停过，syspolicyd 与 trustd 也一直在忙。这个循环是从什么时候开始的，我不知道，日志里只能确认 Setapp 前一天 21:12 改写过自己的文件。</p>
+<p>这个推测能解释为什么单靠 <code>-f</code> 不够：<code>-f</code> 把主程序补回了数据库，但 Dock 可能还留着旧的状态，所以要重启 Dock 才停。不过 <code>-f</code> 与重启 Dock 之间隔了几分钟，我只做了这一次，没法分开验证两者各自起了多大作用。至于 Setapp 更新时为什么会丢掉主程序的注册，我没有查到原因。</p>
+<h2 id="识别"><a href="#识别" class="headerlink" title="识别"></a>识别</h2><p>把这次的经验收拢一下，以后再遇到类似的情况，可以按下面的顺序判断。</p>
+<p>首先看 CPU 排行的组合。占用高的如果是 lsd，同时 syspolicyd、trustd 也在前面，而用户自己打开的 App 都不怎么忙，那么就该怀疑 LaunchServices 在反复注册。如果排在前面的是 siriknowledged、duetexpertd、swcd 这类平时安静的后台服务，就要怀疑它们在枚举时撞上了死条目。</p>
+<p>而后统计两个指标。一个是 lsd 的注册频率，一个是 -43 的频率：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 指标 1：一分钟内 lsd 的注册次数</span></span><br><span class="line"><span class="built_in">log</span> show --last 1m --predicate <span class="string">&#x27;process == &quot;lsd&quot; AND eventMessage CONTAINS &quot;_LSServerRegisterItemInfo begin&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -c begin</span><br><span class="line"></span><br><span class="line"><span class="comment"># 指标 2：一分钟内各进程报出的 -43 次数</span></span><br><span class="line"><span class="built_in">log</span> show --last 1m --predicate <span class="string">&#x27;eventMessage CONTAINS &quot;returned -43&quot;&#x27;</span> --style compact \</span><br><span class="line">  | awk <span class="string">&#x27;NR&gt;1 &#123;print $4&#125;&#x27;</span> | sed <span class="string">&#x27;s/\[.*//&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure>
+
+<p>作为参照，这台机器在正常状态下，5 分钟内 lsd 一次注册也没有，-43 也只有 1 次。出问题的时候，前者是一分钟三百多次，后者是一分钟一万多条。两种状态差得很远，不需要精确的阈值也能分辨出来。</p>
+<p>如果是注册频率高，就看是谁在发起注册。lsd 的日志里写着每次注册是替哪个进程做的：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 1m --predicate <span class="string">&#x27;process == &quot;lsd&quot; AND eventMessage CONTAINS &quot;on behalf of pid&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -oE <span class="string">&#x27;on behalf of pid [0-9]+&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure>
+
+<p>找出 PID 以后用 <code>ps -p &lt;PID&gt;</code> 看进程名。若同一个 App 被反复注册，就去检查它的主程序在不在数据库里：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump | grep -c <span class="string">&#x27;path:[[:space:]]*/Applications/Setapp.app (&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>如果是 -43 多，就把死条目数出来：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 导出数据库，取出全部路径，去掉行尾的 (0x…)</span></span><br><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump | grep <span class="string">&#x27;^[[:space:]]*path:&#x27;</span> \</span><br><span class="line">  | sed -E <span class="string">&#x27;s/^[[:space:]]*path:[[:space:]]*//; s/[[:space:]]*\(0x[0-9a-fA-F]+\)[[:space:]]*$//&#x27;</span> \</span><br><span class="line">  | <span class="built_in">sort</span> -u &gt; /tmp/all_paths.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 筛出已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> [ -e <span class="string">&quot;<span class="variable">$p</span>&quot;</span> ] || <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/all_paths.txt &gt; /tmp/dead_paths.txt</span><br><span class="line"><span class="built_in">wc</span> -l &lt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure>
+
+<p>这次的数据是 1455 条里 337 条死掉，接近四分之一。这个比例在正常机器上应该是多少，我没有别的机器可以对照。</p>
+<h2 id="预防"><a href="#预防" class="headerlink" title="预防"></a>预防</h2><p>死条目来自 Chrome 更新、Sparkle 更新、安装盘、Homebrew 这些日常操作。这些操作本身没法不做，能做的是让死条目少一点、发现得早一点。可以做的有三件事。</p>
+<p>第一，装完 App 以后，顺手注销安装盘上的 App。推出安装盘的那一刻，盘上 App 的条目就变成了死条目，所以单是推出并不够。按道理，挂载期间先注销、再推出就可以，不过这个顺序我还没有实际试过：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 推出之前，先把卷上的 App 从数据库里注销（未实测）</span></span><br><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -u <span class="string">&quot;/Volumes/&lt;卷名&gt;/&lt;App 名&gt;.app&quot;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/&lt;卷名&gt;&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>已经推出了的，可以按上一节的办法统一清理，这次实测有效：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 注销 /Volumes 下所有已经不存在的条目</span></span><br><span class="line">grep <span class="string">&#x27;^/Volumes/&#x27;</span> /tmp/dead_paths.txt | <span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -u <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure>
+
+<p>一个 App 往往不止一个条目，例如 Cursor 的安装盘里，除了 <code>Cursor.app</code>，还有四个 helper 被分别注册。所以用后一种办法清理更省事。</p>
+<p>第二，定期跑一遍上一节的统计。按注册时间算，这台机器上每个月都有十几到几十个条目后来变成了死条目，几个月清一次应该就够了。清理时用 <code>-u</code> 逐条注销。<code>-kill</code> 会清空整个数据库再重新扫描，影响到所有的 App，而这次的问题只涉及几百个已经列出来的条目，用不着它。</p>
+<p>第三，自动更新的 App 出问题时，先确认它的主程序还在不在数据库里。这次 Setapp 的问题就出在这里。若不在，用 <code>lsregister -f</code> 补注册；若补了以后循环还在，再重启 Dock。</p>
+<p>注意，判断条目是否失效，依据只有「路径在不在」。外接硬盘上的 App 在硬盘没接上的时候，也会被判为不存在。批量注销之前，应当先把 <code>dead_paths.txt</code> 过一遍，把这类路径挑出来。</p>
 
     </div>
 
@@ -469,7 +471,10 @@
     <a href="/2026/11/05/gist-compression-for-search-relevance/" rel="prev" title="把 item 压成 KV：gist 能不能用在相关性任务上">
       <i class="fa fa-chevron-left"></i> 把 item 压成 KV：gist 能不能用在相关性任务上
     </a></div>
-      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2026/11/07/clean-up-icloud-drive-cache-on-macOS/" rel="next" title="清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存">
+      清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存 <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
       </footer>
     
@@ -529,7 +534,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE%E7%9F%A5%E8%AF%86"><span class="nav-number">1.</span> <span class="nav-text">前置知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#LaunchServices-%E4%B8%8E-lsd"><span class="nav-number">1.1.</span> <span class="nav-text">LaunchServices 与 lsd</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#lsregister"><span class="nav-number">1.2.</span> <span class="nav-text">lsregister</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5"><span class="nav-number">2.</span> <span class="nav-text">排查</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%A5%E5%BF%97"><span class="nav-number">2.1.</span> <span class="nav-text">日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%80%E5%87%BA-Setapp"><span class="nav-number">2.2.</span> <span class="nav-text">退出 Setapp</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C%E8%AF%B7%E6%B1%82%E7%9A%84%E6%9D%A5%E6%BA%90"><span class="nav-number">2.3.</span> <span class="nav-text">注册请求的来源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%B1%E6%95%88%E7%9A%84%E6%9D%A1%E7%9B%AE"><span class="nav-number">2.4.</span> <span class="nav-text">失效的条目</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%84%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%9E%E6%94%B6%E6%97%A7%E6%95%B0%E6%8D%AE"><span class="nav-number">3.1.</span> <span class="nav-text">回收旧数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%90%E6%9D%A1%E6%B3%A8%E9%94%80%E6%AD%BB%E6%9D%A1%E7%9B%AE"><span class="nav-number">3.2.</span> <span class="nav-text">逐条注销死条目</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%89%A9%E4%B8%8B%E7%9A%84%E6%B3%A8%E5%86%8C%E5%BE%AA%E7%8E%AF"><span class="nav-number">3.3.</span> <span class="nav-text">剩下的注册循环</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E5%90%AF-Dock"><span class="nav-number">3.4.</span> <span class="nav-text">重启 Dock</span></a></li></ol></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE%E7%9F%A5%E8%AF%86"><span class="nav-number">1.</span> <span class="nav-text">前置知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#LaunchServices-%E4%B8%8E-lsd"><span class="nav-number">1.1.</span> <span class="nav-text">LaunchServices 与 lsd</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#lsregister"><span class="nav-number">1.2.</span> <span class="nav-text">lsregister</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5%E4%B8%8E%E5%A4%84%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">排查与处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E4%B8%A4%E7%A7%8D%E5%BC%82%E5%B8%B8"><span class="nav-number">2.1.</span> <span class="nav-text">两种异常</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%BB%E6%9D%A1%E7%9B%AE"><span class="nav-number">2.2.</span> <span class="nav-text">死条目</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C%E5%BE%AA%E7%8E%AF"><span class="nav-number">2.3.</span> <span class="nav-text">注册循环</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%88%90%E5%9B%A0"><span class="nav-number">3.</span> <span class="nav-text">成因</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%AD%BB%E6%9D%A1%E7%9B%AE%E4%BB%8E%E5%93%AA%E6%9D%A5"><span class="nav-number">3.1.</span> <span class="nav-text">死条目从哪来</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9E%9A%E4%B8%BE%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A2%AB%E9%A2%91%E7%B9%81%E8%A7%A6%E5%8F%91"><span class="nav-number">3.2.</span> <span class="nav-text">枚举为什么被频繁触发</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C%E5%BE%AA%E7%8E%AF%E4%BB%8E%E5%93%AA%E6%9D%A5"><span class="nav-number">3.3.</span> <span class="nav-text">注册循环从哪来</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AF%86%E5%88%AB"><span class="nav-number">4.</span> <span class="nav-text">识别</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%A2%84%E9%98%B2"><span class="nav-number">5.</span> <span class="nav-text">预防</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -545,7 +550,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives/">
         
-          <span class="site-state-item-count">431</span>
+          <span class="site-state-item-count">432</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -558,7 +563,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags/">
           
-        <span class="site-state-item-count">802</span>
+        <span class="site-state-item-count">803</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -657,7 +662,7 @@
     <span class="post-meta-item-icon">
       <i class="fa fa-coffee"></i>
     </span>
-    <span title="站点阅读时长">45:51</span>
+    <span title="站点阅读时长">46:07</span>
 </div>
   <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
   </div>
