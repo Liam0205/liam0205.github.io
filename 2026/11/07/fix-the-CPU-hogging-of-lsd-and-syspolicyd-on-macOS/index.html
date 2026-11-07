@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="手头这台 2020 款 MacBook Pro 用的是 Intel 的 i5-1038NG7，4 核 8 线程，16 GB 内存，系统是 macOS 15.7.3。最近发现，手上的活并不重，风扇却一直在狂转。用 top 看了一眼，load average 在 10 到 17 之间，排在前面的是 lsd、syspolicyd、trustd、duetexpertd 这几个系统进程，没有一个是我自己打开">
+<meta property="og:type" content="article">
+<meta property="og:title" content="解决 macOS 上 lsd 与 syspolicyd 大量消耗 CPU 资源的问题">
+<meta property="og:url" content="https://liam.page/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="手头这台 2020 款 MacBook Pro 用的是 Intel 的 i5-1038NG7，4 核 8 线程，16 GB 内存，系统是 macOS 15.7.3。最近发现，手上的活并不重，风扇却一直在狂转。用 top 看了一眼，load average 在 10 到 17 之间，排在前面的是 lsd、syspolicyd、trustd、duetexpertd 这几个系统进程，没有一个是我自己打开">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-11-07T05:50:00.000Z">
+<meta property="article:modified_time" content="2026-11-07T06:06:46.983Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="CPU">
+<meta property="article:tag" content="LaunchServices">
+<meta property="article:tag" content="macOS">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>解决 macOS 上 lsd 与 syspolicyd 大量消耗 CPU 资源的问题 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">431</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">802</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          解决 macOS 上 lsd 与 syspolicyd 大量消耗 CPU 资源的问题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026 年 11 月 07 日 13:50:00 / 修改时间：14:06:46" itemprop="dateCreated datePublished" datetime="2026-11-07T13:50:00+08:00">2026 年 11 月 07 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Computer-Skills/" itemprop="url" rel="index"><span itemprop="name">Computer Skills</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>5.9k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>11 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>手头这台 2020 款 MacBook Pro 用的是 Intel 的 i5-1038NG7，4 核 8 线程，16 GB 内存，系统是 macOS 15.7.3。最近发现，手上的活并不重，风扇却一直在狂转。用 <code>top</code> 看了一眼，load average 在 10 到 17 之间，排在前面的是 lsd、syspolicyd、trustd、duetexpertd 这几个系统进程，没有一个是我自己打开的应用。其中 lsd 长时间稳定在 50% 上下。</p>
+<p>这台机器已经连续运行了 74 天，我不太想重启它；Setapp 也还在用，不打算卸载。所以下面的处理都没有重启系统，也没有卸载任何软件。</p>
+<span id="more"></span>
+
+<h2 id="前置知识"><a href="#前置知识" class="headerlink" title="前置知识"></a>前置知识</h2><h3 id="LaunchServices-与-lsd"><a href="#LaunchServices-与-lsd" class="headerlink" title="LaunchServices 与 lsd"></a>LaunchServices 与 lsd</h3><p>LaunchServices 是 macOS 里负责登记应用程序的服务。系统要知道每个 App 装在哪里、bundle ID 是什么，以及它能打开哪些类型的文件，查的都是 LaunchServices 维护的这份数据库。Dock、Finder 这些组件，以及 Siri 建议之类的后台服务，都会向它查询。lsd 是这份数据库的守护进程，条目的增删都由它完成。</p>
+<p>lsd 注册 bundle 的那段时间里，日志中夹杂着大量 <code>SecTrustEvaluateIfNecessary</code> 与 <code>SecKeyVerifySignature</code> 调用，也就是在校验代码签名。syspolicyd 的日志里是同样的调用，trustd 则是负责证书信任评估的守护进程。后文可以看到，lsd 停下来之后，syspolicyd 与 trustd 也一起从 CPU 排行里消失了。</p>
+<h3 id="lsregister"><a href="#lsregister" class="headerlink" title="lsregister"></a>lsregister</h3><p>操作这份数据库的命令行工具是 lsregister。它不在 PATH 里，位置很深：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br></pre></td></tr></table></figure>
+
+<p>下文会用到它的这几个参数：</p>
+<ul>
+<li><code>-dump</code>：导出数据库的全部内容</li>
+<li><code>-u</code>：注销指定路径</li>
+<li><code>-f</code>：强制重新注册，即使修改时间没有变化</li>
+<li><code>-gc</code>：回收旧数据，并压缩数据库</li>
+<li><code>-kill</code>：先清空数据库，再做后续动作</li>
+</ul>
+<h2 id="排查"><a href="#排查" class="headerlink" title="排查"></a>排查</h2><h3 id="日志"><a href="#日志" class="headerlink" title="日志"></a>日志</h3><p><code>top</code> 只能告诉我们谁在忙，告诉不了它在忙什么。要知道 lsd 在忙什么，得去翻统一日志（unified log）：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 15m --predicate <span class="string">&#x27;process == &quot;lsd&quot; OR process == &quot;syspolicyd&quot;&#x27;</span> --style compact | <span class="built_in">tail</span> -25</span><br></pre></td></tr></table></figure>
+
+<p>输出里反复出现下面这一组（删去了时间戳与线程号）：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">lsd[412] (Security) SecTrustEvaluateIfNecessary</span><br><span class="line">lsd[412] (Security) SecKeyVerifySignature</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] (null)/Unknown Persona:5:4:1:0:_LSServerRegisterItemInfo begin</span><br><span class="line">lsd[412] [com.apple.appinstallation:TransactionLog] com.setapp.DesktopClient/Unknown Persona:5:5:1:1:Building bundle record for app</span><br><span class="line">lsd[412] [com.apple.launchservices:default] registered &lt;private&gt; (status 0, old id 0x2dee84) as unit 0x2dee88 on behalf of pid 415</span><br><span class="line">lsd[412] [com.apple.launchservices:default] client 75950 will unregister unit 2dee88 options 0</span><br></pre></td></tr></table></figure>
+
+<p>也就是说，lsd 先替 PID 为 415 的进程注册了 Setapp（<code>com.setapp.DesktopClient</code>），记成 unit <code>0x2dee88</code>；7 毫秒之后，PID 为 75950 的进程又要求注销这个 unit。415 是 Dock，75950 是 SetappAgent。数一下次数：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 2m --predicate <span class="string">&#x27;process == &quot;lsd&quot;&#x27;</span> --style compact | grep -c <span class="string">&quot;_LSServerRegisterItemInfo begin&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>两分钟里有 <strong>693 次</strong>，平均每秒接近 6 次。</p>
+<p>SetappAgent 自己的日志是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">SetappAgent[75950] [com.apple.launchservices:needs-reg] bundle 0x2df714 mod date changed from Fri Sep 25 10:31:27 2026 to Fri Nov  6 21:12:41 2026</span><br><span class="line">SetappAgent[75950] [com.apple.launchservices:needs-reg] bundle 0x2df714 node has changed</span><br><span class="line">SetappAgent[75950] [com.apple.launchservices:registration] Failed to get unit 3012376 from store &lt;private&gt;</span><br></pre></td></tr></table></figure>
+
+<p><code>/Applications/Setapp.app</code> 的修改时间确实是前一天晚上的 21:12，<code>~/Library/LaunchAgents/</code> 下 Setapp 的四个 plist 也是在那一分钟写入的，Setapp 当时改写过自己的文件。<code>Failed to get unit</code> 后面的编号一直在增长，看起来 SetappAgent 每一轮都失败，失败之后又重来。</p>
+<p>除了 lsd，其他几个高占用的进程里也有大量 LaunchServices 的报错，例如 siriknowledged：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">siriknowledged[645] [com.apple.launchservices:default] _LSBundleCopyOrCheckNode: cached node not found, _LSBundleCreateNode for bundleID 60316 returned -43</span><br></pre></td></tr></table></figure>
+
+<p>-43 是 <code>fnfErr</code>，即文件不存在。MTLAssetUpgraderD 的日志里则是某个 bundle「being forced to re-register」。</p>
+<h3 id="退出-Setapp"><a href="#退出-Setapp" class="headerlink" title="退出 Setapp"></a>退出 Setapp</h3><p>既然 Setapp 掺和在里面，最直接的做法是先把它退出。顺手也把两个没推出的像素蛋糕安装盘推掉：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">osascript -e <span class="string">&#x27;tell application &quot;Setapp&quot; to quit&#x27;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/像素蛋糕-10.0.5-139&quot;</span></span><br><span class="line">diskutil unmount <span class="string">&quot;/Volumes/像素蛋糕-9.3.1-23&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>做完这两步，风扇停了。不过 lsd 的注册请求只是从 30 秒 177 次降到了 140 次，事情还没完。</p>
+<h3 id="注册请求的来源"><a href="#注册请求的来源" class="headerlink" title="注册请求的来源"></a>注册请求的来源</h3><p>lsd 的日志里写明了每一次注册是替谁做的，按 PID 统计一下：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 30s --predicate <span class="string">&#x27;process == &quot;lsd&quot; AND eventMessage CONTAINS &quot;on behalf of pid&quot;&#x27;</span> --style compact \</span><br><span class="line">  | grep -oE <span class="string">&#x27;on behalf of pid [0-9]+&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure>
+
+<p>30 秒内，次数较多的几个来源如下（PID 已换成进程名）：</p>
+<ul>
+<li>Dock：90 次</li>
+<li>BackgroundTaskManagementAgent：64 次</li>
+<li>siriknowledged：12 次</li>
+<li>MTLAssetUpgraderD：10 次</li>
+</ul>
+<p>那些 -43 又是谁报的，换一个关键词再统计：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">log</span> show --last 10s --predicate <span class="string">&#x27;eventMessage CONTAINS &quot;returned -43&quot;&#x27;</span> --style compact \</span><br><span class="line">  | awk <span class="string">&#x27;NR&gt;1 &#123;print $4&#125;&#x27;</span> | sed <span class="string">&#x27;s/\[.*//&#x27;</span> | <span class="built_in">sort</span> | <span class="built_in">uniq</span> -c | <span class="built_in">sort</span> -rn</span><br></pre></td></tr></table></figure>
+
+<p>10 秒内，siriknowledged 报了 1488 条，duetexpertd 454 条，swcd 262 条，iCloud Drive 的守护进程 bird 163 条。此前一次 30 秒的统计是 6098 条，涉及 265 个不同的 bundleID。也就是说，这几个进程在反复查询同一批 bundle，而这批 bundle 对应的文件已经找不到了。</p>
+<h3 id="失效的条目"><a href="#失效的条目" class="headerlink" title="失效的条目"></a>失效的条目</h3><p>要知道是哪些 bundle，就得把数据库导出来：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">LSREG=/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister</span><br><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -dump &gt; /tmp/lsdump.txt</span><br></pre></td></tr></table></figure>
+
+<p>导出的文件有 23 MB、26 万多行。每个条目都带一行 <code>path:</code>，把它们取出来，逐个检查文件在不在即可。第一次跑的结果是 1460 个条目全部不存在，这显然不对。打开文件一看，<code>path:</code> 行的末尾还跟着条目的 ID：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">path:                       /Applications/Setapp.app (0x2f9f30)</span><br></pre></td></tr></table></figure>
+
+<p>把这个 ID 去掉以后重新检查：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 取出所有注册过的路径，去掉行尾的 (0x…)</span></span><br><span class="line">grep <span class="string">&#x27;^[[:space:]]*path:&#x27;</span> /tmp/lsdump.txt \</span><br><span class="line">  | sed -E <span class="string">&#x27;s/^[[:space:]]*path:[[:space:]]*//; s/[[:space:]]*\(0x[0-9a-fA-F]+\)[[:space:]]*$//&#x27;</span> \</span><br><span class="line">  | <span class="built_in">sort</span> -u &gt; /tmp/all_paths.txt</span><br><span class="line"></span><br><span class="line"><span class="comment"># 筛出磁盘上已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> [ -e <span class="string">&quot;<span class="variable">$p</span>&quot;</span> ] || <span class="built_in">echo</span> <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/all_paths.txt &gt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure>
+
+<p>1455 个不重复的路径里，有 <strong>337 个</strong>已经不存在。下文把这类指向不存在路径的条目称作死条目。按目录归类，数量较多的是：</p>
+<ul>
+<li>用户目录下的 101 个</li>
+<li><code>/Applications/Google Chrome.app</code> 下的 93 个，大多是旧版本 Chrome 的 helper</li>
+<li><code>/usr/local</code> 下的 46 个</li>
+<li><code>/Volumes/</code> 下的一大批，对应早已推出的安装盘：像素蛋糕从 8.0.1 到 10.0.5 的各个版本，优酷、Cursor、Loopback、Clash Verge 与几款 WD 工具的安装器，还有 Lightroom 的安装盘</li>
+</ul>
+<p>其中 <code>/Volumes/像素蛋糕-9.3.1-23</code> 正是几分钟前刚推出的那一个。安装盘挂载期间，里面的 App 被注册进了数据库；推出之后，这些条目却留了下来。</p>
+<h2 id="处理"><a href="#处理" class="headerlink" title="处理"></a>处理</h2><h3 id="回收旧数据"><a href="#回收旧数据" class="headerlink" title="回收旧数据"></a>回收旧数据</h3><p>先试最温和的 <code>-gc</code>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -gc</span><br></pre></td></tr></table></figure>
+
+<p>跑之前，10 秒内的 -43 是 2924 条，跑完降到 1749 条；lsd 的注册次数从 87 降到 67。有效果，但只清掉了一部分。</p>
+<p>lsregister 的 <code>-kill</code> 可以清空数据库再重新扫描。这次没有用它，只处理已经找出来的这几百个条目。</p>
+<h3 id="逐条注销死条目"><a href="#逐条注销死条目" class="headerlink" title="逐条注销死条目"></a>逐条注销死条目</h3><p>死条目的清单已经有了，那么不妨对着清单逐条注销：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 逐条注销已经不存在的路径</span></span><br><span class="line"><span class="keyword">while</span> IFS= <span class="built_in">read</span> -r p; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -u <span class="string">&quot;<span class="variable">$p</span>&quot;</span>; <span class="keyword">done</span> &lt; /tmp/dead_paths.txt</span><br></pre></td></tr></table></figure>
+
+<p>337 条里，有 312 条返回成功，剩下的 25 条我没有再追。15 秒后再统计，10 秒内的 -43 只剩 <strong>1 条</strong>。-43 在注销之后基本消失，这与「它们来自这批死条目」的判断相符。</p>
+<h3 id="剩下的注册循环"><a href="#剩下的注册循环" class="headerlink" title="剩下的注册循环"></a>剩下的注册循环</h3><p>-43 没了，lsd 却还在以 10 秒 73 次的频率注册，CPU 依然在 50% 上下，syspolicyd 也还在 40%。按 PID 统计，最大的两个来源是 Dock 和 SetappAgent。先前退出的 SetappAgent 已经换了一个 PID 重新跑起来。它的 LaunchAgent（<code>~/Library/LaunchAgents/com.setapp.DesktopClient.SetappAgent.plist</code>）里配置了 <code>KeepAlive</code>，具体是谁把它拉起来的，我没有细查。</p>
+<p>先试着用 <code>-f</code> 强制重新注册 Setapp 和它管理的几个 App：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -f /Applications/Setapp.app</span><br><span class="line"><span class="keyword">for</span> d <span class="keyword">in</span> /Applications/Setapp/*.app; <span class="keyword">do</span> <span class="string">&quot;<span class="variable">$LSREG</span>&quot;</span> -f <span class="string">&quot;<span class="variable">$d</span>&quot;</span>; <span class="keyword">done</span></span><br></pre></td></tr></table></figure>
+
+<p>这一步没有立刻见效。SetappAgent 的 <code>Failed to get unit</code> 照旧，10 秒十几条。几分钟后再统计，Dock 与 SetappAgent 仍然是最大的两个来源，lsd 的注册次数是 10 秒 69 次。</p>
+<h3 id="重启-Dock"><a href="#重启-Dock" class="headerlink" title="重启 Dock"></a>重启 Dock</h3><p>最后重启了 Dock：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Dock 会被 launchd 立刻拉起</span></span><br><span class="line">killall Dock</span><br></pre></td></tr></table></figure>
+
+<p>十秒之后再统计，lsd 的注册次数是 0，SetappAgent 的 <code>Failed to get unit</code> 也是 0。lsd、syspolicyd、trustd 从 CPU 排行里消失了，load average 从最高时的 20.37 降到了 4.27。Dock 重启后的两三分钟里，fseventsd 一度占到 90%，随后回落到 0。</p>
+<p>需要说明的是，循环是在 Dock 重启之后停下来的，但 Dock 重启之前，Setapp 已经被强制注册过一次。单凭这一次，没法判断只重启 Dock 是否足够，也没法判断 Dock 反复发起注册的原因。</p>
+<p>注意，判断条目是否失效，依据只有「路径在不在」。外接硬盘上的 App 在硬盘没接上的时候，也会被判为不存在。注销之前，应当先把 <code>/tmp/dead_paths.txt</code> 过一遍，把这类路径挑出来。</p>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/" title="解决 macOS 上 lsd 与 syspolicyd 大量消耗 CPU 资源的问题">https://liam.page/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/CPU/" rel="tag"># CPU</a>
+              <a href="/tags/macOS/" rel="tag"># macOS</a>
+              <a href="/tags/LaunchServices/" rel="tag"># LaunchServices</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/11/05/gist-compression-for-search-relevance/" rel="prev" title="把 item 压成 KV：gist 能不能用在相关性任务上">
+      <i class="fa fa-chevron-left"></i> 把 item 压成 KV：gist 能不能用在相关性任务上
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E7%BD%AE%E7%9F%A5%E8%AF%86"><span class="nav-number">1.</span> <span class="nav-text">前置知识</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#LaunchServices-%E4%B8%8E-lsd"><span class="nav-number">1.1.</span> <span class="nav-text">LaunchServices 与 lsd</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#lsregister"><span class="nav-number">1.2.</span> <span class="nav-text">lsregister</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8E%92%E6%9F%A5"><span class="nav-number">2.</span> <span class="nav-text">排查</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%97%A5%E5%BF%97"><span class="nav-number">2.1.</span> <span class="nav-text">日志</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%80%E5%87%BA-Setapp"><span class="nav-number">2.2.</span> <span class="nav-text">退出 Setapp</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%B3%A8%E5%86%8C%E8%AF%B7%E6%B1%82%E7%9A%84%E6%9D%A5%E6%BA%90"><span class="nav-number">2.3.</span> <span class="nav-text">注册请求的来源</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%A4%B1%E6%95%88%E7%9A%84%E6%9D%A1%E7%9B%AE"><span class="nav-number">2.4.</span> <span class="nav-text">失效的条目</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%84%E7%90%86"><span class="nav-number">3.</span> <span class="nav-text">处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%9B%9E%E6%94%B6%E6%97%A7%E6%95%B0%E6%8D%AE"><span class="nav-number">3.1.</span> <span class="nav-text">回收旧数据</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%80%90%E6%9D%A1%E6%B3%A8%E9%94%80%E6%AD%BB%E6%9D%A1%E7%9B%AE"><span class="nav-number">3.2.</span> <span class="nav-text">逐条注销死条目</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%89%A9%E4%B8%8B%E7%9A%84%E6%B3%A8%E5%86%8C%E5%BE%AA%E7%8E%AF"><span class="nav-number">3.3.</span> <span class="nav-text">剩下的注册循环</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%87%8D%E5%90%AF-Dock"><span class="nav-number">3.4.</span> <span class="nav-text">重启 Dock</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">431</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">802</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.5m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">45:51</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/11/07/fix-the-CPU-hogging-of-lsd-and-syspolicyd-on-macOS/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'd737cb1c0f1834ef4d69f1401618cdd5',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
