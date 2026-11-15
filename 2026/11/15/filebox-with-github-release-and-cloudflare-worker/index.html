@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 8.1.1">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/favicon/safari-pinned-tab.svg" color="#222">
+  <link rel="manifest" href="/images/favicon/site.webmanifest">
+  <meta name="msapplication-config" content="/images/favicon/browserconfig.xml">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="google-site-verification" content="TYuJQFuiVqfbFfJAkHfXigSDRIMibztxXxgl_iAaQhA">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"liam.page","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":true,"lazyload":true,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="前几天用 Cloudflare Worker 给一个开源软件的 GitHub Release 做了下载中转。做完之后我想到，既然 Worker 能代理 Release 里资产的下载，那么反过来让它往一个私有仓库的 Release 里上传文件，再配上账号和索引，应当也能拼出一个自用的临时网盘。 此篇记录这个文件箱（下称 filebox）的背景、设计和实现中的一些细节。源码在 Liam0205&amp;#x2">
+<meta property="og:type" content="article">
+<meta property="og:title" content="用 GitHub Release 和 Cloudflare Worker 搭一个临时文件箱">
+<meta property="og:url" content="https://liam.page/2026/11/15/filebox-with-github-release-and-cloudflare-worker/index.html">
+<meta property="og:site_name" content="始终">
+<meta property="og:description" content="前几天用 Cloudflare Worker 给一个开源软件的 GitHub Release 做了下载中转。做完之后我想到，既然 Worker 能代理 Release 里资产的下载，那么反过来让它往一个私有仓库的 Release 里上传文件，再配上账号和索引，应当也能拼出一个自用的临时网盘。 此篇记录这个文件箱（下称 filebox）的背景、设计和实现中的一些细节。源码在 Liam0205&amp;#x2">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-11-15T10:52:26.000Z">
+<meta property="article:modified_time" content="2026-11-15T10:52:26.032Z">
+<meta property="article:author" content="Liam Huang">
+<meta property="article:tag" content="Bash">
+<meta property="article:tag" content="Cloudflare">
+<meta property="article:tag" content="GitHub">
+<meta property="article:tag" content="KV">
+<meta property="article:tag" content="Workers">
+<meta property="article:tag" content="macOS">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://liam.page/2026/11/15/filebox-with-github-release-and-cloudflare-worker/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.css"><style>
+#needsharebutton-postbottom {
+  cursor: pointer;
+  height: 26px;
+  margin-top: 10px;
+  position: relative;
+}
+#needsharebutton-postbottom .btn {
+  border: 1px solid $btn-default-border-color;
+  border-radius: 3px;
+  display: initial;
+  padding: 1px 4px;
+}
+</style>
+  <title>用 GitHub Release 和 Cloudflare Worker 搭一个临时文件箱 | 始终</title>
+  
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-44836433-1"></script>
+    <script data-pjax>
+      if (CONFIG.hostname === location.hostname) {
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'UA-44836433-1');
+      }
+    </script>
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="始终" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">始终</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">不忘初心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档<span class="badge">433</span></a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类<span class="badge">16</span></a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签<span class="badge">806</span></a>
+
+  </li>
+        <li class="menu-item menu-item-系列">
+
+    <a href="/series/" rel="section"><i class="fa fa-fw fa-book"></i>系列</a>
+
+  </li>
+        <li class="menu-item menu-item-札记-&-留言板">
+
+    <a href="/notes/" rel="section"><i class="fa fa-fw fa-sticky-note"></i>札记 & 留言板</a>
+
+  </li>
+        <li class="menu-item menu-item-英文">
+
+    <a href="/en/" rel="section"><i class="fa fa-fw fa-link"></i>英文</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://liam.page/2026/11/15/filebox-with-github-release-and-cloudflare-worker/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar/avatar-3.jpg">
+      <meta itemprop="name" content="Liam Huang">
+      <meta itemprop="description" content="虚室生白，吉祥止止">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="始终">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          用 GitHub Release 和 Cloudflare Worker 搭一个临时文件箱
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026 年 11 月 15 日 18:52:26" itemprop="dateCreated datePublished" datetime="2026-11-15T18:52:26+08:00">2026 年 11 月 15 日</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Algorithm-and-Computer-Science/" itemprop="url" rel="index"><span itemprop="name">Algorithm and Computer Science</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>11k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>21 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>前几天用 Cloudflare Worker 给一个开源软件的 GitHub Release 做了下载中转。做完之后我想到，既然 Worker 能代理 Release 里资产的下载，那么反过来让它往一个私有仓库的 Release 里上传文件，再配上账号和索引，应当也能拼出一个自用的临时网盘。</p>
+<p>此篇记录这个文件箱（下称 filebox）的背景、设计和实现中的一些细节。源码在 <a target="_blank" rel="noopener" href="https://github.com/Liam0205/filebox-source">Liam0205&#x2F;filebox-source</a>。</p>
+<span id="more"></span>
+
+<h2 id="需求与约束"><a href="#需求与约束" class="headerlink" title="需求与约束"></a>需求与约束</h2><p>需求本身很简单：</p>
+<ul>
+<li>存任意类型的文件，不限于图片。</li>
+<li>自己和少数几个人用，账号由管理员建，不开放注册。</li>
+<li>下载公开，拿到链接就能下，不需要登录；但文件列表不公开，每个人只能看到自己名下的文件。</li>
+<li>临时存储，没有持久化的要求，满了可以删旧文件。</li>
+<li>既有网页，也有命令行，命令行要能直接塞进脚本里用。</li>
+</ul>
+<p>真正决定设计的是另一条约束：<strong>不能产生任何费用</strong>。Cloudflare 的对象存储 R2 有免费额度，但超出部分按量计费；对于一个公开下载的服务来说，用量不完全在自己手里，我不想承担这个风险。于是所有组件都要选「超额即报错」的免费资源：Workers 免费版、Workers KV 免费版，以及 GitHub Release。前两者在免费计划下超出额度时，对应操作直接失败，不会扣费；GitHub Release 本身不收费。</p>
+<p>这样一来，免费额度就成了硬约束，后面几乎每一个设计选择都能在下表里找到原因。</p>
+<table>
+<thead>
+<tr>
+<th>资源</th>
+<th>免费额度</th>
+<th>对设计的影响</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Worker CPU</td>
+<td>每次请求 10 ms</td>
+<td>I&#x2F;O 等待不计入，但下载时拼接数据流的方式受它限制</td>
+</tr>
+<tr>
+<td>Worker 入口请求体</td>
+<td>100 MB</td>
+<td>一次请求最多传一段，段长定为 95 MiB</td>
+</tr>
+<tr>
+<td>Worker 外部子请求</td>
+<td>每次调用 50 个</td>
+<td>决定了大文件最多分几段、一次清理最多删几个文件</td>
+</tr>
+<tr>
+<td>KV 写、删、list</td>
+<td>各 1,000 次&#x2F;天</td>
+<td>上传过程中尽量不写 KV，列文件尽量少 list</td>
+</tr>
+<tr>
+<td>Release 资产数</td>
+<td>每个 Release 1,000 个</td>
+<td>必须自动清理</td>
+</tr>
+<tr>
+<td>单个资产</td>
+<td>小于 2 GiB</td>
+<td>一段一个资产，用不到这么大</td>
+</tr>
+</tbody></table>
+<p>由此大致能估出它适合的用量：几百个文件、每天几百次列目录、上千次下载，完全够用；拿它当大流量图床或者几百 GB 的网盘，会先撞上 KV list 和 Release 资产数的上限。</p>
+<h2 id="整体结构"><a href="#整体结构" class="headerlink" title="整体结构"></a>整体结构</h2><p>整个系统分三层。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">浏览器 ─┐</span><br><span class="line">        ├─ Cloudflare Worker ── KV（用户、token、文件索引）</span><br><span class="line">脚本 ───┘                      └─ GitHub 私有仓库的 Release 资产（文件字节）</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>文件字节</strong>存在一个私有仓库的 Release 里，一个文件对应一个资产；大文件切成几段，每段一个资产。</li>
+<li><strong>路径与归属</strong>存在 KV 里：用户、token、文件索引、目录各占一类键。</li>
+<li><strong>Worker</strong> 负责页面、鉴权、上传转发和下载代理。</li>
+</ul>
+<p>下载要经过 Worker 代理，不能直接 302 到 GitHub。这是因为私有仓库的资产没有固定的公开地址：用 token 请求资产接口，GitHub 返回一个 302，指向 <code>release-assets.githubusercontent.com</code> 上约一小时过期的签名地址。把这个地址交给用户的话，链接一小时后就失效了；而且这个域名在部分网络下也不稳定。</p>
+<p>Worker 跟随这次跳转时，有一个细节需要注意：签名地址自带凭据，发过去的请求不能再带 <code>Authorization</code> 头，否则 GitHub token 会被发到另一个域名上。所以这里不用 <code>fetch</code> 的自动跟随，而是手工处理。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 私有仓库的资产要先拿一个 302 签名地址，手工跟随，避免把 token 发给另一个域名。</span></span><br><span class="line"><span class="keyword">export</span> <span class="keyword">async</span> <span class="keyword">function</span> <span class="title function_">assetDownload</span>(<span class="params">cfg, assetId, range</span>) &#123;</span><br><span class="line">  <span class="keyword">const</span> h = <span class="title function_">headers</span>(cfg, &#123; <span class="attr">accept</span>: <span class="string">&quot;application/octet-stream&quot;</span> &#125;);</span><br><span class="line">  <span class="keyword">if</span> (range) h.<span class="property">range</span> = range;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">const</span> first = <span class="keyword">await</span> <span class="title function_">call</span>(cfg, <span class="string">`<span class="subst">$&#123;API&#125;</span>/repos/<span class="subst">$&#123;repoOf(cfg)&#125;</span>/releases/assets/<span class="subst">$&#123;assetId&#125;</span>`</span>, &#123;</span><br><span class="line">    <span class="attr">headers</span>: h,</span><br><span class="line">    <span class="attr">redirect</span>: <span class="string">&quot;manual&quot;</span>,</span><br><span class="line">  &#125;);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (first.<span class="property">status</span> &gt;= <span class="number">300</span> &amp;&amp; first.<span class="property">status</span> &lt; <span class="number">400</span>) &#123;</span><br><span class="line">    <span class="keyword">const</span> location = first.<span class="property">headers</span>.<span class="title function_">get</span>(<span class="string">&quot;location&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (!location) <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">Error</span>(<span class="string">`上游重定向缺少 location（HTTP <span class="subst">$&#123;first.status&#125;</span>）`</span>);</span><br><span class="line">    <span class="comment">// 签名 URL 自带凭据，不能再带 Authorization。</span></span><br><span class="line">    <span class="keyword">const</span> plain = &#123; <span class="string">&quot;user-agent&quot;</span>: cfg.<span class="property">userAgent</span> &#125;;</span><br><span class="line">    <span class="keyword">if</span> (range) plain.<span class="property">range</span> = range;</span><br><span class="line">    <span class="keyword">return</span> <span class="title function_">call</span>(cfg, location, &#123; <span class="attr">headers</span>: plain, <span class="attr">redirect</span>: <span class="string">&quot;follow&quot;</span> &#125;);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> first;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="资产名与-label"><a href="#资产名与-label" class="headerlink" title="资产名与 label"></a>资产名与 label</h3><p>直觉上最省事的做法，是把文件路径直接当作资产名，这样 Release 本身就是一个文件列表。实测之后发现行不通，GitHub 会改写资产名：</p>
+<table>
+<thead>
+<tr>
+<th>上传时的名字</th>
+<th>GitHub 存成</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>dir_test/a.txt</code></td>
+<td><code>dir_test.a.txt</code></td>
+</tr>
+<tr>
+<td><code>中文 name.txt</code></td>
+<td><code>name.txt</code></td>
+</tr>
+<tr>
+<td><code>a%b#c?d.txt</code></td>
+<td><code>a.b.c.d.txt</code></td>
+</tr>
+</tbody></table>
+<p>改写既丢信息，也会撞名，所以资产名不能承载路径。现在的做法是把两者分开：资产名用不透明的 id，形如 <code>fb_&lt;用户&gt;_&lt;24 位十六进制随机数&gt;</code>，在 Release 内唯一；可读的路径写进资产的 <code>label</code> 字段，实测 <code>label</code> 能原样保留中文和 <code>/</code>。真正的路径以 KV 索引为准，<code>label</code> 只是一份备份，KV 里的索引丢了的话，可以凭 <code>label</code> 和资产名前缀重建。</p>
+<h3 id="KV-索引"><a href="#KV-索引" class="headerlink" title="KV 索引"></a>KV 索引</h3><p>KV 里的键分四类：<code>user:&lt;名&gt;</code>、<code>token:&lt;摘要&gt;</code>、<code>file:&lt;用户&gt;:&lt;路径&gt;</code>、<code>dir:&lt;用户&gt;:&lt;路径&gt;</code>。其中路径经过 <code>encodeURIComponent</code>，<code>/</code> 变成 <code>%2F</code>，于是「目录 X 下的全部子项」就是前缀 <code>file:&lt;用户&gt;:&lt;X 编码&gt;%2F</code>，用一次带前缀的 list 就能找出来。</p>
+<p>列文件时有一个容易忽略的开销。KV list 只返回键，若要拿到每个文件的大小和创建时间，就要逐条 get；每人最多 300 个文件，刷新一次列表就是 300 次 KV 读。好在 KV 允许每个键带一份最多 1024 字节的 metadata，list 时会一并返回。我们把资产 id、长度、创建时间、类型、长期标记和各段资产 id 压进 metadata，于是列一个用户的文件、统计全站的长期文件、挑出最旧的文件，都只需要 list，不用逐条 get。</p>
+<h2 id="分段上传"><a href="#分段上传" class="headerlink" title="分段上传"></a>分段上传</h2><p>Worker 免费版的入口请求体上限是 100 MB，所以大文件必须由客户端切段，一段一个请求。段长取 95 MiB（<code>PART_BYTES</code>），留出一点余量。每段在 GitHub 上是一个独立的资产，<code>label</code> 写成 <code>&lt;路径&gt; (n/N)</code>。</p>
+<p>段数的上限由下载决定。下载一个分段文件时，Worker 对每一段都要先请求资产接口、再跟随签名跳转，花 2 个外部子请求；免费计划每次调用最多 50 个子请求，扣掉余量后，段数上限定为 22。22 段乘以 95 MiB 略多于 2 GiB，单文件上限便定为 2 GiB。</p>
+<p>接下来的问题是，各段传完之后，服务端怎么知道它们属于同一个文件。最直接的办法是每传一段就写一条 KV 记录，但 KV 每天只有 1,000 次写，一个 2 GiB 的文件就要写 22 次，几十个大文件就能把一天的额度用完。</p>
+<p>我们的做法是让服务端不保存中间状态。每段传完，服务端返回一张<strong>回执</strong>，里面写着用户、路径摘要、上传 id、段号、段数、文件总长、这一段的资产 id 和长度，以及过期时间，用 <code>SESSION_SECRET</code> 做 HMAC 签名。客户端把全部回执攒起来，最后一次性交给 <code>/api/upload/complete</code>。服务端只需要验签和核对，就能写索引：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 所有回执必须来自同一次上传，段号 1..of 各一张，总长对得上。</span></span><br><span class="line"><span class="keyword">const</span> first = parts[<span class="number">0</span>];</span><br><span class="line"><span class="keyword">const</span> same = parts.<span class="title function_">every</span>(<span class="function">(<span class="params">r</span>) =&gt;</span> r.<span class="property">i</span> === first.<span class="property">i</span> &amp;&amp; r.<span class="property">of</span> === first.<span class="property">of</span> &amp;&amp; r.<span class="property">z</span> === first.<span class="property">z</span>);</span><br><span class="line"><span class="keyword">if</span> (!same || parts.<span class="property">length</span> !== first.<span class="property">of</span>) <span class="keyword">return</span> <span class="title function_">json</span>(&#123; <span class="attr">error</span>: <span class="string">&quot;回执不是同一次上传的，或者缺段&quot;</span> &#125;, <span class="number">400</span>);</span><br><span class="line">parts.<span class="title function_">sort</span>(<span class="function">(<span class="params">a, b</span>) =&gt;</span> a.<span class="property">n</span> - b.<span class="property">n</span>);</span><br><span class="line"><span class="keyword">if</span> (parts.<span class="title function_">some</span>(<span class="function">(<span class="params">r, k</span>) =&gt;</span> r.<span class="property">n</span> !== k + <span class="number">1</span>)) <span class="keyword">return</span> <span class="title function_">json</span>(&#123; <span class="attr">error</span>: <span class="string">&quot;段号不连续&quot;</span> &#125;, <span class="number">400</span>);</span><br><span class="line"><span class="keyword">const</span> total = parts.<span class="title function_">reduce</span>(<span class="function">(<span class="params">s, r</span>) =&gt;</span> s + r.<span class="property">s</span>, <span class="number">0</span>);</span><br><span class="line"><span class="keyword">if</span> (total !== first.<span class="property">z</span>) <span class="keyword">return</span> <span class="title function_">json</span>(&#123; <span class="attr">error</span>: <span class="string">`各段加起来 <span class="subst">$&#123;total&#125;</span> 字节，应为 <span class="subst">$&#123;first.z&#125;</span>`</span> &#125;, <span class="number">400</span>);</span><br></pre></td></tr></table></figure>
+
+<p>如此一来，一次分段上传只写一次 KV。这里还有几个细节。</p>
+<ul>
+<li>回执签名前加了 <code>receipt:</code> 前缀，与会话 cookie 的签名区分开，两者不能互相冒用。</li>
+<li>回执里存的是路径的 SHA-256 摘要，回执的长度因而与路径长短无关。</li>
+<li>服务端在每段上传时就核对段长：除最后一段外，每段必须正好是 <code>PART_BYTES</code>，段数必须等于总长除以段长向上取整。客户端算错了当场拒绝，免得传完 2 GiB 才发现拼不起来。</li>
+<li>同一组回执提交两次时，第二次直接返回已有的记录。否则覆盖上传的逻辑会把刚写进索引的段当成旧资产删掉。</li>
+</ul>
+<p>中途放弃的上传会在 Release 里留下没有索引的段，这些段交给后面要讲的孤儿对账去删。为此，<strong>回执的有效期必须短于孤儿判定的时长</strong>（默认分别是 5 小时和 6 小时）。若顺序反过来，对账任务可能先删掉某一段，随后才有人拿着回执来提交，索引里就会出现一个缺段的文件。</p>
+<h2 id="分段下载"><a href="#分段下载" class="headerlink" title="分段下载"></a>分段下载</h2><p>下载分段文件时，Worker 按顺序向 GitHub 取各段，接成一个响应流返回给客户端。Range 请求先换算到具体的段，只取用得到的那几段。</p>
+<p>第一版用 <code>TransformStream</code> 接流：把各段的 body 依次 pipe 进它的 writable 端，把 readable 端作为响应体返回。上线后我传了一个 200 MiB、3 段的文件，下载传到 75 MB 到 145 MB 时就中断了。用 <code>wrangler tail</code> 看日志，请求的结局是 <code>exceededCpu</code>，CPU 时间约 2 秒。</p>
+<p>原因在于 <code>TransformStream</code> 是 JS 实现的，每个数据块都要经过 JS，实测大约每 MB 花 14 ms CPU，请求还没传完，就因超出 CPU 限制被掐断了。更麻烦的是，这种响应没有 <code>Content-Length</code> 头，流中途断掉时 curl 照样返回 0，用户拿到的是半个文件而不自知。</p>
+<p>换成 <code>FixedLengthStream</code> 之后问题就解决了。它是 Workers 运行时原生的流，原生流之间 <code>pipeTo</code> 不经过 JS；同一个 200 MiB 的文件，完整下载只用了 <strong>8 ms</strong> CPU，sha256 与原文件一致。它还要求预先声明总长，于是响应自然带上了 <code>Content-Length</code>，流不足长时连接会报错，客户端不会把半个文件当成完整的。</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">const</span> &#123; readable, writable &#125; = <span class="keyword">new</span> <span class="title class_">FixedLengthStream</span>(end - start + <span class="number">1</span>);</span><br><span class="line"><span class="keyword">const</span> <span class="title function_">pump</span> = <span class="keyword">async</span> (<span class="params"></span>) =&gt; &#123;</span><br><span class="line">  <span class="keyword">try</span> &#123;</span><br><span class="line">    <span class="keyword">for</span> (<span class="keyword">let</span> k = <span class="number">0</span>; k &lt; slices.<span class="property">length</span>; k += <span class="number">1</span>) &#123;</span><br><span class="line">      <span class="comment">// 第一段在返回响应头之前就已经取好，后面的段读完一段再取下一段。</span></span><br><span class="line">      <span class="keyword">const</span> res = k === <span class="number">0</span> ? first : <span class="keyword">await</span> <span class="title function_">fetchSlice</span>(slices[k]);</span><br><span class="line">      <span class="keyword">await</span> res.<span class="property">body</span>.<span class="title function_">pipeTo</span>(writable, &#123; <span class="attr">preventClose</span>: <span class="literal">true</span> &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">await</span> writable.<span class="title function_">close</span>();</span><br><span class="line">  &#125; <span class="keyword">catch</span> (err) &#123;</span><br><span class="line">    <span class="variable language_">console</span>.<span class="title function_">log</span>(<span class="title class_">JSON</span>.<span class="title function_">stringify</span>(&#123; <span class="attr">partsError</span>: err.<span class="property">message</span>, <span class="attr">path</span>: rec.<span class="property">path</span> &#125;));</span><br><span class="line">    <span class="keyword">await</span> writable.<span class="title function_">abort</span>(err).<span class="title function_">catch</span>(<span class="function">() =&gt;</span> &#123;&#125;);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// 响应体还在被客户端读的时候，运行时会让 Worker 一直活着；waitUntil 是保险。</span></span><br><span class="line">ctx.<span class="title function_">waitUntil</span>(<span class="title function_">pump</span>());</span><br></pre></td></tr></table></figure>
+
+<p>第一段要在返回响应头之前取好。这样 GitHub 不可用时，Worker 还能返回 502；若等到响应头发出之后才发现上游出错，就只能把流断掉了。I&#x2F;O 等待不计入 CPU 时间，客户端连着就没有墙钟时间的限制，所以大文件下载可以持续很久。</p>
+<p>单段文件会进边缘缓存。下载地址带 <code>?v=&lt;资产 id&gt;</code>，每次上传都会换一个新的资产 id，于是带版本号的地址内容永远不变，可以缓存一年并标记为 <code>immutable</code>；不带版本号的地址返回当前内容，缓存 7 天。下载时先查 KV 索引，再查缓存，顺序反过来的话，已删除的文件会继续从缓存里被返回。分段文件不进缓存，因为 Cache API 的单个对象最大 512 MB，而且整段写缓存也要额外花子请求。</p>
+<h2 id="自动清理"><a href="#自动清理" class="headerlink" title="自动清理"></a>自动清理</h2><p>一个 Release 最多放 1,000 个资产，filebox 又是临时存储，所以 Worker 每小时跑一次定时任务，在满之前删掉最旧的文件。计数单位是「名额」，也就是 Release 里的资产：普通文件占 1 个，分段文件有几段占几个。若按文件计数，一个人传几个 2 GiB 的文件，就能占掉 Release 的大半。</p>
+<p>删除顺序有三条规则：</p>
+<ol>
+<li>标记为长期的文件永远不删。</li>
+<li>某个用户占的名额超过 300 个，先删他自己最旧的文件，删到 300 以内。这样一个人批量上传，挤掉的是他自己的旧文件。</li>
+<li>全站名额仍然超过 950 个，再删全站最旧的文件，删到 900 以内。</li>
+</ol>
+<p>长期文件每人最多 20 个，全站最多占 200 个名额，否则长期文件可以把 Release 占满。挑哪些文件删由一个纯函数 <code>planEviction</code> 决定，方便单独写单元测试。</p>
+<p>真正执行删除时，有两处设计与子请求额度有关。首先，删一个资产要调一次 GitHub 接口，而每次调用最多发 50 个子请求，所以一次定时任务最多删 40 个资产，剩下的留给下一个小时。其次，删除不清边缘缓存，因为下载总是先查 KV，记录没了就直接 404，缓存里的旧内容不会再被返回。这样每删一个资产只花一个子请求。</p>
+<p>删除之前还要重读一次记录。list 拿到的是快照，期间文件可能被覆盖上传（换了资产 id），或者被设为长期，这两种情况都要跳过，否则会删掉新文件。</p>
+<p>两次定时任务之间，Release 仍有可能被传满。GitHub 的文档只写了每个 Release 最多 1,000 个资产，没写满了以后返回什么，代码假定是 422：上传收到 422 时，当场清理一批，返回 507，由客户端自动重传一次。这种情况没有实测过，要测得往一个测试 Release 里传满 1,000 个文件。</p>
+<h3 id="孤儿对账"><a href="#孤儿对账" class="headerlink" title="孤儿对账"></a>孤儿对账</h3><p>孤儿指 Release 里有、索引里没有的 <code>fb_</code> 资产。它们有三个来源：中断的分段上传、上传后写索引失败，以及删除时没删干净的段。定时任务清理完之后，会把创建超过 6 小时的孤儿删掉。</p>
+<p>对账删错了就是丢数据，所以它的保护比清理多。</p>
+<ul>
+<li>只碰 <code>fb_</code> 开头的资产，别人手工放进 Release 的东西不动。</li>
+<li>索引里有记录没能还原出来时，不对账，那条记录引用的资产会被误判成孤儿。</li>
+<li>一半以上的 <code>fb_</code> 资产看起来都像孤儿时，一个都不删。这种情况通常说明 KV 和 Release 对不上，比如本地开发用的 KV 连着线上的 Release。</li>
+<li>对账默认关闭，只在线上配置里打开。</li>
+</ul>
+<p>对账还复用了自动清理 list 出来的索引快照，每小时少一次全量 KV list。这样做不会误删：快照里还留着刚被清理掉的文件，它们的资产只会被当成已知，这次不删；快照比列资产早几秒，这期间新传的资产创建时间远不到 6 小时，不会被判成孤儿。</p>
+<h2 id="身份与安全"><a href="#身份与安全" class="headerlink" title="身份与安全"></a>身份与安全</h2><p>身份有两种凭据，最终都回到 KV 里的用户记录。</p>
+<ul>
+<li><strong>会话 cookie</strong>：无状态的 HMAC 签名，载荷是用户名、角色、账号版本和过期时间，<code>HttpOnly; Secure; SameSite=Strict</code>，有效期 7 天。</li>
+<li><strong>API token</strong>：192 位随机数，KV 里只存 SHA-256 摘要，明文只在创建时返回一次。</li>
+</ul>
+<p>每次请求都回查用户记录，所以停用账号、改角色立即生效。改口令时账号版本加一，旧会话因版本对不上而全部失效，同时吊销该账号的全部 token。口令用 PBKDF2-SHA256，10 万次迭代，线上实测登录耗时约 0.8 秒到 0.9 秒，没有触发 CPU 限制；用户不存在时也用假盐算一遍，避免靠响应时间判断账号是否存在。</p>
+<p>登录限流放在 zone 上的一条速率限制规则里，Worker 自己不记失败次数。若每次失败都写 KV，猜不中口令的爆破也能把每天 1,000 次的写额度耗光，当天就没法上传了。</p>
+<p>下载是公开的，所以要防止用户上传的主动内容以本站的 origin 执行：HTML、SVG、JS、XML 这类文件一律以附件形式返回，并带 <code>nosniff</code> 和 <code>Content-Security-Policy: default-src &#39;none&#39;; sandbox</code>；只有图片、音视频、纯文本和 PDF 内联展示。</p>
+<h2 id="命令行客户端"><a href="#命令行客户端" class="headerlink" title="命令行客户端"></a>命令行客户端</h2><p>命令行客户端 <code>filebox</code> 是一个 Bash 脚本，由 Worker 在 <code>/filebox</code> 下发，下发时把默认站点地址填进去。它要在 macOS 自带的 Bash 3.2 上运行，不能依赖 python3 和 jq，因为 macOS 默认不带它们。于是需要解析的响应，都让服务端加 <code>?format=text</code> 直接返回纯文本：<code>put</code> 和 <code>url</code> 只返回一行下载地址，<code>ls</code> 返回逐行的文件列表。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">filebox login                            <span class="comment"># 粘贴在网页上生成的 token，存进 ~/.config/filebox/token</span></span><br><span class="line">filebox put ./photo.jpg album/2026.jpg   <span class="comment"># 成功后打印下载地址；同名默认拒绝，-f 覆盖</span></span><br><span class="line">filebox <span class="built_in">ls</span> -r album                      <span class="comment"># 列出 album 下的全部文件</span></span><br><span class="line">filebox <span class="built_in">mv</span> album/2026.jpg album/新年.jpg <span class="comment"># 重命名</span></span><br><span class="line">filebox keep album/2026.jpg              <span class="comment"># 设为长期，不参与自动清理</span></span><br><span class="line">filebox update                           <span class="comment"># 从站点下载新版，替换脚本自己</span></span><br></pre></td></tr></table></figure>
+
+<p>超过 95 MiB 的文件，<code>put</code> 用 <code>dd</code> 按服务端给的段长切出临时文件，逐段上传换回执，最后提交全部回执。</p>
+<p><code>update</code> 先找到脚本自己在磁盘上的真实位置（经 PATH 里的软链接调用也能找到），把新版下载到同一个目录下的临时文件，检查过开头的 <code>#!</code> 和版本号，并用 <code>bash -n</code> 做过语法检查之后，再用 <code>mv</code> 原子替换。脚本发出的请求都带 <code>User-Agent: filebox-cli/&lt;版本号&gt;</code>，在访问统计里能据此区分命令行和浏览器，也能看出还有哪些旧版本在用。</p>
+<h3 id="变量后紧跟中文"><a href="#变量后紧跟中文" class="headerlink" title="变量后紧跟中文"></a>变量后紧跟中文</h3><p>脚本在 Linux 上自己编译的 Bash 3.2.57 里跑通了全部命令，到了 macOS 上，<code>update</code> 却报了一个 <code>new?: unbound variable</code>。出问题的是这样一行：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">echo</span> <span class="string">&quot;已更新：<span class="variable">$VERSION</span> → <span class="variable">$new</span>（<span class="variable">$self</span>）&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>macOS 的 Bash 3.2 在 UTF-8 locale 下，会把紧跟在变量名后面的中文首字节当成变量名的一部分。全角括号「（」的 UTF-8 编码以 <code>0xEF</code> 开头，于是 <code>$new（</code> 被读成了变量 <code>new\xef</code>，在 <code>set -u</code> 下报错。Linux 上编出来的 Bash 3.2 测不出这个问题，因为 glibc 在 UTF-8 locale 下不把单个高位字节当成字母。</p>
+<p>修法是变量后面紧跟中文（包括全角标点）时一律写成 <code>${name}</code>。为了防止以后再犯，下面这条命令用来检查，正常情况下应当没有输出：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">perl -ne <span class="string">&#x27;print &quot;$.: $_&quot; if /\$[A-Za-z_][A-Za-z0-9_]*[\x80-\xff]/&#x27;</span> scripts/filebox</span><br></pre></td></tr></table></figure>
+
+<p>要在 Linux 上复现，可以用 <code>localedef</code> 生成一个 Latin-1 的 locale，再用它运行 Bash 3.2。Latin-1 下 glibc 会把 <code>0xEF</code> 这类字节当成字母，与 macOS 的表现一致。</p>
+<h2 id="Finder-右键上传"><a href="#Finder-右键上传" class="headerlink" title="Finder 右键上传"></a>Finder 右键上传</h2><p>在 Mac 上，最顺手的上传方式是在 Finder 里选中文件、右键上传。<code>filebox install-finder</code> 在 <code>~/Library/Services/</code> 下生成一个 Automator 快速操作，调用脚本的 <code>finder-upload</code> 子命令；上传完成后，下载链接复制到剪贴板，结果用系统通知显示。快速操作运行时读不到 shell 里的环境变量，所以 token 要先用 <code>filebox login</code> 存进文件。</p>
+<p>这一部分在 Mac 上遇到了两个问题。</p>
+<p>第一个是菜单不出现。脚本生成的 <code>Info.plist</code> 和 <code>document.wflow</code> 是照着格式手写的，系统也确实登记上了这个服务（<code>pbs -dump</code> 里看得到），Finder 的右键菜单里却没有它。用 Automator 打开再保存一次，菜单就出来了。对比 Automator 保存出来的文件，手写版缺了 <code>Info.plist</code> 的 <code>NSIconName</code>、<code>document.wflow</code> 里的 <code>applicationPaths</code> 和动作的 <code>arguments</code> 等字段，有几个开关字段的值要写成 <code>&lt;integer&gt;0&lt;/integer&gt;</code>。现在脚本照着 macOS 15 上 Automator 保存的内容生成这两个文件，装完菜单直接出现。</p>
+<p>第二个是运行时报 <code>Operation not permitted</code>。我的脚本放在「文稿」目录下，而快速操作的进程受 macOS 的隐私保护（TCC）限制，读不了「文稿」「桌面」「下载」这些目录里的文件，bash 连脚本本身都打不开。所以安装时把脚本复制一份到 <code>~/Library/Application Support/filebox/</code>，快速操作调用这份副本，<code>filebox update</code> 顺带更新它。</p>
+<p>还有一个体验上的问题。大文件上传要很久，期间没有任何提示，我不知道它是不是还在传。终端里有 curl 的进度条，快速操作没有终端，于是改成开始时发一条通知，分段上传时每传一段再发一条「第 k&#x2F;N 段」。</p>
+<h2 id="重命名"><a href="#重命名" class="headerlink" title="重命名"></a>重命名</h2><p>重命名和移动只改索引，不动资产，大文件也是一瞬间完成：写新路径的 <code>file:</code> 键，删旧路径的键，再用 GitHub 的接口把资产的 <code>label</code> 改成新路径。下载地址的路径变了，旧链接直接 404，<code>?v=</code> 后面的资产 id 不变；创建时间保持不变，所以移动不会让文件在自动清理的排队里变新。</p>
+<p>写入的顺序是先写新键、再删旧键。中间失败时，两个键指向同一组资产，字节还在。若反过来先删再写，失败时资产就没有了索引，6 小时后会被对账当作孤儿删掉，等于丢了文件。改 <code>label</code> 失败只记日志，不算重命名失败，因为索引才是准的，<code>label</code> 只在重建索引时用到。</p>
+<p>目标位置已有文件时直接拒绝（409），要覆盖就先删掉目标。覆盖要删掉目标的资产，还要决定长期标记归谁，不值得为改名引入这些逻辑。同样，只能移动单个文件，不能移动目录：目录下有几百个文件时，一次请求的 KV 写和 GitHub 子请求都不够用。</p>
+<h2 id="部署"><a href="#部署" class="headerlink" title="部署"></a>部署</h2><p>源码仓库是公开的，所以凡是能定位到线上服务的信息都不能进仓库：域名、存储文件的私有仓库名、KV 命名空间的 id、限流规则的阈值。凭据之外，这些部署标识同样敏感。仓库里只有一份占位的 <code>wrangler.example.jsonc</code>，线上用的 <code>wrangler.jsonc</code> 放在另一个私有仓库里维护，本地源码目录里的 <code>wrangler.jsonc</code> 是指向它的软链接。</p>
+<p>部署原先是本地手动跑 <code>wrangler deploy</code>，后来改用 Cloudflare 的 Workers Builds：在面板里把 Worker 连到公开的源码仓库，推送 main 之后大约一分钟自动构建并部署。由于公开仓库里没有 <code>wrangler.jsonc</code>，构建命令要先从私有仓库把它读下来，再跑检查和单元测试，有一步失败就不部署：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 用只读 token 从配置仓库取出线上配置，而后跑检查和单元测试</span></span><br><span class="line">curl -fsSL -H <span class="string">&quot;Authorization: Bearer <span class="variable">$CONFIG_TOKEN</span>&quot;</span> \</span><br><span class="line">  -H <span class="string">&quot;Accept: application/vnd.github.raw&quot;</span> \</span><br><span class="line">  <span class="string">&quot;https://api.github.com/repos/&lt;配置仓库&gt;/contents/wrangler.jsonc?ref=main&quot;</span> \</span><br><span class="line">  -o wrangler.jsonc &amp;&amp; npm run check &amp;&amp; node <span class="built_in">test</span>/evict.test.mjs</span><br></pre></td></tr></table></figure>
+
+<p>最早的做法是把压缩后的配置整个存进构建密钥，这样改配置时要手动同步两份，容易漏；带注释的配置转成 base64 后约 5 KB，面板保存时还会报「内部错误」。现在配置只有私有仓库里的一份，改配置就是推送私有仓库。</p>
+<p><code>CONFIG_TOKEN</code> 是一个单独的 fine-grained PAT，只授权配置仓库，权限只有 Contents: Read-only，并且设了过期时间。它没有复用 Worker 运行时用来读写 Release 的 <code>GITHUB_TOKEN</code>。构建环境每次都要从 npm 下载并执行 wrangler，环境变量泄露的风险比运行时大；只读的 token 泄露了只能读到配置，可读写的 token 泄露了，存着的文件和部署配置都可能被删改。token 过期时，curl 的 <code>-f</code> 让构建直接失败，不会拿错误的配置去部署，线上服务照常运行。</p>
+<p>之所以不用公开仓库自己的 GitHub Actions 部署，是因为 <code>wrangler deploy</code> 的输出里有路由和绑定的变量，公开仓库的 Actions 日志谁都能看；Workers Builds 的日志只在 Cloudflare 面板里。</p>
+<p>最后还有一处要注意：<strong>可观测性的配置要在 <code>wrangler.jsonc</code> 里整段写全</strong>。部署时 wrangler 把 <code>observability</code> 这一段原样交给 Cloudflare，在面板上改的设置会被下一次部署覆盖。我在面板上打开了跟踪和实时问题，下一次自动部署按旧配置把实时问题又关掉了。现在配置里写的就是面板上的全部设置：</p>
+<figure class="highlight jsonc"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">&quot;observability&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span> <span class="attr">&quot;head_sampling_rate&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span> <span class="attr">&quot;redact_query_string&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">false</span></span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;issues&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;logs&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span> <span class="attr">&quot;head_sampling_rate&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span> <span class="attr">&quot;persist&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span> <span class="attr">&quot;invocation_logs&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;traces&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span><span class="punctuation">,</span> <span class="attr">&quot;head_sampling_rate&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span> <span class="attr">&quot;persist&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    <div class="post-widgets">
+      <div id="needsharebutton-postbottom">
+        <span class="btn">
+          <i class="fa fa-share-alt" aria-hidden="true"></i>
+        </span>
+      </div>
+    </div>
+        <div class="reward-container">
+  <div>俗话说，投资效率是最好的投资。 如果您感觉我的文章质量不错，读后收获很大，预计能为您提高 10% 的工作效率，不妨小额捐助我一下，让我有动力继续写出更多好文章。</div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/wechatpay-cropped.png" alt="Liam Huang 微信支付">
+        <p>微信支付</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/alipay-cropped.png" alt="Liam Huang 支付宝">
+        <p>支付宝</p>
+      </div>
+      
+      <div style="display: inline-block;">
+        <img src="/images/reward/paypal.jpeg" alt="Liam Huang 贝宝">
+        <p>贝宝</p>
+      </div>
+
+  </div>
+</div>
+
+        
+
+<div>
+<ul class="post-copyright">
+  <li class="post-copyright-author">
+    <strong>本文作者： </strong>Liam Huang
+  </li>
+  <li class="post-copyright-link">
+    <strong>本文链接：</strong>
+    <a href="https://liam.page/2026/11/15/filebox-with-github-release-and-cloudflare-worker/" title="用 GitHub Release 和 Cloudflare Worker 搭一个临时文件箱">https://liam.page/2026/11/15/filebox-with-github-release-and-cloudflare-worker/</a>
+  </li>
+  <li class="post-copyright-license">
+    <strong>版权声明： </strong>本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" rel="noopener" target="_blank"><i class="fa fa-fw fa-creative-commons"></i>BY-NC-SA</a> 许可协议。转载请注明出处！
+  </li>
+</ul>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/macOS/" rel="tag"># macOS</a>
+              <a href="/tags/GitHub/" rel="tag"># GitHub</a>
+              <a href="/tags/Bash/" rel="tag"># Bash</a>
+              <a href="/tags/Cloudflare/" rel="tag"># Cloudflare</a>
+              <a href="/tags/Workers/" rel="tag"># Workers</a>
+              <a href="/tags/KV/" rel="tag"># KV</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2026/11/07/clean-up-icloud-drive-cache-on-macOS/" rel="prev" title="清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存">
+      <i class="fa fa-chevron-left"></i> 清理 macOS 上 iCloud Drive 堆积的上百 GB 缓存
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="gitalk-container"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9C%80%E6%B1%82%E4%B8%8E%E7%BA%A6%E6%9D%9F"><span class="nav-number">1.</span> <span class="nav-text">需求与约束</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B4%E4%BD%93%E7%BB%93%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">整体结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%B5%84%E4%BA%A7%E5%90%8D%E4%B8%8E-label"><span class="nav-number">2.1.</span> <span class="nav-text">资产名与 label</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#KV-%E7%B4%A2%E5%BC%95"><span class="nav-number">2.2.</span> <span class="nav-text">KV 索引</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%86%E6%AE%B5%E4%B8%8A%E4%BC%A0"><span class="nav-number">3.</span> <span class="nav-text">分段上传</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%86%E6%AE%B5%E4%B8%8B%E8%BD%BD"><span class="nav-number">4.</span> <span class="nav-text">分段下载</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%87%AA%E5%8A%A8%E6%B8%85%E7%90%86"><span class="nav-number">5.</span> <span class="nav-text">自动清理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%AD%A4%E5%84%BF%E5%AF%B9%E8%B4%A6"><span class="nav-number">5.1.</span> <span class="nav-text">孤儿对账</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BA%AB%E4%BB%BD%E4%B8%8E%E5%AE%89%E5%85%A8"><span class="nav-number">6.</span> <span class="nav-text">身份与安全</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%91%BD%E4%BB%A4%E8%A1%8C%E5%AE%A2%E6%88%B7%E7%AB%AF"><span class="nav-number">7.</span> <span class="nav-text">命令行客户端</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%98%E9%87%8F%E5%90%8E%E7%B4%A7%E8%B7%9F%E4%B8%AD%E6%96%87"><span class="nav-number">7.1.</span> <span class="nav-text">变量后紧跟中文</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Finder-%E5%8F%B3%E9%94%AE%E4%B8%8A%E4%BC%A0"><span class="nav-number">8.</span> <span class="nav-text">Finder 右键上传</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%8D%E5%91%BD%E5%90%8D"><span class="nav-number">9.</span> <span class="nav-text">重命名</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%83%A8%E7%BD%B2"><span class="nav-number">10.</span> <span class="nav-text">部署</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Liam Huang"
+      src="/images/avatar/avatar-3.jpg">
+  <p class="site-author-name" itemprop="name">Liam Huang</p>
+  <div class="site-description" itemprop="description">虚室生白，吉祥止止</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">433</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">16</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">806</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/atom.xml" title="RSS → &#x2F;atom.xml"><i class="fa fa-fw fa-rss"></i>RSS</a>
+      </span>
+  </div>
+  <div class="cc-license motion-element" itemprop="license">
+    <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/deed.zh" class="cc-opacity" rel="noopener" target="_blank"><img src="/images/cc-by-nc-sa.svg" alt="Creative Commons"></a>
+  </div>
+
+
+  <div class="links-of-blogroll motion-element">
+    <div class="links-of-blogroll-title">
+      <i class="fa fa-fw fa-link"></i>
+      友情链接
+    </div>
+    <ul class="links-of-blogroll-list">
+        <li class="links-of-blogroll-item">
+          <a href="https://dennybritz.com/" title="https:&#x2F;&#x2F;dennybritz.com&#x2F;" rel="noopener" target="_blank">Denny</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://chattymoney.com/" title="http:&#x2F;&#x2F;chattymoney.com&#x2F;" rel="noopener" target="_blank">ChattyMoney</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="http://qixinbo.info/" title="http:&#x2F;&#x2F;qixinbo.info&#x2F;" rel="noopener" target="_blank">XinboQi</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://ionizing.page/" title="https:&#x2F;&#x2F;ionizing.page&#x2F;" rel="noopener" target="_blank">ChenLinjie</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://yihui.name/" title="https:&#x2F;&#x2F;yihui.name&#x2F;" rel="noopener" target="_blank">Yihui</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.felixc.at/" title="https:&#x2F;&#x2F;blog.felixc.at&#x2F;" rel="noopener" target="_blank">Felix</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://wyydsb.xin/" title="https:&#x2F;&#x2F;wyydsb.xin&#x2F;" rel="noopener" target="_blank">Gunjianpan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://joselynzhao.top/" title="https:&#x2F;&#x2F;joselynzhao.top&#x2F;" rel="noopener" target="_blank">JoselynZhao</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.dang.fan/" title="https:&#x2F;&#x2F;blog.dang.fan&#x2F;" rel="noopener" target="_blank">DangFan</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://harrychen.xyz/" title="https:&#x2F;&#x2F;harrychen.xyz" rel="noopener" target="_blank">HarryChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://blog.echen.me/" title="https:&#x2F;&#x2F;blog.echen.me&#x2F;" rel="noopener" target="_blank">EdwinChen</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://fengweiustc.github.io/" title="https:&#x2F;&#x2F;fengweiustc.github.io&#x2F;" rel="noopener" target="_blank">WayneFung</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://www.cyningsun.com/" title="https:&#x2F;&#x2F;www.cyningsun.com&#x2F;" rel="noopener" target="_blank">CyningSun</a>
+        </li>
+        <li class="links-of-blogroll-item">
+          <a href="https://0o0blog.com/" title="https:&#x2F;&#x2F;0o0blog.com&#x2F;" rel="noopener" target="_blank">Francis</a>
+        </li>
+    </ul>
+  </div>
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2013 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Liam Huang</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">1.5m</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">46:27</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> 强力驱动
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script data-pjax async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+    
+    
+    var intervalTotalViews = setInterval(fixTotalViews, 100);
+    var offsetTotalViews   = parseInt(100000);
+    function fixTotalViews() {
+      if (document.getElementById('busuanzi_container_site_pv').style.display != "none") {
+        clearInterval(intervalTotalViews);
+        var el = document.getElementById("busuanzi_value_site_pv");
+        var value = parseInt(el.innerHTML) + offsetTotalViews;
+        el.innerHTML = '' + value;
+      }
+    }
+    
+  });
+</script>
+
+
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/pjax/pjax.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/medium-zoom@1/dist/medium-zoom.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/lozad@1/dist/lozad.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+  <script>
+var pjax = new Pjax({
+  selectors: [
+    'head title',
+    '#page-configurations',
+    '.content-wrap',
+    '.post-toc-wrap',
+    '.languages',
+    '#pjax'
+  ],
+  switches: {
+    '.post-toc-wrap': Pjax.switches.innerHTML
+  },
+  analytics: false,
+  cacheBust: false,
+  scrollTo : !CONFIG.bookmark.enable
+});
+
+window.addEventListener('pjax:success', () => {
+  document.querySelectorAll('script[data-pjax], script#page-configurations, #pjax script').forEach(element => {
+    var code = element.text || element.textContent || element.innerHTML || '';
+    var parent = element.parentNode;
+    parent.removeChild(element);
+    var script = document.createElement('script');
+    if (element.id) {
+      script.id = element.id;
+    }
+    if (element.className) {
+      script.className = element.className;
+    }
+    if (element.type) {
+      script.type = element.type;
+    }
+    if (element.src) {
+      script.src = element.src;
+      // Force synchronous loading of peripheral JS.
+      script.async = false;
+    }
+    if (element.dataset.pjax !== undefined) {
+      script.dataset.pjax = '';
+    }
+    if (code !== '') {
+      script.appendChild(document.createTextNode(code));
+    }
+    parent.appendChild(script);
+  });
+  NexT.boot.refresh();
+  // Define Motion Sequence & Bootstrap Motion.
+  if (CONFIG.motion.enable) {
+    NexT.motion.integrator
+      .init()
+      .add(NexT.motion.middleWares.subMenu)
+      .add(NexT.motion.middleWares.postList)
+      .bootstrap();
+  }
+  NexT.utils.updateSidebarPosition();
+});
+</script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript">
+var crashSwitched = false;
+var originalTitle = document.title;
+var titleTime;
+document.addEventListener('visibilitychange', function () {
+  if (document.hidden) {
+    if (Math.random() < parseFloat(0.25)) {
+      crashSwitched = true;
+      document.title = '╭(°A°`)╮ 页面崩溃啦~' + originalTitle;
+      clearTimeout(titleTime);
+    }
+  } else {
+    if (crashSwitched == true) {
+      crashSwitched = false;
+      document.title = '(ฅ>ω<*ฅ) 咦，又好了~' + originalTitle;
+      titleTime = setTimeout(function () {
+        document.title = originalTitle;
+      }, 2000);
+    }
+  }
+});
+</script>
+
+
+
+    <div id="pjax">
+  
+
+  
+
+  
+  <script src="//cdn.jsdelivr.net/npm/quicklink@1/dist/quicklink.umd.js"></script>
+  <script>
+      window.addEventListener('load', () => {
+      quicklink({
+        timeout : 3000,
+        priority: true,
+        ignores : [uri => uri.includes('#'),uri => uri === 'https://liam.page/2026/11/15/filebox-with-github-release-and-cloudflare-worker/',]
+      });
+      });
+  </script>
+
+  <script src="//cdn.jsdelivr.net/gh/theme-next/theme-next-needmoreshare2@1/needsharebutton.min.js"></script>
+  <script>
+      pbOptions = {};
+        pbOptions.iconStyle = "default";
+        pbOptions.boxForm = "horizontal";
+        pbOptions.position = "topCenter";
+        pbOptions.networks = "Wechat,Weibo,renren,Twitter,Facebook,Douban,QQZone,Evernote,Mailto";
+      new needShareButton('#needsharebutton-postbottom', pbOptions);
+  </script>
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.css">
+
+<script>
+NexT.utils.loadComments(document.querySelector('#gitalk-container'), () => {
+  NexT.utils.getScript('//cdn.jsdelivr.net/npm/gitalk@1/dist/gitalk.min.js', () => {
+    var gitalk = new Gitalk({
+      clientID    : 'a3d846b3392f468b5746',
+      clientSecret: '61bc947cad0ec7078e800e05b1e3c78b763b2c55',
+      repo        : 'liam0205.github.io',
+      owner       : 'Liam0205',
+      admin       : ['Liam0205'],
+      id          : 'cf4a0057cad87f77c5d3254b08e7ee86',
+        language: 'zh-CN',
+      distractionFreeMode: true
+    });
+    gitalk.render('gitalk-container');
+  }, window.Gitalk);
+});
+</script>
+
+    </div>
+</body>
+</html>
